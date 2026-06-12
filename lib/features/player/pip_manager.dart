@@ -132,20 +132,11 @@ class PipController extends Notifier<PipVideoState?> {
             );
 
             if (currentState.isPip) {
-              return Positioned(
-                bottom: 90,
-                right: 16,
-                width: 240,
-                height: 135,
-                child: Dismissible(
-                  key: ValueKey(currentState.messageId),
-                  direction: DismissDirection.horizontal,
-                  onDismissed: (_) {
-                    widgetRef.read(pipControllerProvider.notifier).close();
-                  },
-                  background: const SizedBox.shrink(),
-                  child: playerWidget,
-                ),
+              return PositionedPipWrapper(
+                onClose: () {
+                  widgetRef.read(pipControllerProvider.notifier).close();
+                },
+                child: playerWidget,
               );
             } else {
               return playerWidget;
@@ -188,3 +179,85 @@ class PipController extends Notifier<PipVideoState?> {
 }
 
 final pipControllerProvider = NotifierProvider<PipController, PipVideoState?>(PipController.new);
+
+class PositionedPipWrapper extends StatefulWidget {
+  final Widget child;
+  final VoidCallback onClose;
+
+  const PositionedPipWrapper({
+    Key? key,
+    required this.child,
+    required this.onClose,
+  }) : super(key: key);
+
+  @override
+  State<PositionedPipWrapper> createState() => _PositionedPipWrapperState();
+}
+
+class _PositionedPipWrapperState extends State<PositionedPipWrapper> {
+  double? _x;
+  double? _y;
+  Size? _lastScreenSize;
+
+  @override
+  Widget build(BuildContext context) {
+    final mediaQuery = MediaQuery.of(context);
+    final screenSize = mediaQuery.size;
+    
+    const double pipWidth = 240.0;
+    const double pipHeight = 135.0;
+
+    final double minX = 8.0;
+    final double maxX = screenSize.width - pipWidth - 8.0;
+    final double minY = mediaQuery.padding.top + 8.0;
+    final double maxY = screenSize.height - pipHeight - 16.0;
+
+    // Adapt coordinates proportionally on screen rotation
+    if (_lastScreenSize != null && _lastScreenSize != screenSize) {
+      if (_x != null && _y != null) {
+        final double rx = _x! / _lastScreenSize!.width;
+        final double ry = _y! / _lastScreenSize!.height;
+        _x = (rx * screenSize.width).clamp(minX, maxX);
+        _y = (ry * screenSize.height).clamp(minY, maxY);
+      }
+    }
+    _lastScreenSize = screenSize;
+
+    // Default position: bottom-right (bottom: 90, right: 16)
+    if (_x == null || _y == null) {
+      _x = screenSize.width - pipWidth - 16.0;
+      _y = screenSize.height - pipHeight - 90.0;
+    }
+
+    return Positioned(
+      left: _x,
+      top: _y,
+      width: pipWidth,
+      height: pipHeight,
+      child: GestureDetector(
+        onPanUpdate: (details) {
+          setState(() {
+            _x = (_x! + details.delta.dx).clamp(minX, maxX);
+            _y = _y! + details.delta.dy;
+            if (_y! < minY) _y = minY;
+          });
+        },
+        onPanEnd: (details) {
+          // If the center of the PIP is dragged past 82% of screen height, dismiss
+          final dismissThreshold = screenSize.height * 0.82;
+          if (_y! + (pipHeight / 2) > dismissThreshold) {
+            widget.onClose();
+          } else {
+            // Animate/snap back inside screen bounds
+            setState(() {
+              if (_y! > maxY) {
+                _y = maxY;
+              }
+            });
+          }
+        },
+        child: widget.child,
+      ),
+    );
+  }
+}
