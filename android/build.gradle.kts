@@ -21,9 +21,14 @@ subprojects {
             val android = extensions.findByName("android")
             if (android != null) {
                 val baseExtension = android as? com.android.build.gradle.BaseExtension
-                if (baseExtension != null && baseExtension.namespace.isNullOrEmpty()) {
-                    val groupName = project.group.toString()
-                    baseExtension.namespace = if (groupName.isNotEmpty()) groupName else "com.darkmatter.telstream.${project.name.replace("-", "_").replace(":", "_")}"
+                if (baseExtension != null) {
+                    // Force subprojects to compile with Android SDK 34 to satisfy modern dependency requirements
+                    baseExtension.compileSdkVersion(34)
+                    
+                    if (baseExtension.namespace.isNullOrEmpty()) {
+                        val groupName = project.group.toString()
+                        baseExtension.namespace = if (groupName.isNotEmpty()) groupName else "com.darkmatter.telstream.${project.name.replace("-", "_").replace(":", "_")}"
+                    }
                 }
             }
         }
