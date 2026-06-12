@@ -16,11 +16,7 @@ subprojects {
     project.layout.buildDirectory.value(newSubprojectBuildDir)
 }
 subprojects {
-    project.evaluationDependsOn(":app")
-}
-
-subprojects {
-    afterEvaluate {
+    val configureAndroidNamespace: Project.() -> Unit = {
         if (plugins.hasPlugin("com.android.application") || plugins.hasPlugin("com.android.library")) {
             val android = extensions.findByName("android")
             if (android != null) {
@@ -32,6 +28,16 @@ subprojects {
             }
         }
     }
+
+    if (project.state.executed) {
+        project.configureAndroidNamespace()
+    } else {
+        project.afterEvaluate { configureAndroidNamespace() }
+    }
+}
+
+subprojects {
+    project.evaluationDependsOn(":app")
 }
 
 tasks.register<Delete>("clean") {
