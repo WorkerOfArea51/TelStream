@@ -64,7 +64,8 @@ class AuthController extends Notifier<AuthState> {
     } else if (authState is td.AuthorizationStateReady) {
       state = state.copyWith(step: AuthStep.authenticated, errorMessage: null);
     } else if (authState is td.AuthorizationStateClosed) {
-      state = state.copyWith(step: AuthStep.error, errorMessage: 'Logged out. Please Hot Restart (R) the app to log in again.');
+      // Automatically re-initialize TDLib to allow logging in again immediately
+      Future.microtask(() => initializeTdlib());
     }
   }
 

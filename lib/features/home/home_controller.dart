@@ -132,7 +132,12 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
     ));
     
     await Future.delayed(const Duration(seconds: 1));
-    await tdlibService.sendAsync(td.GetChat(chatId: category.channelId));
+    var chatRes = await tdlibService.sendAsync(td.GetChat(chatId: category.channelId));
+    if (chatRes is td.TdError) {
+      // If chat is not found or loaded in TDLib database yet, check invite link to load its info
+      await tdlibService.sendAsync(td.CheckChatInviteLink(inviteLink: category.inviteLink));
+      await tdlibService.sendAsync(td.GetChat(chatId: category.channelId));
+    }
 
     int iterations = 0;
     while (_allSeries.length < 10 && _hasMore && iterations < 3) {
