@@ -269,46 +269,40 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
   @override
   Widget build(BuildContext context) {
     if (widget.isPip) {
-      return Positioned(
-        bottom: 90,
-        right: 16,
-        width: 240,
-        height: 135,
-        child: GestureDetector(
-          onTap: () {
-            ref.read(pipControllerProvider.notifier).maximize();
-          },
-          child: Container(
-            decoration: BoxDecoration(
-              color: Colors.black,
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: const [BoxShadow(color: Colors.black54, blurRadius: 10)],
-            ),
-            clipBehavior: Clip.antiAlias,
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                Video(controller: controller, controls: NoVideoControls),
-                Positioned(
-                  top: 0, 
-                  right: 0,
-                  child: Container(
-                    decoration: const BoxDecoration(
-                      color: Colors.black45,
-                      shape: BoxShape.circle,
-                    ),
-                    child: IconButton(
-                      icon: const Icon(Icons.close, color: Colors.white, size: 18),
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                      onPressed: () {
-                        ref.read(pipControllerProvider.notifier).close();
-                      },
-                    ),
+      return GestureDetector(
+        onTap: () {
+          ref.read(pipControllerProvider.notifier).maximize();
+        },
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.black,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: const [BoxShadow(color: Colors.black54, blurRadius: 10)],
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              Video(controller: controller, controls: NoVideoControls),
+              Positioned(
+                top: 0, 
+                right: 0,
+                child: Container(
+                  decoration: const BoxDecoration(
+                    color: Colors.black45,
+                    shape: BoxShape.circle,
+                  ),
+                  child: IconButton(
+                    icon: const Icon(Icons.close, color: Colors.white, size: 18),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    onPressed: () {
+                      ref.read(pipControllerProvider.notifier).close();
+                    },
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       );

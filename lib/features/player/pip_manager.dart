@@ -119,7 +119,7 @@ class PipController extends Notifier<PipVideoState?> {
             final currentState = widgetRef.watch(pipControllerProvider);
             if (currentState == null) return const SizedBox.shrink();
 
-            return VideoPlayerScreen(
+            final playerWidget = VideoPlayerScreen(
               key: ValueKey(currentState.networkUrl ?? currentState.messageId.toString()),
               messageId: currentState.messageId,
               videoFileId: currentState.videoFileId,
@@ -130,6 +130,18 @@ class PipController extends Notifier<PipVideoState?> {
               isPip: currentState.isPip,
               networkUrl: currentState.networkUrl,
             );
+
+            if (currentState.isPip) {
+              return Positioned(
+                bottom: 90,
+                right: 16,
+                width: 240,
+                height: 135,
+                child: playerWidget,
+              );
+            } else {
+              return playerWidget;
+            }
           },
         );
       },
