@@ -1,5 +1,5 @@
 name: telstream
-description: "A new Flutter project."
+description: "Stream Telegram videos seamlessly using a high-performance built-in media player powered by TDLib and MediaKit."
 publish_to: 'none'
 
 version: 1.0.0+1
