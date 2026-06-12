@@ -33,11 +33,10 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
                   decoration: BoxDecoration(
                     color: Colors.black,
                     shape: BoxShape.circle,
-                    border: Border.all(color: Colors.orange.withValues(alpha: 0.5), width: 2),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.orange.withValues(alpha: 0.2),
-                        blurRadius: 15,
+                        color: const Color(0xFF00E5FF).withValues(alpha: 0.4),
+                        blurRadius: 20,
                         spreadRadius: 2,
                       )
                     ],
@@ -47,7 +46,7 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
                     'assets/icon.png',
                     fit: BoxFit.cover,
                     errorBuilder: (context, error, stackTrace) {
-                      return const Icon(Icons.play_circle_fill, size: 60, color: Colors.orange);
+                      return const Icon(Icons.play_circle_fill, size: 60, color: Color(0xFF00E5FF));
                     },
                   ),
                 ),
@@ -126,9 +125,110 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
                 );
               },
             ),
+            _buildMenuTile(
+              icon: Icons.info_outline,
+              title: 'About',
+              onTap: () {
+                _showAboutDialog(context);
+              },
+            ),
           ],
         ),
       ),
+    );
+  }
+
+  void _showAboutDialog(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF121214),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Glowing logo in dialog
+                Container(
+                  width: 70,
+                  height: 70,
+                  decoration: BoxDecoration(
+                    color: Colors.black,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF00E5FF).withValues(alpha: 0.4),
+                        blurRadius: 16,
+                        spreadRadius: 1,
+                      )
+                    ],
+                  ),
+                  child: ClipOval(
+                    child: Image.asset(
+                      'assets/icon.png',
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return const Icon(Icons.play_circle_fill, size: 50, color: Color(0xFF00E5FF));
+                      },
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'TelStream',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1.0,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'v1.0.0 • Fairy Tail',
+                  style: TextStyle(
+                    color: Colors.white38,
+                    fontSize: 12,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'TelStream is a premium, open-source streaming client for Anime, Movies, and Web Series. Built with Flutter, Riverpod, and powered by TDLib for high-speed content delivery and secure local streaming.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 13,
+                    height: 1.5,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                const Divider(color: Colors.white10),
+                const SizedBox(height: 12),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('License', style: TextStyle(color: Colors.white54, fontSize: 13)),
+                    Text('MIT License', style: TextStyle(color: Colors.orange.shade300, fontSize: 13, fontWeight: FontWeight.bold)),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                const Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Developer', style: TextStyle(color: Colors.white54, fontSize: 13)),
+                    Text('TelStream Team', style: TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.bold)),
+                  ],
+                ),
+                const SizedBox(height: 16),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
