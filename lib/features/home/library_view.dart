@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tdlib/td_api.dart' as td;
@@ -170,24 +171,44 @@ class _LibraryViewState extends ConsumerState<LibraryView> with SingleTickerProv
             onRefresh: () async {
               ref.invalidate(provider);
             },
-            child: GridView.builder(
+            child: CustomScrollView(
               controller: _scrollController,
-              padding: const EdgeInsets.all(12),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                childAspectRatio: 0.65,
-                crossAxisSpacing: 12,
-                mainAxisSpacing: 12,
-              ),
-              itemCount: filteredList.length + (ref.watch(provider.notifier).hasMore ? 1 : 0),
-              itemBuilder: (context, index) {
-                if (index == filteredList.length) {
-                  return const Center(child: CircularProgressIndicator(color: Colors.orange));
-                }
-                
-                final series = filteredList[index];
-                return _buildGridItem(context, series);
-              },
+              slivers: [
+                if (!_isSearching && _activeSubTabIndex == 0 && _searchController.text.isEmpty && filteredList.isNotEmpty)
+                  SliverToBoxAdapter(
+                    child: FeaturedCarousel(
+                      seriesList: filteredList.take(5).toList(),
+                      categoryTitle: widget.category.title,
+                    ),
+                  ),
+                SliverPadding(
+                  padding: const EdgeInsets.all(12),
+                  sliver: SliverGrid(
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 2,
+                      childAspectRatio: 0.65,
+                      crossAxisSpacing: 12,
+                      mainAxisSpacing: 12,
+                    ),
+                    delegate: SliverChildBuilderDelegate(
+                      (context, index) {
+                        if (index == filteredList.length) {
+                          return const Center(
+                            child: Padding(
+                              padding: EdgeInsets.symmetric(vertical: 16.0),
+                              child: CircularProgressIndicator(color: Colors.orange),
+                            ),
+                          );
+                        }
+                        
+                        final series = filteredList[index];
+                        return _buildGridItem(context, series);
+                      },
+                      childCount: filteredList.length + (ref.watch(provider.notifier).hasMore ? 1 : 0),
+                    ),
+                  ),
+                ),
+              ],
             ),
           );
         },
@@ -344,6 +365,206 @@ class _LibraryViewState extends ConsumerState<LibraryView> with SingleTickerProv
           ],
         ),
       ),
+    );
+  }
+}
+
+class FeaturedCarousel extends StatefulWidget {
+  final List<AnimeSeries> seriesList;
+  final String categoryTitle;
+
+  const FeaturedCarousel({
+    Key? key,
+    required this.seriesList,
+    required this.categoryTitle,
+  }) : super(key: key);
+
+  @override
+  State<FeaturedCarousel> createState() => _FeaturedCarouselState();
+}
+
+class _FeaturedCarouselState extends State<FeaturedCarousel> {
+  late final PageController _pageController;
+  int _currentPage = 0;
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController(initialPage: 0);
+    _startAutoScroll();
+  }
+
+  void _startAutoScroll() {
+    _timer?.cancel();
+    _timer = Timer.periodic(const Duration(seconds: 5), (timer) {
+      if (widget.seriesList.isEmpty) return;
+      final nextPage = (_currentPage + 1) % widget.seriesList.length;
+      if (_pageController.hasClients) {
+        _pageController.animateToPage(
+          nextPage,
+          duration: const Duration(milliseconds: 800),
+          curve: Curves.fastOutSlowIn,
+        );
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.seriesList.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      children: [
+        SizedBox(
+          height: 220,
+          child: PageView.builder(
+            controller: _pageController,
+            onPageChanged: (index) {
+              setState(() {
+                _currentPage = index;
+              });
+            },
+            itemCount: widget.seriesList.length,
+            itemBuilder: (context, index) {
+              final series = widget.seriesList[index];
+              final latestPoster = series.seasons.isNotEmpty ? series.seasons.first.posterMessage : null;
+              
+              td.File? posterFile;
+              if (latestPoster != null && latestPoster.content is td.MessagePhoto) {
+                final photo = latestPoster.content as td.MessagePhoto;
+                if (photo.photo.sizes.isNotEmpty) {
+                  posterFile = photo.photo.sizes.last.photo;
+                }
+              }
+
+              return GestureDetector(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => EpisodeListScreen(
+                        season: series.seasons.first,
+                        series: series,
+                        heroTag: 'hero_featured_${widget.categoryTitle}_${series.coreName}',
+                      ),
+                    ),
+                  );
+                },
+                child: Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.4),
+                        blurRadius: 8,
+                        offset: const Offset(0, 4),
+                      )
+                    ],
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      Hero(
+                        tag: 'hero_featured_${widget.categoryTitle}_${series.coreName}',
+                        child: TdThumbnail(
+                          file: posterFile,
+                          width: double.infinity,
+                          height: double.infinity,
+                        ),
+                      ),
+                      Container(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              Colors.transparent,
+                              Colors.black.withValues(alpha: 0.1),
+                              Colors.black.withValues(alpha: 0.9),
+                            ],
+                            stops: const [0.4, 0.7, 1.0],
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        left: 16,
+                        right: 16,
+                        bottom: 16,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: Colors.orange,
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: const Text(
+                                'FEATURED',
+                                style: TextStyle(
+                                  color: Colors.black,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 1.0,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              series.coreName,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                shadows: [
+                                  Shadow(
+                                    color: Colors.black54,
+                                    blurRadius: 4,
+                                    offset: Offset(0, 2),
+                                  )
+                                ],
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: List.generate(
+            widget.seriesList.length,
+            (index) => AnimatedContainer(
+              duration: const Duration(milliseconds: 300),
+              margin: const EdgeInsets.symmetric(horizontal: 4),
+              width: _currentPage == index ? 16 : 8,
+              height: 8,
+              decoration: BoxDecoration(
+                color: _currentPage == index ? Colors.orange : Colors.white24,
+                borderRadius: BorderRadius.circular(4),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+      ],
     );
   }
 }

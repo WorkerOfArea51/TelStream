@@ -297,19 +297,6 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
       }
     }
 
-    if (currentEpisodes.isNotEmpty) {
-      if (!seriesMap.containsKey('Recent Uploads (Processing)')) {
-        seriesMap['Recent Uploads (Processing)'] = AnimeSeries(coreName: 'Recent Uploads (Processing)', seasons: []);
-        seriesList.insert(0, seriesMap['Recent Uploads (Processing)']!);
-      }
-      seriesMap['Recent Uploads (Processing)']!.seasons.add(AnimeSeason(
-        fullTitle: 'New Episodes',
-        seasonName: 'Uncategorized',
-        posterMessage: raw.first, // Fallback
-        episodes: currentEpisodes.reversed.toList(),
-      ));
-    }
-
     return seriesList;
   }
 
@@ -360,17 +347,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
       }).toList();
     }
 
-    // 2. Separate 'Recent Uploads' so it always stays at the top if present
-    AnimeSeries? recent;
-    List<AnimeSeries> sorted = [];
-    
-    for (var series in filtered) {
-      if (series.coreName == 'Recent Uploads (Processing)') {
-        recent = series;
-      } else {
-        sorted.add(series);
-      }
-    }
+    List<AnimeSeries> sorted = List.from(filtered);
 
     // 3. Apply Sorting
     switch (_sortOrder) {
@@ -394,10 +371,6 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
         final padB = b.seasonName.replaceAllMapped(RegExp(r'\d+'), (m) => m[0]!.padLeft(5, '0'));
         return padA.compareTo(padB);
       });
-    }
-
-    if (recent != null) {
-      sorted.insert(0, recent);
     }
     
     return sorted;
