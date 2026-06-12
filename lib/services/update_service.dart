@@ -53,9 +53,40 @@ class UpdateService {
         final json = jsonDecode(body) as Map<String, dynamic>;
         
         final latestTagName = json['tag_name'] as String? ?? '';
-        final releaseUrl = json['html_url'] as String? ?? 'https://github.com/$_githubRepo/releases';
+        final htmlUrl = json['html_url'] as String? ?? 'https://github.com/$_githubRepo/releases';
         final releaseNotes = json['body'] as String? ?? '';
         final latestName = json['name'] as String? ?? latestTagName;
+
+        final assets = json['assets'] as List<dynamic>? ?? [];
+        String apkDownloadUrl = htmlUrl;
+
+        // Auto-select the correct APK based on device architecture
+        final isArm64 = Platform.version.toLowerCase().contains('arm64') ||
+            Platform.version.toLowerCase().contains('aarch64');
+        final targetAssetName = isArm64 ? 'telstream-arm64.apk' : 'telstream-arm32.apk';
+
+        for (final asset in assets) {
+          if (asset is Map<String, dynamic>) {
+            final assetName = asset['name'] as String? ?? '';
+            if (assetName == targetAssetName) {
+              apkDownloadUrl = asset['browser_download_url'] as String? ?? apkDownloadUrl;
+              break;
+            }
+          }
+        }
+
+        // Fallback to any APK if architecture specific asset wasn't found
+        if (apkDownloadUrl == htmlUrl) {
+          for (final asset in assets) {
+            if (asset is Map<String, dynamic>) {
+              final assetName = asset['name'] as String? ?? '';
+              if (assetName.endsWith('.apk')) {
+                apkDownloadUrl = asset['browser_download_url'] as String? ?? apkDownloadUrl;
+                break;
+              }
+            }
+          }
+        }
 
         final currentBuild = getCurrentBuildNumber();
         final latestBuild = parseBuildNumber(latestTagName);
@@ -65,7 +96,7 @@ class UpdateService {
             isUpdateAvailable: true,
             latestVersion: latestName,
             releaseNotes: releaseNotes,
-            releaseUrl: releaseUrl,
+            releaseUrl: apkDownloadUrl,
           );
         }
         
@@ -73,7 +104,7 @@ class UpdateService {
           isUpdateAvailable: false,
           latestVersion: latestName,
           releaseNotes: releaseNotes,
-          releaseUrl: releaseUrl,
+          releaseUrl: apkDownloadUrl,
         );
       }
     } catch (e) {
