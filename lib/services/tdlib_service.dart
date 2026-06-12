@@ -18,6 +18,32 @@ class TdlibService {
   final _updatesController = StreamController<td.TdObject>.broadcast();
   Stream<td.TdObject> get updates => _updatesController.stream;
 
+  Future<void> _closePreviousClient() async {
+    try {
+      final tempDir = await getTemporaryDirectory();
+      final file = File('${tempDir.path}/last_client_id.txt');
+      if (await file.exists()) {
+        final content = await file.readAsString();
+        final lastId = int.tryParse(content.trim());
+        if (lastId != null && lastId > 0) {
+          try {
+            tdSend(lastId, const td.Close());
+          } catch (_) {}
+          // Give the previous client a short moment to close databases and release locks
+          await Future.delayed(const Duration(milliseconds: 300));
+        }
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _saveCurrentClient(int id) async {
+    try {
+      final tempDir = await getTemporaryDirectory();
+      final file = File('${tempDir.path}/last_client_id.txt');
+      await file.writeAsString(id.toString());
+    } catch (_) {}
+  }
+
   Future<void> init(int apiId, String apiHash) async {
     if (_clientId != null) {
       try {
@@ -25,20 +51,16 @@ class TdlibService {
       } catch (_) {}
       _clientId = null;
       await Future.delayed(const Duration(milliseconds: 300));
+    } else {
+      // Close previous client ID from last session/hot restart to release database lock
+      await _closePreviousClient();
     }
-
-    // TdLib client IDs are sequential integers. On Hot Restart, the previous native client
-    // remains active in the same OS process and holds the lock on the database.
-    // Sending Close to previous possible IDs releases the database lock.
-    for (int i = 1; i <= 30; i++) {
-      try {
-        tdSend(i, const td.Close());
-      } catch (_) {}
-    }
-    // Give the previous client a short moment to close databases and release locks
-    await Future.delayed(const Duration(milliseconds: 300));
 
     _clientId = tdCreate();
+    if (_clientId != null && _clientId! > 0) {
+      await _saveCurrentClient(_clientId!);
+    }
+    
     send(const td.SetLogVerbosityLevel(newVerbosityLevel: 1));
     _startEventLoop();
 
