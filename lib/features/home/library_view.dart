@@ -157,6 +157,13 @@ class _LibraryViewState extends ConsumerState<LibraryView> with SingleTickerProv
             return _buildEmptyState();
           }
 
+          // Automatically load more if we have very few series and there is more content
+          if (filteredList.length < 6 && ref.read(provider.notifier).hasMore) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              ref.read(provider.notifier).loadMore();
+            });
+          }
+
           return RefreshIndicator(
             color: Colors.orange,
             backgroundColor: const Color(0xFF1C1C1E),

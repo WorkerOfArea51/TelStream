@@ -162,7 +162,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
     }
 
     int iterations = 0;
-    while (_allSeries.length < 10 && _hasMore && iterations < 3) {
+    while (_allSeries.length < 10 && _hasMore && iterations < 10) {
       iterations++;
       final initialMessages = await _fetchMessages(fromId: _lastMessageId);
       if (initialMessages.isEmpty) {
