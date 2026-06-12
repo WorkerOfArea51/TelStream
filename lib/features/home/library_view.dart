@@ -480,6 +480,7 @@ class _FeaturedCarouselState extends State<FeaturedCarousel> {
                           file: posterFile,
                           width: double.infinity,
                           height: double.infinity,
+                          alignment: Alignment.topCenter,
                         ),
                       ),
                       Container(

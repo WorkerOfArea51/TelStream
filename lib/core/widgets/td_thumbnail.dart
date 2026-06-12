@@ -9,8 +9,17 @@ class TdThumbnail extends ConsumerStatefulWidget {
   final td.File? file;
   final double width;
   final double height;
+  final BoxFit fit;
+  final Alignment alignment;
   
-  const TdThumbnail({Key? key, required this.file, this.width = 80, this.height = 60}) : super(key: key);
+  const TdThumbnail({
+    Key? key, 
+    required this.file, 
+    this.width = 80, 
+    this.height = 60,
+    this.fit = BoxFit.cover,
+    this.alignment = Alignment.center,
+  }) : super(key: key);
 
   @override
   ConsumerState<TdThumbnail> createState() => _TdThumbnailState();
@@ -104,7 +113,8 @@ class _TdThumbnailState extends ConsumerState<TdThumbnail> {
             ? BoxDecoration(
                 image: DecorationImage(
                   image: FileImage(File(imagePath)),
-                  fit: BoxFit.cover,
+                  fit: widget.fit,
+                  alignment: widget.alignment,
                 ),
               )
             : null,

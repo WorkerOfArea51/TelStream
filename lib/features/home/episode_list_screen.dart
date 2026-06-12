@@ -24,6 +24,14 @@ class EpisodeListScreen extends ConsumerStatefulWidget {
 }
 
 class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
+  late AnimeSeason _selectedSeason;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedSeason = widget.season;
+  }
+
   void _toggleFavorite() {
     ref.read(favoritesProvider.notifier).toggleFavorite(widget.series.coreName);
     final isFavNow = ref.read(favoritesProvider).contains(widget.series.coreName);
@@ -44,8 +52,8 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
     final effectiveHeroTag = widget.heroTag ?? 'hero_poster_grid_${widget.series.coreName}';
 
     td.File? posterFile;
-    if (widget.season.posterMessage.content is td.MessagePhoto) {
-      final photo = widget.season.posterMessage.content as td.MessagePhoto;
+    if (_selectedSeason.posterMessage.content is td.MessagePhoto) {
+      final photo = _selectedSeason.posterMessage.content as td.MessagePhoto;
       if (photo.photo.sizes.isNotEmpty) {
         posterFile = photo.photo.sizes.last.photo;
       }
@@ -70,7 +78,7 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
             iconTheme: const IconThemeData(color: Colors.white),
             flexibleSpace: FlexibleSpaceBar(
               title: Text(
-                widget.season.fullTitle,
+                _selectedSeason.fullTitle,
                 style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 16),
               ),
               background: Stack(
@@ -82,6 +90,7 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
                       file: posterFile,
                       width: double.infinity,
                       height: double.infinity,
+                      alignment: Alignment.topCenter,
                     ),
                   ),
                   Container(
@@ -98,15 +107,61 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
               ),
             ),
           ),
+          if (widget.series.seasons.length > 1)
+            SliverToBoxAdapter(
+              child: Container(
+                height: 48,
+                margin: const EdgeInsets.only(top: 12, bottom: 4),
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  itemCount: widget.series.seasons.length,
+                  itemBuilder: (context, index) {
+                    final season = widget.series.seasons[index];
+                    final isSelected = season.seasonName == _selectedSeason.seasonName;
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 10),
+                      child: ChoiceChip(
+                        label: Text(
+                          season.seasonName,
+                          style: TextStyle(
+                            color: isSelected ? Colors.black : Colors.white70,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                          ),
+                        ),
+                        selected: isSelected,
+                        selectedColor: Colors.orange,
+                        backgroundColor: const Color(0xFF1C1C1E),
+                        side: BorderSide(
+                          color: isSelected ? Colors.orange : Colors.white12,
+                          width: 1,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        onSelected: (selected) {
+                          if (selected) {
+                            setState(() {
+                              _selectedSeason = season;
+                            });
+                          }
+                        },
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
           SliverPadding(
             padding: const EdgeInsets.all(16),
             sliver: SliverList(
               delegate: SliverChildBuilderDelegate(
                 (context, index) {
-                  final msg = widget.season.episodes[index];
+                  final msg = _selectedSeason.episodes[index];
                   return _buildEpisodeItem(context, msg, index);
                 },
-                childCount: widget.season.episodes.length,
+                childCount: _selectedSeason.episodes.length,
               ),
             ),
           ),
@@ -244,7 +299,7 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
             messageId: msg.id,
             videoFileId: fileId!,
             videoTitle: '${widget.series.coreName} - $title',
-            episodeList: widget.season.episodes,
+            episodeList: _selectedSeason.episodes,
             currentEpisodeIndex: index,
             seriesName: widget.series.coreName,
             networkUrl: isDownloaded ? task.localPath : null,
