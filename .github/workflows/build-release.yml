@@ -37,6 +37,11 @@ jobs:
           mkdir -p lib/core
           echo "class Secrets { static const int apiId = ${{ secrets.TELEGRAM_API_ID }}; static const String apiHash = '${{ secrets.TELEGRAM_API_HASH }}'; }" > lib/core/secrets.dart
 
+      - name: Download Prebuilt TDLib Binaries
+        run: |
+          curl -L -o jniLibs.tar.gz https://github.com/up9cloud/android-libtdjson/releases/download/v1.8.52/jniLibs.tar.gz
+          tar -xzf jniLibs.tar.gz -C android/app/src/main
+
       - name: Build Split APKs (ARM64 and ARM32)
         run: |
           flutter build apk --split-per-abi --release
