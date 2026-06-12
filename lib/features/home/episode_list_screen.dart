@@ -160,16 +160,34 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
         },
       );
     } else if (!task.isCompleted) {
-      trailingWidget = Padding(
-        padding: const EdgeInsets.only(right: 8.0),
-        child: SizedBox(
-          width: 24,
-          height: 24,
-          child: CircularProgressIndicator(
-            value: task.progress,
-            strokeWidth: 2.5,
-            color: Colors.orange,
-            backgroundColor: Colors.white12,
+      trailingWidget = GestureDetector(
+        onTap: () {
+          ref.read(downloadControllerProvider.notifier).cancelDownload(fileId!);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Download cancelled: $title'),
+              backgroundColor: Colors.redAccent,
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        },
+        child: Padding(
+          padding: const EdgeInsets.only(right: 8.0),
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              SizedBox(
+                width: 28,
+                height: 28,
+                child: CircularProgressIndicator(
+                  value: task.progress,
+                  strokeWidth: 2.5,
+                  color: Colors.orange,
+                  backgroundColor: Colors.white12,
+                ),
+              ),
+              const Icon(Icons.close, size: 14, color: Colors.orangeAccent),
+            ],
           ),
         ),
       );

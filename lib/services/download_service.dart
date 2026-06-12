@@ -142,6 +142,14 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
     ));
   }
 
+  Future<void> cancelDownload(int fileId) async {
+    ref.read(tdlibServiceProvider).send(td.CancelDownloadFile(
+      fileId: fileId,
+      onlyIfPending: false,
+    ));
+    state = {...state}..remove(fileId);
+  }
+
   Future<void> _saveFilePermanently(int fileId, String tempPath, String title) async {
     try {
       final appDocDir = await getApplicationDocumentsDirectory();
