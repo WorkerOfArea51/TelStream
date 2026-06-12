@@ -146,6 +146,10 @@ class TdlibService {
       try {
         final event = tdReceive(0.0);
         if (event != null) {
+          // Filter out false-positive TdError events caused by closing inactive client IDs on startup
+          if (event is td.TdError && (event.message == "Invalid TDLib instance specified" || event.message.contains("Invalid TDLib instance"))) {
+            continue;
+          }
           if (event.extra is int) {
             final id = event.extra as int;
             if (_pendingRequests.containsKey(id)) {
