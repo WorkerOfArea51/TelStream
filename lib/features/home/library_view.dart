@@ -6,6 +6,7 @@ import '../../core/constants.dart';
 import '../../models/anime_models.dart';
 import '../../services/storage_service.dart';
 import '../../core/widgets/td_thumbnail.dart';
+import '../../core/widgets/aligned_name_text.dart';
 import 'home_controller.dart';
 import 'episode_list_screen.dart';
 
@@ -330,8 +331,8 @@ class _LibraryViewState extends ConsumerState<LibraryView> with SingleTickerProv
               left: 8,
               right: 8,
               bottom: 8,
-              child: Text(
-                series.coreName,
+              child: AlignedNameText(
+                text: series.coreName,
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 14,
@@ -391,7 +392,7 @@ class _FeaturedCarouselState extends State<FeaturedCarousel> {
   @override
   void initState() {
     super.initState();
-    _pageController = PageController(initialPage: 0);
+    _pageController = PageController(initialPage: 0, viewportFraction: 0.75);
     _startAutoScroll();
   }
 
@@ -424,7 +425,7 @@ class _FeaturedCarouselState extends State<FeaturedCarousel> {
     return Column(
       children: [
         SizedBox(
-          height: 220,
+          height: 360,
           child: PageView.builder(
             controller: _pageController,
             onPageChanged: (index) {
@@ -445,103 +446,119 @@ class _FeaturedCarouselState extends State<FeaturedCarousel> {
                 }
               }
 
-              return GestureDetector(
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => EpisodeListScreen(
-                        season: series.seasons.first,
-                        series: series,
-                        heroTag: 'hero_featured_${widget.categoryTitle}_${series.coreName}',
-                      ),
-                    ),
+              return AnimatedBuilder(
+                animation: _pageController,
+                builder: (context, child) {
+                  double value = 1.0;
+                  if (_pageController.position.haveDimensions) {
+                    value = _pageController.page! - index;
+                    value = (1 - (value.abs() * 0.1)).clamp(0.9, 1.0);
+                  } else {
+                    value = _currentPage == index ? 1.0 : 0.9;
+                  }
+                  return Transform.scale(
+                    scale: value,
+                    child: child,
                   );
                 },
-                child: Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.4),
-                        blurRadius: 8,
-                        offset: const Offset(0, 4),
-                      )
-                    ],
-                  ),
-                  clipBehavior: Clip.antiAlias,
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      Hero(
-                        tag: 'hero_featured_${widget.categoryTitle}_${series.coreName}',
-                        child: TdThumbnail(
-                          file: posterFile,
-                          width: double.infinity,
-                          height: double.infinity,
-                          alignment: Alignment.topCenter,
+                child: GestureDetector(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => EpisodeListScreen(
+                          season: series.seasons.first,
+                          series: series,
+                          heroTag: 'hero_featured_${widget.categoryTitle}_${series.coreName}',
                         ),
                       ),
-                      Container(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [
-                              Colors.transparent,
-                              Colors.black.withValues(alpha: 0.1),
-                              Colors.black.withValues(alpha: 0.9),
-                            ],
-                            stops: const [0.4, 0.7, 1.0],
+                    );
+                  },
+                  child: Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.4),
+                          blurRadius: 8,
+                          offset: const Offset(0, 4),
+                        )
+                      ],
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        Hero(
+                          tag: 'hero_featured_${widget.categoryTitle}_${series.coreName}',
+                          child: TdThumbnail(
+                            file: posterFile,
+                            width: double.infinity,
+                            height: double.infinity,
+                            alignment: Alignment.topCenter,
                           ),
                         ),
-                      ),
-                      Positioned(
-                        left: 16,
-                        right: 16,
-                        bottom: 16,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: Colors.orange,
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: const Text(
-                                'FEATURED',
-                                style: TextStyle(
-                                  color: Colors.black,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.bold,
-                                  letterSpacing: 1.0,
+                        Container(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [
+                                Colors.transparent,
+                                Colors.black.withValues(alpha: 0.1),
+                                Colors.black.withValues(alpha: 0.9),
+                              ],
+                              stops: const [0.4, 0.7, 1.0],
+                            ),
+                          ),
+                        ),
+                        Positioned(
+                          left: 16,
+                          right: 16,
+                          bottom: 16,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: Colors.orange,
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: const Text(
+                                  'FEATURED',
+                                  style: TextStyle(
+                                    color: Colors.black,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: 1.0,
+                                  ),
                                 ),
                               ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              series.coreName,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                                shadows: [
-                                  Shadow(
-                                    color: Colors.black54,
-                                    blurRadius: 4,
-                                    offset: Offset(0, 2),
-                                  )
-                                ],
+                              const SizedBox(height: 8),
+                              AlignedNameText(
+                                text: series.coreName,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                  shadows: [
+                                    Shadow(
+                                      color: Colors.black54,
+                                      blurRadius: 4,
+                                      offset: Offset(0, 2),
+                                    )
+                                  ],
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               );

@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:tdlib/td_api.dart' as td;
 import '../../services/storage_service.dart';
 import '../../core/widgets/td_thumbnail.dart';
+import '../../core/widgets/aligned_name_text.dart';
 import '../player/pip_manager.dart';
 import 'home_controller.dart';
 import '../../models/anime_models.dart';
@@ -126,8 +127,8 @@ class HistoryScreen extends ConsumerWidget {
                       clipBehavior: Clip.hardEdge,
                       child: TdThumbnail(file: posterFile, width: 50, height: 70),
                     ),
-                    title: Text(
-                      seriesName,
+                    title: AlignedNameText(
+                      text: seriesName,
                       style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,

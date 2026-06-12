@@ -5,6 +5,7 @@ import '../../models/anime_models.dart';
 import '../home/home_controller.dart';
 import '../home/episode_list_screen.dart';
 import '../../core/widgets/td_thumbnail.dart';
+import '../../core/widgets/aligned_name_text.dart';
 import 'package:tdlib/td_api.dart' as td;
 
 class FavoritesScreen extends ConsumerWidget {
@@ -134,8 +135,8 @@ class FavoritesScreen extends ConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(
-                        series.coreName,
+                      AlignedNameText(
+                        text: series.coreName,
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 16,

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:tdlib/td_api.dart' as td;
 import '../../models/anime_models.dart';
 import '../../core/widgets/td_thumbnail.dart';
+import '../../core/widgets/aligned_name_text.dart';
+import '../../core/widgets/wavy_progress_indicators.dart';
 import '../player/pip_manager.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../services/storage_service.dart';
@@ -77,8 +79,8 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
             backgroundColor: const Color(0xFF0A1128),
             iconTheme: const IconThemeData(color: Colors.white),
             flexibleSpace: FlexibleSpaceBar(
-              title: Text(
-                _selectedSeason.fullTitle,
+              title: AlignedNameText(
+                text: _selectedSeason.fullTitle,
                 style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 16),
               ),
               background: Stack(
@@ -234,7 +236,7 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
               SizedBox(
                 width: 28,
                 height: 28,
-                child: CircularProgressIndicator(
+                child: WavyCircularProgressIndicator(
                   value: task.progress,
                   strokeWidth: 2.5,
                   color: Colors.orange,

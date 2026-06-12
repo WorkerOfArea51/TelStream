@@ -1,8 +1,11 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../core/secrets.dart';
+import '../core/widgets/wavy_progress_indicators.dart';
 
 class AppUpdateInfo {
   final bool isUpdateAvailable;
@@ -113,68 +116,276 @@ class UpdateService {
       client.close();
     }
     return null;
-  }
-
-  static void showUpdateDialog(BuildContext context, AppUpdateInfo updateInfo) {
+  }  static void showUpdateDialog(BuildContext context, AppUpdateInfo updateInfo) {
     showDialog(
       context: context,
-      barrierDismissible: true,
+      barrierDismissible: false,
       builder: (context) {
-        return Dialog(
-          backgroundColor: const Color(0xFF0F0F11),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-            side: const BorderSide(color: Colors.white10, width: 1),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: Colors.orange.withValues(alpha: 0.15),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.system_update_alt_rounded,
-                        color: Colors.orange,
-                        size: 28,
-                      ),
+        return UpdateDialogContent(updateInfo: updateInfo);
+      },
+    );
+  }
+}
+
+class UpdateDialogContent extends StatefulWidget {
+  final AppUpdateInfo updateInfo;
+
+  const UpdateDialogContent({Key? key, required this.updateInfo}) : super(key: key);
+
+  @override
+  State<UpdateDialogContent> createState() => _UpdateDialogContentState();
+}
+
+class _UpdateDialogContentState extends State<UpdateDialogContent> {
+  double? _progress;
+  String _statusText = "";
+  bool _isDownloading = false;
+  bool _hasError = false;
+  String? _errorMessage;
+  HttpClientRequest? _activeRequest;
+
+  @override
+  void dispose() {
+    _activeRequest?.abort();
+    super.dispose();
+  }
+
+  Future<void> _startDownload() async {
+    setState(() {
+      _isDownloading = true;
+      _hasError = false;
+      _progress = 0.0;
+      _statusText = "Downloading: 0%";
+    });
+
+    final client = HttpClient();
+    File? apkFile;
+    try {
+      final url = widget.updateInfo.releaseUrl;
+      final request = await client.getUrl(Uri.parse(url));
+      _activeRequest = request;
+      
+      final response = await request.close();
+      if (response.statusCode != 200) {
+        throw Exception("Server returned HTTP code ${response.statusCode}");
+      }
+
+      final tempDir = await getTemporaryDirectory();
+      apkFile = File('${tempDir.path}/telstream_update.apk');
+      if (await apkFile.exists()) {
+        await apkFile.delete();
+      }
+
+      final fileSink = apkFile.openWrite();
+      final totalBytes = response.contentLength;
+      int downloadedBytes = 0;
+
+      await for (final chunk in response) {
+        fileSink.add(chunk);
+        downloadedBytes += chunk.length;
+        if (totalBytes > 0) {
+          final progress = downloadedBytes / totalBytes;
+          setState(() {
+            _progress = progress;
+            _statusText = "Downloading: ${(progress * 100).toInt()}%";
+          });
+        } else {
+          setState(() {
+            _progress = null; // Indeterminate
+            _statusText = "Downloading... (${(downloadedBytes / 1024 / 1024).toStringAsFixed(1)} MB)";
+          });
+        }
+      }
+
+      await fileSink.flush();
+      await fileSink.close();
+
+      setState(() {
+        _statusText = "Preparing installation...";
+        _progress = 1.0;
+      });
+
+      // Invoke Method Channel
+      const channel = MethodChannel('com.darkmatter.telstream/updater');
+      await channel.invokeMethod('installApk', {'filePath': apkFile.path});
+      
+      if (mounted) {
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _hasError = true;
+          _isDownloading = false;
+          _errorMessage = e.toString();
+          _statusText = "Failed to download update.";
+        });
+      }
+      if (apkFile != null && await apkFile.exists()) {
+        try {
+          await apkFile.delete();
+        } catch (_) {}
+      }
+    } finally {
+      client.close();
+      _activeRequest = null;
+    }
+  }
+
+  void _cancelDownload() {
+    _activeRequest?.abort();
+    Navigator.pop(context);
+  }
+
+  Future<void> _fallbackBrowserDownload() async {
+    final uri = Uri.parse(widget.updateInfo.releaseUrl);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+    if (mounted) {
+      Navigator.pop(context);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return PopScope(
+      canPop: !_isDownloading,
+      child: Dialog(
+        backgroundColor: const Color(0xFF0F0F11),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: const BorderSide(color: Colors.white10, width: 1),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Header
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.withValues(alpha: 0.15),
+                      shape: BoxShape.circle,
                     ),
-                    const SizedBox(width: 14),
-                    const Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'New Version Ready',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
+                    child: Icon(
+                      _isDownloading ? Icons.downloading_rounded : Icons.system_update_alt_rounded,
+                      color: Colors.orange,
+                      size: 28,
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _isDownloading ? 'Updating TelStream' : 'New Version Ready',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
                           ),
-                          SizedBox(height: 2),
-                          Text(
-                            'Update recommended',
-                            style: TextStyle(
-                              color: Colors.white38,
-                              fontSize: 12,
-                            ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          _isDownloading ? 'Please wait while update downloads' : 'Update recommended',
+                          style: const TextStyle(
+                            color: Colors.white38,
+                            fontSize: 12,
                           ),
-                        ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+
+              // Content depending on state
+              if (_isDownloading) ...[
+                const SizedBox(height: 10),
+                WavyLinearProgressIndicator(value: _progress),
+                const SizedBox(height: 12),
+                Center(
+                  child: Text(
+                    _statusText,
+                    style: const TextStyle(color: Colors.white70, fontSize: 13),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: _cancelDownload,
+                      style: TextButton.styleFrom(
+                        foregroundColor: Colors.redAccent,
                       ),
+                      child: const Text('Cancel'),
                     ),
                   ],
                 ),
-                const SizedBox(height: 20),
+              ] else if (_hasError) ...[
                 Text(
-                  updateInfo.latestVersion,
+                  _statusText,
+                  style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold, fontSize: 14),
+                ),
+                const SizedBox(height: 8),
+                if (_errorMessage != null)
+                  Container(
+                    constraints: const BoxConstraints(maxHeight: 80),
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.redAccent.withValues(alpha: 0.05),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: SingleChildScrollView(
+                      child: Text(
+                        _errorMessage!,
+                        style: const TextStyle(color: Colors.white54, fontSize: 11, fontFamily: 'monospace'),
+                      ),
+                    ),
+                  ),
+                const SizedBox(height: 20),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      style: TextButton.styleFrom(
+                        foregroundColor: Colors.white54,
+                      ),
+                      child: const Text('Close'),
+                    ),
+                    const SizedBox(width: 8),
+                    TextButton(
+                      onPressed: _fallbackBrowserDownload,
+                      style: TextButton.styleFrom(
+                        foregroundColor: Colors.orange,
+                      ),
+                      child: const Text('Open in Browser'),
+                    ),
+                    const SizedBox(width: 8),
+                    ElevatedButton(
+                      onPressed: _startDownload,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.orange,
+                        foregroundColor: Colors.black,
+                        textStyle: const TextStyle(fontWeight: FontWeight.bold),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                      child: const Text('Retry'),
+                    ),
+                  ],
+                ),
+              ] else ...[
+                Text(
+                  widget.updateInfo.latestVersion,
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 15,
@@ -182,7 +393,7 @@ class UpdateService {
                   ),
                 ),
                 const SizedBox(height: 8),
-                if (updateInfo.releaseNotes.isNotEmpty) ...[
+                if (widget.updateInfo.releaseNotes.isNotEmpty) ...[
                   Container(
                     constraints: const BoxConstraints(maxHeight: 150),
                     decoration: BoxDecoration(
@@ -192,7 +403,7 @@ class UpdateService {
                     padding: const EdgeInsets.all(12),
                     child: SingleChildScrollView(
                       child: Text(
-                        updateInfo.releaseNotes,
+                        widget.updateInfo.releaseNotes,
                         style: const TextStyle(
                           color: Colors.white70,
                           fontSize: 13,
@@ -215,15 +426,7 @@ class UpdateService {
                     ),
                     const SizedBox(width: 12),
                     ElevatedButton(
-                      onPressed: () async {
-                        final uri = Uri.parse(updateInfo.releaseUrl);
-                        if (await canLaunchUrl(uri)) {
-                          await launchUrl(uri, mode: LaunchMode.externalApplication);
-                        }
-                        if (context.mounted) {
-                          Navigator.pop(context);
-                        }
-                      },
+                      onPressed: _startDownload,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.orange,
                         foregroundColor: Colors.black,
@@ -237,10 +440,10 @@ class UpdateService {
                   ],
                 ),
               ],
-            ),
+            ],
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 }
