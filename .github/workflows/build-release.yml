@@ -40,7 +40,7 @@ jobs:
 
       - name: Build Split APKs (ARM64 and ARM32)
         run: |
-          flutter build apk --split-per-abi --target-platform android-arm,android-arm64 --release
+          flutter build apk --split-per-abi --target-platform android-arm,android-arm64 --release --build-name=1.0.0 --build-number=${{ github.run_number }}
           cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk build/app/outputs/flutter-apk/telstream-arm64.apk
           cp build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk build/app/outputs/flutter-apk/telstream-arm32.apk
 

@@ -137,7 +137,15 @@ class PipController extends Notifier<PipVideoState?> {
                 right: 16,
                 width: 240,
                 height: 135,
-                child: playerWidget,
+                child: Dismissible(
+                  key: ValueKey(currentState.messageId),
+                  direction: DismissDirection.horizontal,
+                  onDismissed: (_) {
+                    widgetRef.read(pipControllerProvider.notifier).close();
+                  },
+                  background: const SizedBox.shrink(),
+                  child: playerWidget,
+                ),
               );
             } else {
               return playerWidget;

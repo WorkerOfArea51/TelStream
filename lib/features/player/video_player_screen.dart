@@ -277,7 +277,21 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
           decoration: BoxDecoration(
             color: Colors.black,
             borderRadius: BorderRadius.circular(12),
-            boxShadow: const [BoxShadow(color: Colors.black54, blurRadius: 10)],
+            border: Border.all(
+              color: Colors.orange.withValues(alpha: 0.3),
+              width: 1.5,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.orange.withValues(alpha: 0.15),
+                blurRadius: 12,
+                spreadRadius: 2,
+              ),
+              const BoxShadow(
+                color: Colors.black54,
+                blurRadius: 10,
+              ),
+            ],
           ),
           clipBehavior: Clip.antiAlias,
           child: Stack(
