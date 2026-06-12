@@ -144,7 +144,11 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
     if (chatRes is td.TdError) {
       // If chat is not found or loaded in TDLib database yet, check invite link to load its info
       await tdlibService.sendAsync(td.CheckChatInviteLink(inviteLink: category.inviteLink));
-      await tdlibService.sendAsync(td.GetChat(chatId: category.channelId));
+      chatRes = await tdlibService.sendAsync(td.GetChat(chatId: category.channelId));
+    }
+
+    if (chatRes is td.TdError) {
+      throw Exception("GetChat failed: ${chatRes.message} (Code: ${chatRes.code})");
     }
 
     int iterations = 0;
@@ -183,6 +187,10 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
         limit: 100 - fetchedBatch.length,
         onlyLocal: false,
       ));
+
+      if (response is td.TdError) {
+        throw Exception("GetChatHistory failed: ${response.message} (Code: ${response.code})");
+      }
 
       List<td.Message> fetched = [];
       if (response is td.Messages) {
