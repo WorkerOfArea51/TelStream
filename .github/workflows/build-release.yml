@@ -44,19 +44,25 @@ jobs:
           cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk build/app/outputs/flutter-apk/telstream-arm64.apk
           cp build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk build/app/outputs/flutter-apk/telstream-arm32.apk
 
+      - name: Generate Changelog
+        run: |
+          echo "CHANGELOG<<EOF" >> $GITHUB_ENV
+          git log --pretty=format:"• %s" -n 5 >> $GITHUB_ENV
+          echo "" >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+
       - name: Create Release and Upload Assets
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v1.0.0-build.${{ github.run_number }}
           name: TelStream Release #${{ github.run_number }}
           body: |
-            Automated build for TelStream.
-            
-            ### Variants:
-            * **ARM64 APK**: Optimized for modern 64-bit ARM devices (arm64-v8a).
-            * **ARM32 APK**: Optimized for older 32-bit ARM devices (armeabi-v7a).
-            
-            *Triggered by commit: ${{ github.sha }}*
+            CHANGELOG:
+            ${{ env.CHANGELOG }}
+
+            VARIANTS:
+            • ARM64 APK: Optimized for modern 64-bit ARM devices (arm64-v8a).
+            • ARM32 APK: Optimized for older 32-bit ARM devices (armeabi-v7a).
           files: |
             build/app/outputs/flutter-apk/telstream-arm64.apk
             build/app/outputs/flutter-apk/telstream-arm32.apk
