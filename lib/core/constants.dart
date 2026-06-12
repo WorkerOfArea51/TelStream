@@ -21,8 +21,8 @@ class Constants {
   static const List<ChannelCategory> categories = [
     ChannelCategory(
       title: 'Anime',
-      channelId: -1002633457020,
-      inviteLink: 'https://t.me/+AkdK7gDbYWRmZTc1',
+      channelId: Secrets.animeChannelId,
+      inviteLink: Secrets.animeInviteLink,
     ),
     ChannelCategory(
       title: 'Movies',
