@@ -114,33 +114,41 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
     
     final tdlibService = ref.read(tdlibServiceProvider);
     
+    // Helper to send request with a safety timeout to prevent hanging
+    Future<td.TdObject> sendWithTimeout(td.TdFunction request) {
+      return tdlibService.sendAsync(request).timeout(
+        const Duration(seconds: 6),
+        onTimeout: () => td.TdError(code: 408, message: "Request Timeout"),
+      );
+    }
+    
     // 1. Try to get chat directly first (highly optimized for subsequent launches)
-    td.TdObject chatRes = await tdlibService.sendAsync(td.GetChat(chatId: category.channelId));
+    td.TdObject chatRes = await sendWithTimeout(td.GetChat(chatId: category.channelId));
     
     // 2. Fallback strategy if chat is not found in local TDLib database
     if (chatRes is td.TdError) {
-      // Try to check/load via invite link first (fastest fallback)
+      // Fallback A: Sync chat list (limit 100) first to see if chat is loaded from main list
       try {
-        await tdlibService.sendAsync(td.CheckChatInviteLink(inviteLink: category.inviteLink));
-        chatRes = await tdlibService.sendAsync(td.GetChat(chatId: category.channelId));
+        await sendWithTimeout(td.LoadChats(
+          chatList: const td.ChatListMain(),
+          limit: 100,
+        ));
+        chatRes = await sendWithTimeout(td.GetChat(chatId: category.channelId));
       } catch (_) {}
       
-      // If still not found, try joining the chat by invite link
+      // Fallback B: Resolve invite link to load its info
       if (chatRes is td.TdError) {
         try {
-          await tdlibService.sendAsync(td.JoinChatByInviteLink(inviteLink: category.inviteLink));
-          chatRes = await tdlibService.sendAsync(td.GetChat(chatId: category.channelId));
+          await sendWithTimeout(td.CheckChatInviteLink(inviteLink: category.inviteLink));
+          chatRes = await sendWithTimeout(td.GetChat(chatId: category.channelId));
         } catch (_) {}
       }
       
-      // If still not found, try loading the first page of main chats to populate database
+      // Fallback C: Join chat via invite link
       if (chatRes is td.TdError) {
         try {
-          await tdlibService.sendAsync(td.LoadChats(
-            chatList: const td.ChatListMain(),
-            limit: 100,
-          ));
-          chatRes = await tdlibService.sendAsync(td.GetChat(chatId: category.channelId));
+          await sendWithTimeout(td.JoinChatByInviteLink(inviteLink: category.inviteLink));
+          chatRes = await sendWithTimeout(td.GetChat(chatId: category.channelId));
         } catch (_) {}
       }
     }
@@ -188,7 +196,10 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
         offset: 0,
         limit: 100 - fetchedBatch.length,
         onlyLocal: false,
-      ));
+      )).timeout(
+        const Duration(seconds: 10),
+        onTimeout: () => td.TdError(code: 408, message: "Request Timeout"),
+      );
 
       if (response is td.TdError) {
         throw Exception("GetChatHistory failed: ${response.message} (Code: ${response.code})");

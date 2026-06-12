@@ -211,7 +211,10 @@ class TdlibService {
         final res = await sendAsync(td.LoadChats(
           chatList: const td.ChatListMain(),
           limit: 100,
-        ));
+        )).timeout(
+          const Duration(seconds: 10),
+          onTimeout: () => td.TdError(code: 408, message: "Request Timeout"),
+        );
         if (res is td.TdError) {
           break; // End of list or error
         }
