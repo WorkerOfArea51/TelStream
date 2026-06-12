@@ -1,9 +1,6 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:path_provider/path_provider.dart';
 import '../../services/storage_service.dart';
-import '../../services/tdlib_service.dart';
 import '../settings/settings_screen.dart';
 import 'history_screen.dart';
 import 'network_stream_screen.dart';
@@ -16,63 +13,6 @@ class MoreScreen extends ConsumerStatefulWidget {
 }
 
 class _MoreScreenState extends ConsumerState<MoreScreen> {
-  String _cacheSize = "Calculating...";
-
-  @override
-  void initState() {
-    super.initState();
-    _calculateCacheSize();
-  }
-
-  Future<void> _calculateCacheSize() async {
-    try {
-      final dir = await getApplicationDocumentsDirectory();
-      int totalSize = 0;
-      if (await dir.exists()) {
-        await for (var entity in dir.list(recursive: true, followLinks: false)) {
-          if (entity is File) {
-            totalSize += await entity.length();
-          }
-        }
-      }
-      
-      if (!mounted) return;
-      setState(() {
-        if (totalSize < 1024 * 1024) {
-          _cacheSize = "${(totalSize / 1024).toStringAsFixed(1)} KB";
-        } else if (totalSize < 1024 * 1024 * 1024) {
-          _cacheSize = "${(totalSize / (1024 * 1024)).toStringAsFixed(1)} MB";
-        } else {
-          _cacheSize = "${(totalSize / (1024 * 1024 * 1024)).toStringAsFixed(2)} GB";
-        }
-      });
-    } catch (e) {
-      if (mounted) setState(() => _cacheSize = "Unknown");
-    }
-  }
-
-  void _clearCache() async {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Clearing video cache...'), 
-        duration: Duration(milliseconds: 800),
-        backgroundColor: Colors.orange,
-      ),
-    );
-    
-    await ref.read(tdlibServiceProvider).clearVideoCache();
-    await _calculateCacheSize();
-    
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Video cache cleared successfully!'), 
-        backgroundColor: Colors.orange,
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final isDownloadedOnly = ref.watch(downloadedOnlyProvider);
@@ -185,12 +125,6 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
                   MaterialPageRoute(builder: (context) => const SettingsScreen()),
                 );
               },
-            ),
-            _buildMenuTile(
-              icon: Icons.storage,
-              title: 'Data and storage',
-              subtitle: 'Cache size: $_cacheSize',
-              onTap: _clearCache,
             ),
           ],
         ),

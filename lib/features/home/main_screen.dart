@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/constants.dart';
 import 'library_view.dart';
-import 'updates_screen.dart';
 import 'more_screen.dart';
 
 class MainScreen extends ConsumerStatefulWidget {
@@ -20,7 +19,6 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     LibraryView(category: Constants.categories[0]), // Anime
     LibraryView(category: Constants.categories[1]), // Movies
     LibraryView(category: Constants.categories[2]), // Web Series
-    const UpdatesScreen(),
     const MoreScreen(),
   ];
 
@@ -65,11 +63,6 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                 icon: Icon(Icons.video_collection_outlined),
                 activeIcon: Icon(Icons.video_collection, color: Colors.orange),
                 label: 'Web Series',
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.update_outlined),
-                activeIcon: Icon(Icons.update, color: Colors.orange),
-                label: 'Updates',
               ),
               BottomNavigationBarItem(
                 icon: Icon(Icons.more_horiz_outlined),

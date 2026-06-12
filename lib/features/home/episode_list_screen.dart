@@ -3,9 +3,9 @@ import 'package:tdlib/td_api.dart' as td;
 import '../../models/anime_models.dart';
 import '../../core/widgets/td_thumbnail.dart';
 import '../player/pip_manager.dart';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../services/storage_service.dart';
+import '../../services/download_service.dart';
 
 class EpisodeListScreen extends ConsumerStatefulWidget {
   final AnimeSeason season;
@@ -141,10 +141,51 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
 
     if (fileId == null) return const SizedBox.shrink();
 
+    final downloadTasks = ref.watch(downloadControllerProvider);
+    final task = downloadTasks[fileId];
+
+    Widget trailingWidget;
+    if (task == null) {
+      trailingWidget = IconButton(
+        icon: const Icon(Icons.download, color: Colors.orangeAccent, size: 24),
+        onPressed: () {
+          ref.read(downloadControllerProvider.notifier).startDownload(fileId!, title);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Starting download: $title'),
+              backgroundColor: Colors.orange,
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        },
+      );
+    } else if (!task.isCompleted) {
+      trailingWidget = Padding(
+        padding: const EdgeInsets.only(right: 8.0),
+        child: SizedBox(
+          width: 24,
+          height: 24,
+          child: CircularProgressIndicator(
+            value: task.progress,
+            strokeWidth: 2.5,
+            color: Colors.orange,
+            backgroundColor: Colors.white12,
+          ),
+        ),
+      );
+    } else {
+      trailingWidget = const Padding(
+        padding: EdgeInsets.only(right: 8.0),
+        child: Icon(Icons.check_circle, color: Colors.green, size: 24),
+      );
+    }
+
+    final isDownloaded = task != null && task.isCompleted && task.localPath != null;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
+        color: Colors.white.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.white12, width: 1),
       ),
@@ -154,10 +195,16 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
           width: 50,
           height: 50,
           decoration: BoxDecoration(
-            color: Colors.blueAccent.withOpacity(0.2),
+            color: isDownloaded 
+                ? Colors.green.withValues(alpha: 0.2)
+                : Colors.blueAccent.withValues(alpha: 0.2),
             borderRadius: BorderRadius.circular(8),
           ),
-          child: const Icon(Icons.play_arrow_rounded, color: Colors.blueAccent, size: 30),
+          child: Icon(
+            isDownloaded ? Icons.download_done : Icons.play_arrow_rounded, 
+            color: isDownloaded ? Colors.green : Colors.blueAccent, 
+            size: 30
+          ),
         ),
         title: Text(
           title,
@@ -168,10 +215,11 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
         subtitle: Padding(
           padding: const EdgeInsets.only(top: 6.0),
           child: Text(
-            metadata,
+            isDownloaded ? '$metadata • Downloaded' : metadata,
             style: const TextStyle(color: Colors.white54, fontSize: 11),
           ),
         ),
+        trailing: trailingWidget,
         onTap: () {
           ref.read(pipControllerProvider.notifier).playVideo(
             context,
@@ -181,6 +229,7 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
             episodeList: widget.season.episodes,
             currentEpisodeIndex: index,
             seriesName: widget.series.coreName,
+            networkUrl: isDownloaded ? task.localPath : null,
           );
         },
       ),
