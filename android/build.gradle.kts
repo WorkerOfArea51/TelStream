@@ -22,8 +22,8 @@ subprojects {
             if (android != null) {
                 val baseExtension = android as? com.android.build.gradle.BaseExtension
                 if (baseExtension != null) {
-                    // Force subprojects to compile with Android SDK 34 to satisfy modern dependency requirements
-                    baseExtension.compileSdkVersion(34)
+                    // Force subprojects to compile with Android SDK 36 to satisfy modern dependency requirements
+                    baseExtension.compileSdkVersion(36)
                     
                     if (baseExtension.namespace.isNullOrEmpty()) {
                         val groupName = project.group.toString()
