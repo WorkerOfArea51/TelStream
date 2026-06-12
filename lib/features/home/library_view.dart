@@ -149,6 +149,7 @@ class _LibraryViewState extends ConsumerState<LibraryView> with SingleTickerProv
         ),
       ),
       body: state.when(
+        skipLoadingOnRefresh: false,
         data: (seriesList) {
           final filteredList = _getFilteredList(seriesList, favorites, isDownloadedOnly);
           
