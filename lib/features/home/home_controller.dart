@@ -126,12 +126,20 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
       // May fail if already joined or invalid link
     }
 
-    await tdlibService.sendAsync(td.LoadChats(
-      chatList: const td.ChatListMain(),
-      limit: 100,
-    ));
+    // Load up to 500 chats to make sure private channels are loaded into TDLib's database
+    int chatsLoaded = 0;
+    while (chatsLoaded < 500) {
+      final res = await tdlibService.sendAsync(td.LoadChats(
+        chatList: const td.ChatListMain(),
+        limit: 100,
+      ));
+      if (res is td.TdError) {
+        break; // All chats loaded or error
+      }
+      chatsLoaded += 100;
+      await Future.delayed(const Duration(milliseconds: 100));
+    }
     
-    await Future.delayed(const Duration(seconds: 1));
     var chatRes = await tdlibService.sendAsync(td.GetChat(chatId: category.channelId));
     if (chatRes is td.TdError) {
       // If chat is not found or loaded in TDLib database yet, check invite link to load its info
