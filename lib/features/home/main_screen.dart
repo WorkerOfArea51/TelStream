@@ -2,6 +2,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/constants.dart';
+import '../../services/update_service.dart';
 import 'library_view.dart';
 import 'more_screen.dart';
 
@@ -21,6 +22,21 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     LibraryView(category: Constants.categories[2]), // Web Series
     const MoreScreen(),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkUpdatesSilently();
+    });
+  }
+
+  void _checkUpdatesSilently() async {
+    final updateInfo = await UpdateService.checkForUpdate();
+    if (updateInfo != null && updateInfo.isUpdateAvailable && mounted) {
+      UpdateService.showUpdateDialog(context, updateInfo);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {

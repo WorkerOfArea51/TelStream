@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/secrets.dart';
 import '../../services/storage_service.dart';
+import '../../services/update_service.dart';
 import '../settings/settings_screen.dart';
 import 'history_screen.dart';
 import 'network_stream_screen.dart';
@@ -128,6 +129,13 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
               },
             ),
             _buildMenuTile(
+              icon: Icons.system_update_alt_rounded,
+              title: 'Check for update',
+              onTap: () {
+                _manuallyCheckForUpdate(context);
+              },
+            ),
+            _buildMenuTile(
               icon: Icons.info_outline,
               title: 'About',
               onTap: () {
@@ -138,6 +146,68 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
         ),
       ),
     );
+  }
+
+  void _manuallyCheckForUpdate(BuildContext context) async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: CircularProgressIndicator(color: Colors.orange),
+      ),
+    );
+
+    final updateInfo = await UpdateService.checkForUpdate();
+    
+    if (context.mounted) {
+      Navigator.pop(context); // Close loading indicator
+    }
+
+    if (updateInfo == null) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to check for updates. Please check your internet connection.'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+      return;
+    }
+
+    if (context.mounted) {
+      if (updateInfo.isUpdateAvailable) {
+        UpdateService.showUpdateDialog(context, updateInfo);
+      } else {
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            backgroundColor: const Color(0xFF0F0F11),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: const BorderSide(color: Colors.white10, width: 1),
+            ),
+            title: const Row(
+              children: [
+                Icon(Icons.check_circle_outline_rounded, color: Colors.green, size: 28),
+                SizedBox(width: 12),
+                Text('Up to Date', style: TextStyle(color: Colors.white)),
+              ],
+            ),
+            content: const Text(
+              'You are running the latest version of TelStream.',
+              style: TextStyle(color: Colors.white70),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('OK', style: TextStyle(color: Colors.orange)),
+              ),
+            ],
+          ),
+        );
+      }
+    }
   }
 
   void _showAboutDialog(BuildContext context) {
