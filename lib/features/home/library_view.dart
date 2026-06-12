@@ -90,8 +90,8 @@ class _LibraryViewState extends ConsumerState<LibraryView> with SingleTickerProv
                 },
               )
             : Text(
-                '${widget.category.title} ${state.value != null ? "(${_getFilteredList(state.value!, favorites, isDownloadedOnly).length})" : ""}',
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 22),
+                '${ref.watch(provider.notifier).resolvedChatTitle} ${state.value != null ? "(${_getFilteredList(state.value!, favorites, isDownloadedOnly).length})" : ""}',
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
               ),
         actions: [
           if (_isSearching)

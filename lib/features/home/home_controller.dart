@@ -23,6 +23,8 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
 
   ChannelCategory get category;
   List<AnimeSeries> _allSeries = [];
+  String _resolvedChatTitle = 'Loading...';
+  String get resolvedChatTitle => _resolvedChatTitle;
 
   bool _showFavoritesOnly = false;
   bool get showFavoritesOnly => _showFavoritesOnly;
@@ -149,6 +151,10 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
 
     if (chatRes is td.TdError) {
       throw Exception("GetChat failed: ${chatRes.message} (Code: ${chatRes.code})");
+    }
+
+    if (chatRes is td.Chat) {
+      _resolvedChatTitle = chatRes.title;
     }
 
     int iterations = 0;
