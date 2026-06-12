@@ -1,0 +1,120 @@
+import 'dart:async';
+import 'dart:io';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:tdlib/td_api.dart' as td;
+import '../../services/tdlib_service.dart';
+
+class TdThumbnail extends ConsumerStatefulWidget {
+  final td.File? file;
+  final double width;
+  final double height;
+  
+  const TdThumbnail({Key? key, required this.file, this.width = 80, this.height = 60}) : super(key: key);
+
+  @override
+  ConsumerState<TdThumbnail> createState() => _TdThumbnailState();
+}
+
+class _TdThumbnailState extends ConsumerState<TdThumbnail> {
+  String? _localPath;
+  StreamSubscription? _sub;
+  late final TdlibService _tdlibService;
+  
+  @override
+  void initState() {
+    super.initState();
+    _tdlibService = ref.read(tdlibServiceProvider);
+    _initThumbnail(isInit: true);
+  }
+  
+  @override
+  void didUpdateWidget(TdThumbnail oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.file?.id != widget.file?.id) {
+      _initThumbnail(isInit: false);
+    }
+  }
+
+  void _initThumbnail({required bool isInit}) {
+    _sub?.cancel();
+    if (widget.file == null) {
+      if (isInit) {
+        _localPath = null;
+      } else {
+        setState(() => _localPath = null);
+      }
+      return;
+    }
+    
+    final file = widget.file!;
+    if (file.local.path.isNotEmpty) {
+      if (isInit) {
+        _localPath = file.local.path;
+      } else {
+        setState(() => _localPath = file.local.path);
+      }
+    } else {
+      if (isInit) {
+        _localPath = null;
+      } else {
+        setState(() => _localPath = null);
+      }
+      _sub = _tdlibService.updates.listen((event) {
+        if (event is td.UpdateFile && event.file.id == file.id) {
+          if (event.file.local.path.isNotEmpty && mounted) {
+            setState(() => _localPath = event.file.local.path);
+          }
+        }
+      });
+      _tdlibService.send(td.DownloadFile(
+        fileId: file.id,
+        priority: 1,
+        offset: 0,
+        limit: 0,
+        synchronous: false,
+      ));
+    }
+  }
+
+  @override
+  void dispose() {
+    _sub?.cancel();
+    if (widget.file != null && _localPath == null) {
+      try {
+        _tdlibService.send(td.CancelDownloadFile(
+          fileId: widget.file!.id,
+          onlyIfPending: true,
+        ));
+      } catch (_) {}
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final imagePath = _localPath;
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        width: widget.width,
+        height: widget.height,
+        color: const Color(0xFF0F172A), // Slate 900
+        foregroundDecoration: imagePath != null
+            ? BoxDecoration(
+                image: DecorationImage(
+                  image: FileImage(File(imagePath)),
+                  fit: BoxFit.cover,
+                ),
+              )
+            : null,
+        alignment: Alignment.center,
+        child: const Icon(
+          Icons.movie,
+          color: Colors.white24,
+          size: 40,
+        ),
+      ),
+    );
+  }
+}

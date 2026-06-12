@@ -1,0 +1,23 @@
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        // https://developer.android.com/build/releases/gradle-plugin#updating-gradle
+        // https://gradle.org/releases/
+        // https://mvnrepository.com/artifact/com.android.tools.build/gradle?repo=google
+        classpath "com.android.tools.build:gradle:8.9.1"
+    }
+}
+
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+task clean(type: Delete) {
+    delete rootProject.buildDir
+}
