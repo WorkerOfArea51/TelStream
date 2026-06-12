@@ -203,7 +203,23 @@ class TdlibService {
     return completer.future;
   }
 
-
+  void loadChatsInBackground() {
+    Future(() async {
+      int chatsLoaded = 0;
+      while (chatsLoaded < 500) {
+        if (_isDestroyed || _clientId == null) break;
+        final res = await sendAsync(td.LoadChats(
+          chatList: const td.ChatListMain(),
+          limit: 100,
+        ));
+        if (res is td.TdError) {
+          break; // End of list or error
+        }
+        chatsLoaded += 100;
+        await Future.delayed(const Duration(milliseconds: 200));
+      }
+    });
+  }
 
   void destroy() {
     _isDestroyed = true;

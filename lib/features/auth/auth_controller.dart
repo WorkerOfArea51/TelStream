@@ -63,6 +63,7 @@ class AuthController extends Notifier<AuthState> {
       state = state.copyWith(step: AuthStep.waitingForPassword, errorMessage: null);
     } else if (authState is td.AuthorizationStateReady) {
       state = state.copyWith(step: AuthStep.authenticated, errorMessage: null);
+      ref.read(tdlibServiceProvider).loadChatsInBackground();
     } else if (authState is td.AuthorizationStateClosed) {
       // Automatically re-initialize TDLib to allow logging in again immediately
       Future.microtask(() => initializeTdlib());

@@ -60,13 +60,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
       _updateSubscription?.cancel();
     });
 
-    return Future.value(_fetchInitial()).timeout(
-      const Duration(seconds: 8),
-      onTimeout: () {
-        _hasMore = false;
-        return [];
-      },
-    );
+    return _fetchInitial();
   }
 
   void setSortOrder(SortOrder order) {
@@ -120,33 +114,35 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
     
     final tdlibService = ref.read(tdlibServiceProvider);
     
-    try {
-      await tdlibService.sendAsync(td.JoinChatByInviteLink(
-        inviteLink: category.inviteLink,
-      ));
-    } catch (e) {
-      // May fail if already joined or invalid link
-    }
-
-    // Load up to 500 chats to make sure private channels are loaded into TDLib's database
-    int chatsLoaded = 0;
-    while (chatsLoaded < 500) {
-      final res = await tdlibService.sendAsync(td.LoadChats(
-        chatList: const td.ChatListMain(),
-        limit: 100,
-      ));
-      if (res is td.TdError) {
-        break; // All chats loaded or error
-      }
-      chatsLoaded += 100;
-      await Future.delayed(const Duration(milliseconds: 100));
-    }
+    // 1. Try to get chat directly first (highly optimized for subsequent launches)
+    td.TdObject chatRes = await tdlibService.sendAsync(td.GetChat(chatId: category.channelId));
     
-    var chatRes = await tdlibService.sendAsync(td.GetChat(chatId: category.channelId));
+    // 2. Fallback strategy if chat is not found in local TDLib database
     if (chatRes is td.TdError) {
-      // If chat is not found or loaded in TDLib database yet, check invite link to load its info
-      await tdlibService.sendAsync(td.CheckChatInviteLink(inviteLink: category.inviteLink));
-      chatRes = await tdlibService.sendAsync(td.GetChat(chatId: category.channelId));
+      // Try to check/load via invite link first (fastest fallback)
+      try {
+        await tdlibService.sendAsync(td.CheckChatInviteLink(inviteLink: category.inviteLink));
+        chatRes = await tdlibService.sendAsync(td.GetChat(chatId: category.channelId));
+      } catch (_) {}
+      
+      // If still not found, try joining the chat by invite link
+      if (chatRes is td.TdError) {
+        try {
+          await tdlibService.sendAsync(td.JoinChatByInviteLink(inviteLink: category.inviteLink));
+          chatRes = await tdlibService.sendAsync(td.GetChat(chatId: category.channelId));
+        } catch (_) {}
+      }
+      
+      // If still not found, try loading the first page of main chats to populate database
+      if (chatRes is td.TdError) {
+        try {
+          await tdlibService.sendAsync(td.LoadChats(
+            chatList: const td.ChatListMain(),
+            limit: 100,
+          ));
+          chatRes = await tdlibService.sendAsync(td.GetChat(chatId: category.channelId));
+        } catch (_) {}
+      }
     }
 
     if (chatRes is td.TdError) {
