@@ -35,9 +35,30 @@ class StorageService {
     }
   }
 
+  // --- Settings Toggles ---
+
+  bool isIncognitoMode() {
+    return _data['incognito_mode'] ?? false;
+  }
+
+  Future<void> setIncognitoMode(bool value) async {
+    _data['incognito_mode'] = value;
+    await _save();
+  }
+
+  bool isDownloadedOnly() {
+    return _data['downloaded_only'] ?? false;
+  }
+
+  Future<void> setDownloadedOnly(bool value) async {
+    _data['downloaded_only'] = value;
+    await _save();
+  }
+
   // --- Watch History ---
 
   Future<void> saveWatchPosition(int messageId, int positionInSeconds) async {
+    if (isIncognitoMode()) return;
     _data['history'] ??= <String, dynamic>{};
     _data['history'][messageId.toString()] = positionInSeconds;
     await _save();
@@ -49,6 +70,7 @@ class StorageService {
   }
 
   Future<void> setLastWatched(String seriesName, int messageId, int episodeIndex) async {
+    if (isIncognitoMode()) return;
     _data['last_watched'] = {
       'seriesName': seriesName,
       'messageId': messageId,
@@ -59,6 +81,58 @@ class StorageService {
 
   Map<String, dynamic>? getLastWatched() {
     return _data['last_watched'];
+  }
+
+  // --- Structured History Log ---
+
+  Future<void> addToHistoryLog({
+    required String seriesName,
+    required int messageId,
+    required int episodeIndex,
+    required String episodeTitle,
+    required int positionInSeconds,
+  }) async {
+    if (isIncognitoMode()) return;
+    
+    _data['history_log'] ??= [];
+    final List<dynamic> logs = List.from(_data['history_log']);
+    
+    // Remove if already exists for this episode/series to avoid duplicates in the timeline
+    logs.removeWhere((item) => 
+      item['seriesName'] == seriesName && 
+      item['episodeIndex'] == episodeIndex
+    );
+    
+    logs.insert(0, {
+      'seriesName': seriesName,
+      'messageId': messageId,
+      'episodeIndex': episodeIndex,
+      'episodeTitle': episodeTitle,
+      'timestamp': DateTime.now().millisecondsSinceEpoch,
+      'position': positionInSeconds,
+    });
+    
+    // Limit log size to 200 items
+    if (logs.length > 200) {
+      logs.removeLast();
+    }
+    
+    _data['history_log'] = logs;
+    await _save();
+  }
+
+  List<Map<String, dynamic>> getHistoryLog() {
+    if (_data['history_log'] == null) return [];
+    return List<Map<String, dynamic>>.from(
+      (_data['history_log'] as List).map((item) => Map<String, dynamic>.from(item))
+    );
+  }
+
+  Future<void> clearHistoryLog() async {
+    _data['history_log'] = [];
+    _data['history'] = {};
+    _data['last_watched'] = null;
+    await _save();
   }
 
   // --- Favorites ---
@@ -131,3 +205,68 @@ class LastWatchedNotifier extends Notifier<Map<String, dynamic>?> {
 }
 
 final lastWatchedProvider = NotifierProvider<LastWatchedNotifier, Map<String, dynamic>?>(LastWatchedNotifier.new);
+
+class DownloadedOnlyNotifier extends Notifier<bool> {
+  @override
+  bool build() {
+    return ref.watch(storageServiceProvider).isDownloadedOnly();
+  }
+
+  Future<void> toggle(bool value) async {
+    final storage = ref.read(storageServiceProvider);
+    await storage.setDownloadedOnly(value);
+    state = value;
+  }
+}
+
+final downloadedOnlyProvider = NotifierProvider<DownloadedOnlyNotifier, bool>(DownloadedOnlyNotifier.new);
+
+class IncognitoModeNotifier extends Notifier<bool> {
+  @override
+  bool build() {
+    return ref.watch(storageServiceProvider).isIncognitoMode();
+  }
+
+  Future<void> toggle(bool value) async {
+    final storage = ref.read(storageServiceProvider);
+    await storage.setIncognitoMode(value);
+    state = value;
+  }
+}
+
+final incognitoModeProvider = NotifierProvider<IncognitoModeNotifier, bool>(IncognitoModeNotifier.new);
+
+class HistoryLogNotifier extends Notifier<List<Map<String, dynamic>>> {
+  @override
+  List<Map<String, dynamic>> build() {
+    return ref.watch(storageServiceProvider).getHistoryLog();
+  }
+
+  Future<void> addToHistory({
+    required String seriesName,
+    required int messageId,
+    required int episodeIndex,
+    required String episodeTitle,
+    required int positionInSeconds,
+  }) async {
+    final storage = ref.read(storageServiceProvider);
+    await storage.addToHistoryLog(
+      seriesName: seriesName,
+      messageId: messageId,
+      episodeIndex: episodeIndex,
+      episodeTitle: episodeTitle,
+      positionInSeconds: positionInSeconds,
+    );
+    state = storage.getHistoryLog();
+  }
+
+  Future<void> clearHistory() async {
+    final storage = ref.read(storageServiceProvider);
+    await storage.clearHistoryLog();
+    state = [];
+  }
+}
+
+final historyLogProvider = NotifierProvider<HistoryLogNotifier, List<Map<String, dynamic>>>(HistoryLogNotifier.new);
+
+

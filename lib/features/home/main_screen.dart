@@ -1,8 +1,10 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'home_screen.dart';
-import '../favorites/favorites_screen.dart';
+import '../../core/constants.dart';
+import 'library_view.dart';
+import 'updates_screen.dart';
+import 'more_screen.dart';
 
 class MainScreen extends ConsumerStatefulWidget {
   const MainScreen({super.key});
@@ -15,27 +17,33 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   int _currentIndex = 0;
 
   final List<Widget> _screens = [
-    const HomeScreen(),
-    const FavoritesScreen(),
+    LibraryView(category: Constants.categories[0]), // Anime
+    LibraryView(category: Constants.categories[1]), // Movies
+    LibraryView(category: Constants.categories[2]), // Web Series
+    const UpdatesScreen(),
+    const MoreScreen(),
   ];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0F172A),
+      backgroundColor: Colors.black,
       body: IndexedStack(
         index: _currentIndex,
         children: _screens,
       ),
-      extendBody: true, // Required for glassmorphism to show body underneath
+      extendBody: true, // Allows translucent navigation bar to blend in
       bottomNavigationBar: ClipRect(
         child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+          filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
           child: BottomNavigationBar(
-            backgroundColor: const Color(0xFF0A1128).withValues(alpha: 0.6),
+            backgroundColor: Colors.black.withValues(alpha: 0.85),
             elevation: 0,
-            selectedItemColor: Colors.blueAccent,
-            unselectedItemColor: Colors.white54,
+            type: BottomNavigationBarType.fixed,
+            selectedItemColor: Colors.orange,
+            unselectedItemColor: Colors.white38,
+            selectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
+            unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.normal, fontSize: 11),
             currentIndex: _currentIndex,
             onTap: (index) {
               setState(() {
@@ -44,12 +52,29 @@ class _MainScreenState extends ConsumerState<MainScreen> {
             },
             items: const [
               BottomNavigationBarItem(
-                icon: Icon(Icons.home),
-                label: 'Home',
+                icon: Icon(Icons.tv),
+                activeIcon: Icon(Icons.tv, color: Colors.orange),
+                label: 'Anime',
               ),
               BottomNavigationBarItem(
-                icon: Icon(Icons.favorite),
-                label: 'My List',
+                icon: Icon(Icons.movie_outlined),
+                activeIcon: Icon(Icons.movie, color: Colors.orange),
+                label: 'Movies',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.video_collection_outlined),
+                activeIcon: Icon(Icons.video_collection, color: Colors.orange),
+                label: 'Web Series',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.update_outlined),
+                activeIcon: Icon(Icons.update, color: Colors.orange),
+                label: 'Updates',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.more_horiz_outlined),
+                activeIcon: Icon(Icons.more_horiz, color: Colors.orange),
+                label: 'More',
               ),
             ],
           ),

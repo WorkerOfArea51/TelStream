@@ -12,6 +12,7 @@ class PipVideoState {
   final int? currentEpisodeIndex;
   final String seriesName;
   final bool isPip;
+  final String? networkUrl;
 
   PipVideoState({
     required this.messageId,
@@ -21,6 +22,7 @@ class PipVideoState {
     this.currentEpisodeIndex,
     this.seriesName = '',
     this.isPip = false,
+    this.networkUrl,
   });
 
   PipVideoState copyWith({
@@ -31,6 +33,7 @@ class PipVideoState {
     int? currentEpisodeIndex,
     String? seriesName,
     bool? isPip,
+    String? networkUrl,
   }) {
     return PipVideoState(
       messageId: messageId ?? this.messageId,
@@ -40,6 +43,7 @@ class PipVideoState {
       currentEpisodeIndex: currentEpisodeIndex ?? this.currentEpisodeIndex,
       seriesName: seriesName ?? this.seriesName,
       isPip: isPip ?? this.isPip,
+      networkUrl: networkUrl ?? this.networkUrl,
     );
   }
 }
@@ -77,6 +81,7 @@ class PipController extends Notifier<PipVideoState?> {
     List<td.Message>? episodeList,
     int? currentEpisodeIndex,
     String seriesName = '',
+    String? networkUrl,
   }) {
     if (_activePlayer != null) {
       try {
@@ -95,6 +100,7 @@ class PipController extends Notifier<PipVideoState?> {
       currentEpisodeIndex: currentEpisodeIndex,
       seriesName: seriesName,
       isPip: false,
+      networkUrl: networkUrl,
     );
 
     _showOverlay(context);
@@ -114,7 +120,7 @@ class PipController extends Notifier<PipVideoState?> {
             if (currentState == null) return const SizedBox.shrink();
 
             return VideoPlayerScreen(
-              key: ValueKey(currentState.messageId),
+              key: ValueKey(currentState.networkUrl ?? currentState.messageId.toString()),
               messageId: currentState.messageId,
               videoFileId: currentState.videoFileId,
               videoTitle: currentState.videoTitle,
@@ -122,6 +128,7 @@ class PipController extends Notifier<PipVideoState?> {
               currentEpisodeIndex: currentState.currentEpisodeIndex,
               seriesName: currentState.seriesName,
               isPip: currentState.isPip,
+              networkUrl: currentState.networkUrl,
             );
           },
         );

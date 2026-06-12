@@ -1,0 +1,257 @@
+import 'dart:io';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path_provider/path_provider.dart';
+import '../../services/storage_service.dart';
+import '../../services/tdlib_service.dart';
+import '../settings/settings_screen.dart';
+import 'history_screen.dart';
+import 'network_stream_screen.dart';
+
+class MoreScreen extends ConsumerStatefulWidget {
+  const MoreScreen({super.key});
+
+  @override
+  ConsumerState<MoreScreen> createState() => _MoreScreenState();
+}
+
+class _MoreScreenState extends ConsumerState<MoreScreen> {
+  String _cacheSize = "Calculating...";
+
+  @override
+  void initState() {
+    super.initState();
+    _calculateCacheSize();
+  }
+
+  Future<void> _calculateCacheSize() async {
+    try {
+      final dir = await getApplicationDocumentsDirectory();
+      int totalSize = 0;
+      if (await dir.exists()) {
+        await for (var entity in dir.list(recursive: true, followLinks: false)) {
+          if (entity is File) {
+            totalSize += await entity.length();
+          }
+        }
+      }
+      
+      if (!mounted) return;
+      setState(() {
+        if (totalSize < 1024 * 1024) {
+          _cacheSize = "${(totalSize / 1024).toStringAsFixed(1)} KB";
+        } else if (totalSize < 1024 * 1024 * 1024) {
+          _cacheSize = "${(totalSize / (1024 * 1024)).toStringAsFixed(1)} MB";
+        } else {
+          _cacheSize = "${(totalSize / (1024 * 1024 * 1024)).toStringAsFixed(2)} GB";
+        }
+      });
+    } catch (e) {
+      if (mounted) setState(() => _cacheSize = "Unknown");
+    }
+  }
+
+  void _clearCache() async {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Clearing video cache...'), 
+        duration: Duration(milliseconds: 800),
+        backgroundColor: Colors.orange,
+      ),
+    );
+    
+    await ref.read(tdlibServiceProvider).clearVideoCache();
+    await _calculateCacheSize();
+    
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Video cache cleared successfully!'), 
+        backgroundColor: Colors.orange,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDownloadedOnly = ref.watch(downloadedOnlyProvider);
+    final isIncognitoMode = ref.watch(incognitoModeProvider);
+
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+          children: [
+            // Centered App Logo & Branding
+            Column(
+              children: [
+                Container(
+                  width: 90,
+                  height: 90,
+                  decoration: BoxDecoration(
+                    color: Colors.black,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.orange.withValues(alpha: 0.5), width: 2),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.orange.withValues(alpha: 0.2),
+                        blurRadius: 15,
+                        spreadRadius: 2,
+                      )
+                    ],
+                  ),
+                  clipBehavior: Clip.hardEdge,
+                  child: Image.asset(
+                    'assets/icon.png',
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      return const Icon(Icons.play_circle_fill, size: 60, color: Colors.orange);
+                    },
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'TelStream',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 26,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1.2,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'v1.0.0 • Fairy Tail',
+                  style: TextStyle(
+                    color: Colors.white38,
+                    fontSize: 13,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 32),
+
+            // Downloaded only switch
+            _buildSwitchTile(
+              title: 'Downloaded only',
+              subtitle: 'Filters libraries to only show watched/local episodes',
+              value: isDownloadedOnly,
+              onChanged: (val) {
+                ref.read(downloadedOnlyProvider.notifier).toggle(val);
+              },
+            ),
+            const SizedBox(height: 8),
+
+            // Incognito mode switch
+            _buildSwitchTile(
+              title: 'Incognito mode',
+              subtitle: 'Pauses watch history and progress logging',
+              value: isIncognitoMode,
+              onChanged: (val) {
+                ref.read(incognitoModeProvider.notifier).toggle(val);
+              },
+            ),
+            const Divider(color: Colors.white12, height: 32),
+
+            // Navigation Items
+            _buildMenuTile(
+              icon: Icons.history,
+              title: 'History',
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const HistoryScreen()),
+                );
+              },
+            ),
+            _buildMenuTile(
+              icon: Icons.link,
+              title: 'Network stream',
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const NetworkStreamScreen()),
+                );
+              },
+            ),
+            _buildMenuTile(
+              icon: Icons.settings,
+              title: 'Settings',
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const SettingsScreen()),
+                );
+              },
+            ),
+            _buildMenuTile(
+              icon: Icons.storage,
+              title: 'Data and storage',
+              subtitle: 'Cache size: $_cacheSize',
+              onTap: _clearCache,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSwitchTile({
+    required String title,
+    required String subtitle,
+    required bool value,
+    required ValueChanged<bool> onChanged,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFF1C1C1E),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: SwitchListTile(
+        activeThumbColor: Colors.black,
+        activeTrackColor: Colors.orange,
+        inactiveThumbColor: Colors.white70,
+        inactiveTrackColor: Colors.white10,
+        title: Text(
+          title,
+          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 15),
+        ),
+        subtitle: Text(
+          subtitle,
+          style: const TextStyle(color: Colors.white54, fontSize: 12),
+        ),
+        value: value,
+        onChanged: onChanged,
+      ),
+    );
+  }
+
+  Widget _buildMenuTile({
+    required IconData icon,
+    required String title,
+    String? subtitle,
+    required VoidCallback onTap,
+  }) {
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1C1C1E),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: ListTile(
+        leading: Icon(icon, color: Colors.orange, size: 24),
+        title: Text(
+          title,
+          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500, fontSize: 15),
+        ),
+        subtitle: subtitle != null
+            ? Text(subtitle, style: const TextStyle(color: Colors.white38, fontSize: 12))
+            : null,
+        trailing: const Icon(Icons.chevron_right, color: Colors.white30, size: 20),
+        onTap: onTap,
+      ),
+    );
+  }
+}

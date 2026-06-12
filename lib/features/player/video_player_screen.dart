@@ -19,6 +19,7 @@ class VideoPlayerScreen extends ConsumerStatefulWidget {
   final int? currentEpisodeIndex;
   final String seriesName;
   final bool isPip;
+  final String? networkUrl;
   
   const VideoPlayerScreen({
     Key? key, 
@@ -29,6 +30,7 @@ class VideoPlayerScreen extends ConsumerStatefulWidget {
     this.currentEpisodeIndex,
     this.seriesName = '',
     this.isPip = false,
+    this.networkUrl,
   }) : super(key: key);
 
   @override
@@ -95,6 +97,15 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
     _saveTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
       if (_settings.savePositionOnQuit && player.state.position.inSeconds > 0) {
         _storageService.saveWatchPosition(widget.messageId, player.state.position.inSeconds);
+        if (!_storageService.isIncognitoMode() && widget.seriesName.isNotEmpty && widget.currentEpisodeIndex != null) {
+          ref.read(historyLogProvider.notifier).addToHistory(
+            seriesName: widget.seriesName,
+            messageId: widget.messageId,
+            episodeIndex: widget.currentEpisodeIndex!,
+            episodeTitle: widget.videoTitle.replaceFirst('${widget.seriesName} - ', ''),
+            positionInSeconds: player.state.position.inSeconds,
+          );
+        }
       }
     });
   }
@@ -161,6 +172,13 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
   DateTime? _lastUpdateTime;
 
   void _startDownload() {
+    if (widget.networkUrl != null && widget.networkUrl!.isNotEmpty) {
+      _isPlaying = true;
+      player.open(Media(widget.networkUrl!));
+      player.setVolume(100.0);
+      return;
+    }
+
     _updatesSubscription = _tdlibService.updates.listen((event) {
       if (event is td.UpdateFile && event.file.id == widget.videoFileId) {
         final localPath = event.file.local.path;
@@ -215,6 +233,15 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
       final position = player.state.position.inSeconds;
       if (position > 0 && _settings.savePositionOnQuit) {
         _storageService.saveWatchPosition(widget.messageId, position);
+        if (!_storageService.isIncognitoMode() && widget.seriesName.isNotEmpty && widget.currentEpisodeIndex != null) {
+          ref.read(historyLogProvider.notifier).addToHistory(
+            seriesName: widget.seriesName,
+            messageId: widget.messageId,
+            episodeIndex: widget.currentEpisodeIndex!,
+            episodeTitle: widget.videoTitle.replaceFirst('${widget.seriesName} - ', ''),
+            positionInSeconds: position,
+          );
+        }
       }
     } catch (_) {}
 
