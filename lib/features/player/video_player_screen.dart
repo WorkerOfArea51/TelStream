@@ -72,6 +72,10 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
     
     _startDownload();
     
+    if (widget.isPip) {
+      _resetOrientationAndUI();
+    }
+    
     // Auto-Play Next Episode Logic
     _completedSubscription = player.stream.completed.listen((completed) {
       if (completed && _settings.autoplayNextVideo && widget.episodeList != null && widget.currentEpisodeIndex != null) {
@@ -108,6 +112,24 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
         }
       }
     });
+  }
+
+  @override
+  void didUpdateWidget(VideoPlayerScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.isPip && !oldWidget.isPip) {
+      _resetOrientationAndUI();
+    }
+  }
+
+  void _resetOrientationAndUI() {
+    try {
+      SystemChrome.setPreferredOrientations([
+        DeviceOrientation.portraitUp,
+        DeviceOrientation.portraitDown,
+      ]);
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    } catch (_) {}
   }
 
   void _playNextEpisode() {
