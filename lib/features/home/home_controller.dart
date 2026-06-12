@@ -91,8 +91,13 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
     
     try {
       int startingLength = _allSeries.length;
-      while (_allSeries.length < startingLength + 10 && _hasMore) {
+      int iterations = 0;
+      while (_allSeries.length < startingLength + 10 && _hasMore && iterations < 5) {
+        iterations++;
         final moreMessages = await _fetchMessages(fromId: _lastMessageId);
+        if (moreMessages.isEmpty) {
+          break;
+        }
         for (final msg in moreMessages) {
           if (!_rawMessages.any((m) => m.id == msg.id)) {
             _rawMessages.add(msg);
@@ -212,14 +217,29 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
         fetched = response.messages;
       }
 
-      if (fetched.isEmpty) {
+      // TDLib GetChatHistory returns messages inclusive of fromMessageId.
+      // So a response is considered to have "no new messages" if:
+      // 1. The list is empty.
+      // 2. The list only contains the starting message we queried from.
+      final bool gotNewMessages = fetched.isNotEmpty &&
+          !(fetched.length == 1 && fetched.first.id == currentFromId);
+
+      if (!gotNewMessages) {
+        // If we already successfully fetched some messages in this batch, return them
+        // and keep _hasMore = true so the next pagination can attempt to fetch further.
+        if (fetchedBatch.isNotEmpty) {
+          break;
+        }
+        
+        // If we got nothing at all, wait and retry to allow TDLib's background sync to complete.
         if (retries < 3) {
           retries++;
           await Future.delayed(const Duration(seconds: 1));
           continue;
         } else {
+          // No messages found even after retries; we've truly hit the end of history.
           _hasMore = false;
-          break; 
+          break;
         }
       }
       
@@ -232,6 +252,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
       }
       
       if (nextFromId == currentFromId) {
+        // Safe check to avoid infinite loops
         _hasMore = false;
         break;
       }
@@ -267,7 +288,15 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
         currentEpisodes.add(msg);
       } else if (msg.content is td.MessageDocument) {
         final doc = msg.content as td.MessageDocument;
-        if (doc.document.mimeType.startsWith('video/') || doc.document.fileName.toLowerCase().endsWith('.mkv')) {
+        final fileName = doc.document.fileName.toLowerCase();
+        if (doc.document.mimeType.startsWith('video/') ||
+            fileName.endsWith('.mkv') ||
+            fileName.endsWith('.mp4') ||
+            fileName.endsWith('.avi') ||
+            fileName.endsWith('.mov') ||
+            fileName.endsWith('.webm') ||
+            fileName.endsWith('.flv') ||
+            fileName.endsWith('.wmv')) {
           currentEpisodes.add(msg);
         }
       } else if (msg.content is td.MessagePhoto) {
