@@ -213,7 +213,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
       }
 
       if (fetched.isEmpty) {
-        if (fetchedBatch.isEmpty && currentFromId == 0) {
+        if (retries < 3) {
           retries++;
           await Future.delayed(const Duration(seconds: 1));
           continue;
