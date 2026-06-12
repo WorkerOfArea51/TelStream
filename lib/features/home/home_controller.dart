@@ -58,7 +58,13 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
       _updateSubscription?.cancel();
     });
 
-    return _fetchInitial();
+    return Future.value(_fetchInitial()).timeout(
+      const Duration(seconds: 8),
+      onTimeout: () {
+        _hasMore = false;
+        return [];
+      },
+    );
   }
 
   void setSortOrder(SortOrder order) {
