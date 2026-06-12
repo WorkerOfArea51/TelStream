@@ -263,7 +263,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
       }
     }
 
-    if (currentEpisodes.isNotEmpty && !_hasMore) {
+    if (currentEpisodes.isNotEmpty) {
       if (!seriesMap.containsKey('Recent Uploads (Processing)')) {
         seriesMap['Recent Uploads (Processing)'] = AnimeSeries(coreName: 'Recent Uploads (Processing)', seasons: []);
         seriesList.insert(0, seriesMap['Recent Uploads (Processing)']!);

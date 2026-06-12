@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../core/secrets.dart';
 import '../../services/storage_service.dart';
 import '../settings/settings_screen.dart';
 import 'history_screen.dart';
@@ -62,9 +63,9 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
                   ),
                 ),
                 const SizedBox(height: 4),
-                const Text(
-                  'v1.0.0 • Fairy Tail',
-                  style: TextStyle(
+                Text(
+                  'v1.0.0 • Fairy Tail (${Secrets.buildTag})',
+                  style: const TextStyle(
                     color: Colors.white38,
                     fontSize: 13,
                   ),
@@ -215,9 +216,9 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
                           ),
                         ),
                         const SizedBox(height: 4),
-                        const Text(
-                          'v1.0.0 • Fairy Tail',
-                          style: TextStyle(
+                        Text(
+                          'v1.0.0 • Fairy Tail (${Secrets.buildTag})',
+                          style: const TextStyle(
                             color: Colors.white38,
                             fontSize: 13,
                           ),

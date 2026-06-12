@@ -36,7 +36,7 @@ jobs:
       - name: Create Secrets file
         run: |
           mkdir -p lib/core
-          echo "class Secrets { static const int apiId = ${{ secrets.TELEGRAM_API_ID }}; static const String apiHash = '${{ secrets.TELEGRAM_API_HASH }}'; }" > lib/core/secrets.dart
+          echo "class Secrets { static const int apiId = ${{ secrets.TELEGRAM_API_ID }}; static const String apiHash = '${{ secrets.TELEGRAM_API_HASH }}'; static const String buildTag = 'Build #${{ github.run_number }}'; }" > lib/core/secrets.dart
 
       - name: Download Prebuilt TDLib Binaries
         run: |
