@@ -128,7 +128,9 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
     await Future.delayed(const Duration(seconds: 1));
     await tdlibService.sendAsync(td.GetChat(chatId: category.channelId));
 
-    while (_allSeries.length < 10 && _hasMore) {
+    int iterations = 0;
+    while (_allSeries.length < 10 && _hasMore && iterations < 3) {
+      iterations++;
       final initialMessages = await _fetchMessages(fromId: _lastMessageId);
       if (initialMessages.isEmpty) {
         _hasMore = false;
