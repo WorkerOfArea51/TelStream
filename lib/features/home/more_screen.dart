@@ -155,8 +155,8 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => Center(
-        child: CircularProgressIndicator(color: Theme.of(context).primaryColor),
+      builder: (context) => const Center(
+        child: CircularProgressIndicator(color: Colors.orange),
       ),
     );
 
@@ -204,7 +204,7 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: Text('OK', style: TextStyle(color: theme.primaryColor)),
+                child: const Text('OK', style: TextStyle(color: Colors.orange)),
               ),
             ],
           ),
@@ -259,11 +259,11 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
                           width: 80,
                           height: 80,
                           decoration: BoxDecoration(
-                            color: theme.scaffoldBackgroundColor,
+                            color: const Color(0xFF0A1128),
                             shape: BoxShape.circle,
                             boxShadow: [
                               BoxShadow(
-                                color: theme.primaryColor.withOpacity(0.5),
+                                color: const Color(0xFF00E5FF).withOpacity(0.4),
                                 blurRadius: 20,
                                 spreadRadius: 2,
                               )
@@ -274,7 +274,7 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
                               'assets/icon.png',
                               fit: BoxFit.cover,
                               errorBuilder: (context, error, stackTrace) {
-                                return Icon(Icons.play_circle_fill, size: 55, color: theme.primaryColor);
+                                return const Icon(Icons.play_circle_fill, size: 55, color: Color(0xFF00E5FF));
                               },
                             ),
                           ),
@@ -315,11 +315,11 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
                   const SizedBox(height: 16),
                   ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: theme.primaryColor.withOpacity(0.15),
-                      foregroundColor: theme.primaryColor,
+                      backgroundColor: Colors.orange.withOpacity(0.15),
+                      foregroundColor: Colors.orange,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
-                        side: BorderSide(color: theme.primaryColor.withOpacity(0.3), width: 1),
+                        side: BorderSide(color: Colors.orange.withOpacity(0.3), width: 1),
                       ),
                     ),
                     onPressed: () {
@@ -496,7 +496,7 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
       ),
       child: SwitchListTile(
         activeThumbColor: Colors.black,
-        activeTrackColor: theme.primaryColor,
+        activeTrackColor: Colors.orange,
         inactiveThumbColor: Colors.white70,
         inactiveTrackColor: Colors.white10,
         title: Text(
@@ -527,7 +527,7 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
         borderRadius: BorderRadius.circular(12),
       ),
       child: ListTile(
-        leading: Icon(icon, color: theme.primaryColor, size: 24),
+        leading: const Icon(icon, color: Colors.orange, size: 24),
         title: Text(
           title,
           style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500, fontSize: 15),

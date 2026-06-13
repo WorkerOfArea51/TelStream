@@ -260,7 +260,7 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
           if (_isLoadingEpisodes)
             SliverFillRemaining(
               child: Center(
-                child: CircularProgressIndicator(color: theme.primaryColor),
+                child: const CircularProgressIndicator(color: Colors.orange),
               ),
             )
           else if (_errorMessage != null)
@@ -275,8 +275,8 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
                       const SizedBox(height: 12),
                       ElevatedButton(
                         onPressed: _loadEpisodesDynamically,
-                        style: ElevatedButton.styleFrom(backgroundColor: theme.primaryColor),
-                        child: Text('Retry', style: TextStyle(color: theme.colorScheme.onPrimary)),
+                        style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+                        child: const Text('Retry', style: TextStyle(color: Colors.black)),
                       ),
                     ],
                   ),
@@ -334,13 +334,13 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
     final theme = Theme.of(context);
     if (task == null) {
       trailingWidget = IconButton(
-        icon: Icon(Icons.download, color: theme.primaryColor, size: 24),
+        icon: const Icon(Icons.download, color: Colors.orangeAccent, size: 24),
         onPressed: () {
           ref.read(downloadControllerProvider.notifier).startDownload(fileId!, title);
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('Starting download: $title'),
-              backgroundColor: theme.primaryColor,
+              backgroundColor: Colors.orange,
               duration: const Duration(seconds: 2),
             ),
           );
@@ -369,11 +369,11 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
                 child: WavyCircularProgressIndicator(
                   value: task.progress,
                   strokeWidth: 2.5,
-                  color: theme.primaryColor,
+                  color: Colors.orange,
                   backgroundColor: Colors.white12,
                 ),
               ),
-              Icon(Icons.close, size: 14, color: theme.primaryColor),
+              const Icon(Icons.close, size: 14, color: Colors.orangeAccent),
             ],
           ),
         ),

@@ -32,7 +32,7 @@ class HistoryScreen extends ConsumerWidget {
         actions: [
           if (historyLogs.isNotEmpty)
             IconButton(
-              icon: Icon(Icons.delete_sweep, color: theme.primaryColor),
+              icon: const Icon(Icons.delete_sweep, color: Colors.orange),
               onPressed: () => _confirmClearHistory(context, ref),
             ),
         ],
@@ -131,8 +131,8 @@ class HistoryScreen extends ConsumerWidget {
                         child: posterFile != null
                             ? TdThumbnail(file: posterFile, minithumbnail: minithumbnail)
                             : Container(
-                                color: theme.primaryColor.withOpacity(0.1),
-                                child: Icon(Icons.movie, color: theme.primaryColor, size: 28),
+                                color: Colors.orange.withOpacity(0.1),
+                                child: const Icon(Icons.movie, color: Colors.orange, size: 28),
                               ),
                       ),
                     ),
@@ -146,7 +146,7 @@ class HistoryScreen extends ConsumerWidget {
                         const SizedBox(height: 4),
                         Text(
                           episodeTitle,
-                          style: TextStyle(color: theme.primaryColor, fontSize: 12, fontWeight: FontWeight.bold),
+                          style: const TextStyle(color: Colors.orange, fontSize: 12, fontWeight: FontWeight.bold),
                         ),
                         const SizedBox(height: 4),
                         Text(
@@ -157,7 +157,7 @@ class HistoryScreen extends ConsumerWidget {
                     ),
                     trailing: fileId != null && episodeMsg != null && matchedSeries != null
                         ? IconButton(
-                            icon: Icon(Icons.play_circle_fill, color: theme.primaryColor, size: 32),
+                            icon: const Icon(Icons.play_circle_fill, color: Colors.orange, size: 32),
                             onPressed: () {
                               ref.read(pipControllerProvider.notifier).playVideo(
                                 context,
@@ -186,7 +186,7 @@ class HistoryScreen extends ConsumerWidget {
         children: [
           Text(
             '(｡•́︿•̀｡)',
-            style: TextStyle(fontSize: 48, color: theme.primaryColor, fontWeight: FontWeight.bold),
+            style: const TextStyle(fontSize: 48, color: Colors.orangeAccent, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 16),
           const Text(
@@ -252,7 +252,7 @@ class HistoryScreen extends ConsumerWidget {
                 );
               }
             },
-            child: Text('Clear', style: TextStyle(color: theme.primaryColor)),
+            child: const Text('Clear', style: TextStyle(color: Colors.orange)),
           ),
         ],
       ),

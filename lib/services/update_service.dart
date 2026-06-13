@@ -260,8 +260,7 @@ class _UpdateDialogContentState extends State<UpdateDialogContent> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final primaryColor = theme.primaryColor;
+    const primaryColor = Colors.orange;
 
     return PopScope(
       canPop: !_isDownloading,

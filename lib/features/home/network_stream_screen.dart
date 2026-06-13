@@ -47,9 +47,9 @@ class _NetworkStreamScreenState extends ConsumerState<NetworkStreamScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: Colors.black,
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
+        backgroundColor: Colors.black,
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.white),
         title: const Text('Network Stream', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 22)),
@@ -61,10 +61,10 @@ class _NetworkStreamScreenState extends ConsumerState<NetworkStreamScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
+              const Text(
                 'Play external URL',
                 style: TextStyle(
-                  color: theme.primaryColor,
+                  color: Colors.orange,
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
                 ),
@@ -89,9 +89,9 @@ class _NetworkStreamScreenState extends ConsumerState<NetworkStreamScreen> {
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: theme.primaryColor, width: 1.5),
+                    borderSide: const BorderSide(color: Colors.orange, width: 1.5),
                   ),
-                  prefixIcon: Icon(Icons.link, color: theme.primaryColor),
+                  prefixIcon: const Icon(Icons.link, color: Colors.orange),
                   suffixIcon: IconButton(
                     icon: const Icon(Icons.clear, color: Colors.white38),
                     onPressed: () => _urlController.clear(),
@@ -115,8 +115,8 @@ class _NetworkStreamScreenState extends ConsumerState<NetworkStreamScreen> {
                 child: ElevatedButton.icon(
                   onPressed: _playStream,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: theme.primaryColor,
-                    foregroundColor: theme.colorScheme.onPrimary,
+                    backgroundColor: Colors.orange,
+                    foregroundColor: Colors.black,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),

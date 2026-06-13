@@ -30,8 +30,7 @@ class ChangelogParser extends StatelessWidget {
     final trimmed = line.trim();
     if (trimmed.isEmpty) return const SizedBox(height: 6);
 
-    final theme = Theme.of(context);
-    final primaryColor = theme.primaryColor;
+    const primaryColor = Colors.orange;
 
     // 1. Headers Check
     int hashCount = 0;

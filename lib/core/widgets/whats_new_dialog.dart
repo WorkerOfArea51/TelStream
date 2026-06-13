@@ -33,12 +33,12 @@ class WhatsNewDialog extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: theme.primaryColor.withOpacity(0.15),
+                color: Colors.orange.withOpacity(0.15),
                 shape: BoxShape.circle,
               ),
-              child: Icon(
+              child: const Icon(
                 Icons.rocket_launch_rounded,
-                color: theme.primaryColor,
+                color: Colors.orange,
                 size: 40,
               ),
             ),
@@ -54,10 +54,10 @@ class WhatsNewDialog extends StatelessWidget {
               ),
               textAlign: TextAlign.center,
             ),
-            Text(
+            const Text(
               "v${Constants.currentVersion}",
               style: TextStyle(
-                color: theme.primaryColor,
+                color: Colors.orange,
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
                 letterSpacing: 0.5,
@@ -66,9 +66,9 @@ class WhatsNewDialog extends StatelessWidget {
             const SizedBox(height: 24),
 
             // Scrollable Content
-            Flexible(
+            const Flexible(
               child: SingleChildScrollView(
-                child: const ChangelogParser(content: Constants.changelog),
+                child: ChangelogParser(content: Constants.changelog),
               ),
             ),
             const SizedBox(height: 24),
@@ -79,8 +79,8 @@ class WhatsNewDialog extends StatelessWidget {
               height: 48,
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: theme.primaryColor,
-                  foregroundColor: theme.colorScheme.onPrimary,
+                  backgroundColor: Colors.orange,
+                  foregroundColor: Colors.black,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16),
                   ),

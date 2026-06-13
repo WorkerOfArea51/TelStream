@@ -139,8 +139,8 @@ class _LibraryViewState extends ConsumerState<LibraryView> with SingleTickerProv
               controller: _subTabController,
               isScrollable: true,
               tabAlignment: TabAlignment.start,
-              indicatorColor: theme.primaryColor,
-              labelColor: theme.primaryColor,
+              indicatorColor: Colors.orange,
+              labelColor: Colors.orange,
               unselectedLabelColor: Colors.white60,
               indicatorSize: TabBarIndicatorSize.label,
               tabs: const [
@@ -168,7 +168,7 @@ class _LibraryViewState extends ConsumerState<LibraryView> with SingleTickerProv
           }
 
           return RefreshIndicator(
-            color: theme.primaryColor,
+            color: Colors.orange,
             backgroundColor: theme.cardColor,
             onRefresh: () async {
               ref.invalidate(provider);
@@ -198,7 +198,7 @@ class _LibraryViewState extends ConsumerState<LibraryView> with SingleTickerProv
                           return Center(
                             child: Padding(
                               padding: const EdgeInsets.symmetric(vertical: 16.0),
-                              child: CircularProgressIndicator(color: theme.primaryColor),
+                              child: CircularProgressIndicator(color: Colors.orange),
                             ),
                           );
                         }
@@ -214,7 +214,7 @@ class _LibraryViewState extends ConsumerState<LibraryView> with SingleTickerProv
             ),
           );
         },
-        loading: () => Center(child: CircularProgressIndicator(color: theme.primaryColor)),
+        loading: () => const Center(child: CircularProgressIndicator(color: Colors.orange)),
         error: (err, stack) => Center(child: Text('Error: $err', style: const TextStyle(color: Colors.redAccent))),
       ),
     );
@@ -245,7 +245,7 @@ class _LibraryViewState extends ConsumerState<LibraryView> with SingleTickerProv
         children: [
           Text(
             kaomoji,
-            style: TextStyle(fontSize: 48, color: theme.primaryColor, fontWeight: FontWeight.bold),
+            style: const TextStyle(fontSize: 48, color: Colors.orangeAccent, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 16),
           Text(
@@ -255,11 +255,11 @@ class _LibraryViewState extends ConsumerState<LibraryView> with SingleTickerProv
           const SizedBox(height: 16),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: theme.primaryColor.withOpacity(0.1),
-              foregroundColor: theme.primaryColor,
+              backgroundColor: Colors.orange.withOpacity(0.1),
+              foregroundColor: Colors.orange,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(20),
-                side: BorderSide(color: theme.primaryColor, width: 1),
+                side: const BorderSide(color: Colors.orange, width: 1),
               ),
             ),
             onPressed: () {
@@ -374,7 +374,7 @@ class _LibraryViewState extends ConsumerState<LibraryView> with SingleTickerProv
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.play_circle_fill, color: theme.primaryColor, size: 10),
+                    const Icon(Icons.play_circle_fill, color: Colors.orange, size: 10),
                     const SizedBox(width: 4),
                     Text(
                       totalEpisodes.toString(),
@@ -552,7 +552,7 @@ class _FeaturedCarouselState extends State<FeaturedCarousel> {
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                 decoration: BoxDecoration(
-                                  color: Theme.of(context).primaryColor,
+                                  color: Colors.orange,
                                   borderRadius: BorderRadius.circular(6),
                                 ),
                                 child: const Text(
@@ -604,7 +604,7 @@ class _FeaturedCarouselState extends State<FeaturedCarousel> {
               width: _currentPage == index ? 16 : 8,
               height: 8,
               decoration: BoxDecoration(
-                color: _currentPage == index ? Theme.of(context).primaryColor : Colors.white24,
+                color: _currentPage == index ? Colors.orange : Colors.white24,
                 borderRadius: BorderRadius.circular(4),
               ),
             ),
