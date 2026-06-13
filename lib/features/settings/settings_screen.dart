@@ -11,8 +11,6 @@ import '../auth/auth_controller.dart';
 import '../auth/login_screen.dart';
 import '../player/pip_manager.dart';
 import 'video_settings_screen.dart';
-import '../../core/theme/app_theme.dart';
-import '../../core/theme/theme_provider.dart';
 import '../../core/widgets/whats_new_dialog.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
@@ -150,50 +148,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
-  void _showThemePickerDialog(BuildContext context) {
-    final themeType = ref.read(appThemeProvider);
-    showDialog(
-      context: context,
-      builder: (context) {
-        final theme = Theme.of(context);
-        return AlertDialog(
-          backgroundColor: theme.cardColor,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-            side: BorderSide(color: theme.colorScheme.onSurface.withOpacity(0.08), width: 1),
-          ),
-          title: const Text('Select Theme', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: AppThemeType.values.map((type) {
-              final tData = AppThemes.getTheme(type);
-              return RadioListTile<AppThemeType>(
-                activeColor: theme.primaryColor,
-                title: Text(tData.name, style: const TextStyle(color: Colors.white, fontSize: 15)),
-                value: type,
-                groupValue: themeType,
-                onChanged: (newType) {
-                  if (newType != null) {
-                    ref.read(appThemeProvider.notifier).setTheme(newType);
-                    Navigator.pop(context);
-                  }
-                },
-              );
-            }).toList(),
-          ),
-        );
-      },
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final themeType = ref.watch(appThemeProvider);
-    final activeThemeName = AppThemes.getTheme(themeType).name;
-
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: const Color(0xFF0A1128),
       appBar: AppBar(
         title: const Text('Settings', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
         backgroundColor: Colors.transparent,
@@ -203,10 +161,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          Text('Storage Management', style: TextStyle(color: theme.primaryColor, fontWeight: FontWeight.bold, fontSize: 16)),
+          const Text('Storage Management', style: TextStyle(color: Colors.blueAccent, fontWeight: FontWeight.bold, fontSize: 16)),
           const SizedBox(height: 16),
           ListTile(
-            tileColor: theme.cardColor,
+            tileColor: Colors.white.withOpacity(0.05),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             leading: const Icon(Icons.storage, color: Colors.white70),
             title: const Text('App Cache Size', style: TextStyle(color: Colors.white)),
@@ -214,7 +172,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
           const SizedBox(height: 8),
           ListTile(
-            tileColor: theme.cardColor,
+            tileColor: Colors.white.withOpacity(0.05),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             leading: const Icon(Icons.cleaning_services, color: Colors.redAccent),
             title: const Text('Clear Cache', style: TextStyle(color: Colors.white)),
@@ -223,7 +181,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
           const SizedBox(height: 8),
           ListTile(
-            tileColor: theme.cardColor,
+            tileColor: Colors.white.withOpacity(0.05),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             leading: const Icon(Icons.folder, color: Colors.orangeAccent),
             title: const Text('Download Folder', style: TextStyle(color: Colors.white)),
@@ -231,25 +189,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             trailing: const Icon(Icons.folder_open, color: Colors.white70, size: 20),
             onTap: _selectDownloadDirectory,
           ),
-          
-          const SizedBox(height: 32),
-          Text('Appearance', style: TextStyle(color: theme.primaryColor, fontWeight: FontWeight.bold, fontSize: 16)),
-          const SizedBox(height: 16),
-          ListTile(
-            tileColor: theme.cardColor,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            leading: const Icon(Icons.palette, color: Colors.white70),
-            title: const Text('App Theme', style: TextStyle(color: Colors.white)),
-            subtitle: Text(activeThemeName, style: const TextStyle(color: Colors.white54)),
-            trailing: const Icon(Icons.arrow_drop_down, color: Colors.white70),
-            onTap: () => _showThemePickerDialog(context),
-          ),
 
           const SizedBox(height: 32),
-          Text('Playback', style: TextStyle(color: theme.primaryColor, fontWeight: FontWeight.bold, fontSize: 16)),
+          const Text('Playback', style: TextStyle(color: Colors.blueAccent, fontWeight: FontWeight.bold, fontSize: 16)),
           const SizedBox(height: 16),
           ListTile(
-            tileColor: theme.cardColor,
+            tileColor: Colors.white.withOpacity(0.05),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             leading: const Icon(Icons.video_settings, color: Colors.white70),
             title: const Text('Video Player Preferences', style: TextStyle(color: Colors.white)),
@@ -261,10 +206,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
           
           const SizedBox(height: 32),
-          Text('Account', style: TextStyle(color: theme.primaryColor, fontWeight: FontWeight.bold, fontSize: 16)),
+          const Text('Account', style: TextStyle(color: Colors.blueAccent, fontWeight: FontWeight.bold, fontSize: 16)),
           const SizedBox(height: 16),
           ListTile(
-            tileColor: theme.cardColor,
+            tileColor: Colors.white.withOpacity(0.05),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             leading: const Icon(Icons.logout, color: Colors.redAccent),
             title: const Text('Logout from TelStream', style: TextStyle(color: Colors.white)),
@@ -272,10 +217,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
 
           const SizedBox(height: 32),
-          Text('Info', style: TextStyle(color: theme.primaryColor, fontWeight: FontWeight.bold, fontSize: 16)),
+          const Text('Info', style: TextStyle(color: Colors.blueAccent, fontWeight: FontWeight.bold, fontSize: 16)),
           const SizedBox(height: 16),
           ListTile(
-            tileColor: theme.cardColor,
+            tileColor: Colors.white.withOpacity(0.05),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             leading: const Icon(Icons.history_edu_rounded, color: Colors.white70),
             title: const Text("What's New / Changelog", style: TextStyle(color: Colors.white)),

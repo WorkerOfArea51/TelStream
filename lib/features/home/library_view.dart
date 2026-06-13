@@ -74,9 +74,9 @@ class _LibraryViewState extends ConsumerState<LibraryView> with SingleTickerProv
     final isDownloadedOnly = ref.watch(downloadedOnlyProvider);
 
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: Colors.black,
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
+        backgroundColor: Colors.black,
         elevation: 0,
         title: _isSearching
             ? TextField(

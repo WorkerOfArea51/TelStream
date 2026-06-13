@@ -154,7 +154,7 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
 
     final theme = Theme.of(context);
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: const Color(0xFF0A1128),
       floatingActionButton: FloatingActionButton(
         onPressed: _toggleFavorite,
         backgroundColor: isFavorite ? Colors.pinkAccent : theme.cardColor,
@@ -168,7 +168,7 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
           SliverAppBar(
             expandedHeight: 300,
             pinned: true,
-            backgroundColor: Colors.transparent,
+            backgroundColor: const Color(0xFF0A1128),
             iconTheme: const IconThemeData(color: Colors.white),
             flexibleSpace: FlexibleSpaceBar(
               centerTitle: true,

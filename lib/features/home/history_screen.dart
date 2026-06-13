@@ -24,9 +24,9 @@ class HistoryScreen extends ConsumerWidget {
 
     final theme = Theme.of(context);
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: Colors.black,
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
+        backgroundColor: Colors.black,
         elevation: 0,
         title: const Text('History', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 22)),
         actions: [

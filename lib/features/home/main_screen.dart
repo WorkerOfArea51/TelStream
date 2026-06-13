@@ -58,7 +58,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: Colors.black,
       body: IndexedStack(
         index: _currentIndex,
         children: _screens,
@@ -68,11 +68,11 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         child: BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
           child: BottomNavigationBar(
-            backgroundColor: theme.cardColor.withOpacity(0.92),
+            backgroundColor: Colors.black.withOpacity(0.85),
             elevation: 0,
             type: BottomNavigationBarType.fixed,
-            selectedItemColor: theme.primaryColor,
-            unselectedItemColor: theme.colorScheme.onSurface.withOpacity(0.4),
+            selectedItemColor: Colors.orange,
+            unselectedItemColor: Colors.white38,
             selectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
             unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.normal, fontSize: 11),
             currentIndex: _currentIndex,
@@ -81,25 +81,25 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                 _currentIndex = index;
               });
             },
-            items: [
+            items: const [
               BottomNavigationBarItem(
-                icon: const Icon(Icons.tv),
-                activeIcon: Icon(Icons.tv, color: theme.primaryColor),
+                icon: Icon(Icons.tv),
+                activeIcon: Icon(Icons.tv, color: Colors.orange),
                 label: 'Anime',
               ),
               BottomNavigationBarItem(
-                icon: const Icon(Icons.movie_outlined),
-                activeIcon: Icon(Icons.movie, color: theme.primaryColor),
+                icon: Icon(Icons.movie_outlined),
+                activeIcon: Icon(Icons.movie, color: Colors.orange),
                 label: 'Movies',
               ),
               BottomNavigationBarItem(
-                icon: const Icon(Icons.video_collection_outlined),
-                activeIcon: Icon(Icons.video_collection, color: theme.primaryColor),
+                icon: Icon(Icons.video_collection_outlined),
+                activeIcon: Icon(Icons.video_collection, color: Colors.orange),
                 label: 'Web Series',
               ),
               BottomNavigationBarItem(
-                icon: const Icon(Icons.more_horiz_outlined),
-                activeIcon: Icon(Icons.more_horiz, color: theme.primaryColor),
+                icon: Icon(Icons.more_horiz_outlined),
+                activeIcon: Icon(Icons.more_horiz, color: Colors.orange),
                 label: 'More',
               ),
             ],

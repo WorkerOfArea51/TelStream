@@ -24,7 +24,7 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
     final isIncognitoMode = ref.watch(incognitoModeProvider);
 
     return Scaffold(
-      backgroundColor: Colors.transparent,
+       backgroundColor: Colors.black,
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
