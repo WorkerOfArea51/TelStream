@@ -1,6 +1,8 @@
+import 'dart:io';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../../core/constants.dart';
 import '../../services/update_service.dart';
 import 'library_view.dart';
@@ -28,7 +30,17 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkUpdatesSilently();
+      _requestStoragePermissionSilently();
     });
+  }
+
+  Future<void> _requestStoragePermissionSilently() async {
+    if (Platform.isAndroid) {
+      final status = await Permission.storage.status;
+      if (!status.isGranted) {
+        await Permission.storage.request();
+      }
+    }
   }
 
   void _checkUpdatesSilently() async {

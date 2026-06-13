@@ -2,7 +2,11 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../../services/tdlib_service.dart';
+import '../../services/storage_service.dart';
+import '../../services/download_service.dart';
 import '../auth/auth_controller.dart';
 import '../auth/login_screen.dart';
 import '../player/pip_manager.dart';
@@ -17,11 +21,58 @@ class SettingsScreen extends ConsumerStatefulWidget {
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   String _cacheSize = "Calculating...";
+  String _downloadPath = "Default (App Private)";
 
   @override
   void initState() {
     super.initState();
     _calculateCacheSize();
+    _loadDownloadPath();
+  }
+
+  Future<void> _loadDownloadPath() async {
+    final customPath = ref.read(storageServiceProvider).getCustomDownloadDirectory();
+    setState(() {
+      _downloadPath = customPath ?? "Default (App Private)";
+    });
+  }
+
+  Future<void> _selectDownloadDirectory() async {
+    if (Platform.isAndroid) {
+      final status = await Permission.storage.status;
+      if (!status.isGranted) {
+        final reqStatus = await Permission.storage.request();
+        if (!reqStatus.isGranted) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Storage permission is required to choose a custom downloads folder.'),
+                backgroundColor: Colors.redAccent,
+              ),
+            );
+          }
+          return;
+        }
+      }
+    }
+
+    final String? selectedDirectory = await FilePicker.platform.getDirectoryPath();
+    if (selectedDirectory != null) {
+      await ref.read(storageServiceProvider).setCustomDownloadDirectory(selectedDirectory);
+      setState(() {
+        _downloadPath = selectedDirectory;
+      });
+      await ref.read(downloadControllerProvider.notifier).reloadDownloads();
+      await _calculateCacheSize();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Download folder updated to: $selectedDirectory'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _calculateCacheSize() async {
@@ -32,6 +83,19 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         await for (var entity in dir.list(recursive: true, followLinks: false)) {
           if (entity is File) {
             totalSize += await entity.length();
+          }
+        }
+      }
+      
+      // Also calculate custom download directory size if set
+      final customPath = ref.read(storageServiceProvider).getCustomDownloadDirectory();
+      if (customPath != null && customPath.isNotEmpty) {
+        final customDir = Directory(customPath);
+        if (await customDir.exists()) {
+          await for (var entity in customDir.list(recursive: true, followLinks: false)) {
+            if (entity is File) {
+              totalSize += await entity.length();
+            }
           }
         }
       }
@@ -106,6 +170,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             title: const Text('Clear Cache', style: TextStyle(color: Colors.white)),
             subtitle: const Text('TelStream caches videos and poster images. Clearing this deletes them and frees up storage.', style: TextStyle(color: Colors.white54)),
             onTap: _clearCache,
+          ),
+          const SizedBox(height: 8),
+          ListTile(
+            tileColor: Colors.white.withValues(alpha: 0.05),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            leading: const Icon(Icons.folder, color: Colors.orangeAccent),
+            title: const Text('Download Folder', style: TextStyle(color: Colors.white)),
+            subtitle: Text(_downloadPath, style: const TextStyle(color: Colors.white54, fontSize: 11)),
+            trailing: const Icon(Icons.folder_open, color: Colors.white70, size: 20),
+            onTap: _selectDownloadDirectory,
           ),
           
           const SizedBox(height: 32),

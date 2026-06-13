@@ -7,7 +7,7 @@ import 'features/auth/login_screen.dart';
 import 'features/home/main_screen.dart';
 import 'features/auth/auth_controller.dart';
 import 'services/storage_service.dart';
-import 'features/player/pip_manager.dart';
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
@@ -56,22 +56,7 @@ class TelStreamApp extends ConsumerWidget {
         ),
       ),
       builder: (context, child) {
-        if (child == null) return const SizedBox.shrink();
-        return Consumer(
-          builder: (context, ref, _) {
-            final pipState = ref.watch(pipControllerProvider);
-            final isFullscreenPlayerActive = pipState != null && !pipState.isPip;
-            return PopScope(
-              canPop: !isFullscreenPlayerActive,
-              onPopInvokedWithResult: (didPop, result) {
-                if (!didPop && isFullscreenPlayerActive) {
-                  ref.read(pipControllerProvider.notifier).close();
-                }
-              },
-              child: child,
-            );
-          },
-        );
+        return child ?? const SizedBox.shrink();
       },
       home: const AuthWrapper(),
     );

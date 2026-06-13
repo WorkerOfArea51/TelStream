@@ -347,11 +347,8 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
     }
 
     return PopScope(
-      canPop: false,
-      onPopInvokedWithResult: (didPop, result) {
-        if (didPop) return;
-        ref.read(pipControllerProvider.notifier).close();
-      },
+      canPop: true,
+      onPopInvokedWithResult: (didPop, result) {},
       child: Scaffold(
         backgroundColor: Colors.black,
         body: Center(
@@ -363,7 +360,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
                 isPip: widget.isPip,
                 downloadedPrefixSize: _downloadedPrefixSize,
                 expectedSize: _expectedSize,
-                onBack: () => ref.read(pipControllerProvider.notifier).close(),
+                onBack: () => Navigator.of(context).pop(),
                 hasPrevEpisode: widget.episodeList != null && widget.currentEpisodeIndex != null && widget.currentEpisodeIndex! > 0,
                 hasNextEpisode: widget.episodeList != null && widget.currentEpisodeIndex != null && widget.currentEpisodeIndex! + 1 < widget.episodeList!.length,
                 onPrevEpisode: _playPreviousEpisode,

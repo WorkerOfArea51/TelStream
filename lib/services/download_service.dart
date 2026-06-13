@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tdlib/td_api.dart' as td;
 import 'package:path_provider/path_provider.dart';
 import 'tdlib_service.dart';
+import 'storage_service.dart';
 
 class DownloadTask {
   final int fileId;
@@ -47,10 +48,30 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
     return {};
   }
 
+  Future<Directory> _getEffectiveDownloadsDirectory() async {
+    final storage = ref.read(storageServiceProvider);
+    final customPath = storage.getCustomDownloadDirectory();
+    if (customPath != null && customPath.isNotEmpty) {
+      final dir = Directory(customPath);
+      if (await dir.exists()) {
+        return dir;
+      }
+    }
+    final appDocDir = await getApplicationDocumentsDirectory();
+    final defaultDir = Directory('${appDocDir.path}/downloads');
+    if (!await defaultDir.exists()) {
+      await defaultDir.create(recursive: true);
+    }
+    return defaultDir;
+  }
+
+  Future<void> reloadDownloads() async {
+    await _init();
+  }
+
   Future<void> _init() async {
     try {
-      final appDocDir = await getApplicationDocumentsDirectory();
-      final downloadsDir = Directory('${appDocDir.path}/downloads');
+      final downloadsDir = await _getEffectiveDownloadsDirectory();
       if (await downloadsDir.exists()) {
         final List<FileSystemEntity> entities = await downloadsDir.list().toList();
         final Map<int, DownloadTask> loadedTasks = {};
@@ -152,8 +173,7 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
 
   Future<void> _saveFilePermanently(int fileId, String tempPath, String title) async {
     try {
-      final appDocDir = await getApplicationDocumentsDirectory();
-      final downloadsDir = Directory('${appDocDir.path}/downloads');
+      final downloadsDir = await _getEffectiveDownloadsDirectory();
       if (!await downloadsDir.exists()) {
         await downloadsDir.create(recursive: true);
       }

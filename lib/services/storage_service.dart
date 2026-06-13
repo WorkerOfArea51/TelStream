@@ -171,6 +171,17 @@ class StorageService {
     _data['video_settings'] = settings;
     await _save();
   }
+
+  // --- Download Directory ---
+
+  String? getCustomDownloadDirectory() {
+    return _data['custom_download_directory'] as String?;
+  }
+
+  Future<void> setCustomDownloadDirectory(String? path) async {
+    _data['custom_download_directory'] = path;
+    await _save();
+  }
 }
 
 class FavoritesNotifier extends Notifier<List<String>> {
