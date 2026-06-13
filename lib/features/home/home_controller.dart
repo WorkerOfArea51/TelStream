@@ -81,81 +81,9 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
     if (_currentQuery == query) return;
     _currentQuery = query;
     
-    if (query.isEmpty) {
-      if (state.value != null) {
-        state = AsyncValue.data(_applySearchAndSort(_allSeries));
-      }
-      return;
+    if (state.value != null || _allSeries.isNotEmpty) {
+      state = AsyncValue.data(_applySearchAndSort(_allSeries));
     }
-
-    state = const AsyncValue.loading();
-
-    try {
-      final tdlibService = ref.read(tdlibServiceProvider);
-      
-      final response = await tdlibService.sendAsync(td.SearchChatMessages(
-        chatId: category.channelId,
-        query: query,
-        filter: const td.SearchMessagesFilterPhoto(),
-        messageThreadId: 0,
-        limit: 100,
-        offset: 0,
-        fromMessageId: 0,
-      )).timeout(
-        const Duration(seconds: 8),
-        onTimeout: () => td.TdError(code: 408, message: "Request Timeout"),
-      );
-
-      if (response is td.TdError) {
-        throw Exception("Search failed: ${response.message}");
-      }
-
-      List<td.Message> messages = [];
-      if (response is td.Messages) {
-        messages = response.messages;
-      } else if (response is td.FoundMessages) {
-        messages = response.messages;
-      }
-
-      final searchSeries = _parseSearchResults(messages);
-      state = AsyncValue.data(_applySearchAndSort(searchSeries));
-    } catch (e, stack) {
-      state = AsyncValue.error(e, stack);
-    }
-  }
-
-  List<AnimeSeries> _parseSearchResults(List<td.Message> searchResultMessages) {
-    List<AnimeSeries> seriesList = [];
-    Map<String, AnimeSeries> seriesMap = {};
-
-    for (final msg in searchResultMessages) {
-      if (msg.content is td.MessagePhoto) {
-        final photo = msg.content as td.MessagePhoto;
-        final captionText = photo.caption.text;
-        
-        if (captionText.isNotEmpty) {
-          final lines = captionText.split('\n');
-          final fullTitle = lines.first.trim();
-          final baseName = _normalizeSeriesName(fullTitle);
-          
-          final newSeason = AnimeSeason(
-            fullTitle: fullTitle,
-            seasonName: fullTitle == baseName ? 'Season 1' : fullTitle.replaceFirst(baseName, '').replaceAll(':', '').trim(),
-            posterMessage: msg,
-            episodes: [], // Episodes will be fetched dynamically on-demand!
-          );
-          
-          if (!seriesMap.containsKey(baseName)) {
-            seriesMap[baseName] = AnimeSeries(coreName: baseName, seasons: []);
-            seriesList.add(seriesMap[baseName]!);
-          }
-          
-          seriesMap[baseName]!.seasons.add(newSeason);
-        }
-      }
-    }
-
-    return seriesList;
   }
 
   Future<void> loadMore() async {
@@ -243,7 +171,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
     // 1. First, load the initial batch using onlyLocal: true to render instantly
     int iterations = 0;
     int currentFromId = 0;
-    while (_allSeries.length < 10 && _hasMore && iterations < 10) {
+    while (_hasMore && iterations < 50) {
       iterations++;
       final localMessages = await _fetchMessages(fromId: currentFromId, onlyLocal: true);
       if (localMessages.isEmpty) {
@@ -575,7 +503,7 @@ class SeasonSortKey implements Comparable<SeasonSortKey> {
   static SeasonSortKey fromSeason(AnimeSeason season) {
     final name = season.seasonName;
     final lower = name.toLowerCase();
-    int sNum = 0; // Default to 0 for custom arc names/no numbers detected
+    int sNum = 90; // Default to 90 for custom arc names/no numbers detected to place them after numbered seasons
     double pNum = 0.0;
 
     // Check for special keywords first
@@ -587,12 +515,18 @@ class SeasonSortKey implements Comparable<SeasonSortKey> {
       // Look for "season X" or "sX"
       final match = RegExp(r'(?:season|s)\s*(\d+)').firstMatch(lower);
       if (match != null) {
-        sNum = int.tryParse(match.group(1)!) ?? 0;
+        sNum = int.tryParse(match.group(1)!) ?? 90;
       } else {
-        // Look for any isolated number in the season name
-        final matchAny = RegExp(r'\b(\d+)\b').firstMatch(lower);
-        if (matchAny != null) {
-          sNum = int.tryParse(matchAny.group(1)!) ?? 0;
+        // Look for a number at the start of the string (e.g. "1.Agent..." or "14.Lost...")
+        final matchStart = RegExp(r'^\s*(\d+)').firstMatch(lower);
+        if (matchStart != null) {
+          sNum = int.tryParse(matchStart.group(1)!) ?? 90;
+        } else {
+          // Look for any other isolated number in the season name
+          final matchAny = RegExp(r'\b(\d+)\b').firstMatch(lower);
+          if (matchAny != null) {
+            sNum = int.tryParse(matchAny.group(1)!) ?? 90;
+          }
         }
       }
     }

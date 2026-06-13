@@ -55,6 +55,7 @@ class HistoryScreen extends ConsumerWidget {
 
                 td.Message? episodeMsg;
                 td.File? posterFile;
+                td.Minithumbnail? minithumbnail;
                 int? fileId;
                 String epFileName = '';
 
@@ -68,6 +69,7 @@ class HistoryScreen extends ConsumerWidget {
                     if (photo.photo.sizes.isNotEmpty) {
                       posterFile = photo.photo.sizes.last.photo;
                     }
+                    minithumbnail = photo.photo.minithumbnail;
                   }
 
                   // Find episode message by index or messageId
@@ -125,7 +127,13 @@ class HistoryScreen extends ConsumerWidget {
                         borderRadius: BorderRadius.circular(4),
                       ),
                       clipBehavior: Clip.hardEdge,
-                      child: TdThumbnail(file: posterFile, width: 50, height: 70),
+                      child: TdThumbnail(
+                        file: posterFile,
+                        minithumbnail: minithumbnail,
+                        autoDownload: true,
+                        width: 50,
+                        height: 70,
+                      ),
                     ),
                     title: AlignedNameText(
                       text: seriesName,

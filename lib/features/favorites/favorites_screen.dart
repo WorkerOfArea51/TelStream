@@ -7,6 +7,7 @@ import '../home/episode_list_screen.dart';
 import '../../core/widgets/td_thumbnail.dart';
 import '../../core/widgets/aligned_name_text.dart';
 import 'package:tdlib/td_api.dart' as td;
+import '../../core/constants.dart';
 
 class FavoritesScreen extends ConsumerWidget {
   const FavoritesScreen({Key? key}) : super(key: key);
@@ -76,19 +77,21 @@ class FavoritesScreen extends ConsumerWidget {
         final latestPoster = series.seasons.isNotEmpty ? series.seasons.first.posterMessage : null;
         
         td.File? posterFile;
+        td.Minithumbnail? minithumbnail;
         if (latestPoster != null && latestPoster.content is td.MessagePhoto) {
           final photo = latestPoster.content as td.MessagePhoto;
           if (photo.photo.sizes.isNotEmpty) {
             posterFile = photo.photo.sizes.last.photo;
           }
+          minithumbnail = photo.photo.minithumbnail;
         }
 
         return GestureDetector(
           onTap: () {
             Navigator.push(
               context,
-              MaterialPageRoute(
-                builder: (context) => EpisodeListScreen(
+              PremiumPageRoute(
+                child: EpisodeListScreen(
                   season: series.seasons.first,
                   series: series,
                   heroTag: 'hero_poster_fav_${series.coreName}',
@@ -109,6 +112,8 @@ class FavoritesScreen extends ConsumerWidget {
                   tag: 'hero_poster_fav_${series.coreName}',
                   child: TdThumbnail(
                     file: posterFile,
+                    minithumbnail: minithumbnail,
+                    autoDownload: true,
                     width: double.infinity,
                     height: double.infinity,
                   ),

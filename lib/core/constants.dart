@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'secrets.dart';
 
 class ChannelCategory {
@@ -35,4 +36,27 @@ class Constants {
       inviteLink: 'https://t.me/placeholder_series', // PLACEHOLDER
     ),
   ];
+}
+
+class PremiumPageRoute<T> extends PageRouteBuilder<T> {
+  final Widget child;
+  PremiumPageRoute({required this.child})
+      : super(
+          pageBuilder: (context, animation, secondaryAnimation) => child,
+          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+            const begin = Offset(1.0, 0.0);
+            const end = Offset.zero;
+            const curve = Curves.easeInOutCubic;
+            var tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
+            return SlideTransition(
+              position: animation.drive(tween),
+              child: FadeTransition(
+                opacity: animation,
+                child: child,
+              ),
+            );
+          },
+          transitionDuration: const Duration(milliseconds: 350),
+          reverseTransitionDuration: const Duration(milliseconds: 250),
+        );
 }

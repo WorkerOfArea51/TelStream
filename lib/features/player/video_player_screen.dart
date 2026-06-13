@@ -281,8 +281,10 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
     } catch (_) {}
 
     try {
-      _tdlibService.send(td.CancelDownloadFile(fileId: widget.videoFileId, onlyIfPending: false));
-      _tdlibService.send(td.DeleteFile(fileId: widget.videoFileId)); 
+      if (widget.networkUrl == null && widget.videoFileId != 0) {
+        _tdlibService.send(td.CancelDownloadFile(fileId: widget.videoFileId, onlyIfPending: false));
+        _tdlibService.send(td.DeleteFile(fileId: widget.videoFileId)); 
+      }
     } catch (_) {}
     
     super.dispose();
@@ -348,7 +350,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
       canPop: false,
       onPopInvokedWithResult: (didPop, result) {
         if (didPop) return;
-        ref.read(pipControllerProvider.notifier).minimize();
+        ref.read(pipControllerProvider.notifier).close();
       },
       child: Scaffold(
         backgroundColor: Colors.black,
@@ -361,7 +363,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
                 isPip: widget.isPip,
                 downloadedPrefixSize: _downloadedPrefixSize,
                 expectedSize: _expectedSize,
-                onBack: () => ref.read(pipControllerProvider.notifier).minimize(),
+                onBack: () => ref.read(pipControllerProvider.notifier).close(),
                 hasPrevEpisode: widget.episodeList != null && widget.currentEpisodeIndex != null && widget.currentEpisodeIndex! > 0,
                 hasNextEpisode: widget.episodeList != null && widget.currentEpisodeIndex != null && widget.currentEpisodeIndex! + 1 < widget.episodeList!.length,
                 onPrevEpisode: _playPreviousEpisode,

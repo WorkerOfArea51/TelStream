@@ -288,8 +288,8 @@ class _LibraryViewState extends ConsumerState<LibraryView> with SingleTickerProv
       onTap: () {
         Navigator.push(
           context,
-          MaterialPageRoute(
-            builder: (context) => EpisodeListScreen(
+          PremiumPageRoute(
+            child: EpisodeListScreen(
               season: series.seasons.first,
               series: series,
               heroTag: 'hero_library_${widget.category.title}_${series.coreName}',
@@ -300,7 +300,15 @@ class _LibraryViewState extends ConsumerState<LibraryView> with SingleTickerProv
       child: Container(
         decoration: BoxDecoration(
           color: const Color(0xFF1C1C1E),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.white.withOpacity(0.08), width: 1),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.4),
+              blurRadius: 8,
+              offset: const Offset(0, 4),
+            )
+          ],
         ),
         clipBehavior: Clip.hardEdge,
         child: Stack(
@@ -311,7 +319,7 @@ class _LibraryViewState extends ConsumerState<LibraryView> with SingleTickerProv
               child: TdThumbnail(
                 file: posterFile,
                 minithumbnail: minithumbnail,
-                autoDownload: false,
+                autoDownload: true,
                 width: double.infinity,
                 height: double.infinity,
               ),
@@ -324,46 +332,56 @@ class _LibraryViewState extends ConsumerState<LibraryView> with SingleTickerProv
                   end: Alignment.bottomCenter,
                   colors: [
                     Colors.transparent,
-                    Colors.black.withValues(alpha: 0.85),
+                    Colors.black.withOpacity(0.1),
+                    Colors.black.withOpacity(0.95),
                   ],
-                  stops: const [0.5, 1.0],
+                  stops: const [0.4, 0.7, 1.0],
                 ),
               ),
             ),
             
             Positioned(
-              left: 8,
-              right: 8,
-              bottom: 8,
+              left: 10,
+              right: 10,
+              bottom: 10,
               child: AlignedNameText(
                 text: series.coreName,
                 style: const TextStyle(
                   color: Colors.white,
-                  fontSize: 14,
+                  fontSize: 13.5,
                   fontWeight: FontWeight.bold,
+                  letterSpacing: 0.2,
                 ),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
             ),
             
-            // Top-left Orange Badge (total episodes available)
+            // Glassmorphic pill badge for total episodes available
             Positioned(
-              top: 6,
-              left: 6,
+              top: 8,
+              left: 8,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: Colors.orange,
-                  borderRadius: BorderRadius.circular(4),
+                  color: Colors.black.withOpacity(0.65),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.white24, width: 0.8),
                 ),
-                child: Text(
-                  totalEpisodes.toString(),
-                  style: const TextStyle(
-                    color: Colors.black,
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                  ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.play_circle_fill, color: Colors.orange, size: 10),
+                    const SizedBox(width: 4),
+                    Text(
+                      totalEpisodes.toString(),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -471,8 +489,8 @@ class _FeaturedCarouselState extends State<FeaturedCarousel> {
                   onTap: () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(
-                        builder: (context) => EpisodeListScreen(
+                      PremiumPageRoute(
+                        child: EpisodeListScreen(
                           season: series.seasons.first,
                           series: series,
                           heroTag: 'hero_featured_${widget.categoryTitle}_${series.coreName}',
@@ -501,7 +519,7 @@ class _FeaturedCarouselState extends State<FeaturedCarousel> {
                           child: TdThumbnail(
                             file: posterFile,
                             minithumbnail: minithumbnail,
-                            autoDownload: false,
+                            autoDownload: true,
                             width: double.infinity,
                             height: double.infinity,
                             alignment: Alignment.topCenter,

@@ -239,8 +239,10 @@ class _UpdateDialogContentState extends State<UpdateDialogContent> {
 
   Future<void> _fallbackBrowserDownload() async {
     final uri = Uri.parse(widget.updateInfo.releaseUrl);
-    if (await canLaunchUrl(uri)) {
+    try {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } catch (e) {
+      debugPrint("Error launching browser update URL: $e");
     }
     if (mounted) {
       Navigator.pop(context);

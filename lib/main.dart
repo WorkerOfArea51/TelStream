@@ -65,7 +65,7 @@ class TelStreamApp extends ConsumerWidget {
               canPop: !isFullscreenPlayerActive,
               onPopInvokedWithResult: (didPop, result) {
                 if (!didPop && isFullscreenPlayerActive) {
-                  ref.read(pipControllerProvider.notifier).minimize();
+                  ref.read(pipControllerProvider.notifier).close();
                 }
               },
               child: child,

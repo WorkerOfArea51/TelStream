@@ -454,8 +454,10 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
 
   void _launchURL(String urlString) async {
     final uri = Uri.parse(urlString);
-    if (await canLaunchUrl(uri)) {
+    try {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } catch (e) {
+      debugPrint("Could not launch URL: $e");
     }
   }
 

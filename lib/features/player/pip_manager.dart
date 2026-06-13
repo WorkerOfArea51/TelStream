@@ -150,9 +150,7 @@ class PipController extends Notifier<PipVideoState?> {
   }
 
   void minimize() {
-    if (state != null) {
-      state = state!.copyWith(isPip: true);
-    }
+    close();
   }
 
   void maximize() {
