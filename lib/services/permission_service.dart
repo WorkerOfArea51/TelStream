@@ -39,11 +39,22 @@ class PermissionService {
       }
     }
 
-    // 2. Notification Permission (required on Android 13+ / SDK 33+)
+    // 2. Notification and Media Storage Permissions (required on Android 13+ / SDK 33+)
     if (sdk >= 33) {
       final notificationStatus = await Permission.notification.status;
       if (!notificationStatus.isGranted && !notificationStatus.isPermanentlyDenied) {
         await Permission.notification.request();
+      }
+
+      // Request modern media permissions so the OS shows the media storage option in settings
+      final videosStatus = await Permission.videos.status;
+      if (!videosStatus.isGranted && !videosStatus.isPermanentlyDenied) {
+        await Permission.videos.request();
+      }
+
+      final photosStatus = await Permission.photos.status;
+      if (!photosStatus.isGranted && !photosStatus.isPermanentlyDenied) {
+        await Permission.photos.request();
       }
     }
   }
