@@ -38,7 +38,15 @@ jobs:
           mkdir -p lib/core
           echo "class Secrets { static const int apiId = ${{ secrets.TELEGRAM_API_ID }}; static const String apiHash = '${{ secrets.TELEGRAM_API_HASH }}'; static const String buildTag = 'Build #${{ github.run_number }}'; static const int animeChannelId = ${{ secrets.ANIME_CHANNEL_ID }}; static const String animeInviteLink = '${{ secrets.ANIME_INVITE_LINK }}'; }" > lib/core/secrets.dart
 
+      - name: Decode Keystore
+        run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/upload-keystore.jks
+
       - name: Build Split APKs (ARM64 and ARM32)
+        env:
+          KEYSTORE_FILE: upload-keystore.jks
+          KEYSTORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
           flutter build apk --split-per-abi --target-platform android-arm,android-arm64 --release --build-number=${{ github.run_number }}
           cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk build/app/outputs/flutter-apk/telstream-arm64.apk

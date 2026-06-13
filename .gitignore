@@ -46,6 +46,8 @@ app.*.map.json
 
 # Local secrets
 /lib/core/secrets.dart
+*.jks
+keystore_base64.txt
 
 # Native binaries
 *.so
