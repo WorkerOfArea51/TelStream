@@ -505,7 +505,7 @@ class SeasonSortKey implements Comparable<SeasonSortKey> {
   static SeasonSortKey fromSeason(AnimeSeason season) {
     final name = season.seasonName;
     final lower = name.toLowerCase();
-    int sNum = 90; // Default to 90 for custom arc names/no numbers detected to place them after numbered seasons
+    int sNum = 1; // Default to 1 (base Season 1) if no numbers detected, so it sorts before Season 2+
     double pNum = 0.0;
 
     // Check for special keywords first
@@ -517,17 +517,17 @@ class SeasonSortKey implements Comparable<SeasonSortKey> {
       // Look for "season X" or "sX"
       final match = RegExp(r'(?:season|s)\s*(\d+)').firstMatch(lower);
       if (match != null) {
-        sNum = int.tryParse(match.group(1)!) ?? 90;
+        sNum = int.tryParse(match.group(1)!) ?? 1;
       } else {
         // Look for a number at the start of the string (e.g. "1.Agent..." or "14.Lost...")
         final matchStart = RegExp(r'^\s*(\d+)').firstMatch(lower);
         if (matchStart != null) {
-          sNum = int.tryParse(matchStart.group(1)!) ?? 90;
+          sNum = int.tryParse(matchStart.group(1)!) ?? 1;
         } else {
           // Look for any other isolated number in the season name
           final matchAny = RegExp(r'\b(\d+)\b').firstMatch(lower);
           if (matchAny != null) {
-            sNum = int.tryParse(matchAny.group(1)!) ?? 90;
+            sNum = int.tryParse(matchAny.group(1)!) ?? 1;
           }
         }
       }
