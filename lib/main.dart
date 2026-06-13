@@ -48,7 +48,7 @@ class TelStreamApp extends ConsumerWidget {
           primary: activeTheme.primaryColor,
           surface: activeTheme.cardColor,
         ),
-        scaffoldBackgroundColor: Colors.transparent,
+        scaffoldBackgroundColor: activeTheme.scaffoldBackgroundColor,
         appBarTheme: AppBarTheme(
           backgroundColor: Colors.transparent,
           foregroundColor: activeTheme.textColor,

@@ -38,10 +38,10 @@ class AppThemes {
     name: 'Sunset Cyberpunk',
     brightness: Brightness.dark,
     primaryColor: const Color(0xFFFF5E36),
-    cardColor: const Color(0xFF140F26),
-    scaffoldBackgroundColor: Colors.transparent,
+    cardColor: const Color(0xFF1C1C1E),
+    scaffoldBackgroundColor: Colors.black,
     backgroundGradient: const LinearGradient(
-      colors: [Color(0xFF0F0C20), Color(0xFF060410)],
+      colors: [Colors.black, Colors.black],
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
     ),
@@ -58,10 +58,10 @@ class AppThemes {
     name: 'Aurora Abyss',
     brightness: Brightness.dark,
     primaryColor: const Color(0xFF00FF87),
-    cardColor: const Color(0xFF06141B),
-    scaffoldBackgroundColor: Colors.transparent,
+    cardColor: const Color(0xFF1C1C1E),
+    scaffoldBackgroundColor: Colors.black,
     backgroundGradient: const LinearGradient(
-      colors: [Color(0xFF02161E), Color(0xFF010609)],
+      colors: [Colors.black, Colors.black],
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
     ),
@@ -78,10 +78,10 @@ class AppThemes {
     name: 'Solaris Flare',
     brightness: Brightness.dark,
     primaryColor: const Color(0xFFFFB703),
-    cardColor: const Color(0xFF1A1107),
-    scaffoldBackgroundColor: Colors.transparent,
+    cardColor: const Color(0xFF1C1C1E),
+    scaffoldBackgroundColor: Colors.black,
     backgroundGradient: const LinearGradient(
-      colors: [Color(0xFF160E05), Color(0xFF050301)],
+      colors: [Colors.black, Colors.black],
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
     ),
@@ -98,10 +98,10 @@ class AppThemes {
     name: 'Classic Navy',
     brightness: Brightness.dark,
     primaryColor: const Color(0xFF00B4D8),
-    cardColor: const Color(0xFF0C162D),
-    scaffoldBackgroundColor: Colors.transparent,
+    cardColor: const Color(0xFF1C1C1E),
+    scaffoldBackgroundColor: Colors.black,
     backgroundGradient: const LinearGradient(
-      colors: [Color(0xFF081636), Color(0xFF000E26)],
+      colors: [Colors.black, Colors.black],
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
     ),
@@ -139,9 +139,7 @@ class ThemeBackground extends ConsumerWidget {
     final themeData = AppThemes.getTheme(themeType);
 
     return Container(
-      decoration: BoxDecoration(
-        gradient: themeData.backgroundGradient,
-      ),
+      color: themeData.scaffoldBackgroundColor,
       child: child,
     );
   }
