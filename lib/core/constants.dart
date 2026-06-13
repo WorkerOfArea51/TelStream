@@ -14,28 +14,27 @@ class ChannelCategory {
 }
 
 class Constants {
-  static const String currentVersion = '2.0.0';
+  static const String currentVersion = '2.0.1';
   static const String changelog = '''
-### 🚀 What's New in v2.0.0
+### 🚀 What's New in v2.0.1
 
-We've rolled out a major stable release with background capabilities and premium styling updates!
+We've rolled out a minor update to restore our classic look and fix build stability!
 
-#### 📥 Native Background Downloads
-* **Active Background Services**: Downloads now continue running seamlessly even if you minimize or close the app.
-* **Notification Center Progress**: Real-time download progress bar and indicators in your Android notification tray.
-* **Recents Dismiss Cleanup**: Closing the app from the Recents menu automatically halts active downloads and wipes temporary cache to save your device space.
-* **Video Player Exit Fix**: Disposing the player no longer cancels/deletes background downloads that are explicitly started by you.
+#### 🎨 Reverted to Classic Theme
+* **Orange-Black Theme**: Main tabs are back to pure solid black backgrounds (`Colors.black`) with vibrant orange accent colors.
+* **Fixed Library Tabs**: The **All** tab is now fully visible beside the **Favorites** tab (no white-on-white text issues).
+* **More Screen Restored**: Menu list items now feature classic bright orange icons, and the TelStream play logo is reverted to its original cyan-glow design.
+* **Bluish-Black Settings**: Deep bluish-black styling (`#0A1128`) is restored across Settings, Video Preferences, and the Episode List view.
 
-#### 🎨 Custom Gradient Themes
-* **Vibrant Gradient Palettes**: Personalize the look with 4 gorgeous, premium options:
-  * **Sunset Cyberpunk** (Neon Pink/Amber accents)
-  * **Aurora Abyss** (Soothing Teal/Cyan glows)
-  * **Solaris Flare** (Solar Gold/Crimson highlights)
-  * **Classic Navy** (Elegant Royal Blue gradients)
-* **Solid Surfaces**: Clean, robust cards and tiles with no glassmorphism for enhanced readability.
+#### 📥 Stable Background Downloads
+* **Background Sync**: Active background downloads continue seamlessly in the system drawer even if the app is closed or minimized.
+* **Recents Dismiss Cleanup**: Swiping away the app from your recents menu automatically halts downloads and purges the TDLib cache to save storage.
+* **Exit Playback Safety**: Exiting the video player no longer deletes or cancels your started background downloads.
+* **Autoplay Pausing**: Video playback now automatically pauses when you minimize the app.
 
-#### ⚙️ Other Optimizations
-* Memory efficiency and TDLib disk cache auto-cleanup on startup.
+#### ⚙️ Bug Fixes & Improvements
+* Fixed Flutter compile errors related to constant constraints in the navigation menus.
+* Added a dynamic Markdown parser for cleaner and rich presentation of in-app update notes.
 ''';
 
   // Telegram API Credentials from secrets.dart
