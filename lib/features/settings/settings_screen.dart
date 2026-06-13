@@ -38,41 +38,73 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   Future<void> _selectDownloadDirectory() async {
+    bool permissionGranted = true;
     if (Platform.isAndroid) {
-      final status = await Permission.storage.status;
-      if (!status.isGranted) {
-        final reqStatus = await Permission.storage.request();
-        if (!reqStatus.isGranted) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Storage permission is required to choose a custom downloads folder.'),
-                backgroundColor: Colors.redAccent,
-              ),
-            );
-          }
-          return;
+      final sdkVersion = _getAndroidSdkVersion();
+      if (sdkVersion > 0 && sdkVersion < 33) {
+        final status = await Permission.storage.status;
+        if (!status.isGranted) {
+          final reqStatus = await Permission.storage.request();
+          permissionGranted = reqStatus.isGranted;
         }
       }
     }
 
-    final String? selectedDirectory = await FilePicker.platform.getDirectoryPath();
-    if (selectedDirectory != null) {
-      await ref.read(storageServiceProvider).setCustomDownloadDirectory(selectedDirectory);
-      setState(() {
-        _downloadPath = selectedDirectory;
-      });
-      await ref.read(downloadControllerProvider.notifier).reloadDownloads();
-      await _calculateCacheSize();
+    if (!permissionGranted) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Storage permission is required to choose a custom downloads folder on this version of Android.'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+      return;
+    }
+
+    try {
+      final String? selectedDirectory = await FilePicker.platform.getDirectoryPath();
+      if (selectedDirectory != null) {
+        await ref.read(storageServiceProvider).setCustomDownloadDirectory(selectedDirectory);
+        setState(() {
+          _downloadPath = selectedDirectory;
+        });
+        await ref.read(downloadControllerProvider.notifier).reloadDownloads();
+        await _calculateCacheSize();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Download folder updated to: $selectedDirectory'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      }
+    } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Download folder updated to: $selectedDirectory'),
-            backgroundColor: Colors.green,
+            content: Text('Failed to select directory: $e'),
+            backgroundColor: Colors.redAccent,
           ),
         );
       }
     }
+  }
+
+  int _getAndroidSdkVersion() {
+    if (!Platform.isAndroid) return 0;
+    try {
+      final versionStr = Platform.operatingSystemVersion;
+      final sdkIndex = versionStr.indexOf('SDK ');
+      if (sdkIndex != -1) {
+        final sdkStr = versionStr.substring(sdkIndex + 4);
+        final closingParen = sdkStr.indexOf(')');
+        final numStr = closingParen != -1 ? sdkStr.substring(0, closingParen) : sdkStr;
+        return int.tryParse(numStr.trim()) ?? 0;
+      }
+    } catch (_) {}
+    return 0;
   }
 
   Future<void> _calculateCacheSize() async {
