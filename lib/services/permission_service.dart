@@ -12,12 +12,10 @@ class PermissionService {
     if (!Platform.isAndroid) return 0;
     try {
       final versionStr = Platform.operatingSystemVersion;
-      final sdkIndex = versionStr.indexOf('SDK ');
-      if (sdkIndex != -1) {
-        final sdkStr = versionStr.substring(sdkIndex + 4);
-        final closingParen = sdkStr.indexOf(')');
-        final numStr = closingParen != -1 ? sdkStr.substring(0, closingParen) : sdkStr;
-        return int.tryParse(numStr.trim()) ?? 0;
+      // Matches both "API 33" and "SDK 33" formats robustly
+      final match = RegExp(r'(?:API|SDK)\s*(\d+)').firstMatch(versionStr);
+      if (match != null) {
+        return int.tryParse(match.group(1) ?? '') ?? 0;
       }
     } catch (_) {}
     return 0;
