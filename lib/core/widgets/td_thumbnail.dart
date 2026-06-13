@@ -57,7 +57,7 @@ class _TdThumbnailState extends ConsumerState<TdThumbnail> {
     }
     
     final file = widget.file!;
-    if (file.local.path.isNotEmpty) {
+    if (file.local.path.isNotEmpty && File(file.local.path).existsSync()) {
       if (isInit) {
         _localPath = file.local.path;
       } else {
@@ -71,7 +71,7 @@ class _TdThumbnailState extends ConsumerState<TdThumbnail> {
       }
       _sub = _tdlibService.updates.listen((event) {
         if (event is td.UpdateFile && event.file.id == file.id) {
-          if (event.file.local.path.isNotEmpty && mounted) {
+          if (event.file.local.path.isNotEmpty && File(event.file.local.path).existsSync() && mounted) {
             setState(() => _localPath = event.file.local.path);
           }
         }
@@ -103,27 +103,34 @@ class _TdThumbnailState extends ConsumerState<TdThumbnail> {
   @override
   Widget build(BuildContext context) {
     final imagePath = _localPath;
+    final fileExists = imagePath != null && File(imagePath).existsSync();
+
     return ClipRRect(
       borderRadius: BorderRadius.circular(12),
       child: Container(
         width: widget.width,
         height: widget.height,
         color: const Color(0xFF0F172A), // Slate 900
-        foregroundDecoration: imagePath != null
-            ? BoxDecoration(
-                image: DecorationImage(
-                  image: FileImage(File(imagePath)),
-                  fit: widget.fit,
-                  alignment: widget.alignment,
-                ),
+        child: fileExists
+            ? Image.file(
+                File(imagePath),
+                fit: widget.fit,
+                alignment: widget.alignment,
+                errorBuilder: (context, error, stackTrace) {
+                  return _buildPlaceholder();
+                },
               )
-            : null,
-        alignment: Alignment.center,
-        child: const Icon(
-          Icons.movie,
-          color: Colors.white24,
-          size: 40,
-        ),
+            : _buildPlaceholder(),
+      ),
+    );
+  }
+
+  Widget _buildPlaceholder() {
+    return const Center(
+      child: Icon(
+        Icons.movie,
+        color: Colors.white24,
+        size: 40,
       ),
     );
   }

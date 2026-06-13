@@ -102,8 +102,6 @@ class TdlibService {
           const td.FileTypeVideo(),
           const td.FileTypeDocument(),
           const td.FileTypeAnimation(),
-          const td.FileTypePhoto(),
-          const td.FileTypeThumbnail(),
           const td.FileTypeAudio(),
           const td.FileTypeVoiceNote(),
         ],
@@ -117,7 +115,6 @@ class TdlibService {
     try {
       final appDocDir = await getApplicationDocumentsDirectory();
       final targetDirs = [
-        'photos',
         'videos',
         'documents',
         'temp',
