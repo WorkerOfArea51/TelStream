@@ -100,15 +100,31 @@ class _WavyCirclePainter extends CustomPainter {
       ..strokeWidth = strokeWidth
       ..strokeCap = StrokeCap.round;
 
-    // Draw background flat circle
-    canvas.drawCircle(center, baseRadius, paintBackground);
+    const startAngle = -math.pi / 2; // Start from top
+
+    // Draw background wavy circle
+    final bgPath = Path();
+    final bgSteps = (2 * math.pi * 50).ceil().clamp(10, 300);
+    for (int i = 0; i <= bgSteps; i++) {
+      final theta = startAngle + (2 * math.pi * i / bgSteps);
+      final angleForWave = (theta - startAngle) * waveCount;
+      final r = baseRadius + math.sin(angleForWave - phase) * waveAmplitude;
+      final x = center.dx + r * math.cos(theta);
+      final y = center.dy + r * math.sin(theta);
+
+      if (i == 0) {
+        bgPath.moveTo(x, y);
+      } else {
+        bgPath.lineTo(x, y);
+      }
+    }
+    canvas.drawPath(bgPath, paintBackground);
 
     // Draw wavy progress path
     final progressAngle = value.clamp(0.0, 1.0) * 2 * math.pi;
     if (progressAngle <= 0) return;
 
     final path = Path();
-    const startAngle = -math.pi / 2; // Start from top
     final steps = (progressAngle * 50).ceil().clamp(10, 300);
 
     for (int i = 0; i <= steps; i++) {
@@ -233,8 +249,14 @@ class _WavyProgressPainter extends CustomPainter {
     final centerY = size.height / 2;
     final width = size.width;
 
-    // Draw background track (flat line)
-    canvas.drawLine(Offset(0, centerY), Offset(width, centerY), paintBackground);
+    // Draw background track (wavy line across the full width)
+    final bgPath = Path();
+    bgPath.moveTo(0, centerY);
+    for (double x = 0; x <= width; x += 1) {
+      final y = centerY + math.sin((x / waveLength) * 2 * math.pi - phase) * waveHeight;
+      bgPath.lineTo(x, y);
+    }
+    canvas.drawPath(bgPath, paintBackground);
 
     if (value == null) {
       // Indeterminate wavy line across the entire width
@@ -250,15 +272,15 @@ class _WavyProgressPainter extends CustomPainter {
       final progressVal = value!.clamp(0.0, 1.0);
       final progressWidth = width * progressVal;
 
-      if (progressWidth <= 0) return;
-
-      final path = Path();
-      path.moveTo(0, centerY);
-      for (double x = 0; x <= progressWidth; x += 1) {
-        final y = centerY + math.sin((x / waveLength) * 2 * math.pi - phase) * waveHeight;
-        path.lineTo(x, y);
+      if (progressWidth > 0) {
+        final path = Path();
+        path.moveTo(0, centerY);
+        for (double x = 0; x <= progressWidth; x += 1) {
+          final y = centerY + math.sin((x / waveLength) * 2 * math.pi - phase) * waveHeight;
+          path.lineTo(x, y);
+        }
+        canvas.drawPath(path, paintProgress);
       }
-      canvas.drawPath(path, paintProgress);
     }
   }
 

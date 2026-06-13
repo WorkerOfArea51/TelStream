@@ -143,6 +143,8 @@ class _UpdateDialogContentState extends State<UpdateDialogContent> {
   bool _hasError = false;
   String? _errorMessage;
   HttpClientRequest? _activeRequest;
+  int _downloadedBytes = 0;
+  int _totalBytes = 0;
 
   @override
   void dispose() {
@@ -155,7 +157,9 @@ class _UpdateDialogContentState extends State<UpdateDialogContent> {
       _isDownloading = true;
       _hasError = false;
       _progress = 0.0;
-      _statusText = "Downloading: 0%";
+      _downloadedBytes = 0;
+      _totalBytes = 0;
+      _statusText = "Downloading...";
     });
 
     final client = HttpClient();
@@ -187,11 +191,15 @@ class _UpdateDialogContentState extends State<UpdateDialogContent> {
           final progress = downloadedBytes / totalBytes;
           setState(() {
             _progress = progress;
+            _downloadedBytes = downloadedBytes;
+            _totalBytes = totalBytes;
             _statusText = "Downloading: ${(progress * 100).toInt()}%";
           });
         } else {
           setState(() {
             _progress = null; // Indeterminate
+            _downloadedBytes = downloadedBytes;
+            _totalBytes = 0;
             _statusText = "Downloading... (${(downloadedBytes / 1024 / 1024).toStringAsFixed(1)} MB)";
           });
         }
@@ -414,12 +422,35 @@ class _UpdateDialogContentState extends State<UpdateDialogContent> {
               if (_isDownloading) ...[
                 const SizedBox(height: 10),
                 WavyLinearProgressIndicator(value: _progress),
-                const SizedBox(height: 12),
-                Center(
-                  child: Text(
-                    _statusText,
-                    style: const TextStyle(color: Colors.white70, fontSize: 13),
-                  ),
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      _progress != null ? "${(_progress! * 100).toInt()}%" : _statusText,
+                      style: const TextStyle(
+                        color: Colors.orange,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12.5,
+                      ),
+                    ),
+                    if (_totalBytes > 0)
+                      Text(
+                        "${(_downloadedBytes / 1024 / 1024).toStringAsFixed(2)} MB of ${(_totalBytes / 1024 / 1024).toStringAsFixed(2)} MB",
+                        style: const TextStyle(
+                          color: Colors.white54,
+                          fontSize: 12,
+                        ),
+                      )
+                    else if (_downloadedBytes > 0)
+                      Text(
+                        "${(_downloadedBytes / 1024 / 1024).toStringAsFixed(2)} MB",
+                        style: const TextStyle(
+                          color: Colors.white54,
+                          fontSize: 12,
+                        ),
+                      ),
+                  ],
                 ),
                 const SizedBox(height: 20),
                 Row(
