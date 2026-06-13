@@ -168,10 +168,10 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
       _resolvedChatTitle = chatRes.title;
     }
 
-    // 1. First, load the initial batch using onlyLocal: true to render instantly
+    // 1. First, load the initial batch using onlyLocal: true to render instantly from cache
     int iterations = 0;
     int currentFromId = 0;
-    while (_hasMore && iterations < 50) {
+    while (_hasMore && iterations < 200) {
       iterations++;
       final localMessages = await _fetchMessages(fromId: currentFromId, onlyLocal: true);
       if (localMessages.isEmpty) {
@@ -186,7 +186,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
       currentFromId = _rawMessages.last.id;
     }
     
-    // 2. Immediately kick off background network sync to fetch any updates/new releases
+    // 2. Immediately kick off background network sync to sync the entire channel history
     _syncFromNetwork();
     
     return _applySearchAndSort(_allSeries);
@@ -194,13 +194,11 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
 
   Future<void> _syncFromNetwork() async {
     try {
-      int iterations = 0;
       int currentFromId = 0;
       bool changed = false;
       
-      // Sync up to 300 messages to catch up on any updates since last launch
-      while (iterations < 3) {
-        iterations++;
+      // Sync all messages from the network to construct a complete index in the background
+      while (_hasMore) {
         final networkMessages = await _fetchMessages(fromId: currentFromId, onlyLocal: false);
         if (networkMessages.isEmpty) {
           break;
@@ -214,15 +212,19 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
         }
         
         currentFromId = networkMessages.last.id;
-      }
-      
-      if (changed) {
-        _rawMessages.sort((a, b) => b.id.compareTo(a.id));
-        _allSeries = _parseMessages(_rawMessages);
-        state = AsyncValue.data(_applySearchAndSort(_allSeries));
+        
+        if (changed) {
+          _rawMessages.sort((a, b) => b.id.compareTo(a.id));
+          _allSeries = _parseMessages(_rawMessages);
+          state = AsyncValue.data(_applySearchAndSort(_allSeries));
+          changed = false; // Reset changed flag
+        }
+        
+        // Brief pause to respect Telegram rate limits and yield UI thread
+        await Future.delayed(const Duration(milliseconds: 200));
       }
     } catch (e) {
-      print("Network sync error: $e");
+      print("Background sync error: $e");
     }
   }
 
