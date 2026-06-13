@@ -60,7 +60,7 @@ jobs:
       - name: Generate Changelog
         run: |
           echo "CHANGELOG<<EOF" >> $GITHUB_ENV
-          git log --pretty=format:"• %s" -n 5 >> $GITHUB_ENV
+          git log --pretty=format:"• %s" -n 7 >> $GITHUB_ENV
           echo "" >> $GITHUB_ENV
           echo "EOF" >> $GITHUB_ENV
 
@@ -70,10 +70,34 @@ jobs:
           tag_name: v${{ env.APP_VERSION }}-build.${{ github.run_number }}
           name: TelStream Release v${{ env.APP_VERSION }} #${{ github.run_number }}
           body: |
-            CHANGELOG:
+            ### What's New in TelStream
+
+            🚀 **Global Smart Search**
+            • Search all anime episodes smoothly across channel databases.
+            • Auto-scroll directly to selected matching posts.
+            • Improved query-matching accuracy.
+
+            🖼️ **Telegram-Style Blurred Thumbnails**
+            • Fast, on-demand blurred mini-thumbnail placeholders decode on the fly.
+            • Posters download only when tapped, conserving storage & internet data.
+
+            🧹 **Storage & Cache Control**
+            • Clear cached anime poster downloads directly from Settings with one tap.
+
+            ⚙️ **Automatic Signed Builds**
+            • Optimized split APK builds (ARM64 & ARM32).
+            • Fully signed and verified with release key credentials.
+
+            🐞 **Recent Improvements & Fixes**
+            • Fixed black-out issue on anime thumbnails.
+            • Resolved header UI layout overlaps.
+            • Fixed message sorting chronological order.
+            • Patched local filters matching search query substring.
+
+            ### Recent Commits
             ${{ env.CHANGELOG }}
 
-            VARIANTS:
+            ### Downloads
             • ARM64 APK: Optimized for modern 64-bit ARM devices (arm64-v8a).
             • ARM32 APK: Optimized for older 32-bit ARM devices (armeabi-v7a).
           files: |

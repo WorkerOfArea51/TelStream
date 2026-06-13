@@ -247,6 +247,108 @@ class _UpdateDialogContentState extends State<UpdateDialogContent> {
     }
   }
 
+  List<TextSpan> _parseFormattedText(String text, TextStyle baseStyle) {
+    final spans = <TextSpan>[];
+    final regex = RegExp(r'\*\*(.*?)\*\*');
+    int start = 0;
+    for (final match in regex.allMatches(text)) {
+      if (match.start > start) {
+        spans.add(TextSpan(text: text.substring(start, match.start), style: baseStyle));
+      }
+      spans.add(TextSpan(
+        text: match.group(1),
+        style: baseStyle.copyWith(fontWeight: FontWeight.bold, color: Colors.white),
+      ));
+      start = match.end;
+    }
+    if (start < text.length) {
+      spans.add(TextSpan(text: text.substring(start), style: baseStyle));
+    }
+    return spans;
+  }
+
+  Widget _buildLine(String line) {
+    line = line.trim();
+    if (line.isEmpty) return const SizedBox(height: 6);
+
+    if (line.startsWith('###')) {
+      final title = line.replaceFirst('###', '').trim();
+      return Padding(
+        padding: const EdgeInsets.only(top: 10, bottom: 4),
+        child: Text(
+          title,
+          style: const TextStyle(
+            color: Colors.orangeAccent,
+            fontSize: 14,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 0.5,
+          ),
+        ),
+      );
+    }
+
+    if (line.startsWith('##')) {
+      final title = line.replaceFirst('##', '').trim();
+      return Padding(
+        padding: const EdgeInsets.only(top: 12, bottom: 6),
+        child: Text(
+          title,
+          style: const TextStyle(
+            color: Colors.orange,
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 0.5,
+          ),
+        ),
+      );
+    }
+
+    final isBullet = line.startsWith('•') || line.startsWith('-');
+    final displayLine = isBullet ? line.substring(1).trim() : line;
+
+    final baseStyle = TextStyle(
+      color: isBullet ? Colors.white70 : Colors.white60,
+      fontSize: 12.5,
+      height: 1.4,
+    );
+
+    return Padding(
+      padding: EdgeInsets.only(
+        left: isBullet ? 12.0 : 0.0,
+        bottom: 4.0,
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (isBullet)
+            const Padding(
+              padding: EdgeInsets.only(top: 6, right: 8),
+              child: Icon(
+                Icons.fiber_manual_record,
+                size: 6,
+                color: Colors.orangeAccent,
+              ),
+            ),
+          Expanded(
+            child: RichText(
+              text: TextSpan(
+                children: _parseFormattedText(displayLine, baseStyle),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildReleaseNotesContent(String notes) {
+    final lines = notes.split('\n');
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: lines.map((line) => _buildLine(line)).toList(),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return PopScope(
@@ -395,21 +497,15 @@ class _UpdateDialogContentState extends State<UpdateDialogContent> {
                 const SizedBox(height: 8),
                 if (widget.updateInfo.releaseNotes.isNotEmpty) ...[
                   Container(
-                    constraints: const BoxConstraints(maxHeight: 150),
+                    constraints: const BoxConstraints(maxHeight: 180),
                     decoration: BoxDecoration(
                       color: Colors.white.withValues(alpha: 0.03),
                       borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
                     ),
                     padding: const EdgeInsets.all(12),
                     child: SingleChildScrollView(
-                      child: Text(
-                        widget.updateInfo.releaseNotes,
-                        style: const TextStyle(
-                          color: Colors.white70,
-                          fontSize: 13,
-                          height: 1.4,
-                        ),
-                      ),
+                      child: _buildReleaseNotesContent(widget.updateInfo.releaseNotes),
                     ),
                   ),
                   const SizedBox(height: 20),
