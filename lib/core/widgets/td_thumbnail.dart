@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tdlib/td_api.dart' as td;
@@ -7,6 +9,8 @@ import '../../services/tdlib_service.dart';
 
 class TdThumbnail extends ConsumerStatefulWidget {
   final td.File? file;
+  final td.Minithumbnail? minithumbnail;
+  final bool autoDownload;
   final double width;
   final double height;
   final BoxFit fit;
@@ -15,6 +19,8 @@ class TdThumbnail extends ConsumerStatefulWidget {
   const TdThumbnail({
     Key? key, 
     required this.file, 
+    this.minithumbnail,
+    this.autoDownload = true,
     this.width = 80, 
     this.height = 60,
     this.fit = BoxFit.cover,
@@ -76,13 +82,16 @@ class _TdThumbnailState extends ConsumerState<TdThumbnail> {
           }
         }
       });
-      _tdlibService.send(td.DownloadFile(
-        fileId: file.id,
-        priority: 1,
-        offset: 0,
-        limit: 0,
-        synchronous: false,
-      ));
+      
+      if (widget.autoDownload) {
+        _tdlibService.send(td.DownloadFile(
+          fileId: file.id,
+          priority: 1,
+          offset: 0,
+          limit: 0,
+          synchronous: false,
+        ));
+      }
     }
   }
 
@@ -126,6 +135,25 @@ class _TdThumbnailState extends ConsumerState<TdThumbnail> {
   }
 
   Widget _buildPlaceholder() {
+    final mini = widget.minithumbnail;
+    if (mini != null && mini.data.isNotEmpty) {
+      try {
+        final bytes = base64Decode(mini.data);
+        return ImageFiltered(
+          imageFilter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+          child: Image.memory(
+            bytes,
+            width: widget.width,
+            height: widget.height,
+            fit: widget.fit,
+            alignment: widget.alignment,
+          ),
+        );
+      } catch (e) {
+        print("Error decoding minithumbnail: $e");
+      }
+    }
+
     return const Center(
       child: Icon(
         Icons.movie,

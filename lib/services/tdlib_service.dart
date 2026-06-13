@@ -91,20 +91,26 @@ class TdlibService {
     });
   }
 
-  Future<void> clearVideoCache() async {
+  Future<void> clearVideoCache({bool includePhotos = false}) async {
     try {
+      final List<td.FileType> fileTypes = [
+        const td.FileTypeVideo(),
+        const td.FileTypeDocument(),
+        const td.FileTypeAnimation(),
+        const td.FileTypeAudio(),
+        const td.FileTypeVoiceNote(),
+      ];
+      if (includePhotos) {
+        fileTypes.add(const td.FileTypePhoto());
+        fileTypes.add(const td.FileTypeThumbnail());
+      }
+
       await sendAsync(td.OptimizeStorage(
         size: 0,
         ttl: 0,
         count: 0,
         immunityDelay: 0,
-        fileTypes: [
-          const td.FileTypeVideo(),
-          const td.FileTypeDocument(),
-          const td.FileTypeAnimation(),
-          const td.FileTypeAudio(),
-          const td.FileTypeVoiceNote(),
-        ],
+        fileTypes: fileTypes,
         chatIds: [],
         excludeChatIds: [],
         returnDeletedFileStatistics: false,
@@ -124,6 +130,9 @@ class TdlibService {
         'stickers',
         'animations',
       ];
+      if (includePhotos) {
+        targetDirs.add('photos');
+      }
       
       for (final dirName in targetDirs) {
         final dir = Directory('${appDocDir.path}/$dirName');

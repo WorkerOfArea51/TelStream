@@ -54,15 +54,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   void _clearCache() async {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Clearing video cache...'), duration: Duration(milliseconds: 800)),
+      const SnackBar(content: Text('Clearing cache (including images)...'), duration: Duration(milliseconds: 800)),
     );
     
-    await ref.read(tdlibServiceProvider).clearVideoCache();
+    await ref.read(tdlibServiceProvider).clearVideoCache(includePhotos: true);
     await _calculateCacheSize();
     
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Video cache cleared successfully!'), backgroundColor: Colors.green),
+      const SnackBar(content: Text('Cache cleared successfully!'), backgroundColor: Colors.green),
     );
   }
 
@@ -103,8 +103,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             tileColor: Colors.white.withOpacity(0.05),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             leading: const Icon(Icons.cleaning_services, color: Colors.redAccent),
-            title: const Text('Clear Video Cache', style: TextStyle(color: Colors.white)),
-            subtitle: const Text('TelStream automatically caches downloaded videos for instant playback. Clear this if you are low on storage.', style: TextStyle(color: Colors.white54)),
+            title: const Text('Clear Cache', style: TextStyle(color: Colors.white)),
+            subtitle: const Text('TelStream caches videos and poster images. Clearing this deletes them and frees up storage.', style: TextStyle(color: Colors.white54)),
             onTap: _clearCache,
           ),
           

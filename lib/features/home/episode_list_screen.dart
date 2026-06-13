@@ -54,11 +54,13 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
     final effectiveHeroTag = widget.heroTag ?? 'hero_poster_grid_${widget.series.coreName}';
 
     td.File? posterFile;
+    td.Minithumbnail? minithumbnail;
     if (_selectedSeason.posterMessage.content is td.MessagePhoto) {
       final photo = _selectedSeason.posterMessage.content as td.MessagePhoto;
       if (photo.photo.sizes.isNotEmpty) {
         posterFile = photo.photo.sizes.last.photo;
       }
+      minithumbnail = photo.photo.minithumbnail;
     }
 
     return Scaffold(
@@ -90,6 +92,8 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
                     tag: effectiveHeroTag,
                     child: TdThumbnail(
                       file: posterFile,
+                      minithumbnail: minithumbnail,
+                      autoDownload: true,
                       width: double.infinity,
                       height: double.infinity,
                       alignment: Alignment.topCenter,

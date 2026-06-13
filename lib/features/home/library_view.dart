@@ -275,11 +275,13 @@ class _LibraryViewState extends ConsumerState<LibraryView> with SingleTickerProv
     final latestPoster = series.seasons.isNotEmpty ? series.seasons.first.posterMessage : null;
     
     td.File? posterFile;
+    td.Minithumbnail? minithumbnail;
     if (latestPoster != null && latestPoster.content is td.MessagePhoto) {
       final photo = latestPoster.content as td.MessagePhoto;
       if (photo.photo.sizes.isNotEmpty) {
         posterFile = photo.photo.sizes.last.photo;
       }
+      minithumbnail = photo.photo.minithumbnail;
     }
 
     return GestureDetector(
@@ -308,6 +310,8 @@ class _LibraryViewState extends ConsumerState<LibraryView> with SingleTickerProv
               tag: 'hero_library_${widget.category.title}_${series.coreName}',
               child: TdThumbnail(
                 file: posterFile,
+                minithumbnail: minithumbnail,
+                autoDownload: false,
                 width: double.infinity,
                 height: double.infinity,
               ),
@@ -439,11 +443,13 @@ class _FeaturedCarouselState extends State<FeaturedCarousel> {
               final latestPoster = series.seasons.isNotEmpty ? series.seasons.first.posterMessage : null;
               
               td.File? posterFile;
+              td.Minithumbnail? minithumbnail;
               if (latestPoster != null && latestPoster.content is td.MessagePhoto) {
                 final photo = latestPoster.content as td.MessagePhoto;
                 if (photo.photo.sizes.isNotEmpty) {
                   posterFile = photo.photo.sizes.last.photo;
                 }
+                minithumbnail = photo.photo.minithumbnail;
               }
 
               return AnimatedBuilder(
@@ -494,6 +500,8 @@ class _FeaturedCarouselState extends State<FeaturedCarousel> {
                           tag: 'hero_featured_${widget.categoryTitle}_${series.coreName}',
                           child: TdThumbnail(
                             file: posterFile,
+                            minithumbnail: minithumbnail,
+                            autoDownload: false,
                             width: double.infinity,
                             height: double.infinity,
                             alignment: Alignment.topCenter,
