@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/constants.dart';
+import 'changelog_parser.dart';
 
 class WhatsNewDialog extends StatelessWidget {
   const WhatsNewDialog({Key? key}) : super(key: key);
@@ -67,41 +68,7 @@ class WhatsNewDialog extends StatelessWidget {
             // Scrollable Content
             Flexible(
               child: SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildSection(
-                      theme,
-                      icon: Icons.download_rounded,
-                      title: "Native Background Downloads",
-                      bullets: [
-                        "Active Background Services: Downloads now run in background when the app is minimized.",
-                        "Notification Center: Real-time progress bar and state indicators in the Android status bar.",
-                        "Recents Dismiss: Swiping away the app stops downloads and wipes temp files to save cache storage.",
-                        "Player Exit Fix: Playing a video while downloading no longer cancels background progress on exit.",
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    _buildSection(
-                      theme,
-                      icon: Icons.palette_rounded,
-                      title: "Custom Gradient Themes",
-                      bullets: [
-                        "Vibrant Gradients: 4 premium themes (Sunset Cyberpunk, Aurora Abyss, Solaris Flare, Classic Navy) selectable from settings.",
-                        "Solid Surfaces: Clean, premium solid card textures replacing previous transparent backgrounds.",
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    _buildSection(
-                      theme,
-                      icon: Icons.settings_suggest_rounded,
-                      title: "Other Optimizations",
-                      bullets: [
-                        "Disk storage cleanup and automatic background database checkups on startup.",
-                      ],
-                    ),
-                  ],
-                ),
+                child: const ChangelogParser(content: Constants.changelog),
               ),
             ),
             const SizedBox(height: 24),
@@ -132,77 +99,6 @@ class WhatsNewDialog extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildSection(
-    ThemeData theme, {
-    required IconData icon,
-    required String title,
-    required List<String> bullets,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Icon(icon, color: theme.primaryColor, size: 20),
-            const SizedBox(width: 8),
-            Text(
-              title,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 15,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        ...bullets.map((bullet) {
-          final parts = bullet.split(': ');
-          if (parts.length > 1) {
-            return Padding(
-              padding: const EdgeInsets.only(left: 28.0, bottom: 6.0),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text("• ", style: TextStyle(color: Colors.white38)),
-                  Expanded(
-                    child: RichText(
-                      text: TextSpan(
-                        style: const TextStyle(color: Colors.white70, fontSize: 13, height: 1.3),
-                        children: [
-                          TextSpan(
-                            text: "${parts[0]}: ",
-                            style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
-                          ),
-                          TextSpan(text: parts[1]),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            );
-          }
-          return Padding(
-            padding: const EdgeInsets.only(left: 28.0, bottom: 6.0),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text("• ", style: TextStyle(color: Colors.white38)),
-                Expanded(
-                  child: Text(
-                    bullet,
-                    style: const TextStyle(color: Colors.white70, fontSize: 13, height: 1.3),
-                  ),
-                ),
-              ],
-            ),
-          );
-        }),
-      ],
     );
   }
 }
