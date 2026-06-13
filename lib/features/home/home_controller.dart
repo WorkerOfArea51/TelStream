@@ -96,7 +96,8 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
       final response = await tdlibService.sendAsync(td.SearchChatMessages(
         chatId: category.channelId,
         query: query,
-        filter: const td.SearchMessagesFilterPhotos(),
+        filter: const td.SearchMessagesFilterPhoto(),
+        messageThreadId: 0,
         limit: 100,
         offset: 0,
         fromMessageId: 0,
