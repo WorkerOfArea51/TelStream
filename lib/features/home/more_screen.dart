@@ -527,7 +527,7 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
         borderRadius: BorderRadius.circular(12),
       ),
       child: ListTile(
-        leading: const Icon(icon, color: Colors.orange, size: 24),
+        leading: Icon(icon, color: Colors.orange, size: 24),
         title: Text(
           title,
           style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500, fontSize: 15),
