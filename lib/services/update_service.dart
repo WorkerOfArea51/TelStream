@@ -313,7 +313,7 @@ class _UpdateDialogContentState extends State<UpdateDialogContent> {
       );
     }
 
-    final isBullet = line.startsWith('•') || line.startsWith('-');
+    final isBullet = line.startsWith('•') || line.startsWith('-') || line.startsWith('* ');
     final displayLine = isBullet ? line.substring(1).trim() : line;
 
     final baseStyle = TextStyle(

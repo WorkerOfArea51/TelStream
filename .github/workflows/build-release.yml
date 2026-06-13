@@ -58,34 +58,36 @@ jobs:
           cp build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk build/app/outputs/flutter-apk/telstream-arm32.apk
 
       - name: Generate Changelog
+        env:
+          APP_VERSION: ${{ env.APP_VERSION }}
+          GITHUB_RUN_NUMBER: ${{ github.run_number }}
+          GITHUB_REF_NAME: ${{ github.ref_name }}
+          GITHUB_SHA: ${{ github.sha }}
         run: |
-          echo "CHANGELOG<<EOF" >> $GITHUB_ENV
-          git log --pretty=format:"* %s (%h)" -n 10 >> $GITHUB_ENV
-          echo "" >> $GITHUB_ENV
-          echo "EOF" >> $GITHUB_ENV
+          python -c "
+          import re, os
+          with open('lib/core/constants.dart', 'r', encoding='utf-8') as f:
+              content = f.read()
+          match = re.search(r\"static const String changelog = '''(.*?)''';\", content, re.DOTALL)
+          changelog = match.group(1).strip() if match else 'No detailed changelog provided.'
+          
+          app_version = os.environ.get('APP_VERSION', '')
+          run_number = os.environ.get('GITHUB_RUN_NUMBER', '')
+          ref_name = os.environ.get('GITHUB_REF_NAME', '')
+          sha = os.environ.get('GITHUB_SHA', '')
+          
+          build_info = '\n\n---\n\n### 🛠️ Build Information\n- **Version:** `v' + app_version + '`\n- **Build Number:** `#' + run_number + '`\n- **Branch:** `' + ref_name + '`\n- **Commit SHA:** `' + sha + '`\n\n### 📲 Downloads\n- **ARM64 APK:** Optimized for modern 64-bit ARM devices (arm64-v8a).\n- **ARM32 APK:** Optimized for older 32-bit ARM devices (armeabi-v7a).\n'
+          
+          with open('extracted_changelog.md', 'w', encoding='utf-8') as out:
+              out.write(changelog + build_info)
+          "
 
       - name: Create Release and Upload Assets
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ env.APP_VERSION }}-build.${{ github.run_number }}
           name: TelStream Release v${{ env.APP_VERSION }} #${{ github.run_number }}
-          body: |
-            ## 📝 What's Changed
-            Here are the recent updates and commits included in this build:
-
-            ${{ env.CHANGELOG }}
-
-            ---
-
-            ### 🛠️ Build Information
-            - **Version:** `v${{ env.APP_VERSION }}`
-            - **Build Number:** `#${{ github.run_number }}`
-            - **Branch:** `${{ github.ref_name }}`
-            - **Commit SHA:** `${{ github.sha }}`
-
-            ### 📲 Downloads
-            - **ARM64 APK:** Optimized for modern 64-bit ARM devices (arm64-v8a).
-            - **ARM32 APK:** Optimized for older 32-bit ARM devices (armeabi-v7a).
+          body_path: ./extracted_changelog.md
           files: |
             build/app/outputs/flutter-apk/telstream-arm64.apk
             build/app/outputs/flutter-apk/telstream-arm32.apk
