@@ -170,9 +170,14 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
             backgroundColor: const Color(0xFF0A1128),
             iconTheme: const IconThemeData(color: Colors.white),
             flexibleSpace: FlexibleSpaceBar(
+              centerTitle: true,
+              titlePadding: const EdgeInsets.only(left: 48, right: 48, bottom: 12),
               title: AlignedNameText(
                 text: _selectedSeason.fullTitle,
                 style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 16),
+                maxLines: 3,
+                overflow: TextOverflow.visible,
+                textAlign: TextAlign.center,
               ),
               background: Stack(
                 fit: StackFit.expand,
