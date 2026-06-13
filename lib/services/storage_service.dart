@@ -182,6 +182,27 @@ class StorageService {
     _data['custom_download_directory'] = path;
     await _save();
   }
+
+  // --- Downloaded Files Tracker ---
+
+  Map<int, String> getDownloadedFiles() {
+    if (_data['downloaded_files'] == null) return {};
+    final Map<String, dynamic> rawMap = Map<String, dynamic>.from(_data['downloaded_files']);
+    return rawMap.map((key, value) => MapEntry(int.parse(key), value as String));
+  }
+
+  Future<void> addDownloadedFile(int fileId, String filePath) async {
+    _data['downloaded_files'] ??= <String, dynamic>{};
+    _data['downloaded_files'][fileId.toString()] = filePath;
+    await _save();
+  }
+
+  Future<void> removeDownloadedFile(int fileId) async {
+    if (_data['downloaded_files'] != null) {
+      _data['downloaded_files'].remove(fileId.toString());
+      await _save();
+    }
+  }
 }
 
 class FavoritesNotifier extends Notifier<List<String>> {

@@ -38,11 +38,13 @@ class DownloadTask {
 
 class DownloadController extends Notifier<Map<int, DownloadTask>> {
   StreamSubscription? _subscription;
+  StreamSubscription? _dirWatcherSubscription;
 
   @override
   Map<int, DownloadTask> build() {
     ref.onDispose(() {
       _subscription?.cancel();
+      _dirWatcherSubscription?.cancel();
     });
     _init();
     return {};
@@ -71,39 +73,36 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
 
   Future<void> _init() async {
     try {
-      final downloadsDir = await _getEffectiveDownloadsDirectory();
-      if (await downloadsDir.exists()) {
-        final List<FileSystemEntity> entities = await downloadsDir.list().toList();
-        final Map<int, DownloadTask> loadedTasks = {};
-        
-        for (var entity in entities) {
-          if (entity is File) {
-            final name = entity.path.split(Platform.pathSeparator).last;
-            final separatorIndex = name.indexOf('_');
-            if (separatorIndex != -1) {
-              final idStr = name.substring(0, separatorIndex);
-              final fileId = int.tryParse(idStr);
-              if (fileId != null) {
-                // Recover safe title (excluding extension)
-                final rest = name.substring(separatorIndex + 1);
-                final dotIndex = rest.lastIndexOf('.');
-                final title = dotIndex != -1 ? rest.substring(0, dotIndex) : rest;
-                
-                loadedTasks[fileId] = DownloadTask(
-                  fileId: fileId,
-                  title: title.replaceAll('_', ' '),
-                  progress: 1.0,
-                  isCompleted: true,
-                  localPath: entity.path,
-                );
-              }
-            }
-          }
+      final storage = ref.read(storageServiceProvider);
+      final cachedFiles = storage.getDownloadedFiles();
+      final Map<int, DownloadTask> loadedTasks = {};
+      
+      for (final entry in cachedFiles.entries) {
+        final fileId = entry.key;
+        final path = entry.value;
+        final file = File(path);
+        if (await file.exists()) {
+          final filename = path.split(Platform.pathSeparator).last;
+          loadedTasks[fileId] = DownloadTask(
+            fileId: fileId,
+            title: filename,
+            progress: 1.0,
+            isCompleted: true,
+            localPath: path,
+          );
+        } else {
+          // File was deleted / moved since last run
+          await storage.removeDownloadedFile(fileId);
         }
-        state = loadedTasks;
       }
+      state = loadedTasks;
+
+      // Start watching the downloads directory for real-time updates
+      final downloadsDir = await _getEffectiveDownloadsDirectory();
+      _watchDirectory(downloadsDir);
+
     } catch (e) {
-      print('Error initializing download directory scan: $e');
+      print('Error initializing downloads directory scan: $e');
     }
 
     // Listen to tdlib updates for file download progress
@@ -142,6 +141,39 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
     });
   }
 
+  void _watchDirectory(Directory downloadsDir) {
+    _dirWatcherSubscription?.cancel();
+    if (!Platform.isAndroid && !Platform.isIOS && !Platform.isWindows && !Platform.isMacOS && !Platform.isLinux) return;
+    try {
+      _dirWatcherSubscription = downloadsDir.watch().listen((event) {
+        _syncDownloadsWithDisk();
+      });
+    } catch (e) {
+      print('Directory watcher failed to start: $e');
+    }
+  }
+
+  Future<void> _syncDownloadsWithDisk() async {
+    final storage = ref.read(storageServiceProvider);
+    final cachedFiles = storage.getDownloadedFiles();
+    final Map<int, DownloadTask> updatedState = {...state};
+    bool changed = false;
+
+    for (final entry in cachedFiles.entries) {
+      final fileId = entry.key;
+      final path = entry.value;
+      if (!await File(path).exists()) {
+        await storage.removeDownloadedFile(fileId);
+        updatedState.remove(fileId);
+        changed = true;
+      }
+    }
+
+    if (changed) {
+      state = updatedState;
+    }
+  }
+
   Future<void> startDownload(int fileId, String title) async {
     if (state.containsKey(fileId) && state[fileId]!.isCompleted) {
       return; // Already downloaded
@@ -178,17 +210,27 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
         await downloadsDir.create(recursive: true);
       }
 
-      // Safe filename from title
-      final safeTitle = title.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_').replaceAll(' ', '_');
-      
-      // Keep extension
+      // 1. Keep original extension from temp path
       final ext = tempPath.contains('.') ? tempPath.split('.').last : 'mp4';
-      final permanentPath = '${downloadsDir.path}/${fileId}_$safeTitle.$ext';
+
+      // 2. Clean forbidden chars but preserve spaces and hyphens
+      var cleanTitle = title.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_').trim();
+      
+      // 3. Strip duplicate extension if cleanTitle already ends with it
+      if (cleanTitle.toLowerCase().endsWith('.${ext.toLowerCase()}')) {
+        cleanTitle = cleanTitle.substring(0, cleanTitle.length - (ext.length + 1));
+      }
+
+      // 4. Construct path (clean, no fileId prefixes)
+      final permanentPath = '${downloadsDir.path}/$cleanTitle.$ext';
 
       final tempFile = File(tempPath);
       if (await tempFile.exists()) {
         await tempFile.copy(permanentPath);
         print('FILE SAVED PERMANENTLY: $permanentPath');
+        
+        // 5. Save persistent mapping in JSON storage
+        await ref.read(storageServiceProvider).addDownloadedFile(fileId, permanentPath);
       }
 
       state = {
