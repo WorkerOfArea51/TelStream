@@ -183,7 +183,7 @@ class _LibraryViewState extends ConsumerState<LibraryView> with SingleTickerProv
                     ),
                   ),
                 SliverPadding(
-                  padding: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.only(left: 12, right: 12, top: 12, bottom: 96),
                   sliver: SliverGrid(
                     gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: 2,

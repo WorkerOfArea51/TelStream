@@ -94,7 +94,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
       int iterations = 0;
       while (_allSeries.length < startingLength + 10 && _hasMore && iterations < 5) {
         iterations++;
-        final moreMessages = await _fetchMessages(fromId: _lastMessageId);
+        final moreMessages = await _fetchMessages(fromId: _lastMessageId, onlyLocal: false);
         if (moreMessages.isEmpty) {
           break;
         }
@@ -104,6 +104,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
           }
         }
         
+        _rawMessages.sort((a, b) => b.id.compareTo(a.id));
         _allSeries = _parseMessages(_rawMessages);
         state = AsyncValue.data(_applySearchAndSort(_allSeries));
       }
@@ -166,26 +167,65 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
       _resolvedChatTitle = chatRes.title;
     }
 
+    // 1. First, load the initial batch using onlyLocal: true to render instantly
     int iterations = 0;
+    int currentFromId = 0;
     while (_allSeries.length < 10 && _hasMore && iterations < 10) {
       iterations++;
-      final initialMessages = await _fetchMessages(fromId: _lastMessageId);
-      if (initialMessages.isEmpty) {
-        _hasMore = false;
+      final localMessages = await _fetchMessages(fromId: currentFromId, onlyLocal: true);
+      if (localMessages.isEmpty) {
         break;
       }
-      for (final msg in initialMessages) {
+      for (final msg in localMessages) {
         if (!_rawMessages.any((m) => m.id == msg.id)) {
           _rawMessages.add(msg);
         }
       }
       _allSeries = _parseMessages(_rawMessages);
+      currentFromId = _rawMessages.last.id;
     }
+    
+    // 2. Immediately kick off background network sync to fetch any updates/new releases
+    _syncFromNetwork();
     
     return _applySearchAndSort(_allSeries);
   }
 
-  Future<List<td.Message>> _fetchMessages({required int fromId}) async {
+  Future<void> _syncFromNetwork() async {
+    try {
+      int iterations = 0;
+      int currentFromId = 0;
+      bool changed = false;
+      
+      // Sync up to 300 messages to catch up on any updates since last launch
+      while (iterations < 3) {
+        iterations++;
+        final networkMessages = await _fetchMessages(fromId: currentFromId, onlyLocal: false);
+        if (networkMessages.isEmpty) {
+          break;
+        }
+        
+        for (final msg in networkMessages) {
+          if (!_rawMessages.any((m) => m.id == msg.id)) {
+            _rawMessages.add(msg);
+            changed = true;
+          }
+        }
+        
+        currentFromId = networkMessages.last.id;
+      }
+      
+      if (changed) {
+        _rawMessages.sort((a, b) => b.id.compareTo(a.id));
+        _allSeries = _parseMessages(_rawMessages);
+        state = AsyncValue.data(_applySearchAndSort(_allSeries));
+      }
+    } catch (e) {
+      print("Network sync error: $e");
+    }
+  }
+
+  Future<List<td.Message>> _fetchMessages({required int fromId, required bool onlyLocal}) async {
     final tdlibService = ref.read(tdlibServiceProvider);
     td.TdObject? response;
     int retries = 0;
@@ -200,13 +240,16 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
         fromMessageId: currentFromId,
         offset: 0,
         limit: 100 - fetchedBatch.length,
-        onlyLocal: false,
+        onlyLocal: onlyLocal,
       )).timeout(
-        const Duration(seconds: 10),
+        onlyLocal ? const Duration(seconds: 2) : const Duration(seconds: 10),
         onTimeout: () => td.TdError(code: 408, message: "Request Timeout"),
       );
 
       if (response is td.TdError) {
+        if (onlyLocal) {
+          break; // Return early if local check fails/is empty
+        }
         throw Exception("GetChatHistory failed: ${response.message} (Code: ${response.code})");
       }
 
@@ -227,7 +270,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
       if (!gotNewMessages) {
         // If we already successfully fetched some messages in this batch, return them
         // and keep _hasMore = true so the next pagination can attempt to fetch further.
-        if (fetchedBatch.isNotEmpty) {
+        if (fetchedBatch.isNotEmpty || onlyLocal) {
           break;
         }
         
@@ -258,7 +301,9 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
       }
       
       currentFromId = nextFromId;
-      _lastMessageId = currentFromId;
+      if (!onlyLocal) {
+        _lastMessageId = currentFromId;
+      }
     }
 
     return fetchedBatch;
@@ -393,12 +438,10 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
         break;
     }
 
-    // 4. Sort seasons within each series alphabetically (natural sort approach)
+    // 4. Sort seasons within each series chronologically (using hybrid parsed rules + message post date order)
     for (var series in sorted) {
       series.seasons.sort((a, b) {
-        final padA = a.seasonName.replaceAllMapped(RegExp(r'\d+'), (m) => m[0]!.padLeft(5, '0'));
-        final padB = b.seasonName.replaceAllMapped(RegExp(r'\d+'), (m) => m[0]!.padLeft(5, '0'));
-        return padA.compareTo(padB);
+        return SeasonSortKey.fromSeason(a).compareTo(SeasonSortKey.fromSeason(b));
       });
     }
     
@@ -442,3 +485,79 @@ class WebSeriesController extends HomeController {
 final animeControllerProvider = AsyncNotifierProvider<AnimeController, List<AnimeSeries>>(AnimeController.new);
 final moviesControllerProvider = AsyncNotifierProvider<MoviesController, List<AnimeSeries>>(MoviesController.new);
 final webSeriesControllerProvider = AsyncNotifierProvider<WebSeriesController, List<AnimeSeries>>(WebSeriesController.new);
+
+class SeasonSortKey implements Comparable<SeasonSortKey> {
+  final int seasonNum;
+  final double partNum;
+  final int messageId;
+  final String original;
+
+  SeasonSortKey({
+    required this.seasonNum,
+    required this.partNum,
+    required this.messageId,
+    required this.original,
+  });
+
+  static SeasonSortKey fromSeason(AnimeSeason season) {
+    final name = season.seasonName;
+    final lower = name.toLowerCase();
+    int sNum = 0; // Default to 0 for custom arc names/no numbers detected
+    double pNum = 0.0;
+
+    // Check for special keywords first
+    if (lower.contains('final season') || lower.contains('final_season')) {
+      sNum = 99;
+    } else if (lower.contains('ova') || lower.contains('special') || lower.contains('movie')) {
+      sNum = 100;
+    } else {
+      // Look for "season X" or "sX"
+      final match = RegExp(r'(?:season|s)\s*(\d+)').firstMatch(lower);
+      if (match != null) {
+        sNum = int.tryParse(match.group(1)!) ?? 0;
+      } else {
+        // Look for any isolated number in the season name
+        final matchAny = RegExp(r'\b(\d+)\b').firstMatch(lower);
+        if (matchAny != null) {
+          sNum = int.tryParse(matchAny.group(1)!) ?? 0;
+        }
+      }
+    }
+
+    // Look for "part X"
+    final partMatch = RegExp(r'part\s*(\d+)').firstMatch(lower);
+    if (partMatch != null) {
+      pNum = double.tryParse(partMatch.group(1)!) ?? 0.0;
+    } else if (lower.contains('final chapters') || lower.contains('final chapter')) {
+      pNum = 9.0;
+    }
+
+    return SeasonSortKey(
+      seasonNum: sNum,
+      partNum: pNum,
+      messageId: season.posterMessage.id,
+      original: name,
+    );
+  }
+
+  @override
+  int compareTo(SeasonSortKey other) {
+    // 1. Compare season number
+    if (seasonNum != other.seasonNum) {
+      return seasonNum.compareTo(other.seasonNum);
+    }
+    
+    // 2. Compare part numbers
+    if (partNum != other.partNum) {
+      return partNum.compareTo(other.partNum);
+    }
+    
+    // 3. Fallback: Sort by Telegram message ID ascending (older/earlier posts first)
+    if (messageId != other.messageId) {
+      return messageId.compareTo(other.messageId);
+    }
+    
+    // 4. Ultimate fallback to alphabetical name
+    return original.compareTo(other.original);
+  }
+}
