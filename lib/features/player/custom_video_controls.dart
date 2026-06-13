@@ -61,6 +61,15 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
   bool _showSeekIndicator = false;
   String _seekDirection = '';
 
+  // Double tap seek variables
+  bool _showLeftSeekOverlay = false;
+  bool _showRightSeekOverlay = false;
+  double _doubleTapSeekOpacity = 0.0;
+  int _doubleTapSeekAccumulated = 0;
+  Timer? _doubleTapOverlayTimer;
+  Duration? _doubleTapStartPosition;
+
+
   // Pinch to zoom
   double _scale = 1.0;
   double _baseScale = 1.0;
@@ -88,6 +97,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
   @override
   void dispose() {
     _hideTimer?.cancel();
+    _doubleTapOverlayTimer?.cancel();
     super.dispose();
   }
 
@@ -143,17 +153,53 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
 
   void _handleDoubleTap(TapDownDetails details, double screenWidth, int seekDuration) {
     if (_isLocked) return;
-    
-    final position = widget.player.state.position;
-    if (details.globalPosition.dx < screenWidth / 2) {
-      widget.player.seek(position - Duration(seconds: seekDuration));
-      setState(() { _showSeekIndicator = true; _seekDirection = '⏪ -${seekDuration}s'; });
-    } else {
-      widget.player.seek(position + Duration(seconds: seekDuration));
-      setState(() { _showSeekIndicator = true; _seekDirection = '+${seekDuration}s ⏩'; });
-    }
-    Future.delayed(const Duration(milliseconds: 500), () {
-      if (mounted) setState(() => _showSeekIndicator = false);
+
+    final isLeft = details.globalPosition.dx < screenWidth / 2;
+
+    _doubleTapOverlayTimer?.cancel();
+
+    setState(() {
+      if ((isLeft && _showRightSeekOverlay) || (!isLeft && _showLeftSeekOverlay)) {
+        // Switch sides, reset accumulation
+        _doubleTapStartPosition = widget.player.state.position;
+        _doubleTapSeekAccumulated = seekDuration;
+        _showLeftSeekOverlay = isLeft;
+        _showRightSeekOverlay = !isLeft;
+      } else {
+        // Same side or first tap in sequence
+        if (_doubleTapStartPosition == null) {
+          _doubleTapStartPosition = widget.player.state.position;
+          _doubleTapSeekAccumulated = seekDuration;
+        } else {
+          _doubleTapSeekAccumulated += seekDuration;
+        }
+        if (isLeft) {
+          _showLeftSeekOverlay = true;
+          _showRightSeekOverlay = false;
+        } else {
+          _showRightSeekOverlay = true;
+          _showLeftSeekOverlay = false;
+        }
+      }
+      _doubleTapSeekOpacity = 1.0;
+    });
+
+    final target = isLeft
+        ? _doubleTapStartPosition! - Duration(seconds: _doubleTapSeekAccumulated)
+        : _doubleTapStartPosition! + Duration(seconds: _doubleTapSeekAccumulated);
+
+    final dur = widget.player.state.duration;
+    final clampedTarget = Duration(
+        seconds: target.inSeconds.clamp(0, dur.inSeconds > 0 ? dur.inSeconds : 86400));
+
+    widget.player.seek(clampedTarget);
+
+    _doubleTapOverlayTimer = Timer(const Duration(milliseconds: 650), () {
+      if (mounted) {
+        setState(() {
+          _doubleTapSeekOpacity = 0.0;
+        });
+      }
     });
   }
 
@@ -639,6 +685,130 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
               child: Container(color: Colors.black.withOpacity(1.0 - _currentBrightness)),
             ),
 
+          // Double Tap Seek Overlays
+          if (_showLeftSeekOverlay)
+            Positioned(
+              left: 0,
+              top: 0,
+              bottom: 0,
+              width: screenWidth * 0.35,
+              child: IgnorePointer(
+                child: AnimatedOpacity(
+                  opacity: _doubleTapSeekOpacity,
+                  duration: const Duration(milliseconds: 200),
+                  onEnd: () {
+                    if (_doubleTapSeekOpacity == 0.0) {
+                      setState(() {
+                        _showLeftSeekOverlay = false;
+                        _doubleTapStartPosition = null;
+                      });
+                    }
+                  },
+                  child: Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          Colors.black.withOpacity(0.55),
+                          Colors.black.withOpacity(0.0),
+                        ],
+                        begin: Alignment.centerLeft,
+                        end: Alignment.centerRight,
+                      ),
+                      borderRadius: BorderRadius.only(
+                        topRight: Radius.circular(screenWidth * 0.35),
+                        bottomRight: Radius.circular(screenWidth * 0.35),
+                      ),
+                    ),
+                    child: Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const _FlashingChevrons(isLeft: true),
+                          const SizedBox(height: 8),
+                          Text(
+                            '-$_doubleTapSeekAccumulated seconds',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w800,
+                              shadows: [
+                                Shadow(
+                                  blurRadius: 10,
+                                  color: Colors.black54,
+                                  offset: Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          if (_showRightSeekOverlay)
+            Positioned(
+              right: 0,
+              top: 0,
+              bottom: 0,
+              width: screenWidth * 0.35,
+              child: IgnorePointer(
+                child: AnimatedOpacity(
+                  opacity: _doubleTapSeekOpacity,
+                  duration: const Duration(milliseconds: 200),
+                  onEnd: () {
+                    if (_doubleTapSeekOpacity == 0.0) {
+                      setState(() {
+                        _showRightSeekOverlay = false;
+                        _doubleTapStartPosition = null;
+                      });
+                    }
+                  },
+                  child: Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          Colors.black.withOpacity(0.0),
+                          Colors.black.withOpacity(0.55),
+                        ],
+                        begin: Alignment.centerLeft,
+                        end: Alignment.centerRight,
+                      ),
+                      borderRadius: BorderRadius.only(
+                        topLeft: Radius.circular(screenWidth * 0.35),
+                        bottomLeft: Radius.circular(screenWidth * 0.35),
+                      ),
+                    ),
+                    child: Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const _FlashingChevrons(isLeft: false),
+                          const SizedBox(height: 8),
+                          Text(
+                            '+$_doubleTapSeekAccumulated seconds',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w800,
+                              shadows: [
+                                Shadow(
+                                  blurRadius: 10,
+                                  color: Colors.black54,
+                                  offset: Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
           // Indicators
           if (_showBrightnessIndicator && !_isLocked)
             Positioned(top: 100, left: 40, child: _buildOSD(Icons.light_mode, _currentBrightness)),
@@ -971,5 +1141,71 @@ class WavySliderTrackShape extends RectangularSliderTrackShape {
 
     canvas.drawPath(activePath, activePaint);
     canvas.drawPath(inactivePath, inactivePaint);
+  }
+}
+
+class _FlashingChevrons extends StatefulWidget {
+  final bool isLeft;
+  const _FlashingChevrons({super.key, required this.isLeft});
+
+  @override
+  State<_FlashingChevrons> createState() => _FlashingChevronsState();
+}
+
+class _FlashingChevronsState extends State<_FlashingChevrons> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  double _lerp(double a, double b, double t) => a + (b - a) * t;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        final val = _controller.value;
+        
+        double getOpacity(int index) {
+          double phase = index / 3.0;
+          double t = (val - phase) % 1.0;
+          if (t < 0.5) {
+            return _lerp(0.2, 1.0, t / 0.5);
+          } else {
+            return _lerp(1.0, 0.2, (t - 0.5) / 0.5);
+          }
+        }
+
+        final widgets = List.generate(3, (i) {
+          final opacityIdx = widget.isLeft ? (2 - i) : i;
+          return Opacity(
+            opacity: getOpacity(opacityIdx),
+            child: Icon(
+              widget.isLeft ? Icons.keyboard_arrow_left : Icons.keyboard_arrow_right,
+              color: Colors.white,
+              size: 32,
+            ),
+          );
+        });
+
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: widgets,
+        );
+      },
+    );
   }
 }
