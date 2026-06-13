@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:permission_handler/permission_handler.dart';
+import '../../services/permission_service.dart';
 import '../../services/tdlib_service.dart';
 import '../../services/storage_service.dart';
 import '../../services/download_service.dart';
@@ -38,17 +38,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   Future<void> _selectDownloadDirectory() async {
-    bool permissionGranted = true;
-    if (Platform.isAndroid) {
-      final sdkVersion = _getAndroidSdkVersion();
-      if (sdkVersion > 0 && sdkVersion < 33) {
-        final status = await Permission.storage.status;
-        if (!status.isGranted) {
-          final reqStatus = await Permission.storage.request();
-          permissionGranted = reqStatus.isGranted;
-        }
-      }
-    }
+    final permissionGranted = await ref.read(permissionServiceProvider).requestStoragePermission();
 
     if (!permissionGranted) {
       if (mounted) {
@@ -90,21 +80,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         );
       }
     }
-  }
-
-  int _getAndroidSdkVersion() {
-    if (!Platform.isAndroid) return 0;
-    try {
-      final versionStr = Platform.operatingSystemVersion;
-      final sdkIndex = versionStr.indexOf('SDK ');
-      if (sdkIndex != -1) {
-        final sdkStr = versionStr.substring(sdkIndex + 4);
-        final closingParen = sdkStr.indexOf(')');
-        final numStr = closingParen != -1 ? sdkStr.substring(0, closingParen) : sdkStr;
-        return int.tryParse(numStr.trim()) ?? 0;
-      }
-    } catch (_) {}
-    return 0;
   }
 
   Future<void> _calculateCacheSize() async {

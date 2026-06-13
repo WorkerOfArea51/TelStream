@@ -1,8 +1,7 @@
-import 'dart:io';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:permission_handler/permission_handler.dart';
+import '../../services/permission_service.dart';
 import '../../core/constants.dart';
 import '../../services/update_service.dart';
 import 'library_view.dart';
@@ -30,35 +29,8 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkUpdatesSilently();
-      _requestStoragePermissionSilently();
+      ref.read(permissionServiceProvider).requestAllImportantPermissions();
     });
-  }
-
-  Future<void> _requestStoragePermissionSilently() async {
-    if (Platform.isAndroid) {
-      final sdkVersion = _getAndroidSdkVersion();
-      if (sdkVersion > 0 && sdkVersion < 33) {
-        final status = await Permission.storage.status;
-        if (!status.isGranted) {
-          await Permission.storage.request();
-        }
-      }
-    }
-  }
-
-  int _getAndroidSdkVersion() {
-    if (!Platform.isAndroid) return 0;
-    try {
-      final versionStr = Platform.operatingSystemVersion;
-      final sdkIndex = versionStr.indexOf('SDK ');
-      if (sdkIndex != -1) {
-        final sdkStr = versionStr.substring(sdkIndex + 4);
-        final closingParen = sdkStr.indexOf(')');
-        final numStr = closingParen != -1 ? sdkStr.substring(0, closingParen) : sdkStr;
-        return int.tryParse(numStr.trim()) ?? 0;
-      }
-    } catch (_) {}
-    return 0;
   }
 
   void _checkUpdatesSilently() async {
