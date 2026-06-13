@@ -148,7 +148,7 @@ class DownloadService : Service() {
                 if (dir.exists() && dir.isDirectory) {
                     dir.listFiles()?.forEach { file ->
                         if (file.isFile) {
-                            val path = file.absolutePath.toLowerCase()
+                            val path = file.absolutePath.lowercase(java.util.Locale.ROOT)
                             val isDatabase = path.endsWith(".db") || 
                                              path.endsWith(".db-journal") || 
                                              path.endsWith(".db-wal") || 

@@ -38,7 +38,7 @@ class VideoPlayerScreen extends ConsumerStatefulWidget {
   ConsumerState<VideoPlayerScreen> createState() => _VideoPlayerScreenState();
 }
 
-class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
+class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with WidgetsBindingObserver {
   late final Player player;
   late final VideoController controller;
   StreamSubscription? _updatesSubscription;
@@ -57,6 +57,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     
     _storageService = ref.read(storageServiceProvider);
     _tdlibService = ref.read(tdlibServiceProvider);
@@ -242,7 +243,17 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
+      try {
+        player.pause();
+      } catch (_) {}
+    }
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     try {
       player.pause();
       player.stop();
@@ -297,60 +308,6 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (widget.isPip) {
-      return GestureDetector(
-        onTap: () {
-          ref.read(pipControllerProvider.notifier).maximize();
-        },
-        child: Container(
-          decoration: BoxDecoration(
-            color: Colors.black,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: Colors.orange.withValues(alpha: 0.3),
-              width: 1.5,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.orange.withValues(alpha: 0.15),
-                blurRadius: 12,
-                spreadRadius: 2,
-              ),
-              const BoxShadow(
-                color: Colors.black54,
-                blurRadius: 10,
-              ),
-            ],
-          ),
-          clipBehavior: Clip.antiAlias,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              Video(controller: controller, controls: NoVideoControls),
-              Positioned(
-                top: 0, 
-                right: 0,
-                child: Container(
-                  decoration: const BoxDecoration(
-                    color: Colors.black45,
-                    shape: BoxShape.circle,
-                  ),
-                  child: IconButton(
-                    icon: const Icon(Icons.close, color: Colors.white, size: 18),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                    onPressed: () {
-                      ref.read(pipControllerProvider.notifier).close();
-                    },
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
     return PopScope(
       canPop: true,
       onPopInvokedWithResult: (didPop, result) {},
@@ -362,7 +319,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
                 player: player,
                 controller: controller,
                 videoTitle: widget.videoTitle,
-                isPip: widget.isPip,
+                isPip: false,
                 downloadedPrefixSize: _downloadedPrefixSize,
                 expectedSize: _expectedSize,
                 onBack: () => Navigator.of(context).pop(),
