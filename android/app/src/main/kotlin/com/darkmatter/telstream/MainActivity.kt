@@ -15,20 +15,26 @@ class MainActivity : FlutterActivity() {
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
-            if (call.method == "installApk") {
-                val path = call.argument<String>("filePath")
-                if (path != null) {
-                    try {
-                        installApk(path)
-                        result.success(true)
-                    } catch (e: Exception) {
-                        result.error("INSTALL_FAILED", e.message, null)
+            when (call.method) {
+                "installApk" -> {
+                    val path = call.argument<String>("filePath")
+                    if (path != null) {
+                        try {
+                            installApk(path)
+                            result.success(true)
+                        } catch (e: Exception) {
+                            result.error("INSTALL_FAILED", e.message, null)
+                        }
+                    } else {
+                        result.error("INVALID_ARGUMENT", "filePath is null", null)
                     }
-                } else {
-                    result.error("INVALID_ARGUMENT", "filePath is null", null)
                 }
-            } else {
-                result.notImplemented()
+                "getAndroidSdkVersion" -> {
+                    result.success(Build.VERSION.SDK_INT)
+                }
+                else -> {
+                    result.notImplemented()
+                }
             }
         }
     }

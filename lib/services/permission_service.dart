@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
 
@@ -7,12 +8,19 @@ final permissionServiceProvider = Provider<PermissionService>((ref) {
 });
 
 class PermissionService {
-  /// Resolves the current Android SDK version dynamically.
-  int getAndroidSdkVersion() {
+  static const _channel = MethodChannel('com.darkmatter.telstream/updater');
+
+  /// Resolves the current Android SDK version dynamically using native APIs.
+  Future<int> getAndroidSdkVersion() async {
     if (!Platform.isAndroid) return 0;
     try {
+      final int? sdk = await _channel.invokeMethod<int>('getAndroidSdkVersion');
+      if (sdk != null) return sdk;
+    } catch (_) {}
+    
+    // Fallback: Parse string if native channel method fails
+    try {
       final versionStr = Platform.operatingSystemVersion;
-      // Matches both "API 33" and "SDK 33" formats robustly
       final match = RegExp(r'(?:API|SDK)\s*(\d+)').firstMatch(versionStr);
       if (match != null) {
         return int.tryParse(match.group(1) ?? '') ?? 0;
@@ -27,7 +35,7 @@ class PermissionService {
   Future<void> requestAllImportantPermissions() async {
     if (!Platform.isAndroid) return;
 
-    final sdk = getAndroidSdkVersion();
+    final sdk = await getAndroidSdkVersion();
 
     // 1. Storage Permission (only required on SDK < 33)
     if (sdk > 0 && sdk < 33) {
@@ -62,7 +70,7 @@ class PermissionService {
   Future<bool> requestStoragePermission() async {
     if (!Platform.isAndroid) return true;
     
-    final sdk = getAndroidSdkVersion();
+    final sdk = await getAndroidSdkVersion();
     if (sdk >= 33) {
       // Android 13+ uses Storage Access Framework (SAF) folder picker which doesn't require legacy permission
       return true;
