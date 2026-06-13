@@ -63,24 +63,7 @@ jobs:
           GITHUB_RUN_NUMBER: ${{ github.run_number }}
           GITHUB_REF_NAME: ${{ github.ref_name }}
           GITHUB_SHA: ${{ github.sha }}
-        run: |
-          python -c "
-          import re, os
-          with open('lib/core/constants.dart', 'r', encoding='utf-8') as f:
-              content = f.read()
-          match = re.search(r\"static const String changelog = '''(.*?)''';\", content, re.DOTALL)
-          changelog = match.group(1).strip() if match else 'No detailed changelog provided.'
-          
-          app_version = os.environ.get('APP_VERSION', '')
-          run_number = os.environ.get('GITHUB_RUN_NUMBER', '')
-          ref_name = os.environ.get('GITHUB_REF_NAME', '')
-          sha = os.environ.get('GITHUB_SHA', '')
-          
-          build_info = '\n\n---\n\n### 🛠️ Build Information\n- **Version:** `v' + app_version + '`\n- **Build Number:** `#' + run_number + '`\n- **Branch:** `' + ref_name + '`\n- **Commit SHA:** `' + sha + '`\n\n### 📲 Downloads\n- **ARM64 APK:** Optimized for modern 64-bit ARM devices (arm64-v8a).\n- **ARM32 APK:** Optimized for older 32-bit ARM devices (armeabi-v7a).\n'
-          
-          with open('extracted_changelog.md', 'w', encoding='utf-8') as out:
-              out.write(changelog + build_info)
-          "
+        run: python build_changelog.py
 
       - name: Create Release and Upload Assets
         uses: softprops/action-gh-release@v2
