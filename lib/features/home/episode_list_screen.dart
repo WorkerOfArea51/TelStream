@@ -27,11 +27,99 @@ class EpisodeListScreen extends ConsumerStatefulWidget {
 
 class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
   late AnimeSeason _selectedSeason;
+  bool _isLoadingEpisodes = false;
+  String? _errorMessage;
 
   @override
   void initState() {
     super.initState();
     _selectedSeason = widget.season;
+    if (_selectedSeason.episodes.isEmpty) {
+      _loadEpisodesDynamically();
+    }
+  }
+
+  Future<void> _loadEpisodesDynamically() async {
+    if (!mounted) return;
+    setState(() {
+      _isLoadingEpisodes = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final tdlibService = ref.read(tdlibServiceProvider);
+      final posterId = _selectedSeason.posterMessage.id;
+      final chatId = _selectedSeason.posterMessage.chatId;
+      
+      final List<td.Message> collectedEpisodes = [];
+      int currentFromId = posterId;
+
+      final response = await tdlibService.sendAsync(td.GetChatHistory(
+        chatId: chatId,
+        fromMessageId: currentFromId,
+        offset: 0,
+        limit: 100,
+        onlyLocal: false,
+      )).timeout(
+        const Duration(seconds: 10),
+        onTimeout: () => td.TdError(code: 408, message: "Request Timeout"),
+      );
+
+      if (response is td.TdError) {
+        throw Exception("Failed to load episodes: ${response.message}");
+      }
+
+      List<td.Message> fetched = [];
+      if (response is td.Messages) {
+        fetched = response.messages;
+      } else if (response is td.FoundMessages) {
+        fetched = response.messages;
+      }
+
+      for (final msg in fetched) {
+        // Skip the poster message itself
+        if (msg.id == posterId) continue;
+
+        if (msg.content is td.MessageVideo) {
+          collectedEpisodes.add(msg);
+        } else if (msg.content is td.MessageDocument) {
+          final doc = msg.content as td.MessageDocument;
+          final fileName = doc.document.fileName.toLowerCase();
+          if (doc.document.mimeType.startsWith('video/') ||
+              fileName.endsWith('.mkv') ||
+              fileName.endsWith('.mp4') ||
+              fileName.endsWith('.avi') ||
+              fileName.endsWith('.mov') ||
+              fileName.endsWith('.webm') ||
+              fileName.endsWith('.flv') ||
+              fileName.endsWith('.wmv')) {
+            collectedEpisodes.add(msg);
+          }
+        } else if (msg.content is td.MessagePhoto) {
+          // Reached previous season's poster
+          break;
+        }
+      }
+
+      if (mounted) {
+        setState(() {
+          _selectedSeason = AnimeSeason(
+            fullTitle: _selectedSeason.fullTitle,
+            seasonName: _selectedSeason.seasonName,
+            posterMessage: _selectedSeason.posterMessage,
+            episodes: collectedEpisodes.reversed.toList(),
+          );
+          _isLoadingEpisodes = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = e.toString();
+          _isLoadingEpisodes = false;
+        });
+      }
+    }
   }
 
   void _toggleFavorite() {
@@ -151,6 +239,9 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
                             setState(() {
                               _selectedSeason = season;
                             });
+                            if (season.episodes.isEmpty) {
+                              _loadEpisodesDynamically();
+                            }
                           }
                         },
                       ),
@@ -159,18 +250,45 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
                 ),
               ),
             ),
-          SliverPadding(
-            padding: const EdgeInsets.all(16),
-            sliver: SliverList(
-              delegate: SliverChildBuilderDelegate(
-                (context, index) {
-                  final msg = _selectedSeason.episodes[index];
-                  return _buildEpisodeItem(context, msg, index);
-                },
-                childCount: _selectedSeason.episodes.length,
+          if (_isLoadingEpisodes)
+            const SliverFillRemaining(
+              child: Center(
+                child: CircularProgressIndicator(color: Colors.orange),
+              ),
+            )
+          else if (_errorMessage != null)
+            SliverFillRemaining(
+              child: Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text('Error: $_errorMessage', style: const TextStyle(color: Colors.redAccent)),
+                      const SizedBox(height: 12),
+                      ElevatedButton(
+                        onPressed: _loadEpisodesDynamically,
+                        style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+                        child: const Text('Retry', style: TextStyle(color: Colors.black)),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            )
+          else
+            SliverPadding(
+              padding: const EdgeInsets.all(16),
+              sliver: SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) {
+                    final msg = _selectedSeason.episodes[index];
+                    return _buildEpisodeItem(context, msg, index);
+                  },
+                  childCount: _selectedSeason.episodes.length,
+                ),
               ),
             ),
-          ),
         ],
       ),
     );

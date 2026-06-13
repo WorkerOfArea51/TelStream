@@ -77,12 +77,84 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
     }
   }
 
-  void search(String query) {
+  void search(String query) async {
     if (_currentQuery == query) return;
     _currentQuery = query;
-    if (state.value != null) {
-      state = AsyncValue.data(_applySearchAndSort(_allSeries));
+    
+    if (query.isEmpty) {
+      if (state.value != null) {
+        state = AsyncValue.data(_applySearchAndSort(_allSeries));
+      }
+      return;
     }
+
+    state = const AsyncValue.loading();
+
+    try {
+      final tdlibService = ref.read(tdlibServiceProvider);
+      
+      final response = await tdlibService.sendAsync(td.SearchChatMessages(
+        chatId: category.channelId,
+        query: query,
+        filter: const td.SearchMessagesFilterPhotos(),
+        limit: 100,
+        offset: 0,
+        fromMessageId: 0,
+      )).timeout(
+        const Duration(seconds: 8),
+        onTimeout: () => td.TdError(code: 408, message: "Request Timeout"),
+      );
+
+      if (response is td.TdError) {
+        throw Exception("Search failed: ${response.message}");
+      }
+
+      List<td.Message> messages = [];
+      if (response is td.Messages) {
+        messages = response.messages;
+      } else if (response is td.FoundMessages) {
+        messages = response.messages;
+      }
+
+      final searchSeries = _parseSearchResults(messages);
+      state = AsyncValue.data(_applySearchAndSort(searchSeries));
+    } catch (e, stack) {
+      state = AsyncValue.error(e, stack);
+    }
+  }
+
+  List<AnimeSeries> _parseSearchResults(List<td.Message> searchResultMessages) {
+    List<AnimeSeries> seriesList = [];
+    Map<String, AnimeSeries> seriesMap = {};
+
+    for (final msg in searchResultMessages) {
+      if (msg.content is td.MessagePhoto) {
+        final photo = msg.content as td.MessagePhoto;
+        final captionText = photo.caption.text;
+        
+        if (captionText.isNotEmpty) {
+          final lines = captionText.split('\n');
+          final fullTitle = lines.first.trim();
+          final baseName = _normalizeSeriesName(fullTitle);
+          
+          final newSeason = AnimeSeason(
+            fullTitle: fullTitle,
+            seasonName: fullTitle == baseName ? 'Season 1' : fullTitle.replaceFirst(baseName, '').replaceAll(':', '').trim(),
+            posterMessage: msg,
+            episodes: [], // Episodes will be fetched dynamically on-demand!
+          );
+          
+          if (!seriesMap.containsKey(baseName)) {
+            seriesMap[baseName] = AnimeSeries(coreName: baseName, seasons: []);
+            seriesList.add(seriesMap[baseName]!);
+          }
+          
+          seriesMap[baseName]!.seasons.add(newSeason);
+        }
+      }
+    }
+
+    return seriesList;
   }
 
   Future<void> loadMore() async {
@@ -399,7 +471,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
         for (var qw in queryWords) {
           bool wordFound = false;
           for (var tw in textWords) {
-            if (tw == qw || tw.contains(qw) || qw.contains(tw)) {
+            if (tw.startsWith(qw) || tw.contains(qw)) {
               wordFound = true;
               break;
             }
