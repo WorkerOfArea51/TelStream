@@ -101,8 +101,18 @@ class HistoryScreen extends ConsumerWidget {
                   }
                 }
 
-                final seriesName = matchedSeries != null ? matchedSeries.name : log['seriesName'] as String;
-                final lastWatchedText = _formatDateTime(DateTime.fromMillisecondsSinceEpoch(log['timestamp'] as int));
+                final seriesName = matchedSeries != null ? matchedSeries.coreName : log['seriesName'] as String;
+                final episodeTitle = log['episodeTitle'] as String;
+                final timestamp = log['timestamp'] as int;
+                final position = log['position'] as int;
+
+                final dt = DateTime.fromMillisecondsSinceEpoch(timestamp);
+                final timeAgo = _formatDateTime(dt);
+
+                // Watch progress display (position in seconds -> readable format)
+                final progressStr = position > 0 
+                    ? 'Watched up to ${_formatDuration(position)}' 
+                    : 'Started watching';
 
                 return Container(
                   margin: const EdgeInsets.only(bottom: 8),
@@ -127,7 +137,7 @@ class HistoryScreen extends ConsumerWidget {
                       ),
                     ),
                     title: AlignedNameText(
-                      name: seriesName,
+                      text: seriesName,
                       style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white),
                     ),
                     subtitle: Column(
@@ -135,31 +145,28 @@ class HistoryScreen extends ConsumerWidget {
                       children: [
                         const SizedBox(height: 4),
                         Text(
-                          'Episode ${log['episodeIndex'] != null ? (log['episodeIndex'] as int) + 1 : 'N/A'} • $epFileName',
-                          style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 12),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                          episodeTitle,
+                          style: TextStyle(color: theme.primaryColor, fontSize: 12, fontWeight: FontWeight.bold),
                         ),
-                        const SizedBox(height: 2),
+                        const SizedBox(height: 4),
                         Text(
-                          'Watched $lastWatchedText',
+                          '$progressStr • $timeAgo',
                           style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 11),
                         ),
                       ],
                     ),
-                    trailing: matchedSeries != null
+                    trailing: fileId != null && episodeMsg != null && matchedSeries != null
                         ? IconButton(
                             icon: Icon(Icons.play_circle_fill, color: theme.primaryColor, size: 32),
                             onPressed: () {
-                              PipManager.instance.closePip();
-                              Navigator.push(
+                              ref.read(pipControllerProvider.notifier).playVideo(
                                 context,
-                                PremiumPageRoute(
-                                  child: VideoPlayerScreen(
-                                    series: matchedSeries!,
-                                    initialEpisodeIndex: log['episodeIndex'] as int,
-                                  ),
-                                ),
+                                messageId: episodeMsg!.id,
+                                videoFileId: fileId!,
+                                videoTitle: '$seriesName - ${epFileName.isNotEmpty ? epFileName : episodeTitle}',
+                                episodeList: matchedSeries!.seasons.first.episodes,
+                                currentEpisodeIndex: log['episodeIndex'] as int,
+                                seriesName: seriesName,
                               );
                             },
                           )
