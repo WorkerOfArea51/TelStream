@@ -22,22 +22,23 @@ class HistoryScreen extends ConsumerWidget {
     
     final allSeries = [...animeList, ...moviesList, ...webSeriesList];
 
+    final theme = Theme.of(context);
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
-        backgroundColor: Colors.black,
+        backgroundColor: Colors.transparent,
         elevation: 0,
         title: const Text('History', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 22)),
         actions: [
           if (historyLogs.isNotEmpty)
             IconButton(
-              icon: const Icon(Icons.delete_sweep, color: Colors.orangeAccent),
+              icon: Icon(Icons.delete_sweep, color: theme.primaryColor),
               onPressed: () => _confirmClearHistory(context, ref),
             ),
         ],
       ),
       body: historyLogs.isEmpty
-          ? _buildEmptyState()
+          ? _buildEmptyState(context)
           : ListView.builder(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               itemCount: historyLogs.length,
@@ -100,74 +101,65 @@ class HistoryScreen extends ConsumerWidget {
                   }
                 }
 
-                final seriesName = log['seriesName'] as String;
-                final episodeTitle = log['episodeTitle'] as String;
-                final timestamp = log['timestamp'] as int;
-                final position = log['position'] as int;
+                final seriesName = matchedSeries != null ? matchedSeries.name : log['seriesName'] as String;
+                final lastWatchedText = _formatDateTime(DateTime.fromMillisecondsSinceEpoch(log['timestamp'] as int));
 
-                final dt = DateTime.fromMillisecondsSinceEpoch(timestamp);
-                final timeAgo = _formatDateTime(dt);
-
-                // Watch progress display (position in seconds -> readable format)
-                final progressStr = position > 0 
-                    ? 'Watched up to ${_formatDuration(position)}' 
-                    : 'Started watching';
-
-                return Card(
-                  color: const Color(0xFF1C1C1E),
-                  margin: const EdgeInsets.symmetric(vertical: 6),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  decoration: BoxDecoration(
+                    color: theme.cardColor,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: theme.colorScheme.onSurface.withOpacity(0.08), width: 1),
+                  ),
                   child: ListTile(
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    leading: Container(
-                      width: 50,
-                      height: 70,
-                      decoration: BoxDecoration(
-                        color: Colors.black26,
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      clipBehavior: Clip.hardEdge,
-                      child: TdThumbnail(
-                        file: posterFile,
-                        minithumbnail: minithumbnail,
-                        autoDownload: true,
-                        width: 50,
-                        height: 70,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    leading: ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: SizedBox(
+                        width: 48,
+                        height: 64,
+                        child: posterFile != null
+                            ? TdThumbnail(file: posterFile, minithumbnail: minithumbnail)
+                            : Container(
+                                color: theme.primaryColor.withOpacity(0.1),
+                                child: Icon(Icons.movie, color: theme.primaryColor, size: 28),
+                              ),
                       ),
                     ),
                     title: AlignedNameText(
-                      text: seriesName,
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                      name: seriesName,
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white),
                     ),
                     subtitle: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const SizedBox(height: 4),
                         Text(
-                          episodeTitle,
-                          style: const TextStyle(color: Colors.orangeAccent, fontSize: 12, fontWeight: FontWeight.bold),
+                          'Episode ${log['episodeIndex'] != null ? (log['episodeIndex'] as int) + 1 : 'N/A'} • $epFileName',
+                          style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 12),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        const SizedBox(height: 4),
+                        const SizedBox(height: 2),
                         Text(
-                          '$progressStr • $timeAgo',
-                          style: const TextStyle(color: Colors.white38, fontSize: 11),
+                          'Watched $lastWatchedText',
+                          style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 11),
                         ),
                       ],
                     ),
-                    trailing: fileId != null && episodeMsg != null && matchedSeries != null
+                    trailing: matchedSeries != null
                         ? IconButton(
-                            icon: const Icon(Icons.play_circle_fill, color: Colors.orange, size: 28),
+                            icon: Icon(Icons.play_circle_fill, color: theme.primaryColor, size: 32),
                             onPressed: () {
-                              ref.read(pipControllerProvider.notifier).playVideo(
+                              PipManager.instance.closePip();
+                              Navigator.push(
                                 context,
-                                messageId: episodeMsg!.id,
-                                videoFileId: fileId!,
-                                videoTitle: '$seriesName - ${epFileName.isNotEmpty ? epFileName : episodeTitle}',
-                                episodeList: matchedSeries!.seasons.first.episodes,
-                                currentEpisodeIndex: log['episodeIndex'] as int,
-                                seriesName: seriesName,
+                                PremiumPageRoute(
+                                  child: VideoPlayerScreen(
+                                    series: matchedSeries!,
+                                    initialEpisodeIndex: log['episodeIndex'] as int,
+                                  ),
+                                ),
                               );
                             },
                           )
@@ -179,14 +171,15 @@ class HistoryScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildEmptyState() {
+  Widget _buildEmptyState(BuildContext context) {
+    final theme = Theme.of(context);
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Text(
+          Text(
             '(｡•́︿•̀｡)',
-            style: TextStyle(fontSize: 48, color: Colors.orangeAccent, fontWeight: FontWeight.bold),
+            style: TextStyle(fontSize: 48, color: theme.primaryColor, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 16),
           const Text(
@@ -221,11 +214,16 @@ class HistoryScreen extends ConsumerWidget {
   }
 
   void _confirmClearHistory(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF1C1C1E),
-        title: const Text('Clear History', style: TextStyle(color: Colors.white)),
+        backgroundColor: theme.cardColor,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: theme.colorScheme.onSurface.withOpacity(0.08), width: 1),
+        ),
+        title: const Text('Clear History', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         content: const Text(
           'Are you sure you want to clear your watch history? This cannot be undone.',
           style: TextStyle(color: Colors.white70),
@@ -243,12 +241,11 @@ class HistoryScreen extends ConsumerWidget {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
                     content: Text('Watch history cleared'),
-                    backgroundColor: Colors.orange,
                   ),
                 );
               }
             },
-            child: const Text('Clear', style: TextStyle(color: Colors.orangeAccent)),
+            child: Text('Clear', style: TextStyle(color: theme.primaryColor)),
           ),
         ],
       ),

@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../core/constants.dart';
 import '../../core/secrets.dart';
 import '../../services/storage_service.dart';
 import '../../services/update_service.dart';
+import '../../core/widgets/whats_new_dialog.dart';
 import '../settings/settings_screen.dart';
 import 'history_screen.dart';
 import 'network_stream_screen.dart';
@@ -22,7 +24,7 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
     final isIncognitoMode = ref.watch(incognitoModeProvider);
 
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: Colors.transparent,
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
@@ -65,7 +67,7 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'v1.0.0 • Fairy Tail (${Secrets.buildTag})',
+                  'v${Constants.currentVersion} • Fairy Tail (${Secrets.buildTag})',
                   style: const TextStyle(
                     color: Colors.white38,
                     fontSize: 13,
@@ -149,11 +151,12 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
   }
 
   void _manuallyCheckForUpdate(BuildContext context) async {
+    final theme = Theme.of(context);
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => const Center(
-        child: CircularProgressIndicator(color: Colors.orange),
+      builder: (context) => Center(
+        child: CircularProgressIndicator(color: Theme.of(context).primaryColor),
       ),
     );
 
@@ -182,10 +185,10 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
         showDialog(
           context: context,
           builder: (context) => AlertDialog(
-            backgroundColor: const Color(0xFF0F0F11),
+            backgroundColor: theme.cardColor,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
-              side: const BorderSide(color: Colors.white10, width: 1),
+              side: BorderSide(color: theme.colorScheme.onSurface.withOpacity(0.08), width: 1),
             ),
             title: const Row(
               children: [
@@ -201,7 +204,7 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text('OK', style: TextStyle(color: Colors.orange)),
+                child: Text('OK', style: TextStyle(color: theme.primaryColor)),
               ),
             ],
           ),
@@ -211,9 +214,10 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
   }
 
   void _showAboutDialog(BuildContext context) {
+    final theme = Theme.of(context);
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF0F0F11),
+      backgroundColor: theme.cardColor,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
@@ -226,8 +230,8 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
           expand: false,
           builder: (context, scrollController) {
             return Container(
-              decoration: const BoxDecoration(
-                color: Color(0xFF0F0F11),
+              decoration: BoxDecoration(
+                color: theme.cardColor,
                 borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
               ),
               child: ListView(
@@ -255,11 +259,11 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
                           width: 80,
                           height: 80,
                           decoration: BoxDecoration(
-                            color: Colors.black,
+                            color: theme.scaffoldBackgroundColor,
                             shape: BoxShape.circle,
                             boxShadow: [
                               BoxShadow(
-                                color: const Color(0xFF00E5FF).withValues(alpha: 0.5),
+                                color: theme.primaryColor.withOpacity(0.5),
                                 blurRadius: 20,
                                 spreadRadius: 2,
                               )
@@ -270,7 +274,7 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
                               'assets/icon.png',
                               fit: BoxFit.cover,
                               errorBuilder: (context, error, stackTrace) {
-                                return const Icon(Icons.play_circle_fill, size: 55, color: Color(0xFF00E5FF));
+                                return Icon(Icons.play_circle_fill, size: 55, color: theme.primaryColor);
                               },
                             ),
                           ),
@@ -287,7 +291,7 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'v1.0.0 • Fairy Tail (${Secrets.buildTag})',
+                          'v${Constants.currentVersion} • Fairy Tail (${Secrets.buildTag})',
                           style: const TextStyle(
                             color: Colors.white38,
                             fontSize: 13,
@@ -307,6 +311,23 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
                       fontSize: 13,
                       height: 1.5,
                     ),
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: theme.primaryColor.withOpacity(0.15),
+                      foregroundColor: theme.primaryColor,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        side: BorderSide(color: theme.primaryColor.withOpacity(0.3), width: 1),
+                      ),
+                    ),
+                    onPressed: () {
+                      Navigator.pop(context); // Close about dialog
+                      WhatsNewDialog.show(context);
+                    },
+                    icon: const Icon(Icons.history_edu_rounded, size: 18),
+                    label: const Text('View Changelog'),
                   ),
                   const SizedBox(height: 28),
 
@@ -467,14 +488,15 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
     required bool value,
     required ValueChanged<bool> onChanged,
   }) {
+    final theme = Theme.of(context);
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF1C1C1E),
+        color: theme.cardColor,
         borderRadius: BorderRadius.circular(12),
       ),
       child: SwitchListTile(
         activeThumbColor: Colors.black,
-        activeTrackColor: Colors.orange,
+        activeTrackColor: theme.primaryColor,
         inactiveThumbColor: Colors.white70,
         inactiveTrackColor: Colors.white10,
         title: Text(
@@ -497,14 +519,15 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
     String? subtitle,
     required VoidCallback onTap,
   }) {
+    final theme = Theme.of(context);
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 4),
       decoration: BoxDecoration(
-        color: const Color(0xFF1C1C1E),
+        color: theme.cardColor,
         borderRadius: BorderRadius.circular(12),
       ),
       child: ListTile(
-        leading: Icon(icon, color: Colors.orange, size: 24),
+        leading: Icon(icon, color: theme.primaryColor, size: 24),
         title: Text(
           title,
           style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500, fontSize: 15),

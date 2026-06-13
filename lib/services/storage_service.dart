@@ -203,6 +203,28 @@ class StorageService {
       await _save();
     }
   }
+
+  // --- Theme Selection ---
+
+  String getTheme() {
+    return _data['theme'] as String? ?? 'sunsetCyberpunk';
+  }
+
+  Future<void> setTheme(String themeName) async {
+    _data['theme'] = themeName;
+    await _save();
+  }
+
+  // --- Version Control / Changelog ---
+
+  String getLastSeenVersion() {
+    return _data['last_seen_version'] as String? ?? '';
+  }
+
+  Future<void> setLastSeenVersion(String version) async {
+    _data['last_seen_version'] = version;
+    await _save();
+  }
 }
 
 class FavoritesNotifier extends Notifier<List<String>> {

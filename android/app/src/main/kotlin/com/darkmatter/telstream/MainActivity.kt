@@ -11,9 +11,11 @@ import java.io.File
 
 class MainActivity : FlutterActivity() {
     private val CHANNEL = "com.darkmatter.telstream/updater"
+    private val DOWNLOAD_CHANNEL = "com.darkmatter.telstream/downloads"
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
             when (call.method) {
                 "installApk" -> {
@@ -31,6 +33,36 @@ class MainActivity : FlutterActivity() {
                 }
                 "getAndroidSdkVersion" -> {
                     result.success(Build.VERSION.SDK_INT)
+                }
+                else -> {
+                    result.notImplemented()
+                }
+            }
+        }
+
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, DOWNLOAD_CHANNEL).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "updateDownloadNotification" -> {
+                    val fileId = call.argument<Int>("fileId") ?: -1
+                    val title = call.argument<String>("title") ?: "Download"
+                    val progress = call.argument<Double>("progress") ?: 0.0
+                    val isCompleted = call.argument<Boolean>("isCompleted") ?: false
+                    val isCancelled = call.argument<Boolean>("isCancelled") ?: false
+
+                    val serviceIntent = Intent(this, DownloadService::class.java).apply {
+                        putExtra("fileId", fileId)
+                        putExtra("title", title)
+                        putExtra("progress", progress)
+                        putExtra("isCompleted", isCompleted)
+                        putExtra("isCancelled", isCancelled)
+                    }
+
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        startForegroundService(serviceIntent)
+                    } else {
+                        startService(serviceIntent)
+                    }
+                    result.success(true)
                 }
                 else -> {
                     result.notImplemented()

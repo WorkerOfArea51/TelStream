@@ -152,11 +152,12 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
       minithumbnail = photo.photo.minithumbnail;
     }
 
+    final theme = Theme.of(context);
     return Scaffold(
-      backgroundColor: const Color(0xFF0A1128),
+      backgroundColor: Colors.transparent,
       floatingActionButton: FloatingActionButton(
         onPressed: _toggleFavorite,
-        backgroundColor: isFavorite ? Colors.pinkAccent : Colors.white24,
+        backgroundColor: isFavorite ? Colors.pinkAccent : theme.cardColor,
         child: Icon(
           isFavorite ? Icons.favorite : Icons.favorite_border,
           color: Colors.white,
@@ -167,7 +168,7 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
           SliverAppBar(
             expandedHeight: 300,
             pinned: true,
-            backgroundColor: const Color(0xFF0A1128),
+            backgroundColor: Colors.transparent,
             iconTheme: const IconThemeData(color: Colors.white),
             flexibleSpace: FlexibleSpaceBar(
               centerTitle: true,
@@ -257,9 +258,9 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
               ),
             ),
           if (_isLoadingEpisodes)
-            const SliverFillRemaining(
+            SliverFillRemaining(
               child: Center(
-                child: CircularProgressIndicator(color: Colors.orange),
+                child: CircularProgressIndicator(color: theme.primaryColor),
               ),
             )
           else if (_errorMessage != null)
@@ -274,8 +275,8 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
                       const SizedBox(height: 12),
                       ElevatedButton(
                         onPressed: _loadEpisodesDynamically,
-                        style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
-                        child: const Text('Retry', style: TextStyle(color: Colors.black)),
+                        style: ElevatedButton.styleFrom(backgroundColor: theme.primaryColor),
+                        child: Text('Retry', style: TextStyle(color: theme.colorScheme.onPrimary)),
                       ),
                     ],
                   ),
@@ -330,15 +331,16 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
     final task = downloadTasks[fileId];
 
     Widget trailingWidget;
+    final theme = Theme.of(context);
     if (task == null) {
       trailingWidget = IconButton(
-        icon: const Icon(Icons.download, color: Colors.orangeAccent, size: 24),
+        icon: Icon(Icons.download, color: theme.primaryColor, size: 24),
         onPressed: () {
           ref.read(downloadControllerProvider.notifier).startDownload(fileId!, title);
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('Starting download: $title'),
-              backgroundColor: Colors.orange,
+              backgroundColor: theme.primaryColor,
               duration: const Duration(seconds: 2),
             ),
           );
@@ -367,11 +369,11 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
                 child: WavyCircularProgressIndicator(
                   value: task.progress,
                   strokeWidth: 2.5,
-                  color: Colors.orange,
+                  color: theme.primaryColor,
                   backgroundColor: Colors.white12,
                 ),
               ),
-              const Icon(Icons.close, size: 14, color: Colors.orangeAccent),
+              Icon(Icons.close, size: 14, color: theme.primaryColor),
             ],
           ),
         ),
@@ -388,9 +390,9 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05),
+        color: theme.cardColor,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white12, width: 1),
+        border: Border.all(color: theme.colorScheme.onSurface.withOpacity(0.08), width: 1),
       ),
       child: ListTile(
         contentPadding: const EdgeInsets.all(12),

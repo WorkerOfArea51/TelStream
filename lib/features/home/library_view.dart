@@ -68,14 +68,15 @@ class _LibraryViewState extends ConsumerState<LibraryView> with SingleTickerProv
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final state = ref.watch(provider);
-        final favorites = ref.watch(favoritesProvider);
+    final favorites = ref.watch(favoritesProvider);
     final isDownloadedOnly = ref.watch(downloadedOnlyProvider);
 
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
-        backgroundColor: Colors.black,
+        backgroundColor: Colors.transparent,
         elevation: 0,
         title: _isSearching
             ? TextField(
@@ -118,7 +119,7 @@ class _LibraryViewState extends ConsumerState<LibraryView> with SingleTickerProv
             ),
           PopupMenuButton<SortOrder>(
             icon: const Icon(Icons.sort, color: Colors.white70),
-            color: const Color(0xFF1C1C1E),
+            color: theme.cardColor,
             onSelected: (SortOrder order) {
               ref.read(provider.notifier).setSortOrder(order);
             },
@@ -138,8 +139,8 @@ class _LibraryViewState extends ConsumerState<LibraryView> with SingleTickerProv
               controller: _subTabController,
               isScrollable: true,
               tabAlignment: TabAlignment.start,
-              indicatorColor: Colors.orange,
-              labelColor: Colors.orange,
+              indicatorColor: theme.primaryColor,
+              labelColor: theme.primaryColor,
               unselectedLabelColor: Colors.white60,
               indicatorSize: TabBarIndicatorSize.label,
               tabs: const [
@@ -167,8 +168,8 @@ class _LibraryViewState extends ConsumerState<LibraryView> with SingleTickerProv
           }
 
           return RefreshIndicator(
-            color: Colors.orange,
-            backgroundColor: const Color(0xFF1C1C1E),
+            color: theme.primaryColor,
+            backgroundColor: theme.cardColor,
             onRefresh: () async {
               ref.invalidate(provider);
             },
@@ -194,10 +195,10 @@ class _LibraryViewState extends ConsumerState<LibraryView> with SingleTickerProv
                     delegate: SliverChildBuilderDelegate(
                       (context, index) {
                         if (index == filteredList.length) {
-                          return const Center(
+                          return Center(
                             child: Padding(
-                              padding: EdgeInsets.symmetric(vertical: 16.0),
-                              child: CircularProgressIndicator(color: Colors.orange),
+                              padding: const EdgeInsets.symmetric(vertical: 16.0),
+                              child: CircularProgressIndicator(color: theme.primaryColor),
                             ),
                           );
                         }
@@ -213,7 +214,7 @@ class _LibraryViewState extends ConsumerState<LibraryView> with SingleTickerProv
             ),
           );
         },
-        loading: () => const Center(child: CircularProgressIndicator(color: Colors.orange)),
+        loading: () => Center(child: CircularProgressIndicator(color: theme.primaryColor)),
         error: (err, stack) => Center(child: Text('Error: $err', style: const TextStyle(color: Colors.redAccent))),
       ),
     );
@@ -233,6 +234,7 @@ class _LibraryViewState extends ConsumerState<LibraryView> with SingleTickerProv
   }
 
   Widget _buildEmptyState() {
+    final theme = Theme.of(context);
     // Return Tachiyomi styled empty layout with beautiful kaomoji
     final kaomoji = _activeSubTabIndex == 1 ? '(・_・;)' : '(・○・;)';
     final message = _activeSubTabIndex == 1 ? 'No favorites in this category' : 'Your library is empty';
@@ -243,7 +245,7 @@ class _LibraryViewState extends ConsumerState<LibraryView> with SingleTickerProv
         children: [
           Text(
             kaomoji,
-            style: const TextStyle(fontSize: 48, color: Colors.orangeAccent, fontWeight: FontWeight.bold),
+            style: TextStyle(fontSize: 48, color: theme.primaryColor, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 16),
           Text(
@@ -253,11 +255,11 @@ class _LibraryViewState extends ConsumerState<LibraryView> with SingleTickerProv
           const SizedBox(height: 16),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.orange.withValues(alpha: 0.1),
-              foregroundColor: Colors.orange,
+              backgroundColor: theme.primaryColor.withOpacity(0.1),
+              foregroundColor: theme.primaryColor,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(20),
-                side: const BorderSide(color: Colors.orange, width: 1),
+                side: BorderSide(color: theme.primaryColor, width: 1),
               ),
             ),
             onPressed: () {
@@ -271,6 +273,7 @@ class _LibraryViewState extends ConsumerState<LibraryView> with SingleTickerProv
   }
 
   Widget _buildGridItem(BuildContext context, AnimeSeries series) {
+    final theme = Theme.of(context);
     final totalEpisodes = series.seasons.fold(0, (sum, s) => sum + s.episodes.length);
     final latestPoster = series.seasons.isNotEmpty ? series.seasons.first.posterMessage : null;
     
@@ -299,9 +302,9 @@ class _LibraryViewState extends ConsumerState<LibraryView> with SingleTickerProv
       },
       child: Container(
         decoration: BoxDecoration(
-          color: const Color(0xFF1C1C1E),
+          color: theme.cardColor,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white.withOpacity(0.08), width: 1),
+          border: Border.all(color: theme.colorScheme.onSurface.withOpacity(0.08), width: 1),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withOpacity(0.4),
@@ -371,7 +374,7 @@ class _LibraryViewState extends ConsumerState<LibraryView> with SingleTickerProv
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.play_circle_fill, color: Colors.orange, size: 10),
+                    Icon(Icons.play_circle_fill, color: theme.primaryColor, size: 10),
                     const SizedBox(width: 4),
                     Text(
                       totalEpisodes.toString(),
@@ -549,7 +552,7 @@ class _FeaturedCarouselState extends State<FeaturedCarousel> {
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                 decoration: BoxDecoration(
-                                  color: Colors.orange,
+                                  color: Theme.of(context).primaryColor,
                                   borderRadius: BorderRadius.circular(6),
                                 ),
                                 child: const Text(
@@ -601,7 +604,7 @@ class _FeaturedCarouselState extends State<FeaturedCarousel> {
               width: _currentPage == index ? 16 : 8,
               height: 8,
               decoration: BoxDecoration(
-                color: _currentPage == index ? Colors.orange : Colors.white24,
+                color: _currentPage == index ? Theme.of(context).primaryColor : Colors.white24,
                 borderRadius: BorderRadius.circular(4),
               ),
             ),

@@ -45,11 +45,13 @@ class _NetworkStreamScreenState extends ConsumerState<NetworkStreamScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
-        backgroundColor: Colors.black,
+        backgroundColor: Colors.transparent,
         elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.white),
         title: const Text('Network Stream', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 22)),
       ),
       body: Padding(
@@ -59,10 +61,10 @@ class _NetworkStreamScreenState extends ConsumerState<NetworkStreamScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
+              Text(
                 'Play external URL',
                 style: TextStyle(
-                  color: Colors.orange,
+                  color: theme.primaryColor,
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
                 ),
@@ -80,16 +82,16 @@ class _NetworkStreamScreenState extends ConsumerState<NetworkStreamScreen> {
                   hintText: 'https://example.com/video.mp4',
                   hintStyle: const TextStyle(color: Colors.white38),
                   filled: true,
-                  fillColor: const Color(0xFF1C1C1E),
+                  fillColor: theme.cardColor,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide.none,
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: Colors.orange, width: 1.5),
+                    borderSide: BorderSide(color: theme.primaryColor, width: 1.5),
                   ),
-                  prefixIcon: const Icon(Icons.link, color: Colors.orangeAccent),
+                  prefixIcon: Icon(Icons.link, color: theme.primaryColor),
                   suffixIcon: IconButton(
                     icon: const Icon(Icons.clear, color: Colors.white38),
                     onPressed: () => _urlController.clear(),
@@ -113,8 +115,8 @@ class _NetworkStreamScreenState extends ConsumerState<NetworkStreamScreen> {
                 child: ElevatedButton.icon(
                   onPressed: _playStream,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.orange,
-                    foregroundColor: Colors.black,
+                    backgroundColor: theme.primaryColor,
+                    foregroundColor: theme.colorScheme.onPrimary,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),

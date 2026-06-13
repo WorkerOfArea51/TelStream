@@ -7,6 +7,7 @@ import 'package:media_kit_video/media_kit_video.dart';
 import 'package:tdlib/td_api.dart' as td;
 import '../../services/tdlib_service.dart';
 import '../../services/storage_service.dart';
+import '../../services/download_service.dart';
 import '../settings/settings_provider.dart';
 import 'pip_manager.dart';
 import 'custom_video_controls.dart';
@@ -282,8 +283,12 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
 
     try {
       if (widget.networkUrl == null && widget.videoFileId != 0) {
-        _tdlibService.send(td.CancelDownloadFile(fileId: widget.videoFileId, onlyIfPending: false));
-        _tdlibService.send(td.DeleteFile(fileId: widget.videoFileId)); 
+        final activeDownloads = ref.read(downloadControllerProvider);
+        final isDownloadingPermanently = activeDownloads.containsKey(widget.videoFileId);
+        if (!isDownloadingPermanently) {
+          _tdlibService.send(td.CancelDownloadFile(fileId: widget.videoFileId, onlyIfPending: false));
+          _tdlibService.send(td.DeleteFile(fileId: widget.videoFileId)); 
+        }
       }
     } catch (_) {}
     

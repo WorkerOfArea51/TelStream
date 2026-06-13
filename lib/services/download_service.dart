@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tdlib/td_api.dart' as td;
 import 'package:path_provider/path_provider.dart';
@@ -39,6 +40,7 @@ class DownloadTask {
 class DownloadController extends Notifier<Map<int, DownloadTask>> {
   StreamSubscription? _subscription;
   StreamSubscription? _dirWatcherSubscription;
+  static const _channel = MethodChannel('com.darkmatter.telstream/downloads');
 
   @override
   Map<int, DownloadTask> build() {
@@ -48,6 +50,21 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
     });
     _init();
     return {};
+  }
+
+  Future<void> _updateNativeNotification(int fileId, String title, double progress, {bool isCompleted = false, bool isCancelled = false}) async {
+    if (!Platform.isAndroid) return;
+    try {
+      await _channel.invokeMethod('updateDownloadNotification', {
+        'fileId': fileId,
+        'title': title,
+        'progress': progress,
+        'isCompleted': isCompleted,
+        'isCancelled': isCancelled,
+      });
+    } catch (e) {
+      print('Failed to update native notification: $e');
+    }
   }
 
   Future<Directory> _getEffectiveDownloadsDirectory() async {
@@ -135,6 +152,7 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
                 isCompleted: false,
               ),
             };
+            _updateNativeNotification(fileId, task.title, progress);
           }
         }
       }
@@ -185,6 +203,9 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
       fileId: DownloadTask(fileId: fileId, title: title),
     };
 
+    // Notify native background download service to start
+    _updateNativeNotification(fileId, title, 0.0);
+
     // Send TDLib DownloadFile command
     ref.read(tdlibServiceProvider).send(td.DownloadFile(
       fileId: fileId,
@@ -196,10 +217,17 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
   }
 
   Future<void> cancelDownload(int fileId) async {
+    final task = state[fileId];
+    final title = task?.title ?? 'Download';
+    
     ref.read(tdlibServiceProvider).send(td.CancelDownloadFile(
       fileId: fileId,
       onlyIfPending: false,
     ));
+    
+    // Notify native background download service of cancellation
+    _updateNativeNotification(fileId, title, 0.0, isCancelled: true);
+
     state = {...state}..remove(fileId);
   }
 
@@ -241,8 +269,13 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
           localPath: permanentPath,
         ),
       };
+
+      // Notify native background download service of success
+      _updateNativeNotification(fileId, title, 1.0, isCompleted: true);
+
     } catch (e) {
       print('FAILED TO SAVE FILE PERMANENTLY: $e');
+      _updateNativeNotification(fileId, title, 0.0, isCancelled: true);
     }
   }
 }

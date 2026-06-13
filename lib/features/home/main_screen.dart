@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../services/permission_service.dart';
 import '../../core/constants.dart';
 import '../../services/update_service.dart';
+import '../../services/storage_service.dart';
+import '../../core/widgets/whats_new_dialog.dart';
 import 'library_view.dart';
 import 'more_screen.dart';
 
@@ -30,7 +32,19 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkUpdatesSilently();
       ref.read(permissionServiceProvider).requestAllImportantPermissions();
+      _showWhatsNewIfNeeded();
     });
+  }
+
+  void _showWhatsNewIfNeeded() async {
+    final storage = ref.read(storageServiceProvider);
+    final lastSeen = storage.getLastSeenVersion();
+    if (lastSeen != Constants.currentVersion) {
+      if (mounted) {
+        WhatsNewDialog.show(context);
+        await storage.setLastSeenVersion(Constants.currentVersion);
+      }
+    }
   }
 
   void _checkUpdatesSilently() async {
@@ -42,8 +56,9 @@ class _MainScreenState extends ConsumerState<MainScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: Colors.transparent,
       body: IndexedStack(
         index: _currentIndex,
         children: _screens,
@@ -53,11 +68,11 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         child: BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
           child: BottomNavigationBar(
-            backgroundColor: Colors.black.withValues(alpha: 0.85),
+            backgroundColor: theme.cardColor.withOpacity(0.92),
             elevation: 0,
             type: BottomNavigationBarType.fixed,
-            selectedItemColor: Colors.orange,
-            unselectedItemColor: Colors.white38,
+            selectedItemColor: theme.primaryColor,
+            unselectedItemColor: theme.colorScheme.onSurface.withOpacity(0.4),
             selectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
             unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.normal, fontSize: 11),
             currentIndex: _currentIndex,
@@ -66,25 +81,25 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                 _currentIndex = index;
               });
             },
-            items: const [
+            items: [
               BottomNavigationBarItem(
-                icon: Icon(Icons.tv),
-                activeIcon: Icon(Icons.tv, color: Colors.orange),
+                icon: const Icon(Icons.tv),
+                activeIcon: Icon(Icons.tv, color: theme.primaryColor),
                 label: 'Anime',
               ),
               BottomNavigationBarItem(
-                icon: Icon(Icons.movie_outlined),
-                activeIcon: Icon(Icons.movie, color: Colors.orange),
+                icon: const Icon(Icons.movie_outlined),
+                activeIcon: Icon(Icons.movie, color: theme.primaryColor),
                 label: 'Movies',
               ),
               BottomNavigationBarItem(
-                icon: Icon(Icons.video_collection_outlined),
-                activeIcon: Icon(Icons.video_collection, color: Colors.orange),
+                icon: const Icon(Icons.video_collection_outlined),
+                activeIcon: Icon(Icons.video_collection, color: theme.primaryColor),
                 label: 'Web Series',
               ),
               BottomNavigationBarItem(
-                icon: Icon(Icons.more_horiz_outlined),
-                activeIcon: Icon(Icons.more_horiz, color: Colors.orange),
+                icon: const Icon(Icons.more_horiz_outlined),
+                activeIcon: Icon(Icons.more_horiz, color: theme.primaryColor),
                 label: 'More',
               ),
             ],
