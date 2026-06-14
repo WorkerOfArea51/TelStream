@@ -130,7 +130,7 @@ class AppThemeState {
     required this.darkTheme,
   });
 
-  AppThemePreset get activePreset {
+  ColorThemePreset get activePreset {
     return appThemes.firstWhere(
       (theme) => theme.id == colorThemeId,
       orElse: () => appThemes.first,
@@ -138,20 +138,25 @@ class AppThemeState {
   }
 }
 
-class AppThemeNotifier extends StateNotifier<AppThemeState> {
-  final StorageService _storageService;
+class AppThemeNotifier extends Notifier<AppThemeState> {
+  @override
+  AppThemeState build() {
+    final storageService = ref.watch(storageServiceProvider);
+    final themeMode = _parseThemeMode(storageService.getThemeMode());
+    final colorThemeId = storageService.getTheme();
+    final isAmoled = storageService.getThemeMode() == 'amoled';
 
-  AppThemeNotifier(this._storageService)
-      : super(
-          AppThemeState(
-            themeMode: _parseThemeMode(_storageService.getThemeMode()),
-            colorThemeId: _storageService.getTheme(),
-            lightTheme: ThemeData.light(),
-            darkTheme: ThemeData.dark(),
-          ),
-        ) {
-    // Generate initial themes on startup
-    _updateState(state.themeMode, state.colorThemeId);
+    final preset = appThemes.firstWhere(
+      (theme) => theme.id == colorThemeId,
+      orElse: () => appThemes.first,
+    );
+
+    return AppThemeState(
+      themeMode: themeMode,
+      colorThemeId: colorThemeId,
+      lightTheme: _buildTheme(preset, false, false),
+      darkTheme: _buildTheme(preset, true, isAmoled),
+    );
   }
 
   static ThemeMode _parseThemeMode(String mode) {
@@ -169,12 +174,13 @@ class AppThemeNotifier extends StateNotifier<AppThemeState> {
   }
 
   void _updateState(ThemeMode mode, String colorThemeId) {
+    final storageService = ref.read(storageServiceProvider);
     final preset = appThemes.firstWhere(
       (theme) => theme.id == colorThemeId,
       orElse: () => appThemes.first,
     );
 
-    final isAmoled = _storageService.getThemeMode() == 'amoled';
+    final isAmoled = storageService.getThemeMode() == 'amoled';
 
     state = AppThemeState(
       themeMode: mode,
@@ -185,12 +191,14 @@ class AppThemeNotifier extends StateNotifier<AppThemeState> {
   }
 
   Future<void> updateThemeMode(String modeStr) async {
-    await _storageService.setThemeMode(modeStr);
+    final storageService = ref.read(storageServiceProvider);
+    await storageService.setThemeMode(modeStr);
     _updateState(_parseThemeMode(modeStr), state.colorThemeId);
   }
 
   Future<void> updateColorTheme(String colorThemeId) async {
-    await _storageService.setTheme(colorThemeId);
+    final storageService = ref.read(storageServiceProvider);
+    await storageService.setTheme(colorThemeId);
     _updateState(state.themeMode, colorThemeId);
   }
 
@@ -247,7 +255,6 @@ class AppThemeNotifier extends StateNotifier<AppThemeState> {
   }
 }
 
-final appThemeProvider = StateNotifierProvider<AppThemeNotifier, AppThemeState>((ref) {
-  final storage = ref.watch(storageServiceProvider);
-  return AppThemeNotifier(storage);
+final appThemeProvider = NotifierProvider<AppThemeNotifier, AppThemeState>(() {
+  return AppThemeNotifier();
 });

@@ -3,7 +3,7 @@ import 'package:tdlib/td_api.dart' as td;
 import '../../models/anime_models.dart';
 import '../player/pip_manager.dart';
 import '../../core/widgets/aligned_name_text.dart';
-import '../../core/widgets/wavy_circular_progress.dart';
+import '../../core/widgets/wavy_progress_indicators.dart';
 import '../../core/widgets/td_thumbnail.dart';
 import '../../core/theme/app_theme.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -345,9 +345,13 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
           ref.read(downloadControllerProvider.notifier).startDownload(fileId!, title);
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Starting download: $title'),
+              content: Text(
+                'Starting download: $title',
+                style: TextStyle(
+                  color: theme.primaryColor.computeLuminance() > 0.5 ? Colors.black : Colors.white,
+                ),
+              ),
               backgroundColor: theme.primaryColor,
-              foregroundColor: theme.primaryColor.computeLuminance() > 0.5 ? Colors.black : Colors.white,
               duration: const Duration(seconds: 2),
             ),
           );
