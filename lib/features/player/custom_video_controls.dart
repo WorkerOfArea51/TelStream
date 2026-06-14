@@ -45,9 +45,12 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
   Timer? _hideTimer;
   
   bool _isLocked = false;
-  bool _isFullscreen = false;
+  bool _isFullscreen = true;
   double _currentSpeed = 1.0;
   BoxFit _fit = BoxFit.contain;
+  
+  StreamSubscription<bool>? _bufferingSubscription;
+  bool _isBuffering = false;
   
   bool _showTrackSelectorPanel = false;
   String _trackSelectorTitle = '';
@@ -92,10 +95,18 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     super.initState();
     _startHideTimer();
     _currentVolume = widget.player.state.volume;
+    _bufferingSubscription = widget.player.stream.buffering.listen((buffering) {
+      if (mounted) {
+        setState(() {
+          _isBuffering = buffering;
+        });
+      }
+    });
   }
 
   @override
   void dispose() {
+    _bufferingSubscription?.cancel();
     _hideTimer?.cancel();
     _doubleTapOverlayTimer?.cancel();
     super.dispose();
@@ -667,6 +678,12 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
         fit: StackFit.expand,
         children: [
           // Video Layer with Pinch to Zoom
+          if (_isBuffering)
+            const Center(
+              child: CircularProgressIndicator(
+                color: Colors.orange,
+              ),
+            ),
           Transform.translate(
             offset: _panOffset,
             child: Transform.scale(

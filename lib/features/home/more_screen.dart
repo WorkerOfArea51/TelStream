@@ -324,7 +324,7 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
                     ),
                     onPressed: () {
                       Navigator.pop(context); // Close about dialog
-                      WhatsNewDialog.show(context);
+                      WhatsNewDialog.showDynamic(context);
                     },
                     icon: const Icon(Icons.history_edu_rounded, size: 18),
                     label: const Text('View Changelog'),

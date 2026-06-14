@@ -42,6 +42,10 @@ class MainActivity : FlutterActivity() {
 
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, DOWNLOAD_CHANNEL).setMethodCallHandler { call, result ->
             when (call.method) {
+                "minimizeApp" -> {
+                    moveTaskToBack(true)
+                    result.success(true)
+                }
                 "updateDownloadNotification" -> {
                     val fileId = call.argument<Int>("fileId") ?: -1
                     val title = call.argument<String>("title") ?: "Download"

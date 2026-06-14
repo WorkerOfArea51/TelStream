@@ -69,12 +69,30 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         pitch: _settings.pitchCorrection,
       ),
     );
+
+    // Optimize streaming cache/buffering parameters for low-bandwidth connections and reduce glitching
+    try {
+      if (player.platform is NativePlayer) {
+        final nativePlayer = player.platform as NativePlayer;
+        nativePlayer.setProperty('cache', 'yes');
+        nativePlayer.setProperty('demuxer-max-bytes', '104857600'); // 100 MB buffer
+        nativePlayer.setProperty('demuxer-max-back-bytes', '52428800'); // 50 MB back buffer
+        nativePlayer.setProperty('demuxer-readahead-secs', '120'); // Buffer up to 120 seconds ahead
+      }
+    } catch (_) {}
+
     _pipController.setActivePlayer(player);
     controller = VideoController(player);
     
     _startDownload();
     
-    if (widget.isPip) {
+    if (!widget.isPip) {
+      SystemChrome.setPreferredOrientations([
+        DeviceOrientation.landscapeLeft,
+        DeviceOrientation.landscapeRight,
+      ]);
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    } else {
       _resetOrientationAndUI();
     }
     
@@ -219,7 +237,11 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         }
 
         if (localPath.isNotEmpty && !_isPlaying) {
-          if (event.file.local.isDownloadingCompleted || event.file.local.downloadedPrefixSize > 2 * 1024 * 1024) {
+          // Wait for 5% of the file, or at least 4MB, but at most 15MB before starting to play
+          final totalSize = event.file.expectedSize;
+          final targetBuffer = (totalSize * 0.05).clamp(4 * 1024 * 1024, 15 * 1024 * 1024);
+
+          if (event.file.local.isDownloadingCompleted || event.file.local.downloadedPrefixSize >= targetBuffer) {
             _isPlaying = true;
             player.open(Media(localPath));
             player.setVolume(100.0);
@@ -244,7 +266,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
+    if (state == AppLifecycleState.paused) {
       try {
         player.pause();
       } catch (_) {}

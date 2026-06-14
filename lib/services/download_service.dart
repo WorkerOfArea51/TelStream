@@ -41,6 +41,7 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
   StreamSubscription? _subscription;
   StreamSubscription? _dirWatcherSubscription;
   static const _channel = MethodChannel('com.darkmatter.telstream/downloads');
+  final Map<int, int> _lastNotificationTimes = {};
 
   @override
   Map<int, DownloadTask> build() {
@@ -54,16 +55,23 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
 
   Future<void> _updateNativeNotification(int fileId, String title, double progress, {bool isCompleted = false, bool isCancelled = false}) async {
     if (!Platform.isAndroid) return;
-    try {
-      await _channel.invokeMethod('updateDownloadNotification', {
-        'fileId': fileId,
-        'title': title,
-        'progress': progress,
-        'isCompleted': isCompleted,
-        'isCancelled': isCancelled,
-      });
-    } catch (e) {
-      print('Failed to update native notification: $e');
+    
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final lastTime = _lastNotificationTimes[fileId] ?? 0;
+    
+    if (isCompleted || isCancelled || progress == 0.0 || (now - lastTime) >= 800) {
+      _lastNotificationTimes[fileId] = now;
+      try {
+        await _channel.invokeMethod('updateDownloadNotification', {
+          'fileId': fileId,
+          'title': title,
+          'progress': progress,
+          'isCompleted': isCompleted,
+          'isCancelled': isCancelled,
+        });
+      } catch (e) {
+        print('Failed to update native notification: $e');
+      }
     }
   }
 
