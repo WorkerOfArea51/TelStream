@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import '../settings/settings_provider.dart';
+import '../../core/theme/app_theme.dart';
 
 class CustomVideoControls extends ConsumerStatefulWidget {
   final Player player;
@@ -378,6 +379,10 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
   }
 
   Widget _buildCustomTrackSelectorPanel() {
+    final theme = Theme.of(context);
+    final customTheme = theme.extension<AppThemeExtension>();
+    final settingsAccent = customTheme?.settingsAccent ?? theme.primaryColor;
+
     return StreamBuilder<Tracks>(
       stream: widget.player.stream.tracks,
       initialData: widget.player.state.tracks,
@@ -450,7 +455,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                             children: [
                               Icon(
                                 _trackSelectorIsSubtitle ? Icons.subtitles : Icons.headphones,
-                                color: Colors.blueAccent,
+                                color: settingsAccent,
                                 size: 24,
                               ),
                               const SizedBox(width: 12),
@@ -501,12 +506,12 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                                       leadingWidget = Container(
                                         padding: const EdgeInsets.all(8),
                                         decoration: BoxDecoration(
-                                          color: isSelected ? Colors.blueAccent.withOpacity(0.2) : Colors.white10,
+                                          color: isSelected ? settingsAccent.withOpacity(0.2) : Colors.white10,
                                           shape: BoxShape.circle,
                                         ),
                                         child: Icon(
                                           Icons.autorenew,
-                                          color: isSelected ? Colors.blueAccent : Colors.white70,
+                                          color: isSelected ? settingsAccent : Colors.white70,
                                           size: 18,
                                         ),
                                       );
@@ -539,16 +544,16 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                                         leadingWidget = Container(
                                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                           decoration: BoxDecoration(
-                                            color: isSelected ? Colors.blueAccent.withOpacity(0.2) : Colors.white10,
+                                            color: isSelected ? settingsAccent.withOpacity(0.2) : Colors.white10,
                                             borderRadius: BorderRadius.circular(8),
                                             border: Border.all(
-                                              color: isSelected ? Colors.blueAccent.withOpacity(0.4) : Colors.white24,
+                                              color: isSelected ? settingsAccent.withOpacity(0.4) : Colors.white24,
                                             ),
                                           ),
                                           child: Text(
                                             lang,
                                             style: TextStyle(
-                                              color: isSelected ? Colors.blueAccent : Colors.white70,
+                                              color: isSelected ? settingsAccent : Colors.white70,
                                               fontSize: 12,
                                               fontWeight: FontWeight.bold,
                                             ),
@@ -590,12 +595,12 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                                           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                                           decoration: BoxDecoration(
                                             color: isSelected 
-                                                ? Colors.blueAccent.withOpacity(0.12) 
+                                                ? settingsAccent.withOpacity(0.12) 
                                                 : Colors.white.withOpacity(0.04),
                                             borderRadius: BorderRadius.circular(12),
                                             border: Border.all(
                                               color: isSelected 
-                                                  ? Colors.blueAccent.withOpacity(0.4) 
+                                                  ? settingsAccent.withOpacity(0.4) 
                                                   : Colors.white.withOpacity(0.05),
                                               width: 1,
                                             ),
@@ -609,16 +614,16 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                                               Expanded(
                                                 child: DefaultTextStyle(
                                                   style: TextStyle(
-                                                    color: isSelected ? Colors.blueAccent : Colors.white,
+                                                    color: isSelected ? settingsAccent : Colors.white,
                                                     fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                                                   ),
                                                   child: titleWidget,
                                                 ),
                                               ),
                                               if (isSelected)
-                                                const Icon(
+                                                Icon(
                                                   Icons.check_circle,
-                                                  color: Colors.blueAccent,
+                                                  color: settingsAccent,
                                                   size: 20,
                                                 ),
                                             ],
@@ -645,6 +650,9 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
     final settings = ref.watch(videoSettingsProvider);
+    final theme = Theme.of(context);
+    final customTheme = theme.extension<AppThemeExtension>();
+    final settingsAccent = customTheme?.settingsAccent ?? theme.primaryColor;
 
     return GestureDetector(
       onTap: _toggleControls,
@@ -983,9 +991,9 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                                         : null,
                                     thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6.0),
                                     overlayShape: const RoundSliderOverlayShape(overlayRadius: 14.0),
-                                    activeTrackColor: Colors.blueAccent,
+                                    activeTrackColor: settingsAccent,
                                     inactiveTrackColor: Colors.white24,
-                                    thumbColor: Colors.blueAccent,
+                                    thumbColor: settingsAccent,
                                   ),
                                   child: Slider(
                                     min: 0,
@@ -1040,6 +1048,9 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
   }
 
   Widget _buildOSD(IconData icon, double value) {
+    final theme = Theme.of(context);
+    final customTheme = theme.extension<AppThemeExtension>();
+    final settingsAccent = customTheme?.settingsAccent ?? theme.primaryColor;
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(12)),
@@ -1053,7 +1064,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
             alignment: Alignment.bottomCenter,
             child: Container(
               width: 4, height: 100 * value,
-              decoration: BoxDecoration(color: Colors.blueAccent, borderRadius: BorderRadius.circular(2)),
+              decoration: BoxDecoration(color: settingsAccent, borderRadius: BorderRadius.circular(2)),
             ),
           ),
         ],

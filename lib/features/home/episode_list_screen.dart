@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:tdlib/td_api.dart' as td;
 import '../../models/anime_models.dart';
-import '../../core/widgets/td_thumbnail.dart';
-import '../../core/widgets/aligned_name_text.dart';
-import '../../core/widgets/wavy_progress_indicators.dart';
 import '../player/pip_manager.dart';
+import '../../core/widgets/aligned_name_text.dart';
+import '../../core/widgets/wavy_circular_progress.dart';
+import '../../core/widgets/td_thumbnail.dart';
+import '../../core/theme/app_theme.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../services/storage_service.dart';
 import '../../services/download_service.dart';
@@ -130,7 +131,7 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(isFavNow ? 'Added to Favorites!' : 'Removed from Favorites'),
-          backgroundColor: isFavNow ? Colors.green : Colors.redAccent,
+          backgroundColor: Theme.of(context).colorScheme.primary,
           duration: const Duration(seconds: 2),
         ),
       );
@@ -153,14 +154,16 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
     }
 
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     return Scaffold(
-      backgroundColor: const Color(0xFF0A1128),
+      backgroundColor: theme.scaffoldBackgroundColor,
       floatingActionButton: FloatingActionButton(
         onPressed: _toggleFavorite,
-        backgroundColor: isFavorite ? Colors.pinkAccent : theme.cardColor,
+        backgroundColor: isFavorite ? theme.colorScheme.secondary : theme.cardColor,
         child: Icon(
           isFavorite ? Icons.favorite : Icons.favorite_border,
-          color: Colors.white,
+          color: isFavorite ? Colors.white : theme.iconTheme.color,
         ),
       ),
       body: CustomScrollView(
@@ -168,14 +171,13 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
           SliverAppBar(
             expandedHeight: 300,
             pinned: true,
-            backgroundColor: const Color(0xFF0A1128),
-            iconTheme: const IconThemeData(color: Colors.white),
+            backgroundColor: theme.scaffoldBackgroundColor,
             flexibleSpace: FlexibleSpaceBar(
               centerTitle: true,
               titlePadding: const EdgeInsets.only(left: 48, right: 48, bottom: 12),
               title: AlignedNameText(
                 text: _selectedSeason.fullTitle,
-                style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 16),
+                style: TextStyle(fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface, fontSize: 16),
                 maxLines: 3,
                 overflow: TextOverflow.visible,
                 textAlign: TextAlign.center,
@@ -199,7 +201,7 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
                       gradient: LinearGradient(
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
-                        colors: [Colors.transparent, const Color(0xFF0A1128)],
+                        colors: [Colors.transparent, theme.scaffoldBackgroundColor],
                         stops: const [0.5, 1.0],
                       ),
                     ),
@@ -226,20 +228,17 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
                         label: Text(
                           season.seasonName,
                           style: TextStyle(
-                            color: isSelected ? Colors.black : Colors.white70,
+                            color: isSelected ? theme.colorScheme.onPrimary : theme.colorScheme.onSurface,
                             fontWeight: FontWeight.bold,
                             fontSize: 13,
                           ),
                         ),
                         selected: isSelected,
-                        selectedColor: Colors.orange,
-                        backgroundColor: const Color(0xFF1C1C1E),
+                        selectedColor: theme.colorScheme.primary,
+                        backgroundColor: theme.cardColor,
                         side: BorderSide(
-                          color: isSelected ? Colors.orange : Colors.white12,
+                          color: isSelected ? theme.colorScheme.primary : theme.dividerColor,
                           width: 1,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(20),
                         ),
                         onSelected: (selected) {
                           if (selected) {
@@ -257,12 +256,12 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
                 ),
               ),
             ),
-          if (_isLoadingEpisodes)
-            SliverFillRemaining(
-              child: Center(
-                child: const CircularProgressIndicator(color: Colors.orange),
-              ),
-            )
+            if (_isLoadingEpisodes)
+              SliverToBoxAdapter(
+                child: Center(
+                  child: CircularProgressIndicator(color: theme.primaryColor),
+                ),
+              )
           else if (_errorMessage != null)
             SliverFillRemaining(
               child: Center(
@@ -271,12 +270,15 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text('Error: $_errorMessage', style: const TextStyle(color: Colors.redAccent)),
+                      Text('Error: $_errorMessage', style: TextStyle(color: theme.colorScheme.error)),
                       const SizedBox(height: 12),
                       ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: theme.primaryColor,
+                          foregroundColor: theme.primaryColor.computeLuminance() > 0.5 ? Colors.black : Colors.white,
+                        ),
                         onPressed: _loadEpisodesDynamically,
-                        style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
-                        child: const Text('Retry', style: TextStyle(color: Colors.black)),
+                        child: const Text('Retry'),
                       ),
                     ],
                   ),
@@ -332,15 +334,20 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
 
     Widget trailingWidget;
     final theme = Theme.of(context);
+    final customTheme = theme.extension<AppThemeExtension>();
+    final settingsAccent = customTheme?.settingsAccent ?? theme.primaryColor;
+    final isDark = theme.brightness == Brightness.dark;
+
     if (task == null) {
       trailingWidget = IconButton(
-        icon: const Icon(Icons.download, color: Colors.orangeAccent, size: 24),
+        icon: Icon(Icons.download, color: theme.primaryColor, size: 24),
         onPressed: () {
           ref.read(downloadControllerProvider.notifier).startDownload(fileId!, title);
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('Starting download: $title'),
-              backgroundColor: Colors.orange,
+              backgroundColor: theme.primaryColor,
+              foregroundColor: theme.primaryColor.computeLuminance() > 0.5 ? Colors.black : Colors.white,
               duration: const Duration(seconds: 2),
             ),
           );
@@ -369,11 +376,11 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
                 child: WavyCircularProgressIndicator(
                   value: task.progress,
                   strokeWidth: 2.5,
-                  color: Colors.orange,
-                  backgroundColor: Colors.white12,
+                  color: theme.primaryColor,
+                  backgroundColor: isDark ? Colors.white12 : Colors.black12,
                 ),
               ),
-              const Icon(Icons.close, size: 14, color: Colors.orangeAccent),
+              Icon(Icons.close, size: 14, color: theme.primaryColor),
             ],
           ),
         ),
@@ -402,18 +409,18 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
           decoration: BoxDecoration(
             color: isDownloaded 
                 ? Colors.green.withValues(alpha: 0.2)
-                : Colors.blueAccent.withValues(alpha: 0.2),
+                : settingsAccent.withValues(alpha: 0.2),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Icon(
             isDownloaded ? Icons.download_done : Icons.play_arrow_rounded, 
-            color: isDownloaded ? Colors.green : Colors.blueAccent, 
+            color: isDownloaded ? Colors.green : settingsAccent, 
             size: 30
           ),
         ),
         title: Text(
           title,
-          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+          style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontWeight: FontWeight.bold, fontSize: 13),
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
         ),
@@ -421,7 +428,7 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
           padding: const EdgeInsets.only(top: 6.0),
           child: Text(
             isDownloaded ? '$metadata • Downloaded' : metadata,
-            style: const TextStyle(color: Colors.white54, fontSize: 11),
+            style: TextStyle(color: isDark ? Colors.white54 : Colors.black54, fontSize: 11),
           ),
         ),
         trailing: trailingWidget,

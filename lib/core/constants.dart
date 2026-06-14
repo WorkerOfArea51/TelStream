@@ -14,29 +14,23 @@ class ChannelCategory {
 }
 
 class Constants {
-  static const String currentVersion = '2.0.1';
+  static const String currentVersion = '2.0.2';
   static const String changelog = '''
-### 🚀 What's New in v2.0.1
+### 🚀 What's New in v2.0.2
 
-We've rolled out a major performance and quality-of-life update!
+We've rolled out a major feature update for Appearance and Theming customization!
 
-#### ⚡ Low-Bandwidth Streaming Fixes
-* **Optimized Playback Buffering**: Advanced libmpv caching parameters are now automatically tuned for 100MB max buffer, 50MB back-buffer, and 120-second readahead.
-* **Dynamic Playback Threshold**: The app now dynamically scales the initial buffer before starting video playback (`(fileSize * 5%).clamp(4MB, 15MB)`) to completely eliminate stuttering and glitching on slow 1-2 Mbps connections.
-* **Buffering Indicator**: A loading indicator now displays in real time on the video player when network buffering occurs.
+#### 🎨 Custom Appearance & Theme Modes
+* **Theme Modes Supported**: Choose between **Light Mode**, **Dark Mode**, **Dark AMOLED Mode** (pure `#000000` black background for screen and settings to save battery), or **System Mode** (follows system settings).
+* **Color Themes Selector**: Personalize the app's accent and background colors:
+  * **TelStream Classic**: The default signature hybrid theme with solid black main pages and deep bluish-black settings.
+  * **Sunset Cyberpunk**: Neon magenta accent lines with dark purple-violet layouts.
+  * **Aurora Abyss**: Vibrant cyan accent highlights with dark teal backgrounds.
+  * **Midnight Slate**: Indigo accents with clean slate-grey configurations.
 
-#### 🔄 Orientation & Playback Controls
-* **Default Landscape Mode**: Streaming videos now launch automatically in landscape mode.
-* **Seamless Screen Rotation**: Rotating your device between landscape and portrait no longer pauses or restarts the video playback.
-
-#### 🛡️ Permission Cleanup
-* **Sandbox Security**: Stripped all legacy and media image/video permissions from startup. TelStream runs in a secure sandboxed directory and requires zero local storage permissions on Android 10+.
-* **Notification Permission**: On Android 13+, only the notification permission is requested on startup.
-* **On-Demand Storage**: Legacy storage permission is requested dynamically only on Android 9 or below when selecting a custom download folder.
-
-#### 📥 Real-Time Syncing & Performance
-* **Minimization Handler**: Pressing the back button on the main screen now minimizes the app instead of closing it, keeping background downloads active and preventing TDLib database locks.
-* **Throttled Notifications**: Throttled native notification progress updates to 800ms intervals to fix foreground service lags and queue delays.
+#### ⚙️ Standard Settings Layout
+* Added a dedicated **Appearance** section inside settings for live theme preview and selection.
+* Completely dynamic accents and background resolution across the whole application.
 ''';
 
   // Telegram API Credentials from secrets.dart

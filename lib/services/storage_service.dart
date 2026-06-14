@@ -207,11 +207,20 @@ class StorageService {
   // --- Theme Selection ---
 
   String getTheme() {
-    return _data['theme'] as String? ?? 'sunsetCyberpunk';
+    return _data['theme'] as String? ?? 'classic';
   }
 
   Future<void> setTheme(String themeName) async {
     _data['theme'] = themeName;
+    await _save();
+  }
+
+  String getThemeMode() {
+    return _data['theme_mode'] as String? ?? 'system';
+  }
+
+  Future<void> setThemeMode(String mode) async {
+    _data['theme_mode'] = mode;
     await _save();
   }
 

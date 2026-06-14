@@ -7,6 +7,7 @@ import 'features/auth/login_screen.dart';
 import 'features/home/main_screen.dart';
 import 'features/auth/auth_controller.dart';
 import 'services/storage_service.dart';
+import 'core/theme/app_theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -31,31 +32,14 @@ class TelStreamApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final themeState = ref.watch(appThemeProvider);
+
     return MaterialApp(
       title: 'TelStream',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        useMaterial3: true,
-        brightness: Brightness.dark,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: Colors.orange,
-          brightness: Brightness.dark,
-          primary: Colors.orange,
-          surface: Colors.black,
-        ),
-        scaffoldBackgroundColor: Colors.black,
-        cardColor: const Color(0xFF1C1C1E),
-        appBarTheme: const AppBarTheme(
-          backgroundColor: Colors.black,
-          foregroundColor: Colors.white,
-          elevation: 0,
-        ),
-        bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-          backgroundColor: Colors.black,
-          selectedItemColor: Colors.orange,
-          unselectedItemColor: Colors.white60,
-        ),
-      ),
+      theme: themeState.lightTheme,
+      darkTheme: themeState.darkTheme,
+      themeMode: themeState.themeMode,
       builder: (context, child) {
         return child ?? const SizedBox.shrink();
       },
