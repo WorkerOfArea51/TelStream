@@ -5,12 +5,12 @@ void main() {
   group('Constants Tests', () {
     test('Current version is defined and not empty', () {
       expect(Constants.currentVersion, isNotEmpty);
-      expect(Constants.currentVersion, '2.0.2');
+      expect(Constants.currentVersion, '2.0.3');
     });
 
     test('Changelog is defined and contains current version info', () {
       expect(Constants.changelog, isNotEmpty);
-      expect(Constants.changelog, contains('v2.0.2'));
+      expect(Constants.changelog, contains('v2.0.3'));
     });
 
     test('Categories list contains all required categories', () {

@@ -14,23 +14,18 @@ class ChannelCategory {
 }
 
 class Constants {
-  static const String currentVersion = '2.0.2';
+  static const String currentVersion = '2.0.3';
   static const String changelog = '''
-### 🚀 What's New in v2.0.2
+### 🚀 What's New in v2.0.3
 
-We've rolled out a major feature update for Appearance and Theming customization!
+We've rolled out a minor update to prepare the app for public feedback and testing!
 
-#### 🎨 Custom Appearance & Theme Modes
-* **Theme Modes Supported**: Choose between **Light Mode**, **Dark Mode**, **Dark AMOLED Mode** (pure `#000000` black background for screen and settings to save battery), or **System Mode** (follows system settings).
-* **Color Themes Selector**: Personalize the app's accent and background colors:
-  * **TelStream Classic**: The default signature hybrid theme with solid black main pages and deep bluish-black settings.
-  * **Sunset Cyberpunk**: Neon magenta accent lines with dark purple-violet layouts.
-  * **Aurora Abyss**: Vibrant cyan accent highlights with dark teal backgrounds.
-  * **Midnight Slate**: Indigo accents with clean slate-grey configurations.
+#### 🐛 Bug Reports & Feature Requests
+* Added a direct **Report Bug / Request Feature** button under **More -> About**, allowing you to easily submit feedback, report bugs, or suggest enhancements on GitHub.
+* Configured formal bug report and feature request templates on GitHub to streamline feedback.
 
-#### ⚙️ Standard Settings Layout
-* Added a dedicated **Appearance** section inside settings for live theme preview and selection.
-* Completely dynamic accents and background resolution across the whole application.
+#### ⚙️ Automation & Pipeline Quality
+* Integrated code analysis and unit testing to ensure the app stays stable with every new release.
 ''';
 
   // Telegram API Credentials from secrets.dart
