@@ -226,7 +226,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             title: const Text("What's New / Changelog", style: TextStyle(color: Colors.white)),
             subtitle: const Text("View release notes for this version", style: TextStyle(color: Colors.white54)),
             trailing: const Icon(Icons.chevron_right, color: Colors.white54),
-            onTap: () => WhatsNewDialog.showDynamic(context),
+            onTap: () => WhatsNewDialog.show(context),
           ),
         ],
       ),

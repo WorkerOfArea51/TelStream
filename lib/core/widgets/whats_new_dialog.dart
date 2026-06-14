@@ -8,43 +8,12 @@ class WhatsNewDialog extends StatelessWidget {
 
   const WhatsNewDialog({Key? key, required this.content}) : super(key: key);
 
-  static void show(BuildContext context, String content) {
+  static void show(BuildContext context, [String? content]) {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => WhatsNewDialog(content: content),
+      builder: (context) => WhatsNewDialog(content: content ?? Constants.changelog),
     );
-  }
-
-  static void showDynamic(BuildContext context) async {
-    // Show a loading indicator dialog
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => const Center(
-        child: CircularProgressIndicator(color: Colors.orange),
-      ),
-    );
-
-    // Fetch the latest release info from GitHub
-    final updateInfo = await UpdateService.checkForUpdate();
-    
-    if (context.mounted) {
-      Navigator.pop(context); // Dismiss loading indicator
-    }
-
-    if (updateInfo != null && context.mounted) {
-      show(context, updateInfo.releaseNotes);
-    } else {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Failed to load changelog from GitHub.'),
-            backgroundColor: Colors.redAccent,
-          ),
-        );
-      }
-    }
   }
 
   @override

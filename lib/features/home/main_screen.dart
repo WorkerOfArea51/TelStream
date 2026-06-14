@@ -34,7 +34,19 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkUpdatesSilently();
       ref.read(permissionServiceProvider).requestAllImportantPermissions();
+      _showWhatsNewIfNeeded();
     });
+  }
+
+  void _showWhatsNewIfNeeded() async {
+    final storage = ref.read(storageServiceProvider);
+    final lastSeen = storage.getLastSeenVersion();
+    if (lastSeen != Constants.currentVersion) {
+      if (mounted) {
+        WhatsNewDialog.show(context);
+        await storage.setLastSeenVersion(Constants.currentVersion);
+      }
+    }
   }
 
   void _checkUpdatesSilently() async {
