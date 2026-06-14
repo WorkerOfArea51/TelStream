@@ -69,23 +69,27 @@ class _LibraryViewState extends ConsumerState<LibraryView> with SingleTickerProv
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final textColor = isDark ? Colors.white : Colors.black87;
+    final subTextColor = isDark ? Colors.white60 : Colors.black54;
+
     final state = ref.watch(provider);
     final favorites = ref.watch(favoritesProvider);
     final isDownloadedOnly = ref.watch(downloadedOnlyProvider);
 
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: Colors.black,
+        backgroundColor: theme.scaffoldBackgroundColor,
         elevation: 0,
         title: _isSearching
             ? TextField(
                 controller: _searchController,
-                style: const TextStyle(color: Colors.white),
+                style: TextStyle(color: textColor),
                 autofocus: true,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   hintText: 'Search...',
-                  hintStyle: TextStyle(color: Colors.white38),
+                  hintStyle: TextStyle(color: subTextColor),
                   border: InputBorder.none,
                 ),
                 onChanged: (val) {
@@ -94,12 +98,12 @@ class _LibraryViewState extends ConsumerState<LibraryView> with SingleTickerProv
               )
             : Text(
                 '${ref.watch(provider.notifier).resolvedChatTitle} ${state.value != null ? "(${_getFilteredList(state.value!, favorites, isDownloadedOnly).length})" : ""}',
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20, color: textColor),
               ),
         actions: [
           if (_isSearching)
             IconButton(
-              icon: const Icon(Icons.close, color: Colors.white70),
+              icon: Icon(Icons.close, color: subTextColor),
               onPressed: () {
                 setState(() {
                   _isSearching = false;
@@ -110,7 +114,7 @@ class _LibraryViewState extends ConsumerState<LibraryView> with SingleTickerProv
             )
           else
             IconButton(
-              icon: const Icon(Icons.search, color: Colors.white70),
+              icon: Icon(Icons.search, color: subTextColor),
               onPressed: () {
                 setState(() {
                   _isSearching = true;
@@ -118,16 +122,16 @@ class _LibraryViewState extends ConsumerState<LibraryView> with SingleTickerProv
               },
             ),
           PopupMenuButton<SortOrder>(
-            icon: const Icon(Icons.sort, color: Colors.white70),
+            icon: Icon(Icons.sort, color: subTextColor),
             color: theme.cardColor,
             onSelected: (SortOrder order) {
               ref.read(provider.notifier).setSortOrder(order);
             },
             itemBuilder: (context) => [
-              const PopupMenuItem(value: SortOrder.aToZ, child: Text('Name (A-Z)', style: TextStyle(color: Colors.white))),
-              const PopupMenuItem(value: SortOrder.zToA, child: Text('Name (Z-A)', style: TextStyle(color: Colors.white))),
-              const PopupMenuItem(value: SortOrder.newest, child: Text('Newest First', style: TextStyle(color: Colors.white))),
-              const PopupMenuItem(value: SortOrder.oldest, child: Text('Oldest First', style: TextStyle(color: Colors.white))),
+              PopupMenuItem(value: SortOrder.aToZ, child: Text('Name (A-Z)', style: TextStyle(color: textColor))),
+              PopupMenuItem(value: SortOrder.zToA, child: Text('Name (Z-A)', style: TextStyle(color: textColor))),
+              PopupMenuItem(value: SortOrder.newest, child: Text('Newest First', style: TextStyle(color: textColor))),
+              PopupMenuItem(value: SortOrder.oldest, child: Text('Oldest First', style: TextStyle(color: textColor))),
             ],
           ),
         ],
@@ -139,9 +143,9 @@ class _LibraryViewState extends ConsumerState<LibraryView> with SingleTickerProv
               controller: _subTabController,
               isScrollable: true,
               tabAlignment: TabAlignment.start,
-              indicatorColor: Colors.orange,
-              labelColor: Colors.orange,
-              unselectedLabelColor: Colors.white60,
+              indicatorColor: theme.primaryColor,
+              labelColor: theme.primaryColor,
+              unselectedLabelColor: subTextColor,
               indicatorSize: TabBarIndicatorSize.label,
               tabs: const [
                 Tab(text: 'All'),
@@ -168,7 +172,7 @@ class _LibraryViewState extends ConsumerState<LibraryView> with SingleTickerProv
           }
 
           return RefreshIndicator(
-            color: Colors.orange,
+            color: theme.primaryColor,
             backgroundColor: theme.cardColor,
             onRefresh: () async {
               ref.invalidate(provider);
@@ -198,7 +202,7 @@ class _LibraryViewState extends ConsumerState<LibraryView> with SingleTickerProv
                           return Center(
                             child: Padding(
                               padding: const EdgeInsets.symmetric(vertical: 16.0),
-                              child: CircularProgressIndicator(color: Colors.orange),
+                              child: CircularProgressIndicator(color: theme.primaryColor),
                             ),
                           );
                         }
@@ -214,8 +218,8 @@ class _LibraryViewState extends ConsumerState<LibraryView> with SingleTickerProv
             ),
           );
         },
-        loading: () => const Center(child: CircularProgressIndicator(color: Colors.orange)),
-        error: (err, stack) => Center(child: Text('Error: $err', style: const TextStyle(color: Colors.redAccent))),
+        loading: () => Center(child: CircularProgressIndicator(color: theme.primaryColor)),
+        error: (err, stack) => Center(child: Text('Error: $err', style: TextStyle(color: theme.colorScheme.error))),
       ),
     );
   }
@@ -235,6 +239,8 @@ class _LibraryViewState extends ConsumerState<LibraryView> with SingleTickerProv
 
   Widget _buildEmptyState() {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final subTextColor = isDark ? Colors.white70 : Colors.black54;
     // Return Tachiyomi styled empty layout with beautiful kaomoji
     final kaomoji = _activeSubTabIndex == 1 ? '(・_・;)' : '(・○・;)';
     final message = _activeSubTabIndex == 1 ? 'No favorites in this category' : 'Your library is empty';
@@ -245,21 +251,21 @@ class _LibraryViewState extends ConsumerState<LibraryView> with SingleTickerProv
         children: [
           Text(
             kaomoji,
-            style: const TextStyle(fontSize: 48, color: Colors.orangeAccent, fontWeight: FontWeight.bold),
+            style: TextStyle(fontSize: 48, color: theme.primaryColor, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 16),
           Text(
             message,
-            style: const TextStyle(color: Colors.white70, fontSize: 16),
+            style: TextStyle(color: subTextColor, fontSize: 16),
           ),
           const SizedBox(height: 16),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.orange.withOpacity(0.1),
-              foregroundColor: Colors.orange,
+              backgroundColor: theme.primaryColor.withOpacity(0.1),
+              foregroundColor: theme.primaryColor,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(20),
-                side: const BorderSide(color: Colors.orange, width: 1),
+                side: BorderSide(color: theme.primaryColor, width: 1),
               ),
             ),
             onPressed: () {
@@ -374,7 +380,7 @@ class _LibraryViewState extends ConsumerState<LibraryView> with SingleTickerProv
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.play_circle_fill, color: Colors.orange, size: 10),
+                    Icon(Icons.play_circle_fill, color: theme.primaryColor, size: 10),
                     const SizedBox(width: 4),
                     Text(
                       totalEpisodes.toString(),
@@ -552,13 +558,13 @@ class _FeaturedCarouselState extends State<FeaturedCarousel> {
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                 decoration: BoxDecoration(
-                                  color: Colors.orange,
+                                  color: theme.primaryColor,
                                   borderRadius: BorderRadius.circular(6),
                                 ),
-                                child: const Text(
+                                child: Text(
                                   'FEATURED',
                                   style: TextStyle(
-                                    color: Colors.black,
+                                    color: theme.primaryColor.computeLuminance() > 0.5 ? Colors.black : Colors.white,
                                     fontSize: 10,
                                     fontWeight: FontWeight.bold,
                                     letterSpacing: 1.0,
@@ -604,7 +610,7 @@ class _FeaturedCarouselState extends State<FeaturedCarousel> {
               width: _currentPage == index ? 16 : 8,
               height: 8,
               decoration: BoxDecoration(
-                color: _currentPage == index ? Colors.orange : Colors.white24,
+                color: _currentPage == index ? theme.primaryColor : (isDark ? Colors.white24 : Colors.black26),
                 borderRadius: BorderRadius.circular(4),
               ),
             ),

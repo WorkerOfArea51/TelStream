@@ -22,9 +22,13 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
   Widget build(BuildContext context) {
     final isDownloadedOnly = ref.watch(downloadedOnlyProvider);
     final isIncognitoMode = ref.watch(incognitoModeProvider);
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final textColor = isDark ? Colors.white : Colors.black87;
+    final subTextColor = isDark ? Colors.white54 : Colors.black54;
 
     return Scaffold(
-       backgroundColor: Colors.black,
+      backgroundColor: theme.scaffoldBackgroundColor,
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
@@ -36,11 +40,11 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
                   width: 90,
                   height: 90,
                   decoration: BoxDecoration(
-                    color: Colors.black,
+                    color: isDark ? Colors.black : Colors.white,
                     shape: BoxShape.circle,
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFF00E5FF).withValues(alpha: 0.4),
+                        color: theme.primaryColor.withValues(alpha: 0.4),
                         blurRadius: 20,
                         spreadRadius: 2,
                       )
@@ -51,15 +55,15 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
                     'assets/icon.png',
                     fit: BoxFit.cover,
                     errorBuilder: (context, error, stackTrace) {
-                      return const Icon(Icons.play_circle_fill, size: 60, color: Color(0xFF00E5FF));
+                      return Icon(Icons.play_circle_fill, size: 60, color: theme.primaryColor);
                     },
                   ),
                 ),
                 const SizedBox(height: 16),
-                const Text(
+                Text(
                   'TelStream',
                   style: TextStyle(
-                    color: Colors.white,
+                    color: textColor,
                     fontSize: 26,
                     fontWeight: FontWeight.bold,
                     letterSpacing: 1.2,
@@ -68,8 +72,8 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
                 const SizedBox(height: 4),
                 Text(
                   'v${Constants.currentVersion} • Fairy Tail (${Secrets.buildTag})',
-                  style: const TextStyle(
-                    color: Colors.white38,
+                  style: TextStyle(
+                    color: subTextColor,
                     fontSize: 13,
                   ),
                 ),
@@ -97,7 +101,7 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
                 ref.read(incognitoModeProvider.notifier).toggle(val);
               },
             ),
-            const Divider(color: Colors.white12, height: 32),
+            Divider(color: theme.dividerColor, height: 32),
 
             // Navigation Items
             _buildMenuTile(
@@ -155,8 +159,8 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => const Center(
-        child: CircularProgressIndicator(color: Colors.orange),
+      builder: (context) => Center(
+        child: CircularProgressIndicator(color: theme.primaryColor),
       ),
     );
 
@@ -170,7 +174,10 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Failed to check for updates. Please check your internet connection.'),
+            content: Text(
+              'Failed to check for updates. Please check your internet connection.',
+              style: TextStyle(color: Colors.white),
+            ),
             backgroundColor: Colors.redAccent,
           ),
         );
@@ -190,21 +197,21 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
               borderRadius: BorderRadius.circular(16),
               side: BorderSide(color: theme.colorScheme.onSurface.withOpacity(0.08), width: 1),
             ),
-            title: const Row(
+            title: Row(
               children: [
-                Icon(Icons.check_circle_outline_rounded, color: Colors.green, size: 28),
-                SizedBox(width: 12),
-                Text('Up to Date', style: TextStyle(color: Colors.white)),
+                const Icon(Icons.check_circle_outline_rounded, color: Colors.green, size: 28),
+                const SizedBox(width: 12),
+                Text('Up to Date', style: TextStyle(color: theme.colorScheme.onSurface)),
               ],
             ),
-            content: const Text(
+            content: Text(
               'You are running the latest version of TelStream.',
-              style: TextStyle(color: Colors.white70),
+              style: TextStyle(color: theme.colorScheme.onSurface.withOpacity(0.7)),
             ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text('OK', style: TextStyle(color: Colors.orange)),
+                child: Text('OK', style: TextStyle(color: theme.primaryColor)),
               ),
             ],
           ),
@@ -215,6 +222,10 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
 
   void _showAboutDialog(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final textColor = isDark ? Colors.white : Colors.black87;
+    final subTextColor = isDark ? Colors.white54 : Colors.black54;
+
     showModalBottomSheet(
       context: context,
       backgroundColor: theme.cardColor,
@@ -232,7 +243,7 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
             return Container(
               decoration: BoxDecoration(
                 color: theme.cardColor,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
               ),
               child: ListView(
                 controller: scrollController,
@@ -245,7 +256,7 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
                       height: 4,
                       margin: const EdgeInsets.only(bottom: 24),
                       decoration: BoxDecoration(
-                        color: Colors.white24,
+                        color: theme.colorScheme.onSurface.withOpacity(0.2),
                         borderRadius: BorderRadius.circular(2),
                       ),
                     ),
@@ -259,11 +270,11 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
                           width: 80,
                           height: 80,
                           decoration: BoxDecoration(
-                            color: const Color(0xFF0A1128),
+                            color: theme.scaffoldBackgroundColor,
                             shape: BoxShape.circle,
                             boxShadow: [
                               BoxShadow(
-                                color: const Color(0xFF00E5FF).withOpacity(0.4),
+                                color: theme.primaryColor.withValues(alpha: 0.4),
                                 blurRadius: 20,
                                 spreadRadius: 2,
                               )
@@ -274,16 +285,16 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
                               'assets/icon.png',
                               fit: BoxFit.cover,
                               errorBuilder: (context, error, stackTrace) {
-                                return const Icon(Icons.play_circle_fill, size: 55, color: Color(0xFF00E5FF));
+                                return Icon(Icons.play_circle_fill, size: 55, color: theme.primaryColor);
                               },
                             ),
                           ),
                         ),
                         const SizedBox(height: 16),
-                        const Text(
+                        Text(
                           'TelStream',
                           style: TextStyle(
-                            color: Colors.white,
+                            color: textColor,
                             fontSize: 24,
                             fontWeight: FontWeight.bold,
                             letterSpacing: 1.0,
@@ -292,8 +303,8 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
                         const SizedBox(height: 4),
                         Text(
                           'v${Constants.currentVersion} • Fairy Tail (${Secrets.buildTag})',
-                          style: const TextStyle(
-                            color: Colors.white38,
+                          style: TextStyle(
+                            color: subTextColor,
                             fontSize: 13,
                           ),
                         ),
@@ -303,11 +314,11 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
                   const SizedBox(height: 24),
                   
                   // Description
-                  const Text(
+                  Text(
                     'TelStream is a premium, open-source streaming client designed for watching Anime, Movies, and Web Series. Built on modern tech stacks, it features seamless media cache control and high-performance video streaming capabilities.',
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      color: Colors.white70,
+                      color: textColor.withValues(alpha: 0.75),
                       fontSize: 13,
                       height: 1.5,
                     ),
@@ -315,11 +326,11 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
                   const SizedBox(height: 16),
                   ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.orange.withOpacity(0.15),
-                      foregroundColor: Colors.orange,
+                      backgroundColor: theme.primaryColor.withValues(alpha: 0.15),
+                      foregroundColor: theme.primaryColor,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
-                        side: BorderSide(color: Colors.orange.withOpacity(0.3), width: 1),
+                        side: BorderSide(color: theme.primaryColor.withValues(alpha: 0.3), width: 1),
                       ),
                     ),
                     onPressed: () {
@@ -332,10 +343,10 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
                   const SizedBox(height: 28),
 
                   // Section: Developer & Project
-                  const Text(
+                  Text(
                     'PROJECT INFO & DEVELOPER',
                     style: TextStyle(
-                      color: Color(0xFF00E5FF),
+                      color: theme.primaryColor,
                       fontSize: 11,
                       fontWeight: FontWeight.bold,
                       letterSpacing: 1.5,
@@ -344,9 +355,9 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
                   const SizedBox(height: 8),
                   Container(
                     decoration: BoxDecoration(
-                      color: const Color(0xFF1C1C1E),
+                      color: theme.scaffoldBackgroundColor,
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: Colors.white10, width: 1),
+                      border: Border.all(color: theme.dividerColor, width: 1),
                     ),
                     child: Column(
                       children: [
@@ -356,7 +367,7 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
                           subtitle: 'github.com/WorkerOfArea51/TelStream',
                           url: 'https://github.com/WorkerOfArea51/TelStream',
                         ),
-                        const Divider(color: Colors.white10, height: 1, indent: 56),
+                        Divider(color: theme.dividerColor, height: 1, indent: 56),
                         _buildLinkTile(
                           icon: Icons.person_rounded,
                           title: 'Developer Profile',
@@ -369,10 +380,10 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
                   const SizedBox(height: 28),
 
                   // Section: Tech Stack
-                  const Text(
+                  Text(
                     'CORE TECHNOLOGIES',
                     style: TextStyle(
-                      color: Color(0xFF00E5FF),
+                      color: theme.primaryColor,
                       fontSize: 11,
                       fontWeight: FontWeight.bold,
                       letterSpacing: 1.5,
@@ -381,29 +392,29 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
                   const SizedBox(height: 8),
                   Container(
                     decoration: BoxDecoration(
-                      color: const Color(0xFF1C1C1E),
+                      color: theme.scaffoldBackgroundColor,
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: Colors.white10, width: 1),
+                      border: Border.all(color: theme.dividerColor, width: 1),
                     ),
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    child: const Column(
+                    child: Column(
                       children: [
-                        _TechRow(
+                        const _TechRow(
                           name: 'Flutter & Dart',
                           desc: 'Cross-platform UI engine & programming language.',
                         ),
-                        Divider(color: Colors.white10, height: 20),
-                        _TechRow(
+                        Divider(color: theme.dividerColor, height: 20),
+                        const _TechRow(
                           name: 'TDLib (Telegram Database)',
                           desc: 'High-speed native client for MTProto API integration.',
                         ),
-                        Divider(color: Colors.white10, height: 20),
-                        _TechRow(
+                        Divider(color: theme.dividerColor, height: 20),
+                        const _TechRow(
                           name: 'MediaKit & libmpv',
                           desc: 'Hardware-accelerated video decoding & audio controller.',
                         ),
-                        Divider(color: Colors.white10, height: 20),
-                        _TechRow(
+                        Divider(color: theme.dividerColor, height: 20),
+                        const _TechRow(
                           name: 'Riverpod',
                           desc: 'Reactive state caching & dependency injection framework.',
                         ),
@@ -415,24 +426,24 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
                   // Section: Legal / License
                   Container(
                     decoration: BoxDecoration(
-                      color: const Color(0xFF1C1C1E),
+                      color: theme.scaffoldBackgroundColor,
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: Colors.white10, width: 1),
+                      border: Border.all(color: theme.dividerColor, width: 1),
                     ),
                     padding: const EdgeInsets.all(16),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text(
+                        Text(
                           'Open Source License',
-                          style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500),
+                          style: TextStyle(color: textColor, fontSize: 14, fontWeight: FontWeight.w500),
                         ),
                         TextButton(
                           onPressed: () => _launchURL('https://github.com/WorkerOfArea51/TelStream/blob/main/LICENSE'),
                           style: TextButton.styleFrom(
-                            foregroundColor: Colors.orange,
+                            foregroundColor: theme.primaryColor,
                             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                            backgroundColor: Colors.orange.withValues(alpha: 0.1),
+                            backgroundColor: theme.primaryColor.withValues(alpha: 0.1),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                           ),
                           child: const Text('MIT License', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
@@ -456,19 +467,24 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
     required String subtitle,
     required String url,
   }) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final textColor = isDark ? Colors.white : Colors.black87;
+    final subTextColor = isDark ? Colors.white38 : Colors.black54;
+
     return ListTile(
       leading: Container(
         width: 38,
         height: 38,
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.05),
+          color: theme.primaryColor.withValues(alpha: 0.1),
           shape: BoxShape.circle,
         ),
-        child: Icon(icon, color: Colors.orange, size: 20),
+        child: Icon(icon, color: theme.primaryColor, size: 20),
       ),
-      title: Text(title, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500)),
-      subtitle: Text(subtitle, style: const TextStyle(color: Colors.white38, fontSize: 12)),
-      trailing: const Icon(Icons.open_in_new_rounded, color: Colors.white30, size: 16),
+      title: Text(title, style: TextStyle(color: textColor, fontSize: 14, fontWeight: FontWeight.w500)),
+      subtitle: Text(subtitle, style: TextStyle(color: subTextColor, fontSize: 12)),
+      trailing: Icon(Icons.open_in_new_rounded, color: subTextColor.withValues(alpha: 0.5), size: 16),
       onTap: () => _launchURL(url),
     );
   }
@@ -489,23 +505,27 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
     required ValueChanged<bool> onChanged,
   }) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final textColor = isDark ? Colors.white : Colors.black87;
+    final subTextColor = isDark ? Colors.white54 : Colors.black54;
+
     return Container(
       decoration: BoxDecoration(
         color: theme.cardColor,
         borderRadius: BorderRadius.circular(12),
       ),
       child: SwitchListTile(
-        activeThumbColor: Colors.black,
-        activeTrackColor: Colors.orange,
-        inactiveThumbColor: Colors.white70,
-        inactiveTrackColor: Colors.white10,
+        activeThumbColor: isDark ? Colors.black : Colors.white,
+        activeTrackColor: theme.primaryColor,
+        inactiveThumbColor: isDark ? Colors.white70 : Colors.black38,
+        inactiveTrackColor: isDark ? Colors.white10 : Colors.black12,
         title: Text(
           title,
-          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 15),
+          style: TextStyle(color: textColor, fontWeight: FontWeight.w600, fontSize: 15),
         ),
         subtitle: Text(
           subtitle,
-          style: const TextStyle(color: Colors.white54, fontSize: 12),
+          style: TextStyle(color: subTextColor, fontSize: 12),
         ),
         value: value,
         onChanged: onChanged,
@@ -520,6 +540,10 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
     required VoidCallback onTap,
   }) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final textColor = isDark ? Colors.white : Colors.black87;
+    final subTextColor = isDark ? Colors.white38 : Colors.black54;
+
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 4),
       decoration: BoxDecoration(
@@ -527,15 +551,15 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
         borderRadius: BorderRadius.circular(12),
       ),
       child: ListTile(
-        leading: Icon(icon, color: Colors.orange, size: 24),
+        leading: Icon(icon, color: theme.primaryColor, size: 24),
         title: Text(
           title,
-          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500, fontSize: 15),
+          style: TextStyle(color: textColor, fontWeight: FontWeight.w500, fontSize: 15),
         ),
         subtitle: subtitle != null
-            ? Text(subtitle, style: const TextStyle(color: Colors.white38, fontSize: 12))
+            ? Text(subtitle, style: TextStyle(color: subTextColor, fontSize: 12))
             : null,
-        trailing: const Icon(Icons.chevron_right, color: Colors.white30, size: 20),
+        trailing: Icon(Icons.chevron_right, color: subTextColor.withValues(alpha: 0.5), size: 20),
         onTap: onTap,
       ),
     );
