@@ -369,6 +369,13 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
                         ),
                         Divider(color: theme.dividerColor, height: 1, indent: 56),
                         _buildLinkTile(
+                          icon: Icons.bug_report_rounded,
+                          title: 'Report Bug / Request Feature',
+                          subtitle: 'Submit issues or suggest enhancements',
+                          url: 'https://github.com/WorkerOfArea51/TelStream/issues/new/choose',
+                        ),
+                        Divider(color: theme.dividerColor, height: 1, indent: 56),
+                        _buildLinkTile(
                           icon: Icons.person_rounded,
                           title: 'Developer Profile',
                           subtitle: 'GitHub @WorkerOfArea51',

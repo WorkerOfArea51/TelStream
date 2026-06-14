@@ -33,15 +33,22 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Extract App Version from pubspec.yaml
-        run: |
-          VERSION=$(grep '^version: ' pubspec.yaml | cut -d ' ' -f 2 | cut -d '+' -f 1)
-          echo "APP_VERSION=$VERSION" >> $GITHUB_ENV
-
       - name: Create Secrets file
         run: |
           mkdir -p lib/core
           echo "class Secrets { static const int apiId = ${{ secrets.TELEGRAM_API_ID }}; static const String apiHash = '${{ secrets.TELEGRAM_API_HASH }}'; static const String buildTag = 'Build #${{ github.run_number }}'; static const int animeChannelId = ${{ secrets.ANIME_CHANNEL_ID }}; static const String animeInviteLink = '${{ secrets.ANIME_INVITE_LINK }}'; }" > lib/core/secrets.dart
+
+      - name: Run code analysis (Linter)
+        run: flutter analyze
+        continue-on-error: true
+
+      - name: Run unit tests
+        run: flutter test
+
+      - name: Extract App Version from pubspec.yaml
+        run: |
+          VERSION=$(grep '^version: ' pubspec.yaml | cut -d ' ' -f 2 | cut -d '+' -f 1)
+          echo "APP_VERSION=$VERSION" >> $GITHUB_ENV
 
       - name: Decode Keystore
         run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/upload-keystore.jks
