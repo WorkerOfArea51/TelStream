@@ -47,7 +47,9 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
   int _expectedSize = 0;
 
   StreamSubscription? _completedSubscription;
+  StreamSubscription? _positionSubscription;
   Timer? _saveTimer;
+  bool _isDownloadingCompleted = false;
 
   late final StorageService _storageService;
   late final TdlibService _tdlibService;
@@ -78,8 +80,33 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         nativePlayer.setProperty('demuxer-max-bytes', '104857600'); // 100 MB buffer
         nativePlayer.setProperty('demuxer-max-back-bytes', '52428800'); // 50 MB back buffer
         nativePlayer.setProperty('demuxer-readahead-secs', '120'); // Buffer up to 120 seconds ahead
+        nativePlayer.setProperty('cache-pause', 'yes'); // Stalls playback if buffer runs out to prevent decoding corrupted frames
+        nativePlayer.setProperty('cache-pause-initial', 'yes');
+        nativePlayer.setProperty('cache-pause-wait', '5'); // Wait for 5 seconds of buffered data before resuming
+        nativePlayer.setProperty('hr-seek', 'no'); // Disable high-precision seeking on slow networks to seek instantly to keyframes
       }
     } catch (_) {}
+
+    // Detect explicit seek gestures and dynamically shift TDLib download priority offset
+    int lastPosMs = 0;
+    _positionSubscription = player.stream.position.listen((pos) {
+      if (_isDownloadingCompleted) return;
+      final currentPosMs = pos.inMilliseconds;
+      final totalDurationMs = player.state.duration.inMilliseconds;
+      
+      final diff = (currentPosMs - lastPosMs).abs();
+      if (diff > 3000 && totalDurationMs > 0 && _expectedSize > 0) {
+        final offset = ((currentPosMs / totalDurationMs) * _expectedSize).round().clamp(0, _expectedSize);
+        _tdlibService.send(td.DownloadFile(
+          fileId: widget.videoFileId,
+          priority: 32,
+          offset: offset,
+          limit: 0,
+          synchronous: false,
+        ));
+      }
+      lastPosMs = currentPosMs;
+    });
 
     _pipController.setActivePlayer(player);
     controller = VideoController(player);
@@ -224,6 +251,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
     _updatesSubscription = _tdlibService.updates.listen((event) {
       if (event is td.UpdateFile && event.file.id == widget.videoFileId) {
         final localPath = event.file.local.path;
+        _isDownloadingCompleted = event.file.local.isDownloadingCompleted;
         
         final now = DateTime.now();
         if (_lastUpdateTime == null || now.difference(_lastUpdateTime!).inMilliseconds > 500 || event.file.local.isDownloadingCompleted) {
@@ -283,6 +311,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
 
     _updatesSubscription?.cancel();
     _completedSubscription?.cancel();
+    _positionSubscription?.cancel();
     _saveTimer?.cancel();
     
     try {
