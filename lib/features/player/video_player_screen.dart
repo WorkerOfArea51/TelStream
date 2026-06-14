@@ -47,9 +47,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
   int _expectedSize = 0;
 
   StreamSubscription? _completedSubscription;
-  StreamSubscription? _positionSubscription;
   Timer? _saveTimer;
-  bool _isDownloadingCompleted = false;
 
   late final StorageService _storageService;
   late final TdlibService _tdlibService;
@@ -86,27 +84,6 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         nativePlayer.setProperty('hr-seek', 'no'); // Disable high-precision seeking on slow networks to seek instantly to keyframes
       }
     } catch (_) {}
-
-    // Detect explicit seek gestures and dynamically shift TDLib download priority offset
-    int lastPosMs = 0;
-    _positionSubscription = player.stream.position.listen((pos) {
-      if (_isDownloadingCompleted) return;
-      final currentPosMs = pos.inMilliseconds;
-      final totalDurationMs = player.state.duration.inMilliseconds;
-      
-      final diff = (currentPosMs - lastPosMs).abs();
-      if (diff > 3000 && totalDurationMs > 0 && _expectedSize > 0) {
-        final offset = ((currentPosMs / totalDurationMs) * _expectedSize).round().clamp(0, _expectedSize);
-        _tdlibService.send(td.DownloadFile(
-          fileId: widget.videoFileId,
-          priority: 32,
-          offset: offset,
-          limit: 0,
-          synchronous: false,
-        ));
-      }
-      lastPosMs = currentPosMs;
-    });
 
     _pipController.setActivePlayer(player);
     controller = VideoController(player);
@@ -251,7 +228,6 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
     _updatesSubscription = _tdlibService.updates.listen((event) {
       if (event is td.UpdateFile && event.file.id == widget.videoFileId) {
         final localPath = event.file.local.path;
-        _isDownloadingCompleted = event.file.local.isDownloadingCompleted;
         
         final now = DateTime.now();
         if (_lastUpdateTime == null || now.difference(_lastUpdateTime!).inMilliseconds > 500 || event.file.local.isDownloadingCompleted) {
@@ -276,7 +252,62 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
             
             final savedPos = _storageService.getWatchPosition(widget.messageId);
             if (savedPos > 0) {
-              player.seek(Duration(seconds: savedPos));
+              if (player.state.duration.inSeconds > 0) {
+                final totalDuration = player.state.duration.inSeconds;
+                final downloadedPrefix = _downloadedPrefixSize;
+                final expected = _expectedSize;
+                if (expected > 0 && totalDuration > 0) {
+                  final double fraction = downloadedPrefix / expected;
+                  final maxPlayableSeconds = (totalDuration * fraction).round();
+                  if (savedPos <= maxPlayableSeconds) {
+                    player.seek(Duration(seconds: savedPos));
+                  } else {
+                    final safeSeconds = (maxPlayableSeconds - 2).clamp(0, maxPlayableSeconds);
+                    player.seek(Duration(seconds: safeSeconds));
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Resumed to latest buffered position (${(fraction * 100).toStringAsFixed(0)}%)'),
+                          duration: const Duration(seconds: 3),
+                        ),
+                      );
+                    }
+                  }
+                } else {
+                  player.seek(Duration(seconds: savedPos));
+                }
+              } else {
+                late final StreamSubscription<Duration> durSub;
+                durSub = player.stream.duration.listen((dur) {
+                  if (dur.inSeconds > 0) {
+                    durSub.cancel();
+                    if (!mounted) return;
+                    
+                    final totalDuration = dur.inSeconds;
+                    final downloadedPrefix = _downloadedPrefixSize;
+                    final expected = _expectedSize;
+                    
+                    if (expected > 0 && totalDuration > 0) {
+                      final double fraction = downloadedPrefix / expected;
+                      final maxPlayableSeconds = (totalDuration * fraction).round();
+                      if (savedPos <= maxPlayableSeconds) {
+                        player.seek(Duration(seconds: savedPos));
+                      } else {
+                        final safeSeconds = (maxPlayableSeconds - 2).clamp(0, maxPlayableSeconds);
+                        player.seek(Duration(seconds: safeSeconds));
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Resumed to latest buffered position (${(fraction * 100).toStringAsFixed(0)}%)'),
+                            duration: const Duration(seconds: 3),
+                          ),
+                        );
+                      }
+                    } else {
+                      player.seek(Duration(seconds: savedPos));
+                    }
+                  }
+                });
+              }
             }
           }
         }
@@ -311,7 +342,6 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
 
     _updatesSubscription?.cancel();
     _completedSubscription?.cancel();
-    _positionSubscription?.cancel();
     _saveTimer?.cancel();
     
     try {
@@ -348,8 +378,11 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         final activeDownloads = ref.read(downloadControllerProvider);
         final isDownloadingPermanently = activeDownloads.containsKey(widget.videoFileId);
         if (!isDownloadingPermanently) {
-          _tdlibService.send(td.CancelDownloadFile(fileId: widget.videoFileId, onlyIfPending: false));
-          _tdlibService.send(td.DeleteFile(fileId: widget.videoFileId)); 
+          final fileId = widget.videoFileId;
+          _tdlibService.send(td.CancelDownloadFile(fileId: fileId, onlyIfPending: false));
+          Future.delayed(const Duration(milliseconds: 500), () {
+            _tdlibService.send(td.DeleteFile(fileId: fileId));
+          });
         }
       }
     } catch (_) {}

@@ -90,6 +90,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
   bool _isVerticalDrag = false;
   bool _isHorizontalDrag = false;
   Offset? _dragStartFocalPoint;
+  DateTime? _lastSeekWarningTime;
 
   @override
   void initState() {
@@ -204,7 +205,8 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     final clampedTarget = Duration(
         seconds: target.inSeconds.clamp(0, dur.inSeconds > 0 ? dur.inSeconds : 86400));
 
-    widget.player.seek(clampedTarget);
+    final safeTarget = _clampSeekTarget(clampedTarget, showMessage: true);
+    widget.player.seek(safeTarget);
 
     _doubleTapOverlayTimer = Timer(const Duration(milliseconds: 650), () {
       if (mounted) {
@@ -213,6 +215,41 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
         });
       }
     });
+  }
+
+  Duration _clampSeekTarget(Duration targetPosition, {bool showMessage = true}) {
+    if (widget.expectedSize <= 0) return targetPosition;
+    final totalDuration = widget.player.state.duration;
+    if (totalDuration.inMilliseconds <= 0) return targetPosition;
+
+    final isDownloadedCompleted = widget.downloadedPrefixSize >= widget.expectedSize;
+    if (isDownloadedCompleted) return targetPosition;
+
+    final double fraction = widget.downloadedPrefixSize / widget.expectedSize;
+    final maxPlayableMs = (totalDuration.inMilliseconds * fraction).round();
+
+    if (targetPosition.inMilliseconds > maxPlayableMs) {
+      if (showMessage) {
+        final now = DateTime.now();
+        if (_lastSeekWarningTime == null || now.difference(_lastSeekWarningTime!).inSeconds > 2) {
+          _lastSeekWarningTime = now;
+          ScaffoldMessenger.of(context).hideCurrentSnackBar();
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Buffering... Please seek within the downloaded range (${(fraction * 100).toStringAsFixed(0)}%)',
+                style: const TextStyle(color: Colors.white),
+              ),
+              backgroundColor: Colors.black87,
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        }
+      }
+      final safeMs = (maxPlayableMs - 2000).clamp(0, maxPlayableMs);
+      return Duration(milliseconds: safeMs);
+    }
+    return targetPosition;
   }
 
   void _handleScaleStart(ScaleStartDetails details) {
@@ -320,7 +357,8 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
         _isSwipingToSeek = false;
         _showSeekIndicator = false;
       });
-      widget.player.seek(_swipeTargetPosition);
+      final safeTarget = _clampSeekTarget(_swipeTargetPosition, showMessage: true);
+      widget.player.seek(safeTarget);
     }
     setState(() {
       _showVolumeIndicator = false;
@@ -1000,7 +1038,11 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                                     max: max > 0 ? max : 1.0,
                                     value: val,
                                     onChangeStart: (_) => _hideTimer?.cancel(),
-                                    onChanged: max > 0 ? (v) => widget.player.seek(Duration(milliseconds: v.toInt())) : null,
+                                    onChanged: max > 0 ? (v) {
+                                      final target = Duration(milliseconds: v.toInt());
+                                      final safeTarget = _clampSeekTarget(target, showMessage: false);
+                                      widget.player.seek(safeTarget);
+                                    } : null,
                                     onChangeEnd: (_) => _startHideTimer(),
                                   ),
                                 );

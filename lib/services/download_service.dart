@@ -232,6 +232,9 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
       fileId: fileId,
       onlyIfPending: false,
     ));
+    ref.read(tdlibServiceProvider).send(td.DeleteFile(
+      fileId: fileId,
+    ));
     
     // Notify native background download service of cancellation
     _updateNativeNotification(fileId, title, 0.0, isCancelled: true);
