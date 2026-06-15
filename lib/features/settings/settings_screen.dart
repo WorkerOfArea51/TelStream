@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
@@ -10,9 +11,11 @@ import '../../services/download_service.dart';
 import '../auth/auth_controller.dart';
 import '../auth/login_screen.dart';
 import '../player/pip_manager.dart';
+import 'settings_provider.dart';
 import 'video_settings_screen.dart';
 import '../../core/widgets/whats_new_dialog.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/logger.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({Key? key}) : super(key: key);
@@ -72,7 +75,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           );
         }
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      Log.e('Failed to select directory', e, stackTrace);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -85,41 +89,56 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   Future<void> _calculateCacheSize() async {
+    if (!mounted) return;
+    setState(() => _cacheSize = "Calculating...");
+
     try {
-      final dir = await getApplicationDocumentsDirectory();
-      int totalSize = 0;
-      if (await dir.exists()) {
-        await for (var entity in dir.list(recursive: true, followLinks: false)) {
-          if (entity is File) {
-            totalSize += await entity.length();
-          }
-        }
-      }
-      
-      // Also calculate custom download directory size if set
+      final docDir = await getApplicationDocumentsDirectory();
       final customPath = ref.read(storageServiceProvider).getCustomDownloadDirectory();
-      if (customPath != null && customPath.isNotEmpty) {
-        final customDir = Directory(customPath);
-        if (await customDir.exists()) {
-          await for (var entity in customDir.list(recursive: true, followLinks: false)) {
-            if (entity is File) {
-              totalSize += await entity.length();
+
+      final int size = await compute((params) async {
+        final docPath = params[0] as String;
+        final customPath = params[1] as String?;
+        int total = 0;
+
+        try {
+          final docDir = Directory(docPath);
+          if (docDir.existsSync()) {
+            for (final entity in docDir.listSync(recursive: true, followLinks: false)) {
+              if (entity is File) {
+                total += entity.lengthSync();
+              }
             }
           }
+        } catch (_) {}
+
+        if (customPath != null && customPath.isNotEmpty) {
+          try {
+            final customDir = Directory(customPath);
+            if (customDir.existsSync()) {
+              for (final entity in customDir.listSync(recursive: true, followLinks: false)) {
+                if (entity is File) {
+                  total += entity.lengthSync();
+                }
+              }
+            }
+          } catch (_) {}
         }
-      }
-      
+        return total;
+      }, [docDir.path, customPath]);
+
       if (!mounted) return;
       setState(() {
-        if (totalSize < 1024 * 1024) {
-          _cacheSize = "${(totalSize / 1024).toStringAsFixed(1)} KB";
-        } else if (totalSize < 1024 * 1024 * 1024) {
-          _cacheSize = "${(totalSize / (1024 * 1024)).toStringAsFixed(1)} MB";
+        if (size < 1024 * 1024) {
+          _cacheSize = "${(size / 1024).toStringAsFixed(1)} KB";
+        } else if (size < 1024 * 1024 * 1024) {
+          _cacheSize = "${(size / (1024 * 1024)).toStringAsFixed(1)} MB";
         } else {
-          _cacheSize = "${(totalSize / (1024 * 1024 * 1024)).toStringAsFixed(2)} GB";
+          _cacheSize = "${(size / (1024 * 1024 * 1024)).toStringAsFixed(2)} GB";
         }
       });
-    } catch (e) {
+    } catch (e, stackTrace) {
+      Log.e('Failed to calculate cache size', e, stackTrace);
       if (mounted) setState(() => _cacheSize = "Unknown");
     }
   }
@@ -129,10 +148,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Clearing cache (including images)...'), duration: Duration(milliseconds: 800)),
     );
-    
-    await ref.read(tdlibServiceProvider).clearVideoCache(includePhotos: true);
+
+    final storage = ref.read(storageServiceProvider);
+    final excludedPaths = storage.getDownloadedFiles().values.toList();
+
+    await ref.read(tdlibServiceProvider).clearVideoCache(includePhotos: true, excludedPaths: excludedPaths);
     await _calculateCacheSize();
-    
+
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Cache cleared successfully!'), backgroundColor: Colors.green),
@@ -158,6 +180,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final isDark = theme.brightness == Brightness.dark;
     
     final themeState = ref.watch(appThemeProvider);
+    final settings = ref.watch(videoSettingsProvider);
 
     return Scaffold(
       backgroundColor: settingsBg,
@@ -187,6 +210,58 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             title: const Text('Clear Cache'),
             subtitle: Text('TelStream caches videos and poster images. Clearing this deletes them and frees up storage.', style: TextStyle(color: isDark ? Colors.white54 : Colors.black54)),
             onTap: _clearCache,
+          ),
+          const SizedBox(height: 8),
+          ListTile(
+            tileColor: theme.cardColor,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            leading: Icon(Icons.disc_full, color: isDark ? Colors.white70 : Colors.black54),
+            title: const Text('Cache Size Limit'),
+            trailing: DropdownButton<int>(
+              value: settings.cacheLimitMb,
+              dropdownColor: theme.cardColor,
+              underline: const SizedBox(),
+              icon: Icon(Icons.arrow_drop_down, color: isDark ? Colors.white70 : Colors.black54),
+              items: const [
+                DropdownMenuItem(value: 1024, child: Text('1 GB')),
+                DropdownMenuItem(value: 2048, child: Text('2 GB')),
+                DropdownMenuItem(value: 5120, child: Text('5 GB')),
+                DropdownMenuItem(value: -1, child: Text('Unlimited')),
+              ],
+              onChanged: (int? value) {
+                if (value != null) {
+                  ref.read(videoSettingsProvider.notifier).updateSettings(
+                    settings.copyWith(cacheLimitMb: value)
+                  );
+                }
+              },
+            ),
+          ),
+          const SizedBox(height: 8),
+          ListTile(
+            tileColor: theme.cardColor,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            leading: Icon(Icons.hourglass_empty, color: isDark ? Colors.white70 : Colors.black54),
+            title: const Text('Cache Auto-Delete TTL'),
+            trailing: DropdownButton<int>(
+              value: settings.cacheTtlDays,
+              dropdownColor: theme.cardColor,
+              underline: const SizedBox(),
+              icon: Icon(Icons.arrow_drop_down, color: isDark ? Colors.white70 : Colors.black54),
+              items: const [
+                DropdownMenuItem(value: 3, child: Text('3 Days')),
+                DropdownMenuItem(value: 7, child: Text('7 Days')),
+                DropdownMenuItem(value: 14, child: Text('14 Days')),
+                DropdownMenuItem(value: -1, child: Text('Never')),
+              ],
+              onChanged: (int? value) {
+                if (value != null) {
+                  ref.read(videoSettingsProvider.notifier).updateSettings(
+                    settings.copyWith(cacheTtlDays: value)
+                  );
+                }
+              },
+            ),
           ),
           const SizedBox(height: 8),
           ListTile(

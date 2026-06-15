@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tdlib/td_api.dart' as td;
 import '../../services/tdlib_service.dart';
+import '../logger.dart';
 
 class TdThumbnail extends ConsumerStatefulWidget {
   final td.File? file;
@@ -149,8 +150,8 @@ class _TdThumbnailState extends ConsumerState<TdThumbnail> {
             alignment: widget.alignment,
           ),
         );
-      } catch (e) {
-        print("Error decoding minithumbnail: $e");
+      } catch (e, stackTrace) {
+        Log.e("Error decoding minithumbnail", e, stackTrace);
       }
     }
 

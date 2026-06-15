@@ -6,6 +6,7 @@ import 'package:tdlib/td_api.dart' as td;
 import 'package:path_provider/path_provider.dart';
 import 'tdlib_service.dart';
 import 'storage_service.dart';
+import '../core/logger.dart';
 
 class DownloadTask {
   final int fileId;
@@ -69,8 +70,8 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
           'isCompleted': isCompleted,
           'isCancelled': isCancelled,
         });
-      } catch (e) {
-        print('Failed to update native notification: $e');
+      } catch (e, stackTrace) {
+        Log.e('Failed to update native notification', e, stackTrace);
       }
     }
   }
@@ -126,12 +127,13 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
       final downloadsDir = await _getEffectiveDownloadsDirectory();
       _watchDirectory(downloadsDir);
 
-    } catch (e) {
-      print('Error initializing downloads directory scan: $e');
+    } catch (e, stackTrace) {
+      Log.e('Error initializing downloads directory scan', e, stackTrace);
     }
 
     // Listen to tdlib updates for file download progress
     final tdlibService = ref.read(tdlibServiceProvider);
+    _subscription?.cancel();
     _subscription = tdlibService.updates.listen((event) {
       if (event is td.UpdateFile) {
         final fileId = event.file.id;
@@ -174,8 +176,8 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
       _dirWatcherSubscription = downloadsDir.watch().listen((event) {
         _syncDownloadsWithDisk();
       });
-    } catch (e) {
-      print('Directory watcher failed to start: $e');
+    } catch (e, stackTrace) {
+      Log.w('Directory watcher failed to start: $e');
     }
   }
 
@@ -265,11 +267,24 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
 
       final tempFile = File(tempPath);
       if (await tempFile.exists()) {
-        await tempFile.copy(permanentPath);
-        print('FILE SAVED PERMANENTLY: $permanentPath');
+        final tempSize = await tempFile.length();
+        if (tempSize <= 0) {
+          throw Exception("Temp file size is 0 bytes");
+        }
+        
+        final permFile = await tempFile.copy(permanentPath);
+        final permSize = await permFile.length();
+        
+        if (permSize != tempSize) {
+          throw Exception("Copied file size ($permSize bytes) does not match original size ($tempSize bytes)");
+        }
+        
+        Log.i('FILE SAVED PERMANENTLY: $permanentPath');
         
         // 5. Save persistent mapping in JSON storage
         await ref.read(storageServiceProvider).addDownloadedFile(fileId, permanentPath);
+      } else {
+        throw Exception("Temp file does not exist at $tempPath");
       }
 
       state = {
@@ -284,8 +299,8 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
       // Notify native background download service of success
       _updateNativeNotification(fileId, title, 1.0, isCompleted: true);
 
-    } catch (e) {
-      print('FAILED TO SAVE FILE PERMANENTLY: $e');
+    } catch (e, stackTrace) {
+      Log.e('FAILED TO SAVE FILE PERMANENTLY', e, stackTrace);
       _updateNativeNotification(fileId, title, 0.0, isCancelled: true);
     }
   }

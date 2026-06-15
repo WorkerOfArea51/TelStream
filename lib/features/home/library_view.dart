@@ -9,6 +9,7 @@ import '../../core/widgets/td_thumbnail.dart';
 import '../../core/widgets/aligned_name_text.dart';
 import 'home_controller.dart';
 import 'episode_list_screen.dart';
+import '../player/pip_manager.dart';
 
 class LibraryView extends ConsumerStatefulWidget {
   final ChannelCategory category;
@@ -187,6 +188,8 @@ class _LibraryViewState extends ConsumerState<LibraryView> with SingleTickerProv
                       categoryTitle: widget.category.title,
                     ),
                   ),
+                if (!_isSearching && _activeSubTabIndex == 0 && _searchController.text.isEmpty && filteredList.isNotEmpty)
+                  _buildContinueWatchingSliver(context, filteredList),
                 SliverPadding(
                   padding: const EdgeInsets.only(left: 12, right: 12, top: 12, bottom: 96),
                   sliver: SliverGrid(
@@ -220,6 +223,37 @@ class _LibraryViewState extends ConsumerState<LibraryView> with SingleTickerProv
         },
         loading: () => Center(child: CircularProgressIndicator(color: theme.primaryColor)),
         error: (err, stack) => Center(child: Text('Error: $err', style: TextStyle(color: theme.colorScheme.error))),
+      ),
+    );
+  }
+
+  Widget _buildContinueWatchingSliver(BuildContext context, List<AnimeSeries> seriesList) {
+    final history = ref.watch(historyLogProvider);
+    final storage = ref.read(storageServiceProvider);
+
+    final continueWatchingItems = history.where((item) {
+      final hasSeries = seriesList.any((s) => s.coreName == item['seriesName']);
+      if (!hasSeries) return false;
+
+      final msgId = item['messageId'] as int;
+      final pos = item['position'] as int;
+      final dur = storage.getVideoDuration(msgId);
+      if (dur > 0) {
+        final progress = pos / dur;
+        return progress < 0.9 && progress > 0.01;
+      }
+      return pos > 0;
+    }).toList();
+
+    if (continueWatchingItems.isEmpty) {
+      return const SliverToBoxAdapter(child: SizedBox.shrink());
+    }
+
+    return SliverToBoxAdapter(
+      child: ContinueWatchingShelf(
+        items: continueWatchingItems,
+        seriesList: seriesList,
+        ref: ref,
       ),
     );
   }
@@ -619,6 +653,245 @@ class _FeaturedCarouselState extends State<FeaturedCarousel> {
           ),
         ),
         const SizedBox(height: 16),
+      ],
+    );
+  }
+}
+
+class ContinueWatchingShelf extends StatelessWidget {
+  final List<Map<String, dynamic>> items;
+  final List<AnimeSeries> seriesList;
+  final WidgetRef ref;
+
+  const ContinueWatchingShelf({
+    Key? key,
+    required this.items,
+    required this.seriesList,
+    required this.ref,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 16.0, top: 16.0, bottom: 12.0),
+          child: Row(
+            children: [
+              Icon(Icons.play_circle_outline, color: theme.primaryColor, size: 20),
+              const SizedBox(width: 8),
+              Text(
+                'Continue Watching',
+                style: TextStyle(
+                  color: isDark ? Colors.white : Colors.black87,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ],
+          ),
+        ),
+        SizedBox(
+          height: 160,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 12.0),
+            itemCount: items.length,
+            itemBuilder: (context, index) {
+              final item = items[index];
+              final seriesName = item['seriesName'] as String;
+              final episodeTitle = item['episodeTitle'] as String;
+              final msgId = item['messageId'] as int;
+              final pos = item['position'] as int;
+              
+              final storage = ref.read(storageServiceProvider);
+              final dur = storage.getVideoDuration(msgId);
+              
+              double progress = 0.0;
+              if (dur > 0) {
+                progress = (pos / dur).clamp(0.0, 1.0);
+              }
+
+              // Resolve poster
+              AnimeSeries? matchedSeries;
+              try {
+                matchedSeries = seriesList.firstWhere((s) => s.coreName == seriesName);
+              } catch (_) {}
+
+              td.File? posterFile;
+              td.Minithumbnail? minithumbnail;
+              if (matchedSeries != null && matchedSeries.seasons.isNotEmpty) {
+                final latestPoster = matchedSeries.seasons.first.posterMessage;
+                if (latestPoster.content is td.MessagePhoto) {
+                  final photo = latestPoster.content as td.MessagePhoto;
+                  if (photo.photo.sizes.isNotEmpty) {
+                    posterFile = photo.photo.sizes.last.photo;
+                  }
+                  minithumbnail = photo.photo.minithumbnail;
+                }
+              }
+
+              return Container(
+                width: 220,
+                margin: const EdgeInsets.symmetric(horizontal: 6.0),
+                decoration: BoxDecoration(
+                  color: theme.cardColor,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: theme.colorScheme.onSurface.withOpacity(0.08),
+                    width: 1,
+                  ),
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: InkWell(
+                  onTap: () {
+                    // Play video
+                    List<td.Message>? episodeList;
+                    int? episodeIndex;
+                    int? videoFileId = item['videoFileId'] as int?;
+
+                    if (matchedSeries != null) {
+                      for (final season in matchedSeries.seasons) {
+                        if (season.episodes.isNotEmpty) {
+                          final idx = season.episodes.indexWhere((ep) => ep.id == msgId);
+                          if (idx != -1) {
+                            episodeList = season.episodes;
+                            episodeIndex = idx;
+                            break;
+                          }
+                        }
+                      }
+                    }
+
+                    if (videoFileId == null && episodeList != null && episodeIndex != null) {
+                      final msg = episodeList[episodeIndex];
+                      if (msg.content is td.MessageVideo) {
+                        videoFileId = (msg.content as td.MessageVideo).video.video.id;
+                      } else if (msg.content is td.MessageDocument) {
+                        videoFileId = (msg.content as td.MessageDocument).document.document.id;
+                      }
+                    }
+
+                    if (videoFileId != null) {
+                      ref.read(pipControllerProvider.notifier).playVideo(
+                        context,
+                        messageId: msgId,
+                        videoFileId: videoFileId,
+                        videoTitle: '$seriesName - $episodeTitle',
+                        episodeList: episodeList,
+                        currentEpisodeIndex: episodeIndex,
+                        seriesName: seriesName,
+                      );
+                    }
+                  },
+                  child: Stack(
+                    children: [
+                      // Thumbnail
+                      Positioned.fill(
+                        bottom: 48,
+                        child: TdThumbnail(
+                          file: posterFile,
+                          minithumbnail: minithumbnail,
+                          autoDownload: true,
+                          width: double.infinity,
+                          height: double.infinity,
+                        ),
+                      ),
+                      // Semi-transparent gradient over thumbnail
+                      Positioned.fill(
+                        bottom: 48,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [
+                                Colors.transparent,
+                                Colors.black.withOpacity(0.5),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                      // Play icon overlay
+                      Positioned(
+                        top: 24,
+                        left: 0,
+                        right: 0,
+                        child: Center(
+                          child: Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.black45,
+                              shape: BoxShape.circle,
+                              border: Border.all(color: Colors.white24),
+                            ),
+                            child: Icon(
+                              Icons.play_arrow,
+                              color: theme.primaryColor,
+                              size: 24,
+                            ),
+                          ),
+                        ),
+                      ),
+                      // Metadata area
+                      Positioned(
+                        left: 8,
+                        right: 8,
+                        bottom: 6,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              seriesName,
+                              style: TextStyle(
+                                color: isDark ? Colors.white : Colors.black87,
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              episodeTitle,
+                              style: TextStyle(
+                                color: isDark ? Colors.white54 : Colors.black54,
+                                fontSize: 10,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 6),
+                          ],
+                        ),
+                      ),
+                      // Progress Bar
+                      if (progress > 0)
+                        Positioned(
+                          left: 0,
+                          right: 0,
+                          bottom: 0,
+                          child: LinearProgressIndicator(
+                            value: progress,
+                            minHeight: 3,
+                            backgroundColor: Colors.white12,
+                            valueColor: AlwaysStoppedAnimation<Color>(theme.primaryColor),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 8),
       ],
     );
   }

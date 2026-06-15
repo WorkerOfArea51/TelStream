@@ -5,6 +5,7 @@ import '../../core/constants.dart';
 import '../../services/tdlib_service.dart';
 import '../../services/storage_service.dart';
 import '../../models/anime_models.dart';
+import '../../core/logger.dart';
 
 enum SortOrder { newest, oldest, aToZ, zToA }
 
@@ -194,10 +195,13 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
 
   Future<void> _syncFromNetwork() async {
     try {
+      final storage = ref.read(storageServiceProvider);
+      final lastIndexedId = storage.getLastIndexedMessageId(category.channelId);
       int currentFromId = 0;
       bool changed = false;
+      bool reachedEnd = false;
       
-      // Sync all messages from the network to construct a complete index in the background
+      // Sync messages incrementally from the network in the background
       while (_hasMore) {
         final networkMessages = await _fetchMessages(fromId: currentFromId, onlyLocal: false);
         if (networkMessages.isEmpty) {
@@ -205,10 +209,19 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
         }
         
         for (final msg in networkMessages) {
+          if (lastIndexedId > 0 && msg.id <= lastIndexedId) {
+            reachedEnd = true;
+            _hasMore = false;
+            break;
+          }
           if (!_rawMessages.any((m) => m.id == msg.id)) {
             _rawMessages.add(msg);
             changed = true;
           }
+        }
+        
+        if (reachedEnd) {
+          break;
         }
         
         currentFromId = networkMessages.last.id;
@@ -223,8 +236,13 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
         // Brief pause to respect Telegram rate limits and yield UI thread
         await Future.delayed(const Duration(milliseconds: 200));
       }
-    } catch (e) {
-      print("Background sync error: $e");
+
+      // Update the indexing checkpoint if we have indexed items
+      if (_rawMessages.isNotEmpty) {
+        await storage.setLastIndexedMessageId(category.channelId, _rawMessages.first.id);
+      }
+    } catch (e, stackTrace) {
+      Log.e("Background sync error", e, stackTrace);
     }
   }
 

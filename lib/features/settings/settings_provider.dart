@@ -13,6 +13,8 @@ class VideoSettings {
   final bool volumeGestures;
   final bool brightnessGestures;
   final bool pinchToZoom;
+  final int cacheLimitMb;
+  final int cacheTtlDays;
 
   const VideoSettings({
     this.doubleTapSeekDuration = 10,
@@ -26,6 +28,8 @@ class VideoSettings {
     this.volumeGestures = true,
     this.brightnessGestures = true,
     this.pinchToZoom = true,
+    this.cacheLimitMb = 2048, // 2GB default
+    this.cacheTtlDays = 7,     // 7 days default
   });
 
   VideoSettings copyWith({
@@ -40,6 +44,8 @@ class VideoSettings {
     bool? volumeGestures,
     bool? brightnessGestures,
     bool? pinchToZoom,
+    int? cacheLimitMb,
+    int? cacheTtlDays,
   }) {
     return VideoSettings(
       doubleTapSeekDuration: doubleTapSeekDuration ?? this.doubleTapSeekDuration,
@@ -53,6 +59,8 @@ class VideoSettings {
       volumeGestures: volumeGestures ?? this.volumeGestures,
       brightnessGestures: brightnessGestures ?? this.brightnessGestures,
       pinchToZoom: pinchToZoom ?? this.pinchToZoom,
+      cacheLimitMb: cacheLimitMb ?? this.cacheLimitMb,
+      cacheTtlDays: cacheTtlDays ?? this.cacheTtlDays,
     );
   }
 
@@ -69,6 +77,8 @@ class VideoSettings {
       'volumeGestures': volumeGestures,
       'brightnessGestures': brightnessGestures,
       'pinchToZoom': pinchToZoom,
+      'cacheLimitMb': cacheLimitMb,
+      'cacheTtlDays': cacheTtlDays,
     };
   }
 
@@ -85,6 +95,8 @@ class VideoSettings {
       volumeGestures: json['volumeGestures'] ?? true,
       brightnessGestures: json['brightnessGestures'] ?? true,
       pinchToZoom: json['pinchToZoom'] ?? true,
+      cacheLimitMb: json['cacheLimitMb'] ?? 2048,
+      cacheTtlDays: json['cacheTtlDays'] ?? 7,
     );
   }
 }

@@ -6,8 +6,11 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
+import 'package:screen_brightness/screen_brightness.dart';
+import 'package:flutter_volume_controller/flutter_volume_controller.dart';
 import '../settings/settings_provider.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/logger.dart';
 
 class CustomVideoControls extends ConsumerStatefulWidget {
   final Player player;
@@ -21,6 +24,7 @@ class CustomVideoControls extends ConsumerStatefulWidget {
   final bool hasNextEpisode;
   final VoidCallback? onPrevEpisode;
   final VoidCallback? onNextEpisode;
+  final VoidCallback? onAutoNextCancelled;
 
   const CustomVideoControls({
     Key? key,
@@ -35,6 +39,7 @@ class CustomVideoControls extends ConsumerStatefulWidget {
     this.hasNextEpisode = false,
     this.onPrevEpisode,
     this.onNextEpisode,
+    this.onAutoNextCancelled,
   }) : super(key: key);
 
   @override
@@ -73,6 +78,13 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
   Timer? _doubleTapOverlayTimer;
   Duration? _doubleTapStartPosition;
 
+  // Auto next episode countdown
+  bool _showAutoNextCountdown = false;
+  int _autoNextSecondsRemaining = 15;
+  Timer? _autoNextTimer;
+  bool _autoNextCancelled = false;
+  StreamSubscription<Duration>? _positionSubscription;
+  bool _autoNextTriggered = false;
 
   // Pinch to zoom
   double _scale = 1.0;
@@ -91,12 +103,14 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
   bool _isHorizontalDrag = false;
   Offset? _dragStartFocalPoint;
   DateTime? _lastSeekWarningTime;
+  StreamSubscription<double>? _volumeSubscription;
 
   @override
   void initState() {
     super.initState();
     _startHideTimer();
     _currentVolume = widget.player.state.volume;
+    _initSystemVolumeAndBrightness();
     _bufferingSubscription = widget.player.stream.buffering.listen((buffering) {
       if (mounted) {
         setState(() {
@@ -104,13 +118,122 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
         });
       }
     });
+    _positionSubscription = widget.player.stream.position.listen((pos) {
+      _checkAutoNextTrigger(pos);
+    });
+  }
+
+  Future<void> _initSystemVolumeAndBrightness() async {
+    try {
+      await FlutterVolumeController.updateShowSystemUI(false);
+    } catch (_) {}
+
+    try {
+      final volume = await FlutterVolumeController.getVolume();
+      if (volume != null) {
+        _currentVolume = volume * 100.0;
+        widget.player.setVolume(_currentVolume);
+      }
+    } catch (_) {}
+    
+    try {
+      _volumeSubscription = FlutterVolumeController.addListener((volume) {
+        if (mounted) {
+          setState(() {
+            _currentVolume = volume * 100.0;
+            widget.player.setVolume(_currentVolume);
+          });
+        }
+      });
+    } catch (_) {}
+    
+    try {
+      final brightness = await ScreenBrightness().application;
+      if (mounted) {
+        setState(() {
+          _currentBrightness = brightness;
+        });
+      }
+    } catch (_) {}
+  }
+
+  void _checkAutoNextTrigger(Duration pos) {
+    if (widget.isPip || _autoNextCancelled || !widget.hasNextEpisode || widget.onNextEpisode == null) return;
+    
+    final dur = widget.player.state.duration;
+    if (dur.inSeconds <= 0) return;
+
+    final remaining = dur.inSeconds - pos.inSeconds;
+    
+    if (remaining <= 15 && remaining > 0 && !_autoNextTriggered) {
+      _autoNextTriggered = true;
+      _startAutoNextCountdown();
+    } else if (remaining > 15 && _autoNextTriggered) {
+      _cancelAutoNextCountdown();
+      _autoNextTriggered = false;
+    }
+  }
+
+  void _startAutoNextCountdown() {
+    _autoNextTimer?.cancel();
+    setState(() {
+      _showAutoNextCountdown = true;
+      _autoNextSecondsRemaining = 15;
+    });
+    
+    _autoNextTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (mounted) {
+        setState(() {
+          if (_autoNextSecondsRemaining > 1) {
+            _autoNextSecondsRemaining--;
+          } else {
+            _autoNextTimer?.cancel();
+            _showAutoNextCountdown = false;
+            if (widget.onNextEpisode != null) {
+              widget.onNextEpisode!();
+            }
+          }
+        });
+      } else {
+        _autoNextTimer?.cancel();
+      }
+    });
+  }
+
+  void _cancelAutoNextCountdown() {
+    _autoNextTimer?.cancel();
+    setState(() {
+      _showAutoNextCountdown = false;
+    });
+  }
+
+  void _onCancelAutoNext() {
+    _cancelAutoNextCountdown();
+    setState(() {
+      _autoNextCancelled = true;
+    });
+    if (widget.onAutoNextCancelled != null) {
+      widget.onAutoNextCancelled!();
+    }
   }
 
   @override
   void dispose() {
     _bufferingSubscription?.cancel();
+    _positionSubscription?.cancel();
+    _volumeSubscription?.cancel();
     _hideTimer?.cancel();
     _doubleTapOverlayTimer?.cancel();
+    _autoNextTimer?.cancel();
+    try {
+      FlutterVolumeController.removeListener();
+    } catch (_) {}
+    try {
+      FlutterVolumeController.updateShowSystemUI(true);
+    } catch (_) {}
+    try {
+      ScreenBrightness().resetApplicationScreenBrightness();
+    } catch (_) {}
     super.dispose();
   }
 
@@ -334,6 +457,9 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
         setState(() {
           _currentVolume -= deltaY * 0.2;
           _currentVolume = _currentVolume.clamp(0.0, 100.0);
+          try {
+            FlutterVolumeController.setVolume(_currentVolume / 100.0);
+          } catch (_) {}
           widget.player.setVolume(_currentVolume);
           _showVolumeIndicator = true;
         });
@@ -341,6 +467,9 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
         setState(() {
           _currentBrightness -= deltaY / 300;
           _currentBrightness = _currentBrightness.clamp(0.0, 1.0);
+          try {
+            ScreenBrightness().setApplicationScreenBrightness(_currentBrightness);
+          } catch (_) {}
           _showBrightnessIndicator = true;
         });
       }
@@ -895,6 +1024,72 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                 setState(() => _isLocked = false);
                 _startHideTimer();
               }),
+            ),
+
+          // Auto Play Next Countdown Overlay
+          if (_showAutoNextCountdown && !_isLocked)
+            Positioned(
+              bottom: _showControls ? 130 : 30,
+              right: 30,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    width: 320,
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.7),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.white10),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'Next episode starts in $_autoNextSecondsRemaining seconds...',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            TextButton(
+                              onPressed: _onCancelAutoNext,
+                              child: const Text(
+                                'Cancel',
+                                style: TextStyle(color: Colors.white70),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: settingsAccent,
+                                foregroundColor: settingsAccent.computeLuminance() > 0.5 ? Colors.black : Colors.white,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                              ),
+                              onPressed: () {
+                                _cancelAutoNextCountdown();
+                                if (widget.onNextEpisode != null) {
+                                  widget.onNextEpisode!();
+                                }
+                              },
+                              child: const Text('Play Now'),
+                            ),
+                          ],
+                        )
+                      ],
+                    ),
+                  ),
+                ),
+              ),
             ),
 
           // Controls UI Overlay

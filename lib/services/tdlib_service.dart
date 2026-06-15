@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tdlib/td_client.dart';
 import 'package:tdlib/td_api.dart' as td;
 import 'package:path_provider/path_provider.dart';
+import '../core/logger.dart';
 
 final tdlibServiceProvider = Provider<TdlibService>((ref) {
   final service = TdlibService();
@@ -44,7 +45,13 @@ class TdlibService {
     } catch (_) {}
   }
 
-  Future<void> init(int apiId, String apiHash) async {
+  Future<void> init(
+    int apiId,
+    String apiHash, {
+    List<String>? excludedPaths,
+    double? limitMb,
+    int? ttlDays,
+  }) async {
     if (_clientId != null) {
       try {
         tdSend(_clientId!, const td.Close());
@@ -85,13 +92,141 @@ class TdlibService {
     );
     send(params);
 
-    // Give TDLib a moment to initialize its DB, then clear large cached video files
+    // Give TDLib a moment to initialize its DB, then prune cached video files
     Future.delayed(const Duration(seconds: 5), () {
-      clearVideoCache();
+      pruneCache(
+        excludedPaths: excludedPaths ?? [],
+        limitMb: limitMb,
+        ttlDays: ttlDays,
+      );
     });
   }
 
-  Future<void> clearVideoCache({bool includePhotos = false}) async {
+  Future<void> pruneCache({
+    required List<String> excludedPaths,
+    double? limitMb,
+    int? ttlDays,
+  }) async {
+    try {
+      final appDocDir = await getApplicationDocumentsDirectory();
+      final targetDirs = [
+        'videos',
+        'documents',
+        'temp',
+        'voice',
+        'music',
+        'video_notes',
+        'stickers',
+        'animations',
+        'photos'
+      ];
+      
+      final List<File> cacheFiles = [];
+      final List<td.FileType> optimizeTypes = [
+        const td.FileTypeVideo(),
+        const td.FileTypeDocument(),
+        const td.FileTypeAnimation(),
+        const td.FileTypeAudio(),
+        const td.FileTypeVoiceNote(),
+      ];
+
+      // 1. Run TDLib's OptimizeStorage first
+      try {
+        await sendAsync(td.OptimizeStorage(
+          size: limitMb != null ? (limitMb * 1024 * 1024).round() : 0,
+          ttl: ttlDays != null ? ttlDays * 24 * 3600 : 0,
+          count: 0,
+          immunityDelay: 0,
+          fileTypes: optimizeTypes,
+          chatIds: [],
+          excludeChatIds: [],
+          returnDeletedFileStatistics: false,
+          chatLimit: 0,
+        ));
+      } catch (e, stackTrace) {
+        Log.e('TDLib OptimizeStorage failed', e, stackTrace);
+      }
+
+      // 2. Scan and prune local files manually based on TTL and Size Limit
+      final now = DateTime.now();
+      final double limitBytes = (limitMb ?? 2048.0) * 1024 * 1024;
+      
+      for (final dirName in targetDirs) {
+        final dir = Directory('${appDocDir.path}/$dirName');
+        if (await dir.exists()) {
+          await for (final entity in dir.list(recursive: true, followLinks: false)) {
+            if (entity is File) {
+              final path = entity.path.toLowerCase();
+              final isDatabase = path.endsWith('.db') || 
+                                 path.endsWith('.db-journal') || 
+                                 path.endsWith('.db-wal') || 
+                                 path.endsWith('.db-shm') || 
+                                 path.endsWith('.bin') ||
+                                 path.endsWith('.binlog') ||
+                                 path.endsWith('.key');
+                                 
+              if (!isDatabase) {
+                final bool isExcluded = excludedPaths.any((ex) => ex.toLowerCase() == path);
+                if (!isExcluded) {
+                  cacheFiles.add(entity);
+                }
+              }
+            }
+          }
+        }
+      }
+
+      // TTL Check: Delete files older than ttlDays
+      if (ttlDays != null && ttlDays > 0) {
+        final threshold = now.subtract(Duration(days: ttlDays));
+        final List<File> toRemove = [];
+        for (final file in cacheFiles) {
+          try {
+            final lastModified = await file.lastModified();
+            if (lastModified.isBefore(threshold)) {
+              final size = await file.length();
+              await file.delete();
+              Log.i('TTL CACHE PRUNED: ${file.path} ($size bytes, age: ${now.difference(lastModified).inDays} days)');
+              toRemove.add(file);
+            }
+          } catch (_) {}
+        }
+        cacheFiles.removeWhere((f) => toRemove.contains(f));
+      }
+
+      // Limit Check: Sort remaining files by lastModified ascending and prune oldest if size exceeds limit
+      double totalSize = 0;
+      final List<MapEntry<File, DateTime>> fileStats = [];
+      for (final file in cacheFiles) {
+        try {
+          final size = await file.length();
+          final mTime = await file.lastModified();
+          totalSize += size;
+          fileStats.add(MapEntry(file, mTime));
+        } catch (_) {}
+      }
+
+      if (limitMb != null && limitMb > 0 && totalSize > limitBytes) {
+        fileStats.sort((a, b) => a.value.compareTo(b.value));
+        
+        double currentSize = totalSize;
+        for (final entry in fileStats) {
+          if (currentSize <= limitBytes) break;
+          try {
+            final size = await entry.key.length();
+            await entry.key.delete();
+            currentSize -= size;
+            Log.i('SIZE LIMIT CACHE PRUNED: ${entry.key.path} ($size bytes)');
+          } catch (_) {}
+        }
+      }
+
+    } catch (e, stackTrace) {
+      Log.e('CACHE PRUNE ERROR', e, stackTrace);
+    }
+  }
+
+  Future<void> clearVideoCache({bool includePhotos = false, List<String>? excludedPaths}) async {
     try {
       final List<td.FileType> fileTypes = [
         const td.FileTypeVideo(),
@@ -150,19 +285,22 @@ class TdlibService {
                                  
               if (!isDatabase) {
                 try {
-                  final size = await entity.length();
-                  await entity.delete();
-                  print('CACHE DELETED: $path ($size bytes)');
-                } catch (e) {
-                  print('CACHE DELETE FAILED: $path - Error: $e');
+                  final bool isExcluded = excludedPaths?.any((ex) => ex.toLowerCase() == path) ?? false;
+                  if (!isExcluded) {
+                    final size = await entity.length();
+                    await entity.delete();
+                    Log.i('CACHE DELETED: $path ($size bytes)');
+                  }
+                } catch (e, stackTrace) {
+                  Log.e('CACHE DELETE FAILED: $path', e, stackTrace);
                 }
               }
             }
           }
         }
       }
-    } catch (e) {
-      print('CACHE SCAN ERROR: $e');
+    } catch (e, stackTrace) {
+      Log.e('CACHE SCAN ERROR', e, stackTrace);
     }
   }
 

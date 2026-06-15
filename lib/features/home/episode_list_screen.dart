@@ -398,6 +398,18 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
 
     final isDownloaded = task != null && task.isCompleted && task.localPath != null;
 
+    final storage = ref.read(storageServiceProvider);
+    final savedPos = storage.getWatchPosition(msg.id);
+    int duration = 0;
+    if (msg.content is td.MessageVideo) {
+      duration = (msg.content as td.MessageVideo).video.duration;
+    } else {
+      duration = storage.getVideoDuration(msg.id);
+    }
+    final double progressValue = (duration > 0) ? (savedPos / duration).clamp(0.0, 1.0) : 0.0;
+    final isCompleted = progressValue > 0.9;
+    final showProgressBar = progressValue > 0.01 && !isCompleted;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
@@ -405,49 +417,74 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: theme.colorScheme.onSurface.withOpacity(0.08), width: 1),
       ),
-      child: ListTile(
-        contentPadding: const EdgeInsets.all(12),
-        leading: Container(
-          width: 50,
-          height: 50,
-          decoration: BoxDecoration(
-            color: isDownloaded 
-                ? Colors.green.withValues(alpha: 0.2)
-                : settingsAccent.withValues(alpha: 0.2),
-            borderRadius: BorderRadius.circular(8),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ListTile(
+            contentPadding: const EdgeInsets.all(12),
+            leading: Container(
+              width: 50,
+              height: 50,
+              decoration: BoxDecoration(
+                color: isDownloaded 
+                    ? Colors.green.withValues(alpha: 0.2)
+                    : settingsAccent.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                isDownloaded ? Icons.download_done : Icons.play_arrow_rounded, 
+                color: isDownloaded ? Colors.green : settingsAccent, 
+                size: 30
+              ),
+            ),
+            title: Text(
+              title,
+              style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontWeight: FontWeight.bold, fontSize: 13),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+            subtitle: Padding(
+              padding: const EdgeInsets.only(top: 6.0),
+              child: Row(
+                children: [
+                  if (isCompleted) ...[
+                    const Icon(Icons.check_circle, color: Colors.green, size: 14),
+                    const SizedBox(width: 4),
+                  ],
+                  Expanded(
+                    child: Text(
+                      isDownloaded ? '$metadata • Downloaded' : metadata,
+                      style: TextStyle(color: isDark ? Colors.white54 : Colors.black54, fontSize: 11),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            trailing: trailingWidget,
+            onTap: () {
+              ref.read(pipControllerProvider.notifier).playVideo(
+                context,
+                messageId: msg.id,
+                videoFileId: fileId!,
+                videoTitle: '${widget.series.coreName} - $title',
+                episodeList: _selectedSeason.episodes,
+                currentEpisodeIndex: index,
+                seriesName: widget.series.coreName,
+                networkUrl: isDownloaded ? task.localPath : null,
+              );
+            },
           ),
-          child: Icon(
-            isDownloaded ? Icons.download_done : Icons.play_arrow_rounded, 
-            color: isDownloaded ? Colors.green : settingsAccent, 
-            size: 30
-          ),
-        ),
-        title: Text(
-          title,
-          style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontWeight: FontWeight.bold, fontSize: 13),
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-        ),
-        subtitle: Padding(
-          padding: const EdgeInsets.only(top: 6.0),
-          child: Text(
-            isDownloaded ? '$metadata • Downloaded' : metadata,
-            style: TextStyle(color: isDark ? Colors.white54 : Colors.black54, fontSize: 11),
-          ),
-        ),
-        trailing: trailingWidget,
-        onTap: () {
-          ref.read(pipControllerProvider.notifier).playVideo(
-            context,
-            messageId: msg.id,
-            videoFileId: fileId!,
-            videoTitle: '${widget.series.coreName} - $title',
-            episodeList: _selectedSeason.episodes,
-            currentEpisodeIndex: index,
-            seriesName: widget.series.coreName,
-            networkUrl: isDownloaded ? task.localPath : null,
-          );
-        },
+          if (showProgressBar)
+            LinearProgressIndicator(
+              value: progressValue,
+              minHeight: 3,
+              backgroundColor: Colors.transparent,
+              valueColor: AlwaysStoppedAnimation<Color>(settingsAccent),
+            ),
+        ],
       ),
     );
   }

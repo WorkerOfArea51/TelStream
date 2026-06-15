@@ -45,6 +45,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
   bool _isPlaying = false;
   int _downloadedPrefixSize = 0;
   int _expectedSize = 0;
+  bool _autoNextCancelled = false;
 
   StreamSubscription? _completedSubscription;
   Timer? _saveTimer;
@@ -102,7 +103,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
     
     // Auto-Play Next Episode Logic
     _completedSubscription = player.stream.completed.listen((completed) {
-      if (completed && _settings.autoplayNextVideo && widget.episodeList != null && widget.currentEpisodeIndex != null) {
+      if (completed && _settings.autoplayNextVideo && !_autoNextCancelled && widget.episodeList != null && widget.currentEpisodeIndex != null) {
         if (widget.currentEpisodeIndex! + 1 < widget.episodeList!.length) {
           _playNextEpisode();
         }
@@ -125,6 +126,9 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
     _saveTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
       if (_settings.savePositionOnQuit && player.state.position.inSeconds > 0) {
         _storageService.saveWatchPosition(widget.messageId, player.state.position.inSeconds);
+        if (player.state.duration.inSeconds > 0) {
+          _storageService.saveVideoDuration(widget.messageId, player.state.duration.inSeconds);
+        }
         if (!_storageService.isIncognitoMode() && widget.seriesName.isNotEmpty && widget.currentEpisodeIndex != null) {
           ref.read(historyLogProvider.notifier).addToHistory(
             seriesName: widget.seriesName,
@@ -132,6 +136,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
             episodeIndex: widget.currentEpisodeIndex!,
             episodeTitle: widget.videoTitle.replaceFirst('${widget.seriesName} - ', ''),
             positionInSeconds: player.state.position.inSeconds,
+            videoFileId: widget.videoFileId,
           );
         }
       }
@@ -348,6 +353,9 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
       final position = player.state.position.inSeconds;
       if (position > 0 && _settings.savePositionOnQuit) {
         _storageService.saveWatchPosition(widget.messageId, position);
+        if (player.state.duration.inSeconds > 0) {
+          _storageService.saveVideoDuration(widget.messageId, player.state.duration.inSeconds);
+        }
         if (!_storageService.isIncognitoMode() && widget.seriesName.isNotEmpty && widget.currentEpisodeIndex != null) {
           ref.read(historyLogProvider.notifier).addToHistory(
             seriesName: widget.seriesName,
@@ -355,6 +363,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
             episodeIndex: widget.currentEpisodeIndex!,
             episodeTitle: widget.videoTitle.replaceFirst('${widget.seriesName} - ', ''),
             positionInSeconds: position,
+            videoFileId: widget.videoFileId,
           );
         }
       }
@@ -411,6 +420,11 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
                 hasNextEpisode: widget.episodeList != null && widget.currentEpisodeIndex != null && widget.currentEpisodeIndex! + 1 < widget.episodeList!.length,
                 onPrevEpisode: _playPreviousEpisode,
                 onNextEpisode: _playNextEpisode,
+                onAutoNextCancelled: () {
+                  setState(() {
+                    _autoNextCancelled = true;
+                  });
+                },
               )
             : Column(
                 mainAxisAlignment: MainAxisAlignment.center,

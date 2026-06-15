@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tdlib/td_api.dart' as td;
 import '../../core/constants.dart';
 import '../../services/tdlib_service.dart';
+import '../../services/storage_service.dart';
+import '../settings/settings_provider.dart';
 
 enum AuthStep { loading, waitingForNumber, waitingForCode, waitingForPassword, authenticated, error }
 
@@ -49,7 +51,20 @@ class AuthController extends Notifier<AuthState> {
 
   void initializeTdlib() {
     state = state.copyWith(step: AuthStep.loading, errorMessage: null);
-    ref.read(tdlibServiceProvider).init(Constants.apiId, Constants.apiHash).catchError((e) {
+    final storage = ref.read(storageServiceProvider);
+    final excludedPaths = storage.getDownloadedFiles().values.toList();
+    final settings = ref.read(videoSettingsProvider);
+    
+    final double? limitMb = settings.cacheLimitMb == -1 ? null : settings.cacheLimitMb.toDouble();
+    final int? ttlDays = settings.cacheTtlDays == -1 ? null : settings.cacheTtlDays;
+
+    ref.read(tdlibServiceProvider).init(
+      Constants.apiId, 
+      Constants.apiHash,
+      excludedPaths: excludedPaths,
+      limitMb: limitMb,
+      ttlDays: ttlDays,
+    ).catchError((e) {
       state = state.copyWith(step: AuthStep.error, errorMessage: e.toString());
     });
   }

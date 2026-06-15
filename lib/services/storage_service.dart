@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
+import '../core/logger.dart';
 
 final storageServiceProvider = Provider<StorageService>((ref) {
   return StorageService();
@@ -9,6 +11,7 @@ final storageServiceProvider = Provider<StorageService>((ref) {
 
 class StorageService {
   File? _file;
+  Future? _writeChain;
   Map<String, dynamic> _data = {
     'history': <String, int>{}, // messageId (String) -> position in seconds
     'favorites': <String>[], // coreName
@@ -17,21 +20,89 @@ class StorageService {
 
   Future<void> init() async {
     final directory = await getApplicationDocumentsDirectory();
-    _file = File('${directory.path}/user_storage.json');
+    final primaryPath = '${directory.path}/user_storage.json';
+    final backupPath = '$primaryPath.bak';
+    _file = File(primaryPath);
+    final backupFile = File(backupPath);
+    
+    bool loaded = false;
     
     if (await _file!.exists()) {
       try {
         final content = await _file!.readAsString();
         _data = json.decode(content);
-      } catch (e) {
-        // If file is corrupted, start fresh
+        loaded = true;
+        Log.i('User storage loaded successfully');
+      } catch (e, stackTrace) {
+        Log.w('Primary user storage corrupted, trying backup: $e');
       }
+    }
+    
+    if (!loaded && await backupFile.exists()) {
+      try {
+        final content = await backupFile.readAsString();
+        _data = json.decode(content);
+        loaded = true;
+        Log.i('User storage loaded successfully from backup file');
+        // Restore primary from backup
+        await backupFile.copy(_file!.path);
+      } catch (e, stackTrace) {
+        Log.e('Backup user storage also corrupted', e, stackTrace);
+      }
+    }
+    
+    if (!loaded) {
+      Log.w('No valid user storage found, starting fresh');
+      _data = {
+        'history': <String, int>{},
+        'favorites': <String>[],
+        'last_watched': null,
+      };
+      await _save(); // Initialize file
     }
   }
 
   Future<void> _save() async {
+    final completer = Completer<void>();
+    final previous = _writeChain;
+    _writeChain = completer.future;
+    
+    if (previous != null) {
+      try {
+        await previous;
+      } catch (_) {}
+    }
+    
+    try {
+      await _executeSave();
+    } finally {
+      completer.complete();
+    }
+  }
+
+  Future<void> _executeSave() async {
     if (_file != null) {
-      await _file!.writeAsString(json.encode(_data));
+      try {
+        final tmpFile = File('${_file!.path}.tmp');
+        final backupFile = File('${_file!.path}.bak');
+        final content = json.encode(_data);
+        
+        await tmpFile.writeAsString(content);
+        
+        final tempContent = await tmpFile.readAsString();
+        json.decode(tempContent); // Verify valid JSON
+        
+        if (await _file!.exists()) {
+          if (await backupFile.exists()) {
+            await backupFile.delete();
+          }
+          await _file!.copy(backupFile.path);
+        }
+        
+        await tmpFile.rename(_file!.path);
+      } catch (e, stackTrace) {
+        Log.e('Failed to save user storage atomically', e, stackTrace);
+      }
     }
   }
 
@@ -91,6 +162,7 @@ class StorageService {
     required int episodeIndex,
     required String episodeTitle,
     required int positionInSeconds,
+    required int videoFileId,
   }) async {
     if (isIncognitoMode()) return;
     
@@ -110,6 +182,7 @@ class StorageService {
       'episodeTitle': episodeTitle,
       'timestamp': DateTime.now().millisecondsSinceEpoch,
       'position': positionInSeconds,
+      'videoFileId': videoFileId,
     });
     
     // Limit log size to 200 items
@@ -132,7 +205,22 @@ class StorageService {
     _data['history_log'] = [];
     _data['history'] = {};
     _data['last_watched'] = null;
+    _data['durations'] = {};
     await _save();
+  }
+
+  // --- Video Durations ---
+
+  Future<void> saveVideoDuration(int messageId, int durationInSeconds) async {
+    if (isIncognitoMode()) return;
+    _data['durations'] ??= <String, dynamic>{};
+    _data['durations'][messageId.toString()] = durationInSeconds;
+    await _save();
+  }
+
+  int getVideoDuration(int messageId) {
+    if (_data['durations'] == null) return 0;
+    return _data['durations'][messageId.toString()] ?? 0;
   }
 
   // --- Favorites ---
@@ -234,6 +322,19 @@ class StorageService {
     _data['last_seen_version'] = version;
     await _save();
   }
+
+  // --- Incremental Channel Sync Checkpoints ---
+
+  int getLastIndexedMessageId(int channelId) {
+    _data['last_indexed_message_ids'] ??= <String, dynamic>{};
+    return _data['last_indexed_message_ids'][channelId.toString()] ?? 0;
+  }
+
+  Future<void> setLastIndexedMessageId(int channelId, int messageId) async {
+    _data['last_indexed_message_ids'] ??= <String, dynamic>{};
+    _data['last_indexed_message_ids'][channelId.toString()] = messageId;
+    await _save();
+  }
 }
 
 class FavoritesNotifier extends Notifier<List<String>> {
@@ -311,6 +412,7 @@ class HistoryLogNotifier extends Notifier<List<Map<String, dynamic>>> {
     required int episodeIndex,
     required String episodeTitle,
     required int positionInSeconds,
+    required int videoFileId,
   }) async {
     final storage = ref.read(storageServiceProvider);
     await storage.addToHistoryLog(
@@ -319,6 +421,7 @@ class HistoryLogNotifier extends Notifier<List<Map<String, dynamic>>> {
       episodeIndex: episodeIndex,
       episodeTitle: episodeTitle,
       positionInSeconds: positionInSeconds,
+      videoFileId: videoFileId,
     );
     state = storage.getHistoryLog();
   }

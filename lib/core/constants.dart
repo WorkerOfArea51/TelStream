@@ -14,18 +14,31 @@ class ChannelCategory {
 }
 
 class Constants {
-  static const String currentVersion = '2.0.3';
+  static const String currentVersion = '2.1.0';
   static const String changelog = '''
-### 🚀 What's New in v2.0.3
+### 🚀 What's New in v2.1.0
 
-We've rolled out a minor update to prepare the app for public feedback and testing!
+We have rolled out a major streaming optimization and quality-of-life update!
 
-#### 🐛 Bug Reports & Feature Requests
-* Added a direct **Report Bug / Request Feature** button under **More -> About**, allowing you to easily submit feedback, report bugs, or suggest enhancements on GitHub.
-* Configured formal bug report and feature request templates on GitHub to streamline feedback.
+#### 📺 Premium Player Controls & Gestures
+* Added hardware **Volume & Brightness control gestures** to the built-in media player.
+* Swipe up/down on the left side of the screen to adjust screen brightness; swipe on the right to adjust system volume.
+* Display premium on-screen overlay indicators for volume and brightness status.
+* Added an **Auto Play Next Episode** countdown overlay 15 seconds before the current episode completes.
 
-#### ⚙️ Automation & Pipeline Quality
-* Integrated code analysis and unit testing to ensure the app stays stable with every new release.
+#### 🎬 Continue Watching Shelf
+* Added a new, horizontal **Continue Watching** shelf at the top of the Library screen.
+* Resume partially watched movies or series episodes instantly at the correct timestamp.
+* Continue Watching items are automatically partitioned by category (Anime, Movies, Web Series).
+
+#### 📈 Watch Progress Indicators
+* Added visual **watch progress bars** at the bottom of each episode tile.
+* Episodes that are more than 90% watched will display a green completion checkmark (`✓`) in the episode list.
+
+#### 🛡️ Stability & Cache Enhancements
+* Implemented **Atomic Storage Safes**: Watch history and settings are written staged, validated, and backed up (`.bak`) to prevent JSON corruption.
+* Optimized directory cache size calculations using a background isolate to keep settings scrolling butter-smooth.
+* Added background **Cache Pruning** on startup to clear old buffers while preserving permanently downloaded files.
 ''';
 
   // Telegram API Credentials from secrets.dart
