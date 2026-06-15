@@ -323,6 +323,17 @@ class StorageService {
     await _save();
   }
 
+  // --- Screen Brightness Memory ---
+
+  double getBrightness() {
+    return (_data['brightness'] as num?)?.toDouble() ?? 0.7;
+  }
+
+  Future<void> setBrightness(double value) async {
+    _data['brightness'] = value;
+    await _save();
+  }
+
   // --- Incremental Channel Sync Checkpoints ---
 
   int getLastIndexedMessageId(int channelId) {

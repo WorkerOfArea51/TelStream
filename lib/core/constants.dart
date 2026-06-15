@@ -14,8 +14,23 @@ class ChannelCategory {
 }
 
 class Constants {
-  static const String currentVersion = '2.1.0';
+  static const String currentVersion = '2.2.0';
   static const String changelog = '''
+### 🚀 What's New in v2.2.0
+
+We have optimized seeking, player buffering, and cold-boot resume reliability!
+
+#### 📺 Player & Buffering Optimizations
+* **Instant Dynamic Seeking**: Integrated TDLib dynamic download offsets to pivot download priority instantly to the seek target.
+* **Smart Demuxer Cache Tuning**: Implemented dynamic player cache constraints (8MB / 5s ahead during streaming to prevent decoding zero-filled sparse disk pages, boosting to 100MB buffer upon completion).
+* **Cold Boot Watch Progress Resume**: Automatically starts download from the last watch byte offset on cold boot, resolving resume-play reliability from history and Continue Watching.
+
+#### 🎛️ Gestures & Persistence Memory
+* **Screen Brightness Memory**: Added automatic persistence for video player brightness adjustments across app restarts.
+* **Volume Synchronization Fix**: Prevented volume HUD gesture feedback loop jitter on external volume updates.
+
+---
+
 ### 🚀 What's New in v2.1.0
 
 We have rolled out a major streaming optimization and quality-of-life update!

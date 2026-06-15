@@ -10,7 +10,7 @@ import 'package:screen_brightness/screen_brightness.dart';
 import 'package:flutter_volume_controller/flutter_volume_controller.dart';
 import '../settings/settings_provider.dart';
 import '../../core/theme/app_theme.dart';
-import '../../core/logger.dart';
+import '../../services/storage_service.dart';
 
 class CustomVideoControls extends ConsumerStatefulWidget {
   final Player player;
@@ -25,6 +25,8 @@ class CustomVideoControls extends ConsumerStatefulWidget {
   final VoidCallback? onPrevEpisode;
   final VoidCallback? onNextEpisode;
   final VoidCallback? onAutoNextCancelled;
+  final ValueChanged<Duration>? onSeek;
+  final bool customBuffering;
 
   const CustomVideoControls({
     Key? key,
@@ -40,6 +42,8 @@ class CustomVideoControls extends ConsumerStatefulWidget {
     this.onPrevEpisode,
     this.onNextEpisode,
     this.onAutoNextCancelled,
+    this.onSeek,
+    this.customBuffering = false,
   }) : super(key: key);
 
   @override
@@ -69,6 +73,8 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
   bool _showBrightnessIndicator = false;
   bool _showSeekIndicator = false;
   String _seekDirection = '';
+  bool _isPhysicalBrightnessSupported = false;
+  Timer? _brightnessSaveTimer;
 
   // Double tap seek variables
   bool _showLeftSeekOverlay = false;
@@ -138,7 +144,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     
     try {
       _volumeSubscription = FlutterVolumeController.addListener((volume) {
-        if (mounted) {
+        if (mounted && !_showVolumeIndicator) {
           setState(() {
             _currentVolume = volume * 100.0;
             widget.player.setVolume(_currentVolume);
@@ -147,14 +153,19 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
       });
     } catch (_) {}
     
+    final savedBrightness = ref.read(storageServiceProvider).getBrightness();
+    if (mounted) {
+      setState(() {
+        _currentBrightness = savedBrightness;
+      });
+    }
+
     try {
-      final brightness = await ScreenBrightness().application;
-      if (mounted) {
-        setState(() {
-          _currentBrightness = brightness;
-        });
-      }
-    } catch (_) {}
+      await ScreenBrightness().setApplicationScreenBrightness(_currentBrightness);
+      _isPhysicalBrightnessSupported = true;
+    } catch (_) {
+      _isPhysicalBrightnessSupported = false;
+    }
   }
 
   void _checkAutoNextTrigger(Duration pos) {
@@ -222,6 +233,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     _bufferingSubscription?.cancel();
     _positionSubscription?.cancel();
     _volumeSubscription?.cancel();
+    _brightnessSaveTimer?.cancel();
     _hideTimer?.cancel();
     _doubleTapOverlayTimer?.cancel();
     _autoNextTimer?.cancel();
@@ -329,7 +341,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
         seconds: target.inSeconds.clamp(0, dur.inSeconds > 0 ? dur.inSeconds : 86400));
 
     final safeTarget = _clampSeekTarget(clampedTarget, showMessage: true);
-    widget.player.seek(safeTarget);
+    _performSeek(safeTarget);
 
     _doubleTapOverlayTimer = Timer(const Duration(milliseconds: 650), () {
       if (mounted) {
@@ -340,7 +352,23 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     });
   }
 
+  void _performSeek(Duration target) {
+    if (widget.onSeek != null) {
+      widget.onSeek!(target);
+    } else {
+      widget.player.seek(target);
+    }
+  }
+
+  void _saveBrightnessDebounced(double value) {
+    _brightnessSaveTimer?.cancel();
+    _brightnessSaveTimer = Timer(const Duration(milliseconds: 500), () {
+      ref.read(storageServiceProvider).setBrightness(value);
+    });
+  }
+
   Duration _clampSeekTarget(Duration targetPosition, {bool showMessage = true}) {
+    if (widget.onSeek != null) return targetPosition;
     if (widget.expectedSize <= 0) return targetPosition;
     final totalDuration = widget.player.state.duration;
     if (totalDuration.inMilliseconds <= 0) return targetPosition;
@@ -469,9 +497,13 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
           _currentBrightness = _currentBrightness.clamp(0.0, 1.0);
           try {
             ScreenBrightness().setApplicationScreenBrightness(_currentBrightness);
-          } catch (_) {}
+            _isPhysicalBrightnessSupported = true;
+          } catch (_) {
+            _isPhysicalBrightnessSupported = false;
+          }
           _showBrightnessIndicator = true;
         });
+        _saveBrightnessDebounced(_currentBrightness);
       }
     } else if (_scale > 1.0) {
       setState(() {
@@ -487,7 +519,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
         _showSeekIndicator = false;
       });
       final safeTarget = _clampSeekTarget(_swipeTargetPosition, showMessage: true);
-      widget.player.seek(safeTarget);
+      _performSeek(safeTarget);
     }
     setState(() {
       _showVolumeIndicator = false;
@@ -853,7 +885,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
         fit: StackFit.expand,
         children: [
           // Video Layer with Pinch to Zoom
-          if (_isBuffering)
+          if (_isBuffering || widget.customBuffering)
             const Center(
               child: CircularProgressIndicator(
                 color: Colors.orange,
@@ -872,7 +904,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
           ),
           
           // Simulated Brightness
-          if (_currentBrightness < 1.0)
+          if (!_isPhysicalBrightnessSupported && _currentBrightness < 1.0)
             IgnorePointer(
               child: Container(color: Colors.black.withOpacity(1.0 - _currentBrightness)),
             ),
@@ -1236,7 +1268,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                                     onChanged: max > 0 ? (v) {
                                       final target = Duration(milliseconds: v.toInt());
                                       final safeTarget = _clampSeekTarget(target, showMessage: false);
-                                      widget.player.seek(safeTarget);
+                                      _performSeek(safeTarget);
                                     } : null,
                                     onChangeEnd: (_) => _startHideTimer(),
                                   ),

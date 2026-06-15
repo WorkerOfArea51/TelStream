@@ -11,6 +11,7 @@ import '../../services/download_service.dart';
 import '../settings/settings_provider.dart';
 import 'pip_manager.dart';
 import 'custom_video_controls.dart';
+import '../../core/logger.dart';
 
 class VideoPlayerScreen extends ConsumerStatefulWidget {
   final int messageId;
@@ -46,6 +47,9 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
   int _downloadedPrefixSize = 0;
   int _expectedSize = 0;
   bool _autoNextCancelled = false;
+  int? _initialDownloadedSize;
+  Duration? _pendingSeekTarget;
+  bool _isBuffering = false;
 
   StreamSubscription? _completedSubscription;
   Timer? _saveTimer;
@@ -76,9 +80,9 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
       if (player.platform is NativePlayer) {
         final nativePlayer = player.platform as NativePlayer;
         nativePlayer.setProperty('cache', 'yes');
-        nativePlayer.setProperty('demuxer-max-bytes', '104857600'); // 100 MB buffer
-        nativePlayer.setProperty('demuxer-max-back-bytes', '52428800'); // 50 MB back buffer
-        nativePlayer.setProperty('demuxer-readahead-secs', '120'); // Buffer up to 120 seconds ahead
+        nativePlayer.setProperty('demuxer-max-bytes', '8388608'); // 8 MB buffer
+        nativePlayer.setProperty('demuxer-max-back-bytes', '2097152'); // 2 MB back buffer
+        nativePlayer.setProperty('demuxer-readahead-secs', '5'); // Buffer up to 5 seconds ahead
         nativePlayer.setProperty('cache-pause', 'yes'); // Stalls playback if buffer runs out to prevent decoding corrupted frames
         nativePlayer.setProperty('cache-pause-initial', 'yes');
         nativePlayer.setProperty('cache-pause-wait', '5'); // Wait for 5 seconds of buffered data before resuming
@@ -245,87 +249,152 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
           }
         }
 
-        if (localPath.isNotEmpty && !_isPlaying) {
-          // Wait for 5% of the file, or at least 4MB, but at most 15MB before starting to play
-          final totalSize = event.file.expectedSize;
-          final targetBuffer = (totalSize * 0.05).clamp(4 * 1024 * 1024, 15 * 1024 * 1024);
-
-          if (event.file.local.isDownloadingCompleted || event.file.local.downloadedPrefixSize >= targetBuffer) {
-            _isPlaying = true;
-            player.open(Media(localPath));
-            player.setVolume(100.0);
-            
-            final savedPos = _storageService.getWatchPosition(widget.messageId);
-            if (savedPos > 0) {
-              if (player.state.duration.inSeconds > 0) {
-                final totalDuration = player.state.duration.inSeconds;
-                final downloadedPrefix = _downloadedPrefixSize;
-                final expected = _expectedSize;
-                if (expected > 0 && totalDuration > 0) {
-                  final double fraction = downloadedPrefix / expected;
-                  final maxPlayableSeconds = (totalDuration * fraction).round();
-                  if (savedPos <= maxPlayableSeconds) {
-                    player.seek(Duration(seconds: savedPos));
-                  } else {
-                    final safeSeconds = (maxPlayableSeconds - 2).clamp(0, maxPlayableSeconds);
-                    player.seek(Duration(seconds: safeSeconds));
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('Resumed to latest buffered position (${(fraction * 100).toStringAsFixed(0)}%)'),
-                          duration: const Duration(seconds: 3),
-                        ),
-                      );
-                    }
-                  }
-                } else {
-                  player.seek(Duration(seconds: savedPos));
-                }
-              } else {
-                late final StreamSubscription<Duration> durSub;
-                durSub = player.stream.duration.listen((dur) {
-                  if (dur.inSeconds > 0) {
-                    durSub.cancel();
-                    if (!mounted) return;
-                    
-                    final totalDuration = dur.inSeconds;
-                    final downloadedPrefix = _downloadedPrefixSize;
-                    final expected = _expectedSize;
-                    
-                    if (expected > 0 && totalDuration > 0) {
-                      final double fraction = downloadedPrefix / expected;
-                      final maxPlayableSeconds = (totalDuration * fraction).round();
-                      if (savedPos <= maxPlayableSeconds) {
-                        player.seek(Duration(seconds: savedPos));
-                      } else {
-                        final safeSeconds = (maxPlayableSeconds - 2).clamp(0, maxPlayableSeconds);
-                        player.seek(Duration(seconds: safeSeconds));
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Resumed to latest buffered position (${(fraction * 100).toStringAsFixed(0)}%)'),
-                            duration: const Duration(seconds: 3),
-                          ),
-                        );
-                      }
-                    } else {
-                      player.seek(Duration(seconds: savedPos));
-                    }
-                  }
-                });
-              }
+        if (event.file.local.isDownloadingCompleted) {
+          // Boost buffer sizes since the file is completely downloaded
+          try {
+            if (player.platform is NativePlayer) {
+              final nativePlayer = player.platform as NativePlayer;
+              nativePlayer.setProperty('demuxer-max-bytes', '104857600'); // 100 MB buffer
+              nativePlayer.setProperty('demuxer-max-back-bytes', '52428800'); // 50 MB back buffer
+              nativePlayer.setProperty('demuxer-readahead-secs', '120');
             }
+          } catch (_) {}
+        }
+
+        if (localPath.isNotEmpty && !_isPlaying) {
+          final totalSize = event.file.expectedSize;
+          // Wait for 3% of the file, or at least 2.5MB, but at most 8MB before starting to play
+          final targetBuffer = (totalSize * 0.03).clamp(2621440, 8388608);
+
+          _initialDownloadedSize ??= event.file.local.downloadedSize;
+
+          final downloadedDelta = event.file.local.downloadedSize - (_initialDownloadedSize ?? 0);
+          final isReady = event.file.local.isDownloadingCompleted || downloadedDelta >= targetBuffer;
+
+          if (isReady) {
+            _isPlaying = true;
+            player.open(Media(localPath), play: true).then((_) {
+              if (!mounted) return;
+              final savedPos = _storageService.getWatchPosition(widget.messageId);
+              if (savedPos > 0) {
+                // Seek to target position immediately
+                player.seek(Duration(seconds: savedPos));
+              }
+            });
+            player.setVolume(100.0);
+          }
+        }
+
+        // Handle mid-play seek buffering updates
+        if (_isPlaying && _pendingSeekTarget != null && _initialDownloadedSize != null) {
+          final totalSize = event.file.expectedSize;
+          final targetBuffer = (totalSize * 0.03).clamp(2621440, 8388608);
+          final downloadedDelta = event.file.local.downloadedSize - _initialDownloadedSize!;
+          
+          if (event.file.local.isDownloadingCompleted || downloadedDelta >= targetBuffer) {
+            final seekTarget = _pendingSeekTarget!;
+            _pendingSeekTarget = null;
+            if (mounted) {
+              setState(() {
+                _isBuffering = false;
+              });
+            }
+            player.seek(seekTarget).then((_) {
+              player.play();
+            });
           }
         }
       }
     });
 
-    _tdlibService.send(td.DownloadFile(
-      fileId: widget.videoFileId,
-      priority: 32,
-      offset: 0,
-      limit: 0,
-      synchronous: false,
-    ));
+    // Determine initial offset based on saved watch position
+    _tdlibService.sendAsync(td.GetFile(fileId: widget.videoFileId)).then((res) {
+      if (!mounted) return;
+      if (res is td.File) {
+        final expectedSize = res.expectedSize;
+        final isCompleted = res.local.isDownloadingCompleted;
+        int initialOffset = 0;
+
+        if (!isCompleted) {
+          final savedPos = _storageService.getWatchPosition(widget.messageId);
+          final duration = _storageService.getVideoDuration(widget.messageId);
+          if (savedPos > 0 && duration > 0 && expectedSize > 0) {
+            final fraction = savedPos / duration;
+            initialOffset = (fraction * expectedSize).round();
+            // Bound initialOffset to ensure we don't start at the very EOF
+            if (initialOffset >= expectedSize - 2097152) {
+              initialOffset = (expectedSize - 2097152).clamp(0, expectedSize);
+            }
+            Log.i('Cold-starting TDLib download from offset: $initialOffset bytes (resuming at $savedPos/$duration s)');
+          }
+        }
+
+        _tdlibService.send(td.DownloadFile(
+          fileId: widget.videoFileId,
+          priority: 32,
+          offset: initialOffset,
+          limit: 0,
+          synchronous: false,
+        ));
+      }
+    }).catchError((_) {
+      // Fallback if GetFile fails
+      _tdlibService.send(td.DownloadFile(
+        fileId: widget.videoFileId,
+        priority: 32,
+        offset: 0,
+        limit: 0,
+        synchronous: false,
+      ));
+    });
+  }
+
+  void _handleCustomSeek(Duration position) {
+    if (widget.networkUrl != null && widget.networkUrl!.isNotEmpty) {
+      player.seek(position);
+      return;
+    }
+
+    final totalDuration = player.state.duration.inSeconds;
+    final expectedSize = _expectedSize;
+
+    if (totalDuration > 0 && expectedSize > 0 && _isPlaying) {
+      // Check if file is fully downloaded
+      final isCompleted = _downloadedPrefixSize >= expectedSize;
+      if (isCompleted) {
+        player.seek(position);
+        return;
+      }
+
+      // Calculate corresponding byte offset
+      final fraction = position.inSeconds / totalDuration;
+      int byteOffset = (fraction * expectedSize).round();
+      if (byteOffset >= expectedSize - 2097152) {
+        byteOffset = (expectedSize - 2097152).clamp(0, expectedSize);
+      }
+
+      // Initiate pause-buffer-play seek cycle
+      player.pause();
+      if (mounted) {
+        setState(() {
+          _isBuffering = true;
+          _initialDownloadedSize = null; // Will trigger re-init in updates listener
+          _pendingSeekTarget = position;
+        });
+      }
+
+      // Update download offset in TDLib
+      _tdlibService.send(td.DownloadFile(
+        fileId: widget.videoFileId,
+        priority: 32,
+        offset: byteOffset,
+        limit: 0,
+        synchronous: false,
+      ));
+      Log.i('Seeking TDLib download to offset: $byteOffset bytes (targeting $position)');
+    } else {
+      player.seek(position);
+    }
   }
 
   @override
@@ -425,6 +494,8 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
                     _autoNextCancelled = true;
                   });
                 },
+                onSeek: _handleCustomSeek,
+                customBuffering: _isBuffering,
               )
             : Column(
                 mainAxisAlignment: MainAxisAlignment.center,
