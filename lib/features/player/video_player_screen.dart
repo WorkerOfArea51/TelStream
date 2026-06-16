@@ -72,6 +72,8 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
     player = Player(
       configuration: PlayerConfiguration(
         pitch: _settings.pitchCorrection,
+        libass: true,
+        libassAndroidFont: 'assets/fonts/Roboto-Regular.ttf',
       ),
     );
 
@@ -80,12 +82,12 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
       if (player.platform is NativePlayer) {
         final nativePlayer = player.platform as NativePlayer;
         nativePlayer.setProperty('cache', 'yes');
-        nativePlayer.setProperty('demuxer-max-bytes', '8388608'); // 8 MB buffer
-        nativePlayer.setProperty('demuxer-max-back-bytes', '2097152'); // 2 MB back buffer
-        nativePlayer.setProperty('demuxer-readahead-secs', '5'); // Buffer up to 5 seconds ahead
+        nativePlayer.setProperty('demuxer-max-bytes', '67108864'); // 64 MB buffer (smooths out network instability)
+        nativePlayer.setProperty('demuxer-max-back-bytes', '16777216'); // 16 MB back buffer (instant backward seek)
+        nativePlayer.setProperty('demuxer-readahead-secs', '60'); // Buffer up to 60 seconds ahead
         nativePlayer.setProperty('cache-pause', 'yes'); // Stalls playback if buffer runs out to prevent decoding corrupted frames
-        nativePlayer.setProperty('cache-pause-initial', 'yes');
-        nativePlayer.setProperty('cache-pause-wait', '5'); // Wait for 5 seconds of buffered data before resuming
+        nativePlayer.setProperty('cache-pause-initial', 'no'); // Start playing immediately without artificial startup delay
+        nativePlayer.setProperty('cache-pause-wait', '2'); // Wait for only 2 seconds of buffered data before resuming after a stall
         nativePlayer.setProperty('hr-seek', 'no'); // Disable high-precision seeking on slow networks to seek instantly to keyframes
       }
     } catch (_) {}
