@@ -375,6 +375,26 @@ class StorageService {
     _data['last_indexed_message_ids'][channelId.toString()] = messageId;
     await _save();
   }
+
+  // --- Preferred Tracks Memory ---
+
+  String? getPreferredSubtitleTrack() {
+    return _data['preferred_subtitle_track'] as String?;
+  }
+
+  Future<void> setPreferredSubtitleTrack(String? value) async {
+    _data['preferred_subtitle_track'] = value;
+    await _save();
+  }
+
+  String? getPreferredAudioTrack() {
+    return _data['preferred_audio_track'] as String?;
+  }
+
+  Future<void> setPreferredAudioTrack(String? value) async {
+    _data['preferred_audio_track'] = value;
+    await _save();
+  }
 }
 
 class FavoritesNotifier extends Notifier<List<String>> {

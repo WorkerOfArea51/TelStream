@@ -14,8 +14,23 @@ class ChannelCategory {
 }
 
 class Constants {
-  static const String currentVersion = '2.2.0';
+  static const String currentVersion = '2.3.0';
   static const String changelog = '''
+### 🚀 What's New in v2.3.0
+
+We have implemented advanced subtitle rendering, smart next-episode preloading, and active playback speed-boost optimizations!
+
+#### 💬 Subtitles & Multi-Track Memory
+* **Auto-apply Preferred Tracks**: Added track preferences persistence. Subtitle and audio tracks chosen during playback are automatically remembered and applied to subsequent videos.
+* **libass Subtitle Engine**: Activated advanced SSA/ASS/SRT subtitle rendering with a bundled high-quality font asset (`Roboto-Regular`), ensuring embedded subtitle tracks display beautifully.
+
+#### ⏭️ Smart Preloading & Network Throttling
+* **Next-Episode Preloading**: Automatically schedules low-priority preloading of the next episode's first 15 MB in the background when the current video crosses 80% progress, achieving near-instant play transitions.
+* **Auto-Throttling Throws**: Pauses background offline downloads and channel history synchronization during active streaming, dedicating 100% of your network connection bandwidth to the player. Background tasks automatically resume once playback stops.
+* **Ultra-Low Buffer Times**: Increased cache memory limits to 64 MB and pre-fetch limits to 60 seconds. Plays instantly without artificial start latency.
+
+---
+
 ### 🚀 What's New in v2.2.0
 
 We have optimized seeking, player buffering, and cold-boot resume reliability!

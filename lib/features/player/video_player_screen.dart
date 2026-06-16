@@ -52,7 +52,9 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
   bool _isBuffering = false;
 
   StreamSubscription? _completedSubscription;
+  StreamSubscription? _tracksSubscription;
   Timer? _saveTimer;
+  bool _nextEpisodePreloaded = false;
 
   late final StorageService _storageService;
   late final TdlibService _tdlibService;
@@ -116,6 +118,61 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
       }
     });
 
+    // Auto-apply saved preferred tracks
+    _tracksSubscription = player.stream.tracks.listen((tracks) {
+      final prefSub = _storageService.getPreferredSubtitleTrack();
+      final prefAudio = _storageService.getPreferredAudioTrack();
+
+      if (prefSub != null) {
+        if (prefSub == 'no') {
+          if (player.state.track.subtitle != SubtitleTrack.no()) {
+            player.setSubtitleTrack(SubtitleTrack.no());
+          }
+        } else {
+          for (final track in tracks.subtitle) {
+            final identifier = (track.language ?? track.title ?? track.id).toLowerCase();
+            if (identifier == prefSub.toLowerCase() ||
+                (track.title != null && track.title!.toLowerCase().contains(prefSub.toLowerCase())) ||
+                (track.language != null && track.language!.toLowerCase().contains(prefSub.toLowerCase()))) {
+              if (player.state.track.subtitle != track) {
+                player.setSubtitleTrack(track);
+                Log.i('Automatically applied preferred subtitle track: ${track.language ?? track.title ?? track.id}');
+                break;
+              }
+            }
+          }
+        }
+      }
+
+      if (prefAudio != null) {
+        if (prefAudio == 'auto') {
+          if (player.state.track.audio != AudioTrack.auto()) {
+            player.setAudioTrack(AudioTrack.auto());
+          }
+        } else {
+          for (final track in tracks.audio) {
+            final identifier = (track.language ?? track.title ?? track.id).toLowerCase();
+            if (identifier == prefAudio.toLowerCase() ||
+                (track.title != null && track.title!.toLowerCase().contains(prefAudio.toLowerCase())) ||
+                (track.language != null && track.language!.toLowerCase().contains(prefAudio.toLowerCase()))) {
+              if (player.state.track.audio != track) {
+                player.setAudioTrack(track);
+                Log.i('Automatically applied preferred audio track: ${track.language ?? track.title ?? track.id}');
+                break;
+              }
+            }
+          }
+        }
+      }
+    });
+
+    // Pause other downloads while streaming to maximize bandwidth
+    Future.microtask(() {
+      if (mounted) {
+        ref.read(downloadControllerProvider.notifier).pauseDownloadsForStreaming();
+      }
+    });
+
     // Periodic Save for Continue Watching
     if (widget.seriesName.isNotEmpty && widget.currentEpisodeIndex != null) {
       Future.microtask(() {
@@ -144,6 +201,15 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
             positionInSeconds: player.state.position.inSeconds,
             videoFileId: widget.videoFileId,
           );
+        }
+      }
+
+      // Check and trigger next episode preloading if progress >= 80%
+      if (!_nextEpisodePreloaded && player.state.duration.inSeconds > 0) {
+        final progress = player.state.position.inSeconds / player.state.duration.inSeconds;
+        if (progress >= 0.8) {
+          _nextEpisodePreloaded = true;
+          _preloadNextEpisode();
         }
       }
     });
@@ -394,6 +460,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
 
     _updatesSubscription?.cancel();
     _completedSubscription?.cancel();
+    _tracksSubscription?.cancel();
     _saveTimer?.cancel();
     
     try {
@@ -414,6 +481,11 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
           );
         }
       }
+    } catch (_) {}
+
+    // Resume any downloads that were paused for streaming
+    try {
+      ref.read(downloadControllerProvider.notifier).resumeDownloadsAfterStreaming();
     } catch (_) {}
 
     try {
@@ -444,6 +516,32 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
     } catch (_) {}
     
     super.dispose();
+  }
+
+  void _preloadNextEpisode() {
+    if (widget.episodeList == null || widget.currentEpisodeIndex == null) return;
+    final nextIndex = widget.currentEpisodeIndex! + 1;
+    if (nextIndex >= widget.episodeList!.length) return;
+
+    final nextMsg = widget.episodeList![nextIndex];
+    int? nextFileId;
+    
+    if (nextMsg.content is td.MessageVideo) {
+      nextFileId = (nextMsg.content as td.MessageVideo).video.video.id;
+    } else if (nextMsg.content is td.MessageDocument) {
+      nextFileId = (nextMsg.content as td.MessageDocument).document.document.id;
+    }
+
+    if (nextFileId != null) {
+      Log.i('Preloading next episode (ID: $nextFileId) - downloading first 15MB');
+      _tdlibService.send(td.DownloadFile(
+        fileId: nextFileId,
+        priority: 1, // Low priority for background preloading
+        offset: 0,
+        limit: 15728640, // 15 MB limit
+        synchronous: false,
+      ));
+    }
   }
 
   @override

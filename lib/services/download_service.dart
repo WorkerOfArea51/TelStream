@@ -43,6 +43,7 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
   StreamSubscription? _dirWatcherSubscription;
   static const _channel = MethodChannel('com.darkmatter.telstream/downloads');
   final Map<int, int> _lastNotificationTimes = {};
+  final List<int> _pausedForStreamingFileIds = [];
 
   @override
   Map<int, DownloadTask> build() {
@@ -303,6 +304,37 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
       Log.e('FAILED TO SAVE FILE PERMANENTLY', e, stackTrace);
       _updateNativeNotification(fileId, title, 0.0, isCancelled: true);
     }
+  }
+
+  void pauseDownloadsForStreaming() {
+    _pausedForStreamingFileIds.clear();
+    state.forEach((fileId, task) {
+      if (!task.isCompleted) {
+        _pausedForStreamingFileIds.add(fileId);
+        ref.read(tdlibServiceProvider).send(td.CancelDownloadFile(
+          fileId: fileId,
+          onlyIfPending: false,
+        ));
+        Log.i('Paused background download for active streaming: ${task.title}');
+      }
+    });
+  }
+
+  void resumeDownloadsAfterStreaming() {
+    for (final fileId in _pausedForStreamingFileIds) {
+      final task = state[fileId];
+      if (task != null && !task.isCompleted) {
+        ref.read(tdlibServiceProvider).send(td.DownloadFile(
+          fileId: fileId,
+          priority: 10, // Resume at lower priority to avoid throttling active playback
+          offset: 0,
+          limit: 0,
+          synchronous: false,
+        ));
+        Log.i('Resumed background download after streaming: ${task.title}');
+      }
+    }
+    _pausedForStreamingFileIds.clear();
   }
 }
 

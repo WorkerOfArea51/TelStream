@@ -1093,10 +1093,13 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                                       padding: const EdgeInsets.only(bottom: 8),
                                       child: InkWell(
                                         onTap: () {
+                                          final storage = ref.read(storageServiceProvider);
                                           if (_trackSelectorIsSubtitle) {
                                             widget.player.setSubtitleTrack(track);
+                                            storage.setPreferredSubtitleTrack(track.id == 'no' ? 'no' : (track.language ?? track.title ?? track.id));
                                           } else {
                                             widget.player.setAudioTrack(track);
+                                            storage.setPreferredAudioTrack(track.id == 'auto' ? 'auto' : (track.language ?? track.title ?? track.id));
                                           }
                                           setState(() {
                                             _showTrackSelectorPanel = false;

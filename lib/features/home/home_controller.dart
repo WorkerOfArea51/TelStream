@@ -6,6 +6,7 @@ import '../../services/tdlib_service.dart';
 import '../../services/storage_service.dart';
 import '../../models/anime_models.dart';
 import '../../core/logger.dart';
+import '../player/pip_manager.dart';
 
 enum SortOrder { newest, oldest, aToZ, zToA }
 
@@ -203,6 +204,11 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
       
       // Sync messages incrementally from the network in the background
       while (_hasMore) {
+        // Yield execution and pause TDLib requests while video is actively playing to maximize streaming bandwidth
+        while (ref.read(pipControllerProvider) != null) {
+          await Future.delayed(const Duration(seconds: 2));
+        }
+
         final networkMessages = await _fetchMessages(fromId: currentFromId, onlyLocal: false);
         if (networkMessages.isEmpty) {
           break;
