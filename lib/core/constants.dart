@@ -14,8 +14,17 @@ class ChannelCategory {
 }
 
 class Constants {
-  static const String currentVersion = '2.3.0';
+  static const String currentVersion = '2.3.1';
   static const String changelog = '''
+### 🚀 What's New in v2.3.1
+
+We have fixed a critical player resume issue!
+
+#### 🩹 Cold-Boot Resume Fix
+* **Resolves Stale videoFileId Freezes**: Playback no longer freezes on "Buffering..." when launched from the **Continue Watching shelf** or **History tab** after an app restart. The player now dynamically queries the channel to obtain a fresh file ID before starting the stream.
+
+---
+
 ### 🚀 What's New in v2.3.0
 
 We have implemented advanced subtitle rendering, smart next-episode preloading, and active playback speed-boost optimizations!
