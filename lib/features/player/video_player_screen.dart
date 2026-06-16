@@ -12,6 +12,7 @@ import '../settings/settings_provider.dart';
 import 'pip_manager.dart';
 import 'custom_video_controls.dart';
 import '../../core/logger.dart';
+import '../../core/constants.dart';
 
 class VideoPlayerScreen extends ConsumerStatefulWidget {
   final int messageId;
@@ -50,6 +51,8 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
   int? _initialDownloadedSize;
   Duration? _pendingSeekTarget;
   bool _isBuffering = false;
+  int? _resolvedVideoFileId;
+  bool _isInitializing = true;
 
   StreamSubscription? _completedSubscription;
   StreamSubscription? _tracksSubscription;
@@ -97,7 +100,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
     _pipController.setActivePlayer(player);
     controller = VideoController(player);
     
-    _startDownload();
+    _initDownload();
     
     if (!widget.isPip) {
       SystemChrome.setPreferredOrientations([
@@ -199,7 +202,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
             episodeIndex: widget.currentEpisodeIndex!,
             episodeTitle: widget.videoTitle.replaceFirst('${widget.seriesName} - ', ''),
             positionInSeconds: player.state.position.inSeconds,
-            videoFileId: widget.videoFileId,
+            videoFileId: _resolvedVideoFileId ?? widget.videoFileId,
           );
         }
       }
@@ -294,16 +297,54 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
 
   DateTime? _lastUpdateTime;
 
-  void _startDownload() {
+  Future<void> _initDownload() async {
     if (widget.networkUrl != null && widget.networkUrl!.isNotEmpty) {
-      _isPlaying = true;
+      if (mounted) {
+        setState(() {
+          _resolvedVideoFileId = widget.videoFileId;
+          _isPlaying = true;
+          _isInitializing = false;
+        });
+      }
       player.open(Media(widget.networkUrl!));
       player.setVolume(100.0);
       return;
     }
 
+    int? freshFileId;
+    for (final category in Constants.categories) {
+      try {
+        final res = await _tdlibService.sendAsync(td.GetMessage(
+          chatId: category.channelId,
+          messageId: widget.messageId,
+        )).timeout(const Duration(seconds: 3));
+        
+        if (res is td.Message) {
+          if (res.content is td.MessageVideo) {
+            freshFileId = (res.content as td.MessageVideo).video.video.id;
+          } else if (res.content is td.MessageDocument) {
+            freshFileId = (res.content as td.MessageDocument).document.document.id;
+          }
+          if (freshFileId != null) {
+            Log.i('Resolved fresh file ID $freshFileId for message ${widget.messageId} in category ${category.title}');
+            break;
+          }
+        }
+      } catch (e) {
+        Log.w('Failed to check category ${category.title} for message ${widget.messageId}: $e');
+      }
+    }
+
+    _resolvedVideoFileId = freshFileId ?? widget.videoFileId;
+
+    if (mounted) {
+      setState(() {
+        _isInitializing = false;
+      });
+    }
+
     _updatesSubscription = _tdlibService.updates.listen((event) {
-      if (event is td.UpdateFile && event.file.id == widget.videoFileId) {
+      if (event is td.UpdateFile && event.file.id == _resolvedVideoFileId) {
         final localPath = event.file.local.path;
         
         final now = DateTime.now();
@@ -382,7 +423,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
 
     // Reverted startup offset to 0 so the file header is downloaded sequentially
     _tdlibService.send(td.DownloadFile(
-      fileId: widget.videoFileId,
+      fileId: _resolvedVideoFileId!,
       priority: 32,
       offset: 0,
       limit: 0,
@@ -429,7 +470,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
 
       // Update download offset in TDLib
       _tdlibService.send(td.DownloadFile(
-        fileId: widget.videoFileId,
+        fileId: _resolvedVideoFileId ?? widget.videoFileId,
         priority: 32,
         offset: byteOffset,
         limit: 0,
@@ -477,7 +518,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
             episodeIndex: widget.currentEpisodeIndex!,
             episodeTitle: widget.videoTitle.replaceFirst('${widget.seriesName} - ', ''),
             positionInSeconds: position,
-            videoFileId: widget.videoFileId,
+            videoFileId: _resolvedVideoFileId ?? widget.videoFileId,
           );
         }
       }
@@ -502,11 +543,11 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
     } catch (_) {}
 
     try {
-      if (widget.networkUrl == null && widget.videoFileId != 0) {
+      final fileId = _resolvedVideoFileId ?? widget.videoFileId;
+      if (widget.networkUrl == null && fileId != 0) {
         final activeDownloads = ref.read(downloadControllerProvider);
-        final isDownloadingPermanently = activeDownloads.containsKey(widget.videoFileId);
+        final isDownloadingPermanently = activeDownloads.containsKey(fileId);
         if (!isDownloadingPermanently) {
-          final fileId = widget.videoFileId;
           _tdlibService.send(td.CancelDownloadFile(fileId: fileId, onlyIfPending: false));
           Future.delayed(const Duration(milliseconds: 500), () {
             _tdlibService.send(td.DeleteFile(fileId: fileId));
@@ -573,16 +614,25 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
                 onSeek: _handleCustomSeek,
                 customBuffering: _isBuffering,
               )
-            : Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const CircularProgressIndicator(color: Colors.blueAccent),
-                  const SizedBox(height: 16),
-                  const Text('Buffering stream from Telegram...', style: TextStyle(color: Colors.white70)),
-                  if (_expectedSize > 0)
-                    Text('${(_downloadedPrefixSize / 1024 / 1024).toStringAsFixed(1)} MB / ${(_expectedSize / 1024 / 1024).toStringAsFixed(1)} MB', style: const TextStyle(color: Colors.white54)),
-                ],
-              ),
+            : _isInitializing
+                ? Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: const [
+                      CircularProgressIndicator(color: Colors.blueAccent),
+                      SizedBox(height: 16),
+                      Text('Resolving video stream from Telegram...', style: TextStyle(color: Colors.white70)),
+                    ],
+                  )
+                : Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const CircularProgressIndicator(color: Colors.blueAccent),
+                      const SizedBox(height: 16),
+                      const Text('Buffering stream from Telegram...', style: TextStyle(color: Colors.white70)),
+                      if (_expectedSize > 0)
+                        Text('${(_downloadedPrefixSize / 1024 / 1024).toStringAsFixed(1)} MB / ${(_expectedSize / 1024 / 1024).toStringAsFixed(1)} MB', style: const TextStyle(color: Colors.white54)),
+                    ],
+                  ),
         ),
       ),
     );
