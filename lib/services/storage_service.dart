@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 import '../core/logger.dart';
@@ -18,12 +19,35 @@ class StorageService {
     'last_watched': null, // { 'seriesName': String, 'messageId': int, 'episodeIndex': int }
   };
 
+  String? _localFontPath;
+  String? get localFontPath => _localFontPath;
+
   Future<void> init() async {
     final directory = await getApplicationDocumentsDirectory();
     final primaryPath = '${directory.path}/user_storage.json';
     final backupPath = '$primaryPath.bak';
     _file = File(primaryPath);
     final backupFile = File(backupPath);
+    
+    // Extract subtitle font for Android/iOS/Windows platforms to local storage
+    try {
+      final fontDir = Directory('${directory.path}/fonts');
+      if (!await fontDir.exists()) {
+        await fontDir.create(recursive: true);
+      }
+      final fontFile = File('${fontDir.path}/Roboto-Regular.ttf');
+      if (!await fontFile.exists()) {
+        final byteData = await rootBundle.load('assets/fonts/Roboto-Regular.ttf');
+        await fontFile.writeAsBytes(byteData.buffer.asUint8List(
+          byteData.offsetInBytes,
+          byteData.lengthInBytes,
+        ));
+        Log.i('Subtitle font copied to local storage: ${fontFile.path}');
+      }
+      _localFontPath = fontFile.path;
+    } catch (e, stack) {
+      Log.e('Failed to copy subtitle font', e, stack);
+    }
     
     bool loaded = false;
     

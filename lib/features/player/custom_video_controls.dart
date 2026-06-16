@@ -2425,8 +2425,8 @@ class WavySliderTrackShape extends RectangularSliderTrackShape {
     final Path activePath = Path();
     final Path inactivePath = Path();
 
-    const double waveAmplitude = 3.0;
-    const double waveWavelength = 15.0;
+    const double waveAmplitude = 4.0;
+    const double waveWavelength = 24.0;
 
     bool firstActive = true;
     bool firstInactive = true;

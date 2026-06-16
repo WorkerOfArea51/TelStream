@@ -14,8 +14,21 @@ class ChannelCategory {
 }
 
 class Constants {
-  static const String currentVersion = '2.3.1';
+  static const String currentVersion = '2.3.2';
   static const String changelog = '''
+### 🚀 What's New in v2.3.2
+
+We have fixed major player issues and improved the seekbar style!
+
+#### 💬 Subtitle Fixes (Android)
+* **Local Font Fallback Extractor**: Added automatic font extraction to local storage, mapping it directly into `libass` and `libmpv`. Subtitles will now render correctly on Android devices even for custom embedded streams.
+
+#### 📺 Visuals & Navigation
+* **Premium Wavy Seekbar**: Stretched out seekbar waves for a smoother, cleaner, and less cluttered timeline.
+* **Orientation Continuity**: Playback orientation now persists seamlessly in landscape during next-episode and auto-next transitions.
+
+---
+
 ### 🚀 What's New in v2.3.1
 
 We have fixed a critical player resume issue!

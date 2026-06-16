@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -74,11 +75,12 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
     _pipController = ref.read(pipControllerProvider.notifier);
     _settings = ref.read(videoSettingsProvider);
     
+    final localFontPath = _storageService.localFontPath;
     player = Player(
       configuration: PlayerConfiguration(
         pitch: _settings.pitchCorrection,
         libass: true,
-        libassAndroidFont: 'assets/fonts/Roboto-Regular.ttf',
+        libassAndroidFont: localFontPath ?? 'assets/fonts/Roboto-Regular.ttf',
       ),
     );
 
@@ -94,6 +96,13 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         nativePlayer.setProperty('cache-pause-initial', 'no'); // Start playing immediately without artificial startup delay
         nativePlayer.setProperty('cache-pause-wait', '2'); // Wait for only 2 seconds of buffered data before resuming after a stall
         nativePlayer.setProperty('hr-seek', 'no'); // Disable high-precision seeking on slow networks to seek instantly to keyframes
+        
+        if (localFontPath != null) {
+          final fontFile = File(localFontPath);
+          nativePlayer.setProperty('sub-fonts-dir', fontFile.parent.path);
+          nativePlayer.setProperty('sub-font', 'Roboto-Regular');
+          Log.i('Native MPV configured with sub-fonts-dir: ${fontFile.parent.path}');
+        }
       }
     } catch (_) {}
 
@@ -538,8 +547,11 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
     }
     
     try {
-      SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp, DeviceOrientation.portraitDown]);
-      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+      final activePlayer = ref.read(pipControllerProvider.notifier).activePlayer;
+      if (activePlayer == null || activePlayer == player) {
+        SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp, DeviceOrientation.portraitDown]);
+        SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+      }
     } catch (_) {}
 
     try {
