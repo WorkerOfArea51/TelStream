@@ -753,7 +753,7 @@ class ContinueWatchingShelf extends StatelessWidget {
                     // Play video
                     List<td.Message>? episodeList;
                     int? episodeIndex;
-                    int? videoFileId = item['videoFileId'] as int?;
+                    int? videoFileId;
 
                     if (matchedSeries != null) {
                       for (final season in matchedSeries.seasons) {
@@ -768,7 +768,7 @@ class ContinueWatchingShelf extends StatelessWidget {
                       }
                     }
 
-                    if (videoFileId == null && episodeList != null && episodeIndex != null) {
+                    if (episodeList != null && episodeIndex != null) {
                       final msg = episodeList[episodeIndex];
                       if (msg.content is td.MessageVideo) {
                         videoFileId = (msg.content as td.MessageVideo).video.video.id;
@@ -776,6 +776,9 @@ class ContinueWatchingShelf extends StatelessWidget {
                         videoFileId = (msg.content as td.MessageDocument).document.document.id;
                       }
                     }
+
+                    // Fallback to stored id if we couldn't resolve it from active episodes
+                    videoFileId ??= item['videoFileId'] as int?;
 
                     if (videoFileId != null) {
                       ref.read(pipControllerProvider.notifier).playVideo(

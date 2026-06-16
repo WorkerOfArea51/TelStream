@@ -776,13 +776,17 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
   }
 
   Widget _buildRatioPanel() {
+    final double screenHeight = MediaQuery.of(context).size.height;
     return Container(
+      constraints: BoxConstraints(
+        maxHeight: screenHeight * 0.85,
+      ),
       decoration: BoxDecoration(
         color: Colors.black.withOpacity(0.92),
         borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         border: Border.all(color: Colors.white10, width: 0.5),
       ),
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -801,75 +805,84 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
               const SizedBox(width: 48),
             ],
           ),
-          const SizedBox(height: 12),
-          const Text('Screen', style: TextStyle(color: Colors.white54, fontSize: 12, fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              _buildScreenRatioButton('fit', Icons.fit_screen, 'Fit'),
-              _buildScreenRatioButton('fill', Icons.fullscreen, 'Fill'),
-              _buildScreenRatioButton('original', Icons.center_focus_strong, 'Original'),
-              _buildScreenRatioButton('stretch', Icons.open_in_full, 'Stretch'),
-            ],
-          ),
-          const SizedBox(height: 16),
-          const Text('Standard', style: TextStyle(color: Colors.white54, fontSize: 12, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 8),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                _buildPillRatioButton('16:9'),
-                _buildPillRatioButton('4:3'),
-                _buildPillRatioButton('18:9'),
-                _buildPillRatioButton('19.5:9'),
-                _buildPillRatioButton('20:9'),
-                _buildPillRatioButton('21:9'),
-              ].map((w) => Padding(padding: const EdgeInsets.only(right: 8.0), child: w)).toList(),
+          Flexible(
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Screen', style: TextStyle(color: Colors.white54, fontSize: 12, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      _buildScreenRatioButton('fit', Icons.fit_screen, 'Fit'),
+                      _buildScreenRatioButton('fill', Icons.fullscreen, 'Fill'),
+                      _buildScreenRatioButton('original', Icons.center_focus_strong, 'Original'),
+                      _buildScreenRatioButton('stretch', Icons.open_in_full, 'Stretch'),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  const Text('Standard', style: TextStyle(color: Colors.white54, fontSize: 12, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        _buildPillRatioButton('16:9'),
+                        _buildPillRatioButton('4:3'),
+                        _buildPillRatioButton('18:9'),
+                        _buildPillRatioButton('19.5:9'),
+                        _buildPillRatioButton('20:9'),
+                        _buildPillRatioButton('21:9'),
+                      ].map((w) => Padding(padding: const EdgeInsets.only(right: 8.0), child: w)).toList(),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text('Cinema', style: TextStyle(color: Colors.white54, fontSize: 12, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        _buildPillRatioButton('1.85:1'),
+                        _buildPillRatioButton('2.21:1'),
+                        _buildPillRatioButton('2.35:1'),
+                        _buildPillRatioButton('2.39:1'),
+                      ].map((w) => Padding(padding: const EdgeInsets.only(right: 8.0), child: w)).toList(),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const Divider(color: Colors.white10, height: 1),
+                  const SizedBox(height: 8),
+                  _buildSwitchRow(
+                    title: 'Remember ratio',
+                    subtitle: 'Remember ratio for all videos.',
+                    value: _rememberRatio,
+                    onChanged: (val) {
+                      setState(() {
+                        _rememberRatio = val;
+                      });
+                      ref.read(storageServiceProvider).setRememberAspectRatio(val);
+                      if (val) {
+                        ref.read(storageServiceProvider).setSavedAspectRatio(_currentAspectRatioString);
+                      }
+                    },
+                  ),
+                  _buildSwitchRow(
+                    title: 'Tap ratios to switch directly',
+                    subtitle: 'Tap to switch, long press for the full menu.',
+                    value: _tapToSwitchRatio,
+                    onChanged: (val) {
+                      setState(() {
+                        _tapToSwitchRatio = val;
+                      });
+                      ref.read(storageServiceProvider).setTapToSwitchAspectRatio(val);
+                    },
+                  ),
+                ],
+              ),
             ),
-          ),
-          const SizedBox(height: 16),
-          const Text('Cinema', style: TextStyle(color: Colors.white54, fontSize: 12, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 8),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                _buildPillRatioButton('1.85:1'),
-                _buildPillRatioButton('2.21:1'),
-                _buildPillRatioButton('2.35:1'),
-                _buildPillRatioButton('2.39:1'),
-              ].map((w) => Padding(padding: const EdgeInsets.only(right: 8.0), child: w)).toList(),
-            ),
-          ),
-          const SizedBox(height: 16),
-          const Divider(color: Colors.white10, height: 1),
-          const SizedBox(height: 8),
-          _buildSwitchRow(
-            title: 'Remember ratio',
-            subtitle: 'Remember ratio for all videos.',
-            value: _rememberRatio,
-            onChanged: (val) {
-              setState(() {
-                _rememberRatio = val;
-              });
-              ref.read(storageServiceProvider).setRememberAspectRatio(val);
-              if (val) {
-                ref.read(storageServiceProvider).setSavedAspectRatio(_currentAspectRatioString);
-              }
-            },
-          ),
-          _buildSwitchRow(
-            title: 'Tap ratios to switch directly',
-            subtitle: 'Tap to switch, long press for the full menu.',
-            value: _tapToSwitchRatio,
-            onChanged: (val) {
-              setState(() {
-                _tapToSwitchRatio = val;
-              });
-              ref.read(storageServiceProvider).setTapToSwitchAspectRatio(val);
-            },
           ),
         ],
       ),
@@ -1447,7 +1460,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
           if (_showControls && !_isLocked)
             Container(color: Colors.black54),
 
-          if (_showControls && !_isLocked) ...[
+          if (_showControls && !_isLocked && !_showTrackSelectorPanel && !_showRatioPanel) ...[
             // Top Bar
             Positioned(
               top: 40, left: 16, right: 16,
@@ -1644,7 +1657,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
             curve: Curves.easeInOut,
             left: 0,
             right: 0,
-            bottom: _showTrackSelectorPanel ? 0 : -350,
+            bottom: _showTrackSelectorPanel ? 0 : -800,
             child: _buildCustomTrackSelectorPanel(),
           ),
 
@@ -1664,7 +1677,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
             curve: Curves.easeInOut,
             left: 0,
             right: 0,
-            bottom: _showRatioPanel ? 0 : -420,
+            bottom: _showRatioPanel ? 0 : -800,
             child: _buildRatioPanel(),
           ),
         ],

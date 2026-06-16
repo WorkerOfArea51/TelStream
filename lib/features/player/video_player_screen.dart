@@ -267,40 +267,27 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         }
 
         if (localPath.isNotEmpty && !_isPlaying) {
-          final totalSize = event.file.expectedSize;
-          // Wait for 3% of the file, or at least 2.5MB, but at most 8MB before starting to play
-          final targetBuffer = (totalSize * 0.03).clamp(2621440, 8388608);
-
-          _initialDownloadedSize ??= event.file.local.downloadedSize;
-
-          final downloadedDelta = event.file.local.downloadedSize - _initialDownloadedSize!;
-          final isReady = event.file.local.isDownloadingCompleted ||
-              event.file.local.downloadedPrefixSize >= targetBuffer ||
-              downloadedDelta >= targetBuffer;
-
-          if (isReady) {
-            _isPlaying = true;
-            player.open(Media(localPath), play: true).then((_) {
-              if (!mounted) return;
-              final savedPos = _storageService.getWatchPosition(widget.messageId);
-              if (savedPos > 0) {
-                if (player.state.duration.inSeconds > 0) {
-                  _handleCustomSeek(Duration(seconds: savedPos));
-                } else {
-                  late final StreamSubscription<Duration> durSub;
-                  durSub = player.stream.duration.listen((dur) {
-                    if (dur.inSeconds > 0) {
-                      durSub.cancel();
-                      if (mounted) {
-                        _handleCustomSeek(Duration(seconds: savedPos));
-                      }
+          _isPlaying = true;
+          player.open(Media(localPath), play: true).then((_) {
+            if (!mounted) return;
+            final savedPos = _storageService.getWatchPosition(widget.messageId);
+            if (savedPos > 0) {
+              if (player.state.duration.inSeconds > 0) {
+                _handleCustomSeek(Duration(seconds: savedPos));
+              } else {
+                late final StreamSubscription<Duration> durSub;
+                durSub = player.stream.duration.listen((dur) {
+                  if (dur.inSeconds > 0) {
+                    durSub.cancel();
+                    if (mounted) {
+                      _handleCustomSeek(Duration(seconds: savedPos));
                     }
-                  });
-                }
+                  }
+                });
               }
-            });
-            player.setVolume(100.0);
-          }
+            }
+          });
+          player.setVolume(100.0);
         }
 
         // Handle mid-play seek buffering updates

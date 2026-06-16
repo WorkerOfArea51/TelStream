@@ -55,39 +55,51 @@ class HistoryScreen extends ConsumerWidget {
                 }
 
                 td.Message? episodeMsg;
+                AnimeSeason? matchedSeason;
+                int? episodeListIndex;
                 td.File? posterFile;
                 td.Minithumbnail? minithumbnail;
                 int? fileId;
                 String epFileName = '';
 
-                if (matchedSeries != null && matchedSeries.seasons.isNotEmpty) {
-                  final season = matchedSeries.seasons.first;
-                  
-                  // Poster file
-                  final latestPoster = season.posterMessage;
-                  if (latestPoster.content is td.MessagePhoto) {
-                    final photo = latestPoster.content as td.MessagePhoto;
-                    if (photo.photo.sizes.isNotEmpty) {
-                      posterFile = photo.photo.sizes.last.photo;
+                if (matchedSeries != null) {
+                  final msgId = log['messageId'] as int;
+                  // Try to find the episode by messageId across all seasons first
+                  for (var season in matchedSeries.seasons) {
+                    final idx = season.episodes.indexWhere((ep) => ep.id == msgId);
+                    if (idx != -1) {
+                      episodeMsg = season.episodes[idx];
+                      matchedSeason = season;
+                      episodeListIndex = idx;
+                      break;
                     }
-                    minithumbnail = photo.photo.minithumbnail;
                   }
 
-                  // Find episode message by index or messageId
-                  final epIdx = log['episodeIndex'] as int;
-                  if (epIdx >= 0 && epIdx < season.episodes.length) {
-                    episodeMsg = season.episodes[epIdx];
-                  } else {
-                    // Try by messageId
-                    final msgId = log['messageId'] as int;
-                    for (var ep in season.episodes) {
-                      if (ep.id == msgId) {
-                        episodeMsg = ep;
-                        break;
+                  // If not found by messageId, fallback to index-based lookup in the first season
+                  if (episodeMsg == null && matchedSeries.seasons.isNotEmpty) {
+                    final firstSeason = matchedSeries.seasons.first;
+                    final epIdx = log['episodeIndex'] as int;
+                    if (epIdx >= 0 && epIdx < firstSeason.episodes.length) {
+                      episodeMsg = firstSeason.episodes[epIdx];
+                      matchedSeason = firstSeason;
+                      episodeListIndex = epIdx;
+                    }
+                  }
+
+                  // Now resolve poster from the matched season, or fallback to first season's poster
+                  final seasonForPoster = matchedSeason ?? (matchedSeries.seasons.isNotEmpty ? matchedSeries.seasons.first : null);
+                  if (seasonForPoster != null) {
+                    final latestPoster = seasonForPoster.posterMessage;
+                    if (latestPoster.content is td.MessagePhoto) {
+                      final photo = latestPoster.content as td.MessagePhoto;
+                      if (photo.photo.sizes.isNotEmpty) {
+                        posterFile = photo.photo.sizes.last.photo;
                       }
+                      minithumbnail = photo.photo.minithumbnail;
                     }
                   }
 
+                  // Resolve fresh file ID from matching message content
                   if (episodeMsg != null) {
                     if (episodeMsg.content is td.MessageVideo) {
                       final v = episodeMsg.content as td.MessageVideo;
@@ -99,6 +111,9 @@ class HistoryScreen extends ConsumerWidget {
                       epFileName = d.document.fileName;
                     }
                   }
+
+                  // Fallback to stored videoFileId if we couldn't resolve it dynamically
+                  fileId ??= log['videoFileId'] as int?;
                 }
 
                 final seriesName = matchedSeries != null ? matchedSeries.coreName : log['seriesName'] as String;
@@ -155,17 +170,17 @@ class HistoryScreen extends ConsumerWidget {
                         ),
                       ],
                     ),
-                    trailing: fileId != null && episodeMsg != null && matchedSeries != null
+                    trailing: fileId != null && matchedSeries != null
                         ? IconButton(
                             icon: const Icon(Icons.play_circle_fill, color: Colors.orange, size: 32),
                             onPressed: () {
                               ref.read(pipControllerProvider.notifier).playVideo(
                                 context,
-                                messageId: episodeMsg!.id,
+                                messageId: episodeMsg?.id ?? log['messageId'] as int,
                                 videoFileId: fileId!,
                                 videoTitle: '$seriesName - ${epFileName.isNotEmpty ? epFileName : episodeTitle}',
-                                episodeList: matchedSeries!.seasons.first.episodes,
-                                currentEpisodeIndex: log['episodeIndex'] as int,
+                                episodeList: matchedSeason?.episodes ?? matchedSeries!.seasons.first.episodes,
+                                currentEpisodeIndex: episodeListIndex ?? log['episodeIndex'] as int,
                                 seriesName: seriesName,
                               );
                             },
