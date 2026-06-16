@@ -324,13 +324,42 @@ class StorageService {
   }
 
   // --- Screen Brightness Memory ---
-
+  
   double getBrightness() {
     return (_data['brightness'] as num?)?.toDouble() ?? 0.7;
   }
 
   Future<void> setBrightness(double value) async {
     _data['brightness'] = value;
+    await _save();
+  }
+
+  // --- Aspect Ratio Preferences ---
+
+  bool getRememberAspectRatio() {
+    return _data['remember_ratio'] as bool? ?? false;
+  }
+
+  Future<void> setRememberAspectRatio(bool value) async {
+    _data['remember_ratio'] = value;
+    await _save();
+  }
+
+  bool getTapToSwitchAspectRatio() {
+    return _data['tap_to_switch_ratio'] as bool? ?? false;
+  }
+
+  Future<void> setTapToSwitchAspectRatio(bool value) async {
+    _data['tap_to_switch_ratio'] = value;
+    await _save();
+  }
+
+  String getSavedAspectRatio() {
+    return _data['saved_aspect_ratio'] as String? ?? 'fit';
+  }
+
+  Future<void> setSavedAspectRatio(String value) async {
+    _data['saved_aspect_ratio'] = value;
     await _save();
   }
 

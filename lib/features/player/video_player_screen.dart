@@ -261,6 +261,11 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
           } catch (_) {}
         }
 
+        // If we are actively seeking, capture the start downloaded size
+        if (_isPlaying && _pendingSeekTarget != null) {
+          _initialDownloadedSize ??= event.file.local.downloadedSize;
+        }
+
         if (localPath.isNotEmpty && !_isPlaying) {
           final totalSize = event.file.expectedSize;
           // Wait for 3% of the file, or at least 2.5MB, but at most 8MB before starting to play
@@ -268,8 +273,10 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
 
           _initialDownloadedSize ??= event.file.local.downloadedSize;
 
-          final downloadedDelta = event.file.local.downloadedSize - (_initialDownloadedSize ?? 0);
-          final isReady = event.file.local.isDownloadingCompleted || downloadedDelta >= targetBuffer;
+          final downloadedDelta = event.file.local.downloadedSize - _initialDownloadedSize!;
+          final isReady = event.file.local.isDownloadingCompleted ||
+              event.file.local.downloadedPrefixSize >= targetBuffer ||
+              downloadedDelta >= targetBuffer;
 
           if (isReady) {
             _isPlaying = true;
@@ -277,8 +284,19 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
               if (!mounted) return;
               final savedPos = _storageService.getWatchPosition(widget.messageId);
               if (savedPos > 0) {
-                // Seek to target position immediately
-                player.seek(Duration(seconds: savedPos));
+                if (player.state.duration.inSeconds > 0) {
+                  _handleCustomSeek(Duration(seconds: savedPos));
+                } else {
+                  late final StreamSubscription<Duration> durSub;
+                  durSub = player.stream.duration.listen((dur) {
+                    if (dur.inSeconds > 0) {
+                      durSub.cancel();
+                      if (mounted) {
+                        _handleCustomSeek(Duration(seconds: savedPos));
+                      }
+                    }
+                  });
+                }
               }
             });
             player.setVolume(100.0);
@@ -307,46 +325,14 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
       }
     });
 
-    // Determine initial offset based on saved watch position
-    _tdlibService.sendAsync(td.GetFile(fileId: widget.videoFileId)).then((res) {
-      if (!mounted) return;
-      if (res is td.File) {
-        final expectedSize = res.expectedSize;
-        final isCompleted = res.local.isDownloadingCompleted;
-        int initialOffset = 0;
-
-        if (!isCompleted) {
-          final savedPos = _storageService.getWatchPosition(widget.messageId);
-          final duration = _storageService.getVideoDuration(widget.messageId);
-          if (savedPos > 0 && duration > 0 && expectedSize > 0) {
-            final fraction = savedPos / duration;
-            initialOffset = (fraction * expectedSize).round();
-            // Bound initialOffset to ensure we don't start at the very EOF
-            if (initialOffset >= expectedSize - 2097152) {
-              initialOffset = (expectedSize - 2097152).clamp(0, expectedSize);
-            }
-            Log.i('Cold-starting TDLib download from offset: $initialOffset bytes (resuming at $savedPos/$duration s)');
-          }
-        }
-
-        _tdlibService.send(td.DownloadFile(
-          fileId: widget.videoFileId,
-          priority: 32,
-          offset: initialOffset,
-          limit: 0,
-          synchronous: false,
-        ));
-      }
-    }).catchError((_) {
-      // Fallback if GetFile fails
-      _tdlibService.send(td.DownloadFile(
-        fileId: widget.videoFileId,
-        priority: 32,
-        offset: 0,
-        limit: 0,
-        synchronous: false,
-      ));
-    });
+    // Reverted startup offset to 0 so the file header is downloaded sequentially
+    _tdlibService.send(td.DownloadFile(
+      fileId: widget.videoFileId,
+      priority: 32,
+      offset: 0,
+      limit: 0,
+      synchronous: false,
+    ));
   }
 
   void _handleCustomSeek(Duration position) {
@@ -355,10 +341,13 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
       return;
     }
 
-    final totalDuration = player.state.duration.inSeconds;
+    int totalDuration = player.state.duration.inSeconds;
+    if (totalDuration <= 0) {
+      totalDuration = _storageService.getVideoDuration(widget.messageId);
+    }
     final expectedSize = _expectedSize;
 
-    if (totalDuration > 0 && expectedSize > 0 && _isPlaying) {
+    if (totalDuration > 0 && expectedSize > 0) {
       // Check if file is fully downloaded
       final isCompleted = _downloadedPrefixSize >= expectedSize;
       if (isCompleted) {

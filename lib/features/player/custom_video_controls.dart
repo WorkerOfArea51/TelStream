@@ -58,6 +58,12 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
   bool _isFullscreen = true;
   double _currentSpeed = 1.0;
   BoxFit _fit = BoxFit.contain;
+  double? _draggingValue;
+  String _currentAspectRatioString = 'fit';
+  double? _customAspectRatio;
+  bool _rememberRatio = false;
+  bool _tapToSwitchRatio = false;
+  bool _showRatioPanel = false;
   
   StreamSubscription<bool>? _bufferingSubscription;
   bool _isBuffering = false;
@@ -117,6 +123,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     _startHideTimer();
     _currentVolume = widget.player.state.volume;
     _initSystemVolumeAndBrightness();
+    _initAspectRatio();
     _bufferingSubscription = widget.player.stream.buffering.listen((buffering) {
       if (mounted) {
         setState(() {
@@ -532,19 +539,124 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     _startHideTimer();
   }
 
-  void _toggleFit() {
+  void _initAspectRatio() {
+    final storage = ref.read(storageServiceProvider);
+    _rememberRatio = storage.getRememberAspectRatio();
+    _tapToSwitchRatio = storage.getTapToSwitchAspectRatio();
+    if (_rememberRatio) {
+      _currentAspectRatioString = storage.getSavedAspectRatio();
+    } else {
+      _currentAspectRatioString = 'fit';
+    }
+    _applyAspectRatioString(_currentAspectRatioString, save: false);
+  }
+
+  void _applyAspectRatioString(String ratioString, {bool save = true}) {
+    double? customRatio;
+    BoxFit boxFit = BoxFit.contain;
+
+    switch (ratioString) {
+      case 'fit':
+        boxFit = BoxFit.contain;
+        customRatio = null;
+        break;
+      case 'fill':
+        boxFit = BoxFit.cover;
+        customRatio = null;
+        break;
+      case 'original':
+        boxFit = BoxFit.none;
+        customRatio = null;
+        break;
+      case 'stretch':
+        boxFit = BoxFit.fill;
+        customRatio = null;
+        break;
+
+      case '16:9':
+        customRatio = 16.0 / 9.0;
+        break;
+      case '4:3':
+        customRatio = 4.0 / 3.0;
+        break;
+      case '18:9':
+        customRatio = 18.0 / 9.0;
+        break;
+      case '19.5:9':
+        customRatio = 19.5 / 9.0;
+        break;
+      case '20:9':
+        customRatio = 20.0 / 9.0;
+        break;
+      case '21:9':
+        customRatio = 21.0 / 9.0;
+        break;
+
+      case '1.85:1':
+        customRatio = 1.85;
+        break;
+      case '2.21:1':
+        customRatio = 2.21;
+        break;
+      case '2.35:1':
+        customRatio = 2.35;
+        break;
+      case '2.39:1':
+        customRatio = 2.39;
+        break;
+      
+      default:
+        boxFit = BoxFit.contain;
+        customRatio = null;
+    }
+
+    if (mounted) {
+      setState(() {
+        _currentAspectRatioString = ratioString;
+        _customAspectRatio = customRatio;
+        _fit = boxFit;
+        _scale = 1.0;
+        _panOffset = Offset.zero;
+      });
+    }
+
+    if (save && _rememberRatio) {
+      ref.read(storageServiceProvider).setSavedAspectRatio(ratioString);
+    }
+  }
+
+  String _getRatioLabel(String value) {
+    switch (value) {
+      case 'fit': return 'Fit';
+      case 'fill': return 'Fill';
+      case 'original': return 'Original';
+      case 'stretch': return 'Stretch';
+      default: return value;
+    }
+  }
+
+  void _handleAspectRatioButtonTap() {
+    if (_tapToSwitchRatio) {
+      _cycleAspectRatio();
+    } else {
+      _showAspectRatioPanel();
+    }
+  }
+
+  void _cycleAspectRatio() {
+    const cycle = ['fit', 'fill', 'stretch', '16:9', '21:9'];
+    int currentIndex = cycle.indexOf(_currentAspectRatioString);
+    if (currentIndex == -1) {
+      currentIndex = 0;
+    } else {
+      currentIndex = (currentIndex + 1) % cycle.length;
+    }
+    final nextRatio = cycle[currentIndex];
+    _applyAspectRatioString(nextRatio);
+
     setState(() {
-      _scale = 1.0;
-      _panOffset = Offset.zero;
-      if (_fit == BoxFit.contain) {
-        _fit = BoxFit.cover;
-      } else if (_fit == BoxFit.cover) {
-        _fit = BoxFit.fill;
-      } else {
-        _fit = BoxFit.contain;
-      }
       _showSeekIndicator = true;
-      _seekDirection = 'Aspect Ratio: ${_getFitLabel(_fit)}';
+      _seekDirection = 'Aspect Ratio: ${_getRatioLabel(nextRatio)}';
     });
     _hideTimer?.cancel();
     _startHideTimer();
@@ -555,17 +667,213 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     });
   }
 
-  String _getFitLabel(BoxFit fit) {
-    switch (fit) {
-      case BoxFit.contain:
-        return 'Fit';
-      case BoxFit.cover:
-        return 'Zoom';
-      case BoxFit.fill:
-        return 'Stretch';
-      default:
-        return 'Fit';
-    }
+  void _showAspectRatioPanel() {
+    setState(() {
+      _showRatioPanel = true;
+      _showControls = false;
+    });
+  }
+
+  void _closeAspectRatioPanel() {
+    setState(() {
+      _showRatioPanel = false;
+      _showControls = true;
+    });
+    _startHideTimer();
+  }
+
+  Widget _buildScreenRatioButton(String ratioId, IconData icon, String label) {
+    final isSelected = _currentAspectRatioString == ratioId;
+    return GestureDetector(
+      onTap: () => _applyAspectRatioString(ratioId),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 50, height: 50,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: isSelected ? Colors.green : Colors.white10,
+              border: Border.all(color: isSelected ? Colors.green : Colors.transparent, width: 2),
+            ),
+            child: Icon(icon, color: Colors.white, size: 24),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            label,
+            style: TextStyle(
+              color: isSelected ? Colors.green : Colors.white70,
+              fontSize: 11,
+              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPillRatioButton(String ratioId) {
+    final isSelected = _currentAspectRatioString == ratioId;
+    return GestureDetector(
+      onTap: () => _applyAspectRatioString(ratioId),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(20),
+          color: isSelected ? Colors.green : Colors.white10,
+          border: Border.all(color: isSelected ? Colors.green : Colors.white24, width: 1),
+        ),
+        child: Text(
+          ratioId,
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 13,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSwitchRow({
+    required String title,
+    required String subtitle,
+    required bool value,
+    required ValueChanged<bool> onChanged,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w500),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: const TextStyle(color: Colors.white54, fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+          Switch(
+            value: value,
+            onChanged: onChanged,
+            activeColor: Colors.green,
+            activeTrackColor: Colors.green.withOpacity(0.3),
+            inactiveThumbColor: Colors.grey,
+            inactiveTrackColor: Colors.white12,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRatioPanel() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.black.withOpacity(0.92),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        border: Border.all(color: Colors.white10, width: 0.5),
+      ),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.arrow_back, color: Colors.white),
+                onPressed: _closeAspectRatioPanel,
+              ),
+              const Text(
+                'Ratio',
+                style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(width: 48),
+            ],
+          ),
+          const SizedBox(height: 12),
+          const Text('Screen', style: TextStyle(color: Colors.white54, fontSize: 12, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              _buildScreenRatioButton('fit', Icons.fit_screen, 'Fit'),
+              _buildScreenRatioButton('fill', Icons.fullscreen, 'Fill'),
+              _buildScreenRatioButton('original', Icons.center_focus_strong, 'Original'),
+              _buildScreenRatioButton('stretch', Icons.open_in_full, 'Stretch'),
+            ],
+          ),
+          const SizedBox(height: 16),
+          const Text('Standard', style: TextStyle(color: Colors.white54, fontSize: 12, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                _buildPillRatioButton('16:9'),
+                _buildPillRatioButton('4:3'),
+                _buildPillRatioButton('18:9'),
+                _buildPillRatioButton('19.5:9'),
+                _buildPillRatioButton('20:9'),
+                _buildPillRatioButton('21:9'),
+              ].map((w) => Padding(padding: const EdgeInsets.only(right: 8.0), child: w)).toList(),
+            ),
+          ),
+          const SizedBox(height: 16),
+          const Text('Cinema', style: TextStyle(color: Colors.white54, fontSize: 12, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                _buildPillRatioButton('1.85:1'),
+                _buildPillRatioButton('2.21:1'),
+                _buildPillRatioButton('2.35:1'),
+                _buildPillRatioButton('2.39:1'),
+              ].map((w) => Padding(padding: const EdgeInsets.only(right: 8.0), child: w)).toList(),
+            ),
+          ),
+          const SizedBox(height: 16),
+          const Divider(color: Colors.white10, height: 1),
+          const SizedBox(height: 8),
+          _buildSwitchRow(
+            title: 'Remember ratio',
+            subtitle: 'Remember ratio for all videos.',
+            value: _rememberRatio,
+            onChanged: (val) {
+              setState(() {
+                _rememberRatio = val;
+              });
+              ref.read(storageServiceProvider).setRememberAspectRatio(val);
+              if (val) {
+                ref.read(storageServiceProvider).setSavedAspectRatio(_currentAspectRatioString);
+              }
+            },
+          ),
+          _buildSwitchRow(
+            title: 'Tap ratios to switch directly',
+            subtitle: 'Tap to switch, long press for the full menu.',
+            value: _tapToSwitchRatio,
+            onChanged: (val) {
+              setState(() {
+                _tapToSwitchRatio = val;
+              });
+              ref.read(storageServiceProvider).setTapToSwitchAspectRatio(val);
+            },
+          ),
+        ],
+      ),
+    );
   }
 
   void _showTrackSelector({required String title, required bool isSubtitle}) {
@@ -895,11 +1203,22 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
             offset: _panOffset,
             child: Transform.scale(
               scale: _scale,
-              child: Video(
-                controller: widget.controller,
-                controls: NoVideoControls,
-                fit: _fit,
-              ),
+              child: _customAspectRatio != null
+                  ? Center(
+                      child: AspectRatio(
+                        aspectRatio: _customAspectRatio!,
+                        child: Video(
+                          controller: widget.controller,
+                          controls: NoVideoControls,
+                          fit: BoxFit.fill,
+                        ),
+                      ),
+                    )
+                  : Video(
+                      controller: widget.controller,
+                      controls: NoVideoControls,
+                      fit: _fit,
+                    ),
             ),
           ),
           
@@ -1217,8 +1536,9 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                       _buildActionButton(Icons.screen_rotation, 'Rotate', _toggleFullscreen),
                       _buildActionButton(
                         Icons.aspect_ratio,
-                        'Fit: ${_getFitLabel(_fit)}',
-                        _toggleFit,
+                        'Fit: ${_getRatioLabel(_currentAspectRatioString)}',
+                        _handleAspectRatioButtonTap,
+                        onLongPress: _tapToSwitchRatio ? _showAspectRatioPanel : null,
                       ),
                       _buildActionButton(Icons.speed, '${_currentSpeed}x', _toggleSpeed),
                     ],
@@ -1232,7 +1552,10 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                         stream: widget.player.stream.position,
                         builder: (context, snapshot) {
                           final pos = snapshot.data ?? widget.player.state.position;
-                          return Text(_formatDuration(pos), style: const TextStyle(color: Colors.white));
+                          final displayPos = _draggingValue != null
+                              ? Duration(milliseconds: _draggingValue!.toInt())
+                              : pos;
+                          return Text(_formatDuration(displayPos), style: const TextStyle(color: Colors.white));
                         },
                       ),
                       Expanded(
@@ -1263,14 +1586,27 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                                   child: Slider(
                                     min: 0,
                                     max: max > 0 ? max : 1.0,
-                                    value: val,
-                                    onChangeStart: (_) => _hideTimer?.cancel(),
+                                    value: _draggingValue ?? val,
+                                    onChangeStart: (_) {
+                                      _hideTimer?.cancel();
+                                      setState(() {
+                                        _draggingValue = val;
+                                      });
+                                    },
                                     onChanged: max > 0 ? (v) {
+                                      setState(() {
+                                        _draggingValue = v;
+                                      });
+                                    } : null,
+                                    onChangeEnd: (v) {
+                                      _startHideTimer();
                                       final target = Duration(milliseconds: v.toInt());
                                       final safeTarget = _clampSeekTarget(target, showMessage: false);
                                       _performSeek(safeTarget);
-                                    } : null,
-                                    onChangeEnd: (_) => _startHideTimer(),
+                                      setState(() {
+                                        _draggingValue = null;
+                                      });
+                                    },
                                   ),
                                 );
                               },
@@ -1311,6 +1647,26 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
             bottom: _showTrackSelectorPanel ? 0 : -350,
             child: _buildCustomTrackSelectorPanel(),
           ),
+
+          // Custom Aspect Ratio Panel Background Blur
+          if (_showRatioPanel)
+            GestureDetector(
+              onTap: () => setState(() => _showRatioPanel = false),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 5.0, sigmaY: 5.0),
+                child: Container(
+                  color: Colors.black38,
+                ),
+              ),
+            ),
+          AnimatedPositioned(
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeInOut,
+            left: 0,
+            right: 0,
+            bottom: _showRatioPanel ? 0 : -420,
+            child: _buildRatioPanel(),
+          ),
         ],
       ),
     );
@@ -1341,9 +1697,10 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     );
   }
 
-  Widget _buildActionButton(IconData icon, String label, VoidCallback onTap) {
+  Widget _buildActionButton(IconData icon, String label, VoidCallback onTap, {VoidCallback? onLongPress}) {
     return InkWell(
       onTap: onTap,
+      onLongPress: onLongPress,
       borderRadius: BorderRadius.circular(8),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
