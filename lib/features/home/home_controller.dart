@@ -18,6 +18,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
   SortOrder _sortOrder = SortOrder.newest;
   
   final List<td.Message> _rawMessages = [];
+  final Set<int> _rawMessageIds = {};
 
   bool get hasMore => _hasMore;
   bool get isLoadingMore => _isLoadingMore;
@@ -47,8 +48,9 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
     _updateSubscription = tdlibService.updates.listen((event) {
       if (event is td.UpdateNewMessage) {
         if (event.message.chatId == category.channelId) {
-          if (!_rawMessages.any((m) => m.id == event.message.id)) {
+          if (!_rawMessageIds.contains(event.message.id)) {
             _rawMessages.insert(0, event.message);
+            _rawMessageIds.add(event.message.id);
             _allSeries = _parseMessages(_rawMessages);
             if (state.value != null) {
               state = AsyncValue.data(_applySearchAndSort(_allSeries));
@@ -102,8 +104,9 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
           break;
         }
         for (final msg in moreMessages) {
-          if (!_rawMessages.any((m) => m.id == msg.id)) {
+          if (!_rawMessageIds.contains(msg.id)) {
             _rawMessages.add(msg);
+            _rawMessageIds.add(msg.id);
           }
         }
         
@@ -120,6 +123,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
     _hasMore = true;
     _lastMessageId = 0;
     _rawMessages.clear();
+    _rawMessageIds.clear();
     
     final tdlibService = ref.read(tdlibServiceProvider);
     
@@ -180,8 +184,9 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
         break;
       }
       for (final msg in localMessages) {
-        if (!_rawMessages.any((m) => m.id == msg.id)) {
+        if (!_rawMessageIds.contains(msg.id)) {
           _rawMessages.add(msg);
+          _rawMessageIds.add(msg.id);
         }
       }
       _allSeries = _parseMessages(_rawMessages);
@@ -220,8 +225,9 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
             _hasMore = false;
             break;
           }
-          if (!_rawMessages.any((m) => m.id == msg.id)) {
+          if (!_rawMessageIds.contains(msg.id)) {
             _rawMessages.add(msg);
+            _rawMessageIds.add(msg.id);
             changed = true;
           }
         }
@@ -258,6 +264,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
     int retries = 0;
 
     final fetchedBatch = <td.Message>[];
+    final fetchedBatchIds = <int>{};
     int currentFromId = fromId;
     
     // Fetch larger chunks so we get posters more reliably
@@ -316,8 +323,9 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
       int nextFromId = fetched.last.id;
       
       for (final msg in fetched) {
-        if (!fetchedBatch.any((m) => m.id == msg.id)) {
+        if (!fetchedBatchIds.contains(msg.id)) {
           fetchedBatch.add(msg);
+          fetchedBatchIds.add(msg.id);
         }
       }
       

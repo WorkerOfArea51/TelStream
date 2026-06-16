@@ -98,6 +98,18 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
   StreamSubscription<Duration>? _positionSubscription;
   bool _autoNextTriggered = false;
 
+  // Sleep timer variables
+  Timer? _sleepTimer;
+  int? _sleepTimerMinutes;
+  int? _sleepTimerSecondsRemaining;
+  Timer? _osdTimer;
+
+  // Chapter variables
+  List<VideoChapter> _chapters = [];
+  bool _hasChapters = false;
+  bool _showChaptersPanel = false;
+  StreamSubscription? _playlistSubscription;
+
   // Pinch to zoom
   double _scale = 1.0;
   double _baseScale = 1.0;
@@ -134,6 +146,10 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     _positionSubscription = widget.player.stream.position.listen((pos) {
       _checkAutoNextTrigger(pos);
     });
+    _playlistSubscription = widget.player.stream.playlist.listen((_) {
+      Future.delayed(const Duration(milliseconds: 500), _loadChapters);
+    });
+    Future.delayed(const Duration(milliseconds: 500), _loadChapters);
   }
 
   Future<void> _initSystemVolumeAndBrightness() async {
@@ -244,6 +260,9 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     _hideTimer?.cancel();
     _doubleTapOverlayTimer?.cancel();
     _autoNextTimer?.cancel();
+    _sleepTimer?.cancel();
+    _osdTimer?.cancel();
+    _playlistSubscription?.cancel();
     try {
       FlutterVolumeController.removeListener();
     } catch (_) {}
@@ -372,6 +391,532 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     _brightnessSaveTimer = Timer(const Duration(milliseconds: 500), () {
       ref.read(storageServiceProvider).setBrightness(value);
     });
+  }
+
+  void _showOSD(String text) {
+    _osdTimer?.cancel();
+    setState(() {
+      _showSeekIndicator = true;
+      _seekDirection = text;
+    });
+    _osdTimer = Timer(const Duration(seconds: 2), () {
+      if (mounted) {
+        setState(() {
+          _showSeekIndicator = false;
+        });
+      }
+    });
+  }
+
+  String _formatSleepTimeRemaining(int totalSeconds) {
+    final minutes = totalSeconds ~/ 60;
+    final seconds = totalSeconds % 60;
+    return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+  }
+
+  void _startSleepTimerSeconds(int seconds) {
+    _cancelSleepTimer();
+    setState(() {
+      _sleepTimerMinutes = null;
+      _sleepTimerSecondsRemaining = seconds;
+    });
+    _sleepTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (mounted) {
+        if (_sleepTimerSecondsRemaining != null && _sleepTimerSecondsRemaining! > 1) {
+          setState(() {
+            _sleepTimerSecondsRemaining = _sleepTimerSecondsRemaining! - 1;
+          });
+        } else {
+          _triggerSleepStop();
+        }
+      } else {
+        _sleepTimer?.cancel();
+      }
+    });
+    _showOSD('Sleep Timer set: ${seconds}s');
+  }
+
+  void _startSleepTimer(int minutes) {
+    _startSleepTimerSeconds(minutes * 60);
+    setState(() {
+      _sleepTimerMinutes = minutes;
+    });
+  }
+
+  void _cancelSleepTimer() {
+    _sleepTimer?.cancel();
+    _sleepTimer = null;
+    setState(() {
+      _sleepTimerMinutes = null;
+      _sleepTimerSecondsRemaining = null;
+    });
+  }
+
+  void _triggerSleepStop() {
+    _cancelSleepTimer();
+    widget.player.pause();
+    widget.onBack();
+  }
+
+  void _showSleepTimerSelector() {
+    final theme = Theme.of(context);
+    final customTheme = theme.extension<AppThemeExtension>();
+    final settingsAccent = customTheme?.settingsAccent ?? theme.primaryColor;
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return Dialog(
+              backgroundColor: Colors.transparent,
+              insetPadding: const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(24),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+                  child: Container(
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: const Color(0xE60F172A),
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(color: Colors.white10),
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(Icons.snooze, color: settingsAccent, size: 24),
+                            const SizedBox(width: 12),
+                            const Text(
+                              'Sleep Timer',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        const Text(
+                          'Select when the video should stop playing and close.',
+                          style: TextStyle(color: Colors.white54, fontSize: 13),
+                        ),
+                        if (_sleepTimerSecondsRemaining != null) ...[
+                          const SizedBox(height: 16),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: settingsAccent.withOpacity(0.12),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: settingsAccent.withOpacity(0.3)),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  'Active Timer: ${_formatSleepTimeRemaining(_sleepTimerSecondsRemaining!)}',
+                                  style: TextStyle(
+                                    color: settingsAccent,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                TextButton(
+                                  onPressed: () {
+                                    _cancelSleepTimer();
+                                    setDialogState(() {});
+                                    setState(() {});
+                                    _showOSD('Sleep Timer cancelled');
+                                    Navigator.of(context).pop();
+                                  },
+                                  style: TextButton.styleFrom(
+                                    padding: EdgeInsets.zero,
+                                    minimumSize: Size.zero,
+                                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                  ),
+                                  child: const Text(
+                                    'Cancel Timer',
+                                    style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 20),
+                        Wrap(
+                          spacing: 12,
+                          runSpacing: 12,
+                          alignment: WrapAlignment.center,
+                          children: [15, 30, 45, 60].map((mins) {
+                            final isSelected = _sleepTimerMinutes == mins;
+                            return InkWell(
+                              onTap: () {
+                                _startSleepTimer(mins);
+                                Navigator.of(context).pop();
+                              },
+                              borderRadius: BorderRadius.circular(16),
+                              child: Container(
+                                width: 100,
+                                padding: const EdgeInsets.symmetric(vertical: 16),
+                                decoration: BoxDecoration(
+                                  color: isSelected ? settingsAccent : Colors.white.withOpacity(0.05),
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(
+                                    color: isSelected ? settingsAccent : Colors.white10,
+                                    width: 1.5,
+                                  ),
+                                ),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      '$mins',
+                                      style: TextStyle(
+                                        color: isSelected ? Colors.black : Colors.white,
+                                        fontSize: 22,
+                                        fontWeight: FontWeight.w900,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      'Mins',
+                                      style: TextStyle(
+                                        color: isSelected ? Colors.black87 : Colors.white54,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                        const SizedBox(height: 16),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton(
+                            onPressed: () {
+                              _startSleepTimerSeconds(10);
+                              Navigator.of(context).pop();
+                            },
+                            child: Text(
+                              'Test with 10s',
+                              style: TextStyle(color: settingsAccent.withOpacity(0.6), fontSize: 12),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _loadChapters() async {
+    try {
+      final dynamic platform = widget.player.platform;
+      final countStr = await platform.getProperty('chapter-list/count');
+      if (countStr != null) {
+        final count = int.tryParse(countStr);
+        if (count != null && count > 0) {
+          final List<VideoChapter> loadedChapters = [];
+          for (int i = 0; i < count; i++) {
+            final title = await platform.getProperty('chapter-list/$i/title') ?? 'Chapter ${i + 1}';
+            final timeStr = await platform.getProperty('chapter-list/$i/time');
+            final timeDouble = double.tryParse(timeStr ?? '');
+            if (timeDouble != null) {
+              loadedChapters.add(VideoChapter(
+                title: title,
+                position: Duration(milliseconds: (timeDouble * 1000).round()),
+              ));
+            }
+          }
+          if (mounted) {
+            setState(() {
+              _chapters = loadedChapters;
+              _hasChapters = loadedChapters.isNotEmpty;
+            });
+          }
+          return;
+        }
+      }
+    } catch (_) {}
+    if (mounted) {
+      setState(() {
+        _chapters = [];
+        _hasChapters = false;
+      });
+    }
+  }
+
+  bool _isCurrentPositionInIntro(Duration position) {
+    if (!_hasChapters || _chapters.isEmpty) {
+      return position.inSeconds >= 5 && position.inSeconds <= 300;
+    }
+
+    for (int i = 0; i < _chapters.length; i++) {
+      final ch = _chapters[i];
+      final titleLower = ch.title.toLowerCase();
+      
+      if (titleLower.contains('intro') ||
+          titleLower.contains('opening') ||
+          titleLower.contains('op') ||
+          titleLower.contains('recap')) {
+        
+        final start = ch.position;
+        final end = (i + 1 < _chapters.length) 
+            ? _chapters[i + 1].position 
+            : widget.player.state.duration;
+
+        if (position >= start && position < end) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  void _handleSkipIntroTap(Duration currentPos) {
+    if (_hasChapters && _chapters.isNotEmpty) {
+      for (int i = 0; i < _chapters.length; i++) {
+        final ch = _chapters[i];
+        final titleLower = ch.title.toLowerCase();
+        if (titleLower.contains('intro') ||
+            titleLower.contains('opening') ||
+            titleLower.contains('op') ||
+            titleLower.contains('recap')) {
+          
+          final start = ch.position;
+          final end = (i + 1 < _chapters.length) 
+              ? _chapters[i + 1].position 
+              : widget.player.state.duration;
+
+          if (currentPos >= start && currentPos < end) {
+            final safeTarget = _clampSeekTarget(end, showMessage: true);
+            _performSeek(safeTarget);
+            _showOSD('Skipped Chapter: ${ch.title}');
+            return;
+          }
+        }
+      }
+    }
+    
+    final target = currentPos + const Duration(seconds: 85);
+    final safeTarget = _clampSeekTarget(target, showMessage: true);
+    _performSeek(safeTarget);
+    _showOSD('Skipped Intro (+85s)');
+  }
+
+  int _getActiveChapterIndex(Duration currentPos) {
+    if (_chapters.isEmpty) return -1;
+    for (int i = 0; i < _chapters.length; i++) {
+      final start = _chapters[i].position;
+      final end = (i + 1 < _chapters.length) 
+          ? _chapters[i + 1].position 
+          : widget.player.state.duration;
+      if (currentPos >= start && currentPos < end) {
+        return i;
+      }
+    }
+    return 0;
+  }
+
+  void _openChaptersPanel() {
+    setState(() {
+      _showChaptersPanel = true;
+      _showControls = false;
+    });
+  }
+
+  Widget _buildCustomChaptersPanel() {
+    final theme = Theme.of(context);
+    final customTheme = theme.extension<AppThemeExtension>();
+    final settingsAccent = customTheme?.settingsAccent ?? theme.primaryColor;
+
+    return StreamBuilder<Duration>(
+      stream: widget.player.stream.position,
+      initialData: widget.player.state.position,
+      builder: (context, snapshot) {
+        final currentPos = snapshot.data ?? widget.player.state.position;
+        final activeIndex = _getActiveChapterIndex(currentPos);
+
+        return ClipRRect(
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 15.0, sigmaY: 15.0),
+            child: Container(
+              height: 340,
+              decoration: BoxDecoration(
+                color: const Color(0xE60F172A),
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                border: Border.all(color: Colors.white10),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.5),
+                    blurRadius: 25,
+                    spreadRadius: 5,
+                  ),
+                ],
+              ),
+              child: SafeArea(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const SizedBox(height: 12),
+                    Center(
+                      child: Container(
+                        width: 45,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: Colors.white30,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.list,
+                            color: settingsAccent,
+                            size: 24,
+                          ),
+                          const SizedBox(width: 12),
+                          const Text(
+                            'Chapters',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                          const Spacer(),
+                          IconButton(
+                            icon: const Icon(Icons.close, color: Colors.white60),
+                            onPressed: () => setState(() => _showChaptersPanel = false),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 20),
+                      child: Divider(color: Colors.white12, height: 1),
+                    ),
+                    const SizedBox(height: 8),
+                    Expanded(
+                      child: _chapters.isEmpty
+                          ? const Center(
+                              child: Text(
+                                'No chapters available',
+                                style: TextStyle(color: Colors.white38, fontSize: 15),
+                              ),
+                            )
+                          : ListView.builder(
+                              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                              itemCount: _chapters.length,
+                              itemBuilder: (context, index) {
+                                final chapter = _chapters[index];
+                                final isSelected = index == activeIndex;
+                                
+                                return Padding(
+                                  padding: const EdgeInsets.only(bottom: 8),
+                                  child: InkWell(
+                                    onTap: () {
+                                      final safeTarget = _clampSeekTarget(chapter.position, showMessage: false);
+                                      _performSeek(safeTarget);
+                                      setState(() {
+                                        _showChaptersPanel = false;
+                                        _showSeekIndicator = true;
+                                        _seekDirection = 'Chapter: ${chapter.title}';
+                                      });
+                                      Future.delayed(const Duration(milliseconds: 1000), () {
+                                        if (mounted) {
+                                          setState(() => _showSeekIndicator = false);
+                                        }
+                                      });
+                                    },
+                                    borderRadius: BorderRadius.circular(12),
+                                    child: AnimatedContainer(
+                                      duration: const Duration(milliseconds: 150),
+                                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                      decoration: BoxDecoration(
+                                        color: isSelected 
+                                            ? settingsAccent.withOpacity(0.12) 
+                                            : Colors.white.withOpacity(0.04),
+                                        borderRadius: BorderRadius.circular(12),
+                                        border: Border.all(
+                                          color: isSelected 
+                                              ? settingsAccent.withOpacity(0.4) 
+                                              : Colors.white.withOpacity(0.05),
+                                          width: 1,
+                                        ),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                            decoration: BoxDecoration(
+                                              color: isSelected ? settingsAccent.withOpacity(0.2) : Colors.white10,
+                                              borderRadius: BorderRadius.circular(8),
+                                            ),
+                                            child: Text(
+                                              _formatDuration(chapter.position),
+                                              style: TextStyle(
+                                                color: isSelected ? settingsAccent : Colors.white70,
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 16),
+                                          Expanded(
+                                            child: Text(
+                                              chapter.title,
+                                              style: TextStyle(
+                                                color: isSelected ? settingsAccent : Colors.white,
+                                                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                                fontSize: 15,
+                                              ),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                          if (isSelected)
+                                            Icon(
+                                              Icons.play_circle_filled,
+                                              color: settingsAccent,
+                                              size: 20,
+                                            ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
   }
 
   Duration _clampSeekTarget(Duration targetPosition, {bool showMessage = true}) {
@@ -1459,6 +2004,59 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
               ),
             ),
 
+          // Skip Intro Overlay Button
+          StreamBuilder<Duration>(
+            stream: widget.player.stream.position,
+            builder: (context, snapshot) {
+              final pos = snapshot.data ?? widget.player.state.position;
+              final showSkip = !_isLocked && _isCurrentPositionInIntro(pos);
+              
+              return AnimatedPositioned(
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.easeInOut,
+                right: showSkip ? 32 : -200,
+                bottom: _showControls ? 140 : 40,
+                child: AnimatedOpacity(
+                  duration: const Duration(milliseconds: 300),
+                  opacity: showSkip ? 1.0 : 0.0,
+                  child: InkWell(
+                    onTap: () => _handleSkipIntroTap(pos),
+                    borderRadius: BorderRadius.circular(20),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(20),
+                      child: BackdropFilter(
+                        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withOpacity(0.65),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: Colors.white24, width: 1),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.fast_forward, color: settingsAccent, size: 18),
+                              const SizedBox(width: 8),
+                              const Text(
+                                'Skip Intro',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+
           // Controls UI Overlay
           if (_showControls && !_isLocked)
             Container(color: Colors.black54),
@@ -1472,6 +2070,25 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                   IconButton(icon: const Icon(Icons.arrow_back, color: Colors.white), onPressed: widget.onBack),
                   Expanded(
                     child: Text(widget.videoTitle, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis),
+                  ),
+                  if (_sleepTimerSecondsRemaining != null)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 4.0),
+                      child: Text(
+                        _formatSleepTimeRemaining(_sleepTimerSecondsRemaining!),
+                        style: TextStyle(
+                          color: settingsAccent,
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  IconButton(
+                    icon: Icon(
+                      _sleepTimerSecondsRemaining != null ? Icons.snooze : Icons.snooze_outlined,
+                      color: _sleepTimerSecondsRemaining != null ? settingsAccent : Colors.white,
+                    ),
+                    onPressed: _showSleepTimerSelector,
                   ),
                   IconButton(
                     icon: const Icon(Icons.subtitles, color: Colors.white), 
@@ -1556,6 +2173,15 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                         _handleAspectRatioButtonTap,
                         onLongPress: _tapToSwitchRatio ? _showAspectRatioPanel : null,
                       ),
+                      if (_hasChapters)
+                        _buildActionButton(Icons.list, 'Chapters', _openChaptersPanel),
+                      _buildActionButton(Icons.forward, '+85s', () {
+                        final currentPos = widget.player.state.position;
+                        final target = currentPos + const Duration(seconds: 85);
+                        final safeTarget = _clampSeekTarget(target, showMessage: true);
+                        _performSeek(safeTarget);
+                        _showOSD('Skipped +85s');
+                      }),
                       _buildActionButton(Icons.speed, '${_currentSpeed}x', _toggleSpeed),
                     ],
                   ),
@@ -1682,6 +2308,26 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
             right: 0,
             bottom: _showRatioPanel ? 0 : -800,
             child: _buildRatioPanel(),
+          ),
+
+          // Custom Chapters Panel Background Blur
+          if (_showChaptersPanel)
+            GestureDetector(
+              onTap: () => setState(() => _showChaptersPanel = false),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 5.0, sigmaY: 5.0),
+                child: Container(
+                  color: Colors.black38,
+                ),
+              ),
+            ),
+          AnimatedPositioned(
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeInOut,
+            left: 0,
+            right: 0,
+            bottom: _showChaptersPanel ? 0 : -800,
+            child: _buildCustomChaptersPanel(),
           ),
         ],
       ),
@@ -1878,4 +2524,11 @@ class _FlashingChevronsState extends State<_FlashingChevrons> with SingleTickerP
       },
     );
   }
+}
+
+class VideoChapter {
+  final String title;
+  final Duration position;
+
+  const VideoChapter({required this.title, required this.position});
 }
