@@ -81,6 +81,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         pitch: _settings.pitchCorrection,
         libass: true,
         libassAndroidFont: 'assets/fonts/Roboto-Regular.ttf',
+        libassAndroidFontName: 'Roboto',
       ),
     );
 
@@ -96,6 +97,8 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         nativePlayer.setProperty('cache-pause-initial', 'no'); // Start playing immediately without artificial startup delay
         nativePlayer.setProperty('cache-pause-wait', '2'); // Wait for only 2 seconds of buffered data before resuming after a stall
         nativePlayer.setProperty('hr-seek', 'no'); // Disable high-precision seeking on slow networks to seek instantly to keyframes
+        nativePlayer.setProperty('sub-visibility', 'yes');
+        nativePlayer.setProperty('sub-auto', 'all');
         
         if (localFontPath != null) {
           final fontFile = File(localFontPath);
