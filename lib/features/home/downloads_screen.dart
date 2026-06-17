@@ -139,7 +139,7 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(60),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0, bottom: 8.0),
+            padding: const EdgeInsets.only(left: 16.0, right: 16.0, bottom: 8.0),
             child: Container(
               decoration: BoxDecoration(
                 color: theme.cardColor,
@@ -200,7 +200,7 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
                   color: theme.cardColor.withOpacity(0.5),
                   child: Row(
                     children: [
-                      Icon(Icons.disk_usage_rounded, size: 16, color: settingsAccent),
+                      Icon(Icons.storage_rounded, size: 16, color: settingsAccent),
                       const SizedBox(width: 8),
                       Text(
                         'Total Offline Storage: ',

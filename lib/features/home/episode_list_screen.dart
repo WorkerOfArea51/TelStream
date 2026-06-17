@@ -79,7 +79,7 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
         }
       }
     } catch (e, stack) {
-      Log.w('Failed to load TMDB details for ${widget.series.coreName}: $e', stack);
+      Log.e('Failed to load TMDB details for ${widget.series.coreName}', e, stack);
     } finally {
       if (mounted) {
         setState(() => _isLoadingTmdb = false);
