@@ -1665,6 +1665,18 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                                           if (_trackSelectorIsSubtitle) {
                                             widget.player.setSubtitleTrack(track);
                                             storage.setPreferredSubtitleTrack(track.id == 'no' ? 'no' : (track.language ?? track.title ?? track.id));
+                                            Log.i('Selected subtitle track: ${track.id} (${track.title})');
+                                            // Verify track change after brief delay
+                                            Future.delayed(const Duration(milliseconds: 300), () {
+                                              if (mounted) {
+                                                final activeSub = widget.player.state.track.subtitle;
+                                                Log.i('Active subtitle track verified: ${activeSub.id}');
+                                                if (activeSub.id != track.id && track.id != 'no') {
+                                                  Log.w('Discrepancy in subtitle track verification. Retrying setSubtitleTrack...');
+                                                  widget.player.setSubtitleTrack(track);
+                                                }
+                                              }
+                                            });
                                           } else {
                                             widget.player.setAudioTrack(track);
                                             storage.setPreferredAudioTrack(track.id == 'auto' ? 'auto' : (track.language ?? track.title ?? track.id));
@@ -2704,7 +2716,7 @@ class WavySliderTrackShape extends RectangularSliderTrackShape {
 
 class _FlashingChevrons extends StatefulWidget {
   final bool isLeft;
-  const _FlashingChevrons({super.key, required this.isLeft});
+  const _FlashingChevrons({required this.isLeft});
 
   @override
   State<_FlashingChevrons> createState() => _FlashingChevronsState();

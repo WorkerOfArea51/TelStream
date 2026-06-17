@@ -1,5 +1,7 @@
 import 'dart:io';
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
@@ -25,7 +27,6 @@ class SettingsScreen extends ConsumerStatefulWidget {
 }
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
-  String _cacheSize = "Calculating...";
   String _downloadPath = "Default (App Private)";
 
   int _cacheSizeRaw = 0;
@@ -33,11 +34,62 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   String _cacheSizeStr = "0.0 MB";
   String _downloadsSizeStr = "0.0 MB";
 
+  int _totalStorageRaw = 128 * 1024 * 1024 * 1024;
+  int _freeStorageRaw = 45 * 1024 * 1024 * 1024;
+  String _totalStorageStr = "128 GB";
+  String _freeStorageStr = "45 GB";
+
+  static const _updaterChannel = MethodChannel('com.darkmatter.telstream/updater');
+
   @override
   void initState() {
     super.initState();
     _calculateCacheSize();
     _loadDownloadPath();
+    _loadStorageSpace();
+  }
+
+  Future<void> _loadStorageSpace() async {
+    try {
+      if (Platform.isAndroid) {
+        final Map<dynamic, dynamic>? res = await _updaterChannel.invokeMethod('getStorageSpace');
+        if (res != null) {
+          final total = res['total'] as int;
+          final free = res['free'] as int;
+          if (mounted) {
+            setState(() {
+              _totalStorageRaw = total;
+              _freeStorageRaw = free;
+              _totalStorageStr = _formatSizeString(total);
+              _freeStorageStr = _formatSizeString(free);
+            });
+          }
+        }
+      } else if (Platform.isWindows) {
+        final res = await Process.run('powershell', [
+          '-NoProfile',
+          '-Command',
+          'Get-Volume -DriveLetter C | Select-Object Size, SizeRemaining | ConvertTo-Json'
+        ]);
+        if (res.exitCode == 0) {
+          final data = json.decode(res.stdout);
+          if (data is Map) {
+            final total = data['Size'] as int? ?? (128 * 1024 * 1024 * 1024);
+            final free = data['SizeRemaining'] as int? ?? (45 * 1024 * 1024 * 1024);
+            if (mounted) {
+              setState(() {
+                _totalStorageRaw = total;
+                _freeStorageRaw = free;
+                _totalStorageStr = _formatSizeString(total);
+                _freeStorageStr = _formatSizeString(free);
+              });
+            }
+          }
+        }
+      }
+    } catch (e) {
+      Log.w('Failed to get dynamic storage space: $e');
+    }
   }
 
   Future<void> _loadDownloadPath() async {
@@ -95,7 +147,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   Future<void> _calculateCacheSize() async {
     if (!mounted) return;
-    setState(() => _cacheSize = "Calculating...");
 
     try {
       final docDir = await getApplicationDocumentsDirectory();
@@ -103,7 +154,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
       final int totalBytes = await compute((params) async {
         final docPath = params[0] as String;
-        final customPath = params[1] as String?;
+        final customPath = params[1];
         int total = 0;
 
         try {
@@ -153,12 +204,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
         _downloadsSizeStr = _formatSizeString(dlSum);
         _cacheSizeStr = _formatSizeString(cacheBytes);
-        
-        _cacheSize = _cacheSizeStr;
       });
     } catch (e, stackTrace) {
       Log.e('Failed to calculate cache size', e, stackTrace);
-      if (mounted) setState(() => _cacheSize = "Unknown");
     }
   }
 
@@ -179,7 +227,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         backgroundColor: theme.cardColor,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
@@ -208,15 +256,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: Text('Cancel', style: TextStyle(color: theme.brightness == Brightness.dark ? Colors.white54 : Colors.black54)),
           ),
           ElevatedButton(
             onPressed: () async {
+              final scaffoldMessenger = ScaffoldMessenger.of(context);
+              final navigator = Navigator.of(dialogContext);
               await storage.setTmdbApiKey(controller.text.trim());
-              Navigator.pop(context);
+              navigator.pop();
               setState(() {});
-              ScaffoldMessenger.of(context).showSnackBar(
+              scaffoldMessenger.showSnackBar(
                 const SnackBar(content: Text('TMDB API Key updated successfully!'), backgroundColor: Colors.green),
               );
             },
@@ -228,11 +278,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   Widget _buildStorageGauge(ThemeData theme, Color settingsAccent, bool isDark) {
-    final total = 128.0 * 1024 * 1024 * 1024;
-    final free = 45.0 * 1024 * 1024 * 1024;
+    final total = _totalStorageRaw.toDouble();
+    final free = _freeStorageRaw.toDouble();
     final cache = _cacheSizeRaw.toDouble();
     final downloads = _downloadsSizeRaw.toDouble();
-    final other = total - free - cache - downloads;
+    final other = (total - free - cache - downloads).clamp(0.0, total);
 
     final double cachePct = cache / total;
     final double downloadsPct = downloads / total;
@@ -257,7 +307,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
               ),
               Text(
-                'Total: 128 GB',
+                'Total: $_totalStorageStr',
                 style: TextStyle(color: isDark ? Colors.white54 : Colors.black54, fontSize: 12),
               ),
             ],
@@ -299,7 +349,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             children: [
               _buildLegendItem('Cache', _cacheSizeStr, settingsAccent),
               _buildLegendItem('Downloads', _downloadsSizeStr, Colors.green),
-              _buildLegendItem('Free Space', '45 GB', Colors.blueAccent),
+              _buildLegendItem('Free Space', _freeStorageStr, Colors.blueAccent),
             ],
           ),
         ],
@@ -338,6 +388,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
     await ref.read(tdlibServiceProvider).clearVideoCache(includePhotos: true, excludedPaths: excludedPaths);
     await _calculateCacheSize();
+    await _loadStorageSpace();
 
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(

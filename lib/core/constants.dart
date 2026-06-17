@@ -14,8 +14,24 @@ class ChannelCategory {
 }
 
 class Constants {
-  static const String currentVersion = '2.3.4';
+  static const String currentVersion = '2.3.5';
   static const String changelog = '''
+### 🚀 What's New in v2.3.5
+
+This update brings dynamic storage stats, UI overlap fixes, and advanced subtitle rendering improvements!
+
+#### 📊 Dynamic Storage Stats
+* **Real-time Disk Gauges**: Replaced hardcoded values in Settings. The app now dynamically calculates cache, downloads, and actual total/free device storage using platform APIs (StatFs on Android, PowerShell on Windows) to match your device's file manager.
+
+#### 📺 Episode List Layout & Navigation
+* **Bottom Scroll Spacer**: Added a 120px bottom scroll margin to the episode list. This allows you to scroll all cards completely above the floating favorite icon, ensuring download buttons are never blocked.
+
+#### 💬 Subtitle Compatibility Enhancements
+* **Hardware Accelerated Blending**: Configured decoder blending and timing fixes (`blend-subtitles` and `sub-fix-timing`) to display PGS/VobSub graphics, ASS, and SRT subtitle tracks seamlessly on Android.
+* **Asynchronous Selection Verification**: Added a 300ms verification retry loop during track changes to ensure manual selections are properly synchronized and persist through track list updates.
+
+---
+
 ### 🚀 What's New in v2.3.4
 
 This update brings a critical fix for Android subtitle rendering and introduces customizable system font integration!

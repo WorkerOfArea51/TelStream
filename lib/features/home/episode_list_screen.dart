@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:tdlib/td_api.dart' as td;
 import '../../models/anime_models.dart';
 import '../player/pip_manager.dart';
-import '../../core/widgets/aligned_name_text.dart';
 import '../../core/widgets/wavy_progress_indicators.dart';
 import '../../core/widgets/td_thumbnail.dart';
 import '../../core/theme/app_theme.dart';
@@ -34,10 +33,8 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
   late AnimeSeason _selectedSeason;
   bool _isLoadingEpisodes = false;
   String? _errorMessage;
-
   TmdbSeriesMetadata? _tmdbMetadata;
   List<TmdbEpisodeMetadata> _tmdbEpisodes = [];
-  bool _isLoadingTmdb = false;
 
   @override
   void initState() {
@@ -52,7 +49,6 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
   Future<void> _loadTmdbMetadata() async {
     if (!mounted) return;
     setState(() {
-      _isLoadingTmdb = true;
       _tmdbMetadata = null;
       _tmdbEpisodes = [];
     });
@@ -81,9 +77,7 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
     } catch (e, stack) {
       Log.e('Failed to load TMDB details for ${widget.series.coreName}', e, stack);
     } finally {
-      if (mounted) {
-        setState(() => _isLoadingTmdb = false);
-      }
+      // Done loading
     }
   }
 
@@ -579,6 +573,7 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
                 ),
               ),
             ),
+          const SliverToBoxAdapter(child: SizedBox(height: 120)),
         ],
       ),
     );

@@ -99,6 +99,8 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         nativePlayer.setProperty('sub-visibility', 'yes');
         nativePlayer.setProperty('sub-auto', 'all');
         nativePlayer.setProperty('embeddedfonts', 'yes'); // Enable embedded fonts inside media containers (MKV, etc.)
+        nativePlayer.setProperty('sub-fix-timing', 'yes');
+        nativePlayer.setProperty('blend-subtitles', 'yes');
 
         if (Platform.isAndroid) {
           nativePlayer.setProperty('hwdec', 'mediacodec-copy');
@@ -204,22 +206,25 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
 
       if (!matched) {
         // No preference saved yet or matching preference not found.
-        // Let's auto-select English or the first subtitle track if available.
-        if (tracks.subtitle.isNotEmpty) {
-          SubtitleTrack? targetTrack;
-          // Look for english track
-          for (final track in tracks.subtitle) {
-            final lower = (track.language ?? track.title ?? '').toLowerCase();
-            if (lower.contains('eng') || lower.contains('en')) {
-              targetTrack = track;
-              break;
+        // Only run auto-selection fallback if the current subtitle is disabled or set to auto
+        final currentSub = player.state.track.subtitle;
+        if (currentSub.id == 'no' || currentSub.id == 'auto') {
+          if (tracks.subtitle.isNotEmpty) {
+            SubtitleTrack? targetTrack;
+            // Look for english track
+            for (final track in tracks.subtitle) {
+              final lower = (track.language ?? track.title ?? '').toLowerCase();
+              if (lower.contains('eng') || lower.contains('en')) {
+                targetTrack = track;
+                break;
+              }
             }
-          }
-          // Fallback to first non-disabled track
-          targetTrack ??= tracks.subtitle.firstWhere((t) => t.id != 'no' && t.id != 'auto', orElse: () => tracks.subtitle.first);
-          if (player.state.track.subtitle != targetTrack) {
-            player.setSubtitleTrack(targetTrack);
-            Log.i('Auto-selected default subtitle track: ${targetTrack.language ?? targetTrack.title ?? targetTrack.id}');
+            // Fallback to first non-disabled track
+            targetTrack ??= tracks.subtitle.firstWhere((t) => t.id != 'no' && t.id != 'auto', orElse: () => tracks.subtitle.first);
+            if (player.state.track.subtitle != targetTrack) {
+              player.setSubtitleTrack(targetTrack);
+              Log.i('Auto-selected default subtitle track: ${targetTrack.language ?? targetTrack.title ?? targetTrack.id}');
+            }
           }
         }
       }
