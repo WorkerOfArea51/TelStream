@@ -57,8 +57,6 @@ class PipController extends Notifier<PipVideoState?> {
   void setActivePlayer(Player player) {
     if (_activePlayer != null && _activePlayer != player) {
       try {
-        _activePlayer!.pause();
-        _activePlayer!.stop();
         _activePlayer!.dispose();
       } catch (_) {}
     }
@@ -87,8 +85,6 @@ class PipController extends Notifier<PipVideoState?> {
     final oldActivePlayer = _activePlayer;
     if (oldActivePlayer != null) {
       try {
-        oldActivePlayer.pause();
-        oldActivePlayer.stop();
         oldActivePlayer.dispose();
       } catch (_) {}
       _activePlayer = null;
@@ -136,8 +132,6 @@ class PipController extends Notifier<PipVideoState?> {
     state = null;
     if (_activePlayer != null) {
       try {
-        _activePlayer!.pause();
-        _activePlayer!.stop();
         _activePlayer!.dispose();
       } catch (_) {}
       _activePlayer = null;

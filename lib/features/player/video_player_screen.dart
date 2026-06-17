@@ -94,7 +94,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         nativePlayer.setProperty('demuxer-max-back-bytes', '16777216'); // 16 MB back buffer (instant backward seek)
         nativePlayer.setProperty('demuxer-readahead-secs', '60'); // Buffer up to 60 seconds ahead
         nativePlayer.setProperty('cache-pause', 'yes'); // Stalls playback if buffer runs out to prevent decoding corrupted frames
-        nativePlayer.setProperty('cache-pause-initial', 'no'); // Start playing immediately without artificial startup delay
+        nativePlayer.setProperty('cache-pause-initial', 'yes'); // Ensure initial buffer is populated to prevent decoder underflow/freeze
         nativePlayer.setProperty('cache-pause-wait', '2'); // Wait for only 2 seconds of buffered data before resuming after a stall
         nativePlayer.setProperty('hr-seek', 'no'); // Disable high-precision seeking on slow networks to seek instantly to keyframes
         nativePlayer.setProperty('sub-visibility', 'yes');
@@ -509,6 +509,12 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         });
       }
 
+      // Cancel previous TDLib download tasks to clear the old offset queue before requesting a new offset
+      _tdlibService.send(td.CancelDownloadFile(
+        fileId: _resolvedVideoFileId ?? widget.videoFileId,
+        onlyIfPending: false,
+      ));
+
       // Update download offset in TDLib
       _tdlibService.send(td.DownloadFile(
         fileId: _resolvedVideoFileId ?? widget.videoFileId,
@@ -535,10 +541,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    try {
-      player.pause();
-      player.stop();
-    } catch (_) {}
+    // Redundant pause/stop removed to prevent race conditions during player disposal
 
     _updatesSubscription?.cancel();
     _completedSubscription?.cancel();
