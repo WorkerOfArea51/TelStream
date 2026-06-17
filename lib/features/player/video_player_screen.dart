@@ -111,7 +111,12 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
     } catch (_) {}
 
     _pipController.setActivePlayer(player);
-    controller = VideoController(player);
+    controller = VideoController(
+      player,
+      configuration: VideoControllerConfiguration(
+        enableHardwareAcceleration: !Platform.isAndroid,
+      ),
+    );
     
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _pipController.isTransitioning = false;
