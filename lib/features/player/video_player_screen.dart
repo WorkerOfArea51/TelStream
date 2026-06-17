@@ -101,6 +101,9 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         nativePlayer.setProperty('video-sync', 'audio');
         nativePlayer.setProperty('framedrop', 'vo');
         nativePlayer.setProperty('sub-fix-timing', 'yes');
+        nativePlayer.setProperty('stream-buffer-size', '8388608'); // 8 MB stream buffer for high-throughput network reading
+        nativePlayer.setProperty('vd-lavc-fast', 'yes'); // Enable fast decoding optimizations
+        nativePlayer.setProperty('vd-lavc-skiploopfilter', 'bidir'); // Skip loop filtering on B-frames to save CPU in heavy scenes
 
         if (Platform.isAndroid) {
           final hwAcc = _storageService.getHardwareAcceleration();
@@ -466,9 +469,9 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
           try {
             if (player.platform is NativePlayer) {
               final nativePlayer = player.platform as NativePlayer;
-              nativePlayer.setProperty('demuxer-max-bytes', '104857600'); // 100 MB buffer
-              nativePlayer.setProperty('demuxer-max-back-bytes', '52428800'); // 50 MB back buffer
-              nativePlayer.setProperty('demuxer-readahead-secs', '120');
+              nativePlayer.setProperty('demuxer-max-bytes', '524288000'); // 500 MB buffer
+              nativePlayer.setProperty('demuxer-max-back-bytes', '157286400'); // 150 MB back buffer
+              nativePlayer.setProperty('demuxer-readahead-secs', '180');
             }
           } catch (_) {}
         }
@@ -755,24 +758,24 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         final profile = _settings.streamingProfile;
         
         if (profile == 'Aggressive Buffer') {
-          nativePlayer.setProperty('demuxer-max-bytes', '104857600'); // 100 MB
-          nativePlayer.setProperty('demuxer-max-back-bytes', '52428800'); // 50 MB
-          nativePlayer.setProperty('demuxer-readahead-secs', '120');
+          nativePlayer.setProperty('demuxer-max-bytes', '524288000'); // 500 MB
+          nativePlayer.setProperty('demuxer-max-back-bytes', '157286400'); // 150 MB
+          nativePlayer.setProperty('demuxer-readahead-secs', '180');
           nativePlayer.setProperty('cache-pause-wait', '2');
-          Log.i('Applied Aggressive Buffer Profile: 100MB buffer, 50MB back buffer, 120s prefetch');
+          Log.i('Applied Aggressive Buffer Profile: 500MB buffer, 150MB back buffer, 180s prefetch');
         } else if (profile == 'Mobile Saver') {
-          nativePlayer.setProperty('demuxer-max-bytes', '10485760'); // 10 MB
-          nativePlayer.setProperty('demuxer-max-back-bytes', '5242880'); // 5 MB
-          nativePlayer.setProperty('demuxer-readahead-secs', '30');
+          nativePlayer.setProperty('demuxer-max-bytes', '41943040'); // 40 MB
+          nativePlayer.setProperty('demuxer-max-back-bytes', '10485760'); // 10 MB
+          nativePlayer.setProperty('demuxer-readahead-secs', '45');
           nativePlayer.setProperty('cache-pause-wait', '4');
-          Log.i('Applied Mobile Saver Profile: 10MB buffer, 5MB back buffer, 30s prefetch');
+          Log.i('Applied Mobile Saver Profile: 40MB buffer, 10MB back buffer, 45s prefetch');
         } else {
           // Balanced profile
-          nativePlayer.setProperty('demuxer-max-bytes', '31457280'); // 30 MB
-          nativePlayer.setProperty('demuxer-max-back-bytes', '15728640'); // 15 MB
-          nativePlayer.setProperty('demuxer-readahead-secs', '60');
+          nativePlayer.setProperty('demuxer-max-bytes', '157286400'); // 150 MB
+          nativePlayer.setProperty('demuxer-max-back-bytes', '52428800'); // 50 MB
+          nativePlayer.setProperty('demuxer-readahead-secs', '90');
           nativePlayer.setProperty('cache-pause-wait', '3');
-          Log.i('Applied Balanced Profile: 30MB buffer, 15MB back buffer, 60s prefetch');
+          Log.i('Applied Balanced Profile: 150MB buffer, 50MB back buffer, 90s prefetch');
         }
       }
     } catch (e) {

@@ -403,10 +403,10 @@ class VideoSettingsScreen extends ConsumerWidget {
                   title: Text('Adaptive Streaming Profile', style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
                   subtitle: Text(
                     settings.streamingProfile == 'Aggressive Buffer'
-                        ? 'Aggressive Buffer (100MB buffer limit, 120s prefetch)'
+                        ? 'Aggressive Buffer (500MB buffer limit, 180s prefetch)'
                         : settings.streamingProfile == 'Mobile Saver'
-                            ? 'Mobile Saver (10MB buffer limit, 30s prefetch)'
-                            : 'Balanced (30MB buffer limit, 60s prefetch)',
+                            ? 'Mobile Saver (40MB buffer limit, 45s prefetch)'
+                            : 'Balanced (150MB buffer limit, 90s prefetch)',
                     style: TextStyle(color: isDark ? Colors.white54 : Colors.black54, fontSize: 12),
                   ),
                   trailing: DropdownButton<String>(
