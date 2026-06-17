@@ -60,6 +60,13 @@ class VideoSettingsScreen extends ConsumerWidget {
             value: settings.autoplayNextVideo,
             onChanged: (val) => notifier.updateSettings(settings.copyWith(autoplayNextVideo: val)),
           ),
+          _buildSwitch(
+            context: context,
+            title: 'Auto skip intros & outros',
+            subtitle: 'Automatically skip openings and endings when detected',
+            value: settings.autoSkipIntroOutro,
+            onChanged: (val) => notifier.updateSettings(settings.copyWith(autoSkipIntroOutro: val)),
+          ),
 
           const SizedBox(height: 24),
           _buildSectionHeader(context, 'Gestures'),

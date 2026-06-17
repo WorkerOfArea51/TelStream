@@ -719,6 +719,8 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
                 },
                 onSeek: _handleCustomSeek,
                 customBuffering: _isBuffering,
+                seriesName: widget.seriesName,
+                currentEpisodeIndex: widget.currentEpisodeIndex ?? 0,
               )
             : _isInitializing
                 ? Column(

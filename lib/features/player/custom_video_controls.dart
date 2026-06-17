@@ -12,6 +12,7 @@ import 'package:flutter_volume_controller/flutter_volume_controller.dart';
 import '../settings/settings_provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../../services/storage_service.dart';
+import '../../services/skip_times_service.dart';
 import '../../core/logger.dart';
 
 class CustomVideoControls extends ConsumerStatefulWidget {
@@ -29,6 +30,8 @@ class CustomVideoControls extends ConsumerStatefulWidget {
   final VoidCallback? onAutoNextCancelled;
   final ValueChanged<Duration>? onSeek;
   final bool customBuffering;
+  final String seriesName;
+  final int currentEpisodeIndex;
 
   const CustomVideoControls({
     Key? key,
@@ -46,6 +49,8 @@ class CustomVideoControls extends ConsumerStatefulWidget {
     this.onAutoNextCancelled,
     this.onSeek,
     this.customBuffering = false,
+    this.seriesName = '',
+    this.currentEpisodeIndex = 0,
   }) : super(key: key);
 
   @override
@@ -60,7 +65,6 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
   bool _isFullscreen = true;
   double _currentSpeed = 1.0;
   BoxFit _fit = BoxFit.contain;
-  double? _draggingValue;
   String _currentAspectRatioString = 'fit';
   double? _customAspectRatio;
   bool _rememberRatio = false;
@@ -100,6 +104,21 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
   bool _autoNextCancelled = false;
   StreamSubscription<Duration>? _positionSubscription;
   bool _autoNextTriggered = false;
+
+  // Skip Times variables
+  StreamSubscription? _durationSubscription;
+  List<SkipInterval> _skipIntervals = [];
+  bool _skipTimesLoaded = false;
+  bool _isLoadingSkipTimes = false;
+  bool _introSkipped = false;
+  bool _outroSkipped = false;
+  bool _showIntroOverlay = false;
+  bool _showOutroOverlay = false;
+  SkipInterval? _currentActiveOP;
+  SkipInterval? _currentActiveED;
+  bool _toastShowing = false;
+  String _toastMessage = '';
+  Timer? _toastTimer;
 
   // Sleep timer variables
   Timer? _sleepTimer;
@@ -154,6 +173,175 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     }
   }
 
+  void _loadSkipTimes(double duration) async {
+    if (_skipTimesLoaded || _isLoadingSkipTimes || duration <= 0) return;
+    _isLoadingSkipTimes = true;
+    try {
+      final skipTimesService = ref.read(skipTimesServiceProvider);
+      final intervals = await skipTimesService.fetchSkipTimes(
+        seriesName: widget.seriesName,
+        episodeNumber: widget.currentEpisodeIndex + 1,
+        totalDuration: duration,
+      );
+      if (mounted) {
+        setState(() {
+          _skipIntervals = intervals;
+          _skipTimesLoaded = true;
+        });
+        Log.i('Loaded ${_skipIntervals.length} skip intervals for ${widget.seriesName}');
+      }
+    } catch (e, stack) {
+      Log.e('Error loading skip times', e, stack);
+    } finally {
+      _isLoadingSkipTimes = false;
+    }
+  }
+
+  void _checkSkipTimes(Duration pos) {
+    if (_skipIntervals.isEmpty) return;
+    
+    final settings = ref.read(videoSettingsProvider);
+    final currentSecs = pos.inSeconds.toDouble();
+
+    // Check if we are inside any OP or ED interval
+    SkipInterval? activeOP;
+    SkipInterval? activeED;
+
+    for (final interval in _skipIntervals) {
+      if (currentSecs >= interval.startTime && currentSecs < interval.endTime) {
+        if (interval.type == 'op') {
+          activeOP = interval;
+        } else if (interval.type == 'ed') {
+          activeED = interval;
+        }
+      }
+    }
+
+    // Handle Intro (OP)
+    if (activeOP != null) {
+      _currentActiveOP = activeOP;
+      if (settings.autoSkipIntroOutro) {
+        if (!_introSkipped) {
+          _introSkipped = true;
+          final target = Duration(seconds: activeOP.endTime.toInt());
+          final safeTarget = _clampSeekTarget(target, showMessage: false);
+          _performSeek(safeTarget);
+          _showSkipToast('Auto-skipped Intro');
+        }
+      } else {
+        if (!_showIntroOverlay) {
+          setState(() {
+            _showIntroOverlay = true;
+          });
+        }
+      }
+    } else {
+      _currentActiveOP = null;
+      _introSkipped = false;
+      if (_showIntroOverlay) {
+        setState(() {
+          _showIntroOverlay = false;
+        });
+      }
+    }
+
+    // Handle Outro (ED)
+    if (activeED != null) {
+      _currentActiveED = activeED;
+      if (settings.autoSkipIntroOutro) {
+        if (!_outroSkipped) {
+          _outroSkipped = true;
+          if (widget.hasNextEpisode && widget.onNextEpisode != null) {
+            widget.onNextEpisode!();
+            _showSkipToast('Auto-playing Next Episode');
+          } else {
+            final target = Duration(seconds: activeED.endTime.toInt());
+            final safeTarget = _clampSeekTarget(target, showMessage: false);
+            _performSeek(safeTarget);
+            _showSkipToast('Auto-skipped Outro');
+          }
+        }
+      } else {
+        if (!_showOutroOverlay) {
+          setState(() {
+            _showOutroOverlay = true;
+          });
+        }
+      }
+    } else {
+      _currentActiveED = null;
+      _outroSkipped = false;
+      if (_showOutroOverlay) {
+        setState(() {
+          _showOutroOverlay = false;
+        });
+      }
+    }
+  }
+
+  void _showSkipToast(String msg) {
+    _toastTimer?.cancel();
+    setState(() {
+      _toastShowing = true;
+      _toastMessage = msg;
+    });
+    _toastTimer = Timer(const Duration(seconds: 3), () {
+      if (mounted) {
+        setState(() {
+          _toastShowing = false;
+        });
+      }
+    });
+  }
+
+  Widget _buildCheckboxToggle({
+    required String label,
+    required bool value,
+    required ValueChanged<bool?> onChanged,
+    required Color settingsAccent,
+  }) {
+    return GestureDetector(
+      onTap: () => onChanged(!value),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(
+            width: 20,
+            height: 20,
+            child: Checkbox(
+              value: value,
+              onChanged: onChanged,
+              activeColor: settingsAccent,
+              checkColor: settingsAccent.computeLuminance() > 0.5 ? Colors.black : Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+              side: const BorderSide(color: Colors.white30, width: 1.5),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            label,
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatDuration(Duration d) {
+    final min = d.inMinutes;
+    final sec = (d.inSeconds % 60).toString().padLeft(2, '0');
+    if (d.inHours > 0) {
+      final hrs = d.inHours;
+      final m = (min % 60).toString().padLeft(2, '0');
+      return '$hrs:$m:$sec';
+    }
+    return '$min:$sec';
+  }
+
   @override
   void initState() {
     super.initState();
@@ -170,6 +358,12 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     });
     _positionSubscription = widget.player.stream.position.listen((pos) {
       _checkAutoNextTrigger(pos);
+      _checkSkipTimes(pos);
+    });
+    _durationSubscription = widget.player.stream.duration.listen((dur) {
+      if (dur.inSeconds > 0) {
+        _loadSkipTimes(dur.inSeconds.toDouble());
+      }
     });
     _playlistSubscription = widget.player.stream.playlist.listen((_) {
       Future.delayed(const Duration(milliseconds: 500), _loadChapters);
@@ -284,6 +478,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
   void dispose() {
     _bufferingSubscription?.cancel();
     _positionSubscription?.cancel();
+    _durationSubscription?.cancel();
     _volumeSubscription?.cancel();
     _brightnessSaveTimer?.cancel();
     _hideTimer?.cancel();
@@ -1718,6 +1913,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
     final settings = ref.watch(videoSettingsProvider);
+    final notifier = ref.read(videoSettingsProvider.notifier);
     final theme = Theme.of(context);
     final customTheme = theme.extension<AppThemeExtension>();
     final settingsAccent = customTheme?.settingsAccent ?? theme.primaryColor;
@@ -2175,97 +2371,56 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                       ),
                       if (_hasChapters)
                         _buildActionButton(Icons.list, 'Chapters', _openChaptersPanel),
-                      _buildActionButton(Icons.forward, '+85s', () {
-                        final currentPos = widget.player.state.position;
-                        final target = currentPos + const Duration(seconds: 85);
-                        final safeTarget = _clampSeekTarget(target, showMessage: true);
-                        _performSeek(safeTarget);
-                        _showOSD('Skipped +85s');
-                      }),
                       _buildActionButton(Icons.speed, '${_currentSpeed}x', _toggleSpeed),
                     ],
                   ),
                   const SizedBox(height: 16),
                   
                   // Seekbar & Time
+                  PlayerSeekBar(
+                    player: widget.player,
+                    downloadedPrefixSize: widget.downloadedPrefixSize,
+                    expectedSize: widget.expectedSize,
+                    seekbarStyle: settings.seekbarStyle,
+                    settingsAccent: settingsAccent,
+                    isPositionDownloaded: _isPositionDownloaded,
+                    throttledSeek: _throttledSeek,
+                    cancelHideTimer: () => _hideTimer?.cancel(),
+                    startHideTimer: _startHideTimer,
+                    clampSeekTarget: (target) => _clampSeekTarget(target, showMessage: false),
+                    onSeekPerformed: _performSeek,
+                  ),
+                  const SizedBox(height: 12),
                   Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      StreamBuilder<Duration>(
-                        stream: widget.player.stream.position,
-                        builder: (context, snapshot) {
-                          final pos = snapshot.data ?? widget.player.state.position;
-                          final displayPos = _draggingValue != null
-                              ? Duration(milliseconds: _draggingValue!.toInt())
-                              : pos;
-                          return Text(_formatDuration(displayPos), style: const TextStyle(color: Colors.white));
-                        },
+                      _buildCheckboxToggle(
+                        label: 'Auto Play',
+                        value: true,
+                        onChanged: (_) {},
+                        settingsAccent: settingsAccent,
                       ),
-                      Expanded(
-                        child: StreamBuilder<Duration>(
-                          stream: widget.player.stream.position,
-                          builder: (context, posSnap) {
-                            return StreamBuilder<Duration>(
-                              stream: widget.player.stream.duration,
-                              builder: (context, durSnap) {
-                                final pos = posSnap.data ?? widget.player.state.position;
-                                final dur = durSnap.data ?? widget.player.state.duration;
-                                double max = dur.inMilliseconds.toDouble();
-                                if (max == 0) max = pos.inMilliseconds.toDouble(); // fallback to prevent division by zero or stuck thumb
-                                final val = pos.inMilliseconds.toDouble().clamp(0.0, max > 0 ? max : 1.0);
-                                
-                                return SliderTheme(
-                                  data: SliderThemeData(
-                                    trackHeight: settings.seekbarStyle == 'Thick' ? 8.0 : 4.0,
-                                    trackShape: settings.seekbarStyle == 'Wavy'
-                                        ? WavySliderTrackShape()
-                                        : null,
-                                    thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6.0),
-                                    overlayShape: const RoundSliderOverlayShape(overlayRadius: 14.0),
-                                    activeTrackColor: settingsAccent,
-                                    inactiveTrackColor: Colors.white24,
-                                    thumbColor: settingsAccent,
-                                  ),
-                                  child: Slider(
-                                    min: 0,
-                                    max: max > 0 ? max : 1.0,
-                                    value: _draggingValue ?? val,
-                                    onChangeStart: (_) {
-                                      _hideTimer?.cancel();
-                                      setState(() {
-                                        _draggingValue = val;
-                                      });
-                                    },
-                                    onChanged: max > 0 ? (v) {
-                                      setState(() {
-                                        _draggingValue = v;
-                                      });
-                                      final target = Duration(milliseconds: v.toInt());
-                                      if (_isPositionDownloaded(target)) {
-                                        _throttledSeek(target);
-                                      }
-                                    } : null,
-                                    onChangeEnd: (v) {
-                                      _startHideTimer();
-                                      final target = Duration(milliseconds: v.toInt());
-                                      final safeTarget = _clampSeekTarget(target, showMessage: false);
-                                      _performSeek(safeTarget);
-                                      setState(() {
-                                        _draggingValue = null;
-                                      });
-                                    },
-                                  ),
-                                );
-                              },
-                            );
-                          },
-                        ),
-                      ),
-                      StreamBuilder<Duration>(
-                        stream: widget.player.stream.duration,
-                        builder: (context, snapshot) {
-                          final dur = snapshot.data ?? widget.player.state.duration;
-                          return Text(dur.inSeconds == 0 ? '--:--' : _formatDuration(dur), style: const TextStyle(color: Colors.white));
+                      const SizedBox(width: 24),
+                      _buildCheckboxToggle(
+                        label: 'Auto Next',
+                        value: settings.autoplayNextVideo,
+                        onChanged: (val) {
+                          if (val != null) {
+                            notifier.updateSettings(settings.copyWith(autoplayNextVideo: val));
+                          }
                         },
+                        settingsAccent: settingsAccent,
+                      ),
+                      const SizedBox(width: 24),
+                      _buildCheckboxToggle(
+                        label: 'Auto Skip',
+                        value: settings.autoSkipIntroOutro,
+                        onChanged: (val) {
+                          if (val != null) {
+                            notifier.updateSettings(settings.copyWith(autoSkipIntroOutro: val));
+                          }
+                        },
+                        settingsAccent: settingsAccent,
                       ),
                     ],
                   ),
@@ -2273,6 +2428,115 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
               ),
             ),
           ],
+
+          // Contextual Skip Intro/Outro Button
+          if ((_showIntroOverlay || _showOutroOverlay) && !_isLocked && !widget.isPip)
+            Positioned(
+              bottom: _showControls ? 140 : 40,
+              right: 24,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.85),
+                      border: Border.all(color: Colors.orange.withOpacity(0.3), width: 1.5),
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Colors.black45,
+                          blurRadius: 10,
+                          offset: Offset(0, 4),
+                        )
+                      ]
+                    ),
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: () {
+                          if (_showIntroOverlay && _currentActiveOP != null) {
+                            final target = Duration(seconds: _currentActiveOP!.endTime.toInt());
+                            final safeTarget = _clampSeekTarget(target, showMessage: false);
+                            _performSeek(safeTarget);
+                            setState(() {
+                              _showIntroOverlay = false;
+                            });
+                          } else if (_showOutroOverlay && _currentActiveED != null) {
+                            if (widget.hasNextEpisode && widget.onNextEpisode != null) {
+                              widget.onNextEpisode!();
+                            } else {
+                              final target = Duration(seconds: _currentActiveED!.endTime.toInt());
+                              final safeTarget = _clampSeekTarget(target, showMessage: false);
+                              _performSeek(safeTarget);
+                              setState(() {
+                                _showOutroOverlay = false;
+                              });
+                            }
+                          }
+                        },
+                        borderRadius: BorderRadius.circular(12),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.skip_next_rounded,
+                                color: Colors.orange,
+                                size: 20,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                _showIntroOverlay ? 'Skip Intro' : 'Skip Outro',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
+          // Toast Message for Auto Skip / Actions
+          if (_toastShowing)
+            Positioned(
+              top: 80,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(20),
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.black87,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: Colors.white10),
+                      ),
+                      child: Text(
+                        _toastMessage,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
           
           // Custom Track Selector Modal Panel Background Blur
           if (_showTrackSelectorPanel)
@@ -2643,6 +2907,42 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     }
     return false;
   }
+}
+
+class PlayerSeekBar extends StatefulWidget {
+  final Player player;
+  final int downloadedPrefixSize;
+  final int expectedSize;
+  final String seekbarStyle;
+  final Color settingsAccent;
+  final ValueChanged<Duration> onSeekPerformed;
+  final bool Function(Duration) isPositionDownloaded;
+  final void Function(Duration) throttledSeek;
+  final VoidCallback cancelHideTimer;
+  final VoidCallback startHideTimer;
+  final Duration Function(Duration) clampSeekTarget;
+
+  const PlayerSeekBar({
+    Key? key,
+    required this.player,
+    required this.downloadedPrefixSize,
+    required this.expectedSize,
+    required this.seekbarStyle,
+    required this.settingsAccent,
+    required this.onSeekPerformed,
+    required this.isPositionDownloaded,
+    required this.throttledSeek,
+    required this.cancelHideTimer,
+    required this.startHideTimer,
+    required this.clampSeekTarget,
+  }) : super(key: key);
+
+  @override
+  State<PlayerSeekBar> createState() => _PlayerSeekBarState();
+}
+
+class _PlayerSeekBarState extends State<PlayerSeekBar> {
+  double? _draggingValue;
 
   String _formatDuration(Duration d) {
     final min = d.inMinutes;
@@ -2653,6 +2953,99 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
       return '$hrs:$m:$sec';
     }
     return '$min:$sec';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    double downloadedRatio = widget.expectedSize > 0
+        ? (widget.downloadedPrefixSize / widget.expectedSize).clamp(0.0, 1.0)
+        : 0.0;
+
+    return Row(
+      children: [
+        StreamBuilder<Duration>(
+          stream: widget.player.stream.position,
+          builder: (context, snapshot) {
+            final pos = snapshot.data ?? widget.player.state.position;
+            final displayPos = _draggingValue != null
+                ? Duration(milliseconds: _draggingValue!.toInt())
+                : pos;
+            return Text(_formatDuration(displayPos), style: const TextStyle(color: Colors.white));
+          },
+        ),
+        Expanded(
+          child: StreamBuilder<Duration>(
+            stream: widget.player.stream.position,
+            builder: (context, posSnap) {
+              return StreamBuilder<Duration>(
+                stream: widget.player.stream.duration,
+                builder: (context, durSnap) {
+                  final pos = posSnap.data ?? widget.player.state.position;
+                  final dur = durSnap.data ?? widget.player.state.duration;
+                  double maxVal = dur.inMilliseconds.toDouble();
+                  if (maxVal == 0) maxVal = pos.inMilliseconds.toDouble(); // fallback
+                  final val = pos.inMilliseconds.toDouble().clamp(0.0, maxVal > 0 ? maxVal : 1.0);
+
+                  return SliderTheme(
+                    data: SliderThemeData(
+                      trackHeight: widget.seekbarStyle == 'Thick' ? 8.0 : 4.0,
+                      trackShape: widget.seekbarStyle == 'Wavy'
+                          ? WavySliderTrackShape()
+                          : null,
+                      thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6.0),
+                      overlayShape: const RoundSliderOverlayShape(overlayRadius: 14.0),
+                      activeTrackColor: widget.settingsAccent,
+                      secondaryActiveTrackColor: widget.settingsAccent.withOpacity(0.35),
+                      inactiveTrackColor: Colors.white24,
+                      thumbColor: widget.settingsAccent,
+                    ),
+                    child: Slider(
+                      min: 0,
+                      max: maxVal > 0 ? maxVal : 1.0,
+                      value: _draggingValue ?? val,
+                      secondaryTrackValue: (maxVal * downloadedRatio).clamp(0.0, maxVal),
+                      onChangeStart: (_) {
+                        widget.cancelHideTimer();
+                        setState(() {
+                          _draggingValue = val;
+                        });
+                      },
+                      onChanged: maxVal > 0
+                          ? (v) {
+                              setState(() {
+                                _draggingValue = v;
+                              });
+                              final target = Duration(milliseconds: v.toInt());
+                              if (widget.isPositionDownloaded(target)) {
+                                widget.throttledSeek(target);
+                              }
+                            }
+                          : null,
+                      onChangeEnd: (v) {
+                        widget.startHideTimer();
+                        final target = Duration(milliseconds: v.toInt());
+                        final safeTarget = widget.clampSeekTarget(target);
+                        widget.onSeekPerformed(safeTarget);
+                        setState(() {
+                          _draggingValue = null;
+                        });
+                      },
+                    ),
+                  );
+                },
+              );
+            },
+          ),
+        ),
+        StreamBuilder<Duration>(
+          stream: widget.player.stream.duration,
+          builder: (context, snapshot) {
+            final dur = snapshot.data ?? widget.player.state.duration;
+            return Text(dur.inSeconds == 0 ? '--:--' : _formatDuration(dur), style: const TextStyle(color: Colors.white));
+          },
+        ),
+      ],
+    );
   }
 }
 
@@ -2684,21 +3077,29 @@ class WavySliderTrackShape extends RectangularSliderTrackShape {
       ..style = PaintingStyle.stroke
       ..strokeWidth = 3.0;
 
+    final Paint secondaryPaint = Paint()
+      ..color = sliderTheme.secondaryActiveTrackColor ?? (sliderTheme.activeTrackColor?.withOpacity(0.35) ?? Colors.blueAccent.withOpacity(0.35))
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3.0;
+
     final Paint inactivePaint = Paint()
       ..color = sliderTheme.inactiveTrackColor ?? Colors.white24
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2.0;
 
     final Path activePath = Path();
+    final Path secondaryPath = Path();
     final Path inactivePath = Path();
 
     const double waveAmplitude = 4.0;
     const double waveWavelength = 24.0;
 
     bool firstActive = true;
+    bool firstSecondary = true;
     bool firstInactive = true;
     
     final double midY = trackRect.top + trackRect.height / 2;
+    final double secondaryX = secondaryOffset?.dx ?? thumbCenter.dx;
 
     for (double x = trackRect.left; x <= trackRect.right; x += 1.0) {
       final double relativeX = x - trackRect.left;
@@ -2710,6 +3111,14 @@ class WavySliderTrackShape extends RectangularSliderTrackShape {
           firstActive = false;
         } else {
           activePath.lineTo(x, y);
+        }
+      } else if (x <= secondaryX) {
+        if (firstSecondary) {
+          secondaryPath.moveTo(x - 1, y);
+          secondaryPath.lineTo(x, y);
+          firstSecondary = false;
+        } else {
+          secondaryPath.lineTo(x, y);
         }
       } else {
         if (firstInactive) {
@@ -2723,6 +3132,9 @@ class WavySliderTrackShape extends RectangularSliderTrackShape {
     }
 
     canvas.drawPath(activePath, activePaint);
+    if (secondaryX > thumbCenter.dx) {
+      canvas.drawPath(secondaryPath, secondaryPaint);
+    }
     canvas.drawPath(inactivePath, inactivePaint);
   }
 }

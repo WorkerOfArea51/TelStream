@@ -14,28 +14,22 @@ class ChannelCategory {
 }
 
 class Constants {
-  static const String currentVersion = '2.4.0';
+  static const String currentVersion = '2.5.0';
   static const String changelog = '''
-### 🚀 What's New in v2.4.0
+### 🚀 What's New in v2.5.0
 
-This major update brings premium playback optimizations, granular subtitle presets, real-time seek scrubbing, watched progress overlays, and an Advanced Cache Manager!
+This update introduces intelligent auto-skipping, visual seekbar preloading, and lag-free slider dragging for a truly premium, seamless streaming experience.
 
-#### ⚡ Buttery Smooth Playback & Seeking
-* **Instant Seeks**: Seeks within the already-downloaded part of a streaming video are now instantaneous and buffer-free.
-* **Low-Latency Buffering**: Reduced target buffer sizes during network seeks from 2.5MB to 1MB, ensuring super-fast play resume.
-* **Real-Time Seek Scrubbing**: Dragging the seekbar slider now updates video frames in real-time for downloaded regions.
-* **Wi-Fi Back Buffer Boost**: Dynamically increased the player back-buffer allocation to 64MB on Wi-Fi, keeping recently played scenes cached in RAM.
-* **Snappier Gestures**: Double-tap to seek gesture delay reduced from 500ms to 300ms for extra responsiveness.
+#### 🤖 Intelligent Skip Intro & Outro
+* **Crowdsourced Anime Detection**: Integrated the Jikan MAL Search and AniSkip APIs to automatically retrieve precise opening and ending time intervals for anime.
+* **Contextual Skip Buttons**: A beautiful, floating frosted-glass skip button ("Skip Intro" / "Skip Outro") appears dynamically when the play position enters an active range.
+* **Auto-Skip Mode**: Enable the "Auto Skip" toggle to instantly jump past intros/outros automatically, accompanied by a clean OSD toast notification.
+* **Smart Local Heuristic Fallback**: Falls back to logical defaults (1:30 to 3:00 for intros, last 120s to last 30s for outros) for non-anime web series.
 
-#### 💬 Subtitle Presets
-* **One-Tap Styles**: Added subtitle preset chips at the top of the Subtitle Customizer (Default White, Classic Yellow, Soft Cyan, Large & Bold, Compact Minimal). Select your style instantly!
-
-#### 📺 Watched Progress Overlays
-* **Premium Thumbnail Progress**: Episodes you've started watching now display a clean, subtle progress bar at the bottom edge of their thumbnail preview, keeping the episode list neat and modern.
-
-#### 🧹 Advanced Cache Manager
-* **Granular Storage View**: Added a detailed storage gauge in Settings showing videos, documents, poster images, and temporary cache sizes.
-* **Per-Series Cache Purge**: Exposes cached size per series, allowing you to delete cache files on a per-show basis to save space!
+#### 📈 Visual Seekbar Preloading
+* **Download Buffer Visualization**: Both the Standard and Wavy seekbar styles now render a light, translucent secondary track showing how much of the video is preloaded in real-time.
+* **Lag-Free Slider Scrubbing**: Extracted seekbar controls to an isolated stateful sub-tree, eliminating layout rebuild overhead and delivering silky-smooth, 60fps sliding.
+* **Direct Player Toggles**: Toggle Auto Play, Auto Next, and Auto Skip preferences instantly via checklist checkboxes rendered below the player seekbar.
 ''';
 
   // Telegram API Credentials from secrets.dart

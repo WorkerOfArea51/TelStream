@@ -455,6 +455,19 @@ class StorageService {
     await _save();
   }
 
+  // --- MAL ID Cache ---
+
+  int? getMalIdForSeries(String seriesName) {
+    _data['mal_id_cache'] ??= <String, dynamic>{};
+    return _data['mal_id_cache'][seriesName] as int?;
+  }
+
+  Future<void> setMalIdForSeries(String seriesName, int malId) async {
+    _data['mal_id_cache'] ??= <String, dynamic>{};
+    _data['mal_id_cache'][seriesName] = malId;
+    await _save();
+  }
+
   // --- Subtitle Preferences ---
 
   double getSubtitleFontSize() {
