@@ -95,6 +95,71 @@ class VideoSettingsScreen extends ConsumerWidget {
             onChanged: (val) => notifier.updateSettings(settings.copyWith(pinchToZoom: val)),
           ),
           ListTile(
+            title: Text('Left Vertical Swipe Gesture', style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
+            subtitle: Text(settings.leftSwipeGesture, style: TextStyle(color: isDark ? Colors.white54 : Colors.black54, fontSize: 12)),
+            trailing: DropdownButton<String>(
+              value: settings.leftSwipeGesture,
+              dropdownColor: theme.cardColor,
+              underline: const SizedBox(),
+              style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+              icon: Icon(Icons.arrow_drop_down, color: isDark ? Colors.white70 : Colors.black54),
+              items: const [
+                DropdownMenuItem(value: 'Brightness', child: Text('Brightness')),
+                DropdownMenuItem(value: 'Volume', child: Text('Volume')),
+                DropdownMenuItem(value: 'Speed', child: Text('Playback Speed')),
+                DropdownMenuItem(value: 'None', child: Text('None')),
+              ],
+              onChanged: (String? value) {
+                if (value != null) {
+                  notifier.updateSettings(settings.copyWith(leftSwipeGesture: value));
+                }
+              },
+            ),
+          ),
+          ListTile(
+            title: Text('Right Vertical Swipe Gesture', style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
+            subtitle: Text(settings.rightSwipeGesture, style: TextStyle(color: isDark ? Colors.white54 : Colors.black54, fontSize: 12)),
+            trailing: DropdownButton<String>(
+              value: settings.rightSwipeGesture,
+              dropdownColor: theme.cardColor,
+              underline: const SizedBox(),
+              style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+              icon: Icon(Icons.arrow_drop_down, color: isDark ? Colors.white70 : Colors.black54),
+              items: const [
+                DropdownMenuItem(value: 'Brightness', child: Text('Brightness')),
+                DropdownMenuItem(value: 'Volume', child: Text('Volume')),
+                DropdownMenuItem(value: 'Speed', child: Text('Playback Speed')),
+                DropdownMenuItem(value: 'None', child: Text('None')),
+              ],
+              onChanged: (String? value) {
+                if (value != null) {
+                  notifier.updateSettings(settings.copyWith(rightSwipeGesture: value));
+                }
+              },
+            ),
+          ),
+          ListTile(
+            title: Text('Double Tap Gesture Action', style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
+            subtitle: Text(settings.doubleTapAction, style: TextStyle(color: isDark ? Colors.white54 : Colors.black54, fontSize: 12)),
+            trailing: DropdownButton<String>(
+              value: settings.doubleTapAction,
+              dropdownColor: theme.cardColor,
+              underline: const SizedBox(),
+              style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+              icon: Icon(Icons.arrow_drop_down, color: isDark ? Colors.white70 : Colors.black54),
+              items: const [
+                DropdownMenuItem(value: 'Seek', child: Text('Fast Forward/Rewind')),
+                DropdownMenuItem(value: 'Play/Pause', child: Text('Play/Pause')),
+                DropdownMenuItem(value: 'None', child: Text('None')),
+              ],
+              onChanged: (String? value) {
+                if (value != null) {
+                  notifier.updateSettings(settings.copyWith(doubleTapAction: value));
+                }
+              },
+            ),
+          ),
+          ListTile(
             title: Text('Double tap seek duration', style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
             subtitle: Text('${settings.doubleTapSeekDuration}s', style: TextStyle(color: isDark ? Colors.white54 : Colors.black54)),
             trailing: Icon(Icons.chevron_right, color: isDark ? Colors.white54 : Colors.black54),
@@ -246,32 +311,31 @@ class VideoSettingsScreen extends ConsumerWidget {
           ),
 
           const SizedBox(height: 24),
-          _buildSectionHeader(context, 'Caching limits'),
+          _buildSectionHeader(context, 'Streaming & Buffer Limits'),
           ListTile(
-            title: Text('Dynamic Network Cache Profile', style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
+            title: Text('Adaptive Streaming Profile', style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
             subtitle: Text(
-              ref.watch(storageServiceProvider).getNetworkProfileMode() == "auto"
-                  ? 'Auto (Switch limits based on Wi-Fi vs Mobile)'
-                  : ref.watch(storageServiceProvider).getNetworkProfileMode() == "wifi"
-                      ? 'Wi-Fi Profile (128 MB cache buffer)'
-                      : 'Mobile Profile (16 MB cache buffer)',
+              settings.streamingProfile == 'Aggressive Buffer'
+                  ? 'Aggressive Buffer (100MB buffer limit, 120s prefetch)'
+                  : settings.streamingProfile == 'Mobile Saver'
+                      ? 'Mobile Saver (10MB buffer limit, 30s prefetch)'
+                      : 'Balanced (30MB buffer limit, 60s prefetch)',
               style: TextStyle(color: isDark ? Colors.white54 : Colors.black54, fontSize: 12),
             ),
             trailing: DropdownButton<String>(
-              value: ref.watch(storageServiceProvider).getNetworkProfileMode(),
+              value: settings.streamingProfile,
               dropdownColor: theme.cardColor,
               underline: const SizedBox(),
               style: TextStyle(color: isDark ? Colors.white : Colors.black87),
               icon: Icon(Icons.arrow_drop_down, color: isDark ? Colors.white70 : Colors.black54),
               items: const [
-                DropdownMenuItem(value: 'auto', child: Text('Auto (Wi-Fi vs Mobile)')),
-                DropdownMenuItem(value: 'wifi', child: Text('Force Wi-Fi Profile (128MB)')),
-                DropdownMenuItem(value: 'mobile', child: Text('Force Mobile Profile (16MB)')),
+                DropdownMenuItem(value: 'Aggressive Buffer', child: Text('Aggressive Buffer')),
+                DropdownMenuItem(value: 'Balanced', child: Text('Balanced')),
+                DropdownMenuItem(value: 'Mobile Saver', child: Text('Mobile Saver')),
               ],
-              onChanged: (String? value) async {
+              onChanged: (String? value) {
                 if (value != null) {
-                  await ref.read(storageServiceProvider).setNetworkProfileMode(value);
-                  (context as Element).markNeedsBuild();
+                  notifier.updateSettings(settings.copyWith(streamingProfile: value));
                 }
               },
             ),

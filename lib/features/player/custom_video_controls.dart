@@ -87,6 +87,9 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
   String _seekDirection = '';
   bool _isPhysicalBrightnessSupported = false;
   Timer? _brightnessSaveTimer;
+  bool _audioBoostActive = false;
+  bool _nightModeActive = false;
+  bool _showSpeedIndicator = false;
 
   // Double tap seek variables
   bool _showLeftSeekOverlay = false;
@@ -552,6 +555,16 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
 
   void _handleDoubleTap(TapDownDetails details, double screenWidth, int seekDuration) {
     if (_isLocked) return;
+    final settings = ref.read(videoSettingsProvider);
+    if (settings.doubleTapAction == 'None') return;
+    if (settings.doubleTapAction == 'Play/Pause') {
+      if (widget.player.state.playing) {
+        widget.player.pause();
+      } else {
+        widget.player.play();
+      }
+      return;
+    }
 
     final isLeft = details.globalPosition.dx < screenWidth / 2;
 
@@ -1209,31 +1222,16 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
       });
     } else if (_isVerticalDrag && _scale <= 1.0) {
       final double deltaY = details.focalPointDelta.dy;
-      if (_dragStartFocalPoint!.dx > screenWidth / 2 && volGestures) {
-        final bool volumeBoost = ref.read(storageServiceProvider).getVolumeBoostEnabled();
-        final maxVol = volumeBoost ? 200.0 : 100.0;
-        setState(() {
-          _currentVolume -= deltaY * 0.2;
-          _currentVolume = _currentVolume.clamp(0.0, maxVol);
-          try {
-            FlutterVolumeController.setVolume((_currentVolume / 100.0).clamp(0.0, 1.0));
-          } catch (_) {}
-          widget.player.setVolume(_currentVolume);
-          _showVolumeIndicator = true;
-        });
-      } else if (_dragStartFocalPoint!.dx <= screenWidth / 2 && brightGestures) {
-        setState(() {
-          _currentBrightness -= deltaY / 300;
-          _currentBrightness = _currentBrightness.clamp(0.0, 1.0);
-          try {
-            ScreenBrightness().setApplicationScreenBrightness(_currentBrightness);
-            _isPhysicalBrightnessSupported = true;
-          } catch (_) {
-            _isPhysicalBrightnessSupported = false;
-          }
-          _showBrightnessIndicator = true;
-        });
-        _saveBrightnessDebounced(_currentBrightness);
+      final settings = ref.read(videoSettingsProvider);
+      final isLeft = _dragStartFocalPoint!.dx <= screenWidth / 2;
+      final action = isLeft ? settings.leftSwipeGesture : settings.rightSwipeGesture;
+      
+      if (action == 'Volume' && volGestures) {
+        _performVerticalSwipeAction('Volume', deltaY);
+      } else if (action == 'Brightness' && brightGestures) {
+        _performVerticalSwipeAction('Brightness', deltaY);
+      } else if (action == 'Speed') {
+        _performVerticalSwipeAction('Speed', deltaY);
       }
     } else if (_scale > 1.0) {
       setState(() {
@@ -1254,12 +1252,75 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     setState(() {
       _showVolumeIndicator = false;
       _showBrightnessIndicator = false;
+      _showSpeedIndicator = false;
     });
     _dragStartFocalPoint = null;
     _isScaleGesture = false;
     _isVerticalDrag = false;
     _isHorizontalDrag = false;
     _startHideTimer();
+  }
+
+  void _performVerticalSwipeAction(String actionType, double deltaY) {
+    if (actionType == 'Volume') {
+      final bool volumeBoost = ref.read(storageServiceProvider).getVolumeBoostEnabled();
+      final maxVol = volumeBoost ? 200.0 : 100.0;
+      setState(() {
+        _currentVolume -= deltaY * 0.2;
+        _currentVolume = _currentVolume.clamp(0.0, maxVol);
+        try {
+          FlutterVolumeController.setVolume((_currentVolume / 100.0).clamp(0.0, 1.0));
+        } catch (_) {}
+        widget.player.setVolume(_currentVolume);
+        _showVolumeIndicator = true;
+      });
+    } else if (actionType == 'Brightness') {
+      setState(() {
+        _currentBrightness -= deltaY / 300;
+        _currentBrightness = _currentBrightness.clamp(0.0, 1.0);
+        try {
+          ScreenBrightness().setApplicationScreenBrightness(_currentBrightness);
+          _isPhysicalBrightnessSupported = true;
+        } catch (_) {
+          _isPhysicalBrightnessSupported = false;
+        }
+        _showBrightnessIndicator = true;
+      });
+      _saveBrightnessDebounced(_currentBrightness);
+    } else if (actionType == 'Speed') {
+      setState(() {
+        _currentSpeed -= deltaY * 0.005;
+        _currentSpeed = _currentSpeed.clamp(0.25, 4.0);
+        _currentSpeed = double.parse(_currentSpeed.toStringAsFixed(2));
+        widget.player.setRate(_currentSpeed);
+        _showSpeedIndicator = true;
+      });
+    }
+  }
+
+  void _updateAudioFilters() {
+    try {
+      if (widget.player.platform is NativePlayer) {
+        final nativePlayer = widget.player.platform as NativePlayer;
+        final filters = <String>[];
+        if (_audioBoostActive) {
+          filters.add('volume=volume=6dB:precision=fixed');
+        }
+        if (_nightModeActive) {
+          filters.add('lavfi=[acompressor]');
+        }
+        
+        if (filters.isNotEmpty) {
+          nativePlayer.setProperty('af', filters.join(','));
+          Log.i('Applied audio filters: ${filters.join(',')}');
+        } else {
+          nativePlayer.setProperty('af', '');
+          Log.i('Cleared all audio filters');
+        }
+      }
+    } catch (e) {
+      Log.w('Failed to update audio filters: $e');
+    }
   }
 
   void _initAspectRatio() {
@@ -1716,6 +1777,11 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                                 IconButton(
                                   icon: const Icon(Icons.tune, color: Colors.white),
                                   onPressed: _showSubtitleCustomizerDialog,
+                                )
+                              else
+                                IconButton(
+                                  icon: const Icon(Icons.tune, color: Colors.white),
+                                  onPressed: _showAudioCustomizerDialog,
                                 ),
                               IconButton(
                                 icon: const Icon(Icons.close, color: Colors.white60),
@@ -2163,6 +2229,26 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                 _currentVolume == 0 ? Icons.volume_off : Icons.volume_up,
                 _currentVolume > 100 ? (_currentVolume - 100) / 100 : _currentVolume / 100,
                 isBoosted: _currentVolume > 100,
+              ),
+            ),
+          if (_showSpeedIndicator && !_isLocked && _dragStartFocalPoint != null)
+            Positioned(
+              top: 100,
+              left: _dragStartFocalPoint!.dx <= screenWidth / 2 ? 40 : null,
+              right: _dragStartFocalPoint!.dx > screenWidth / 2 ? 40 : null,
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(12)),
+                child: Column(
+                  children: [
+                    const Icon(Icons.speed, color: Colors.white, size: 28),
+                    const SizedBox(height: 8),
+                    Text(
+                      '${_currentSpeed.toStringAsFixed(2)}x',
+                      style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
               ),
             ),
           if (_showSeekIndicator && !_isLocked)
@@ -2846,6 +2932,81 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                     const SizedBox(height: 20),
                   ],
                 ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _showAudioCustomizerDialog() {
+    final theme = Theme.of(context);
+    final customTheme = theme.extension<AppThemeExtension>();
+    final settingsAccent = customTheme?.settingsAccent ?? theme.primaryColor;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.black.withOpacity(0.95),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Padding(
+              padding: const EdgeInsets.all(20.0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Audio Enhancements',
+                        style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close, color: Colors.white60),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                    ],
+                  ),
+                  const Divider(color: Colors.white24),
+                  const SizedBox(height: 10),
+                  SwitchListTile(
+                    title: const Text('Audio Boost', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                    subtitle: const Text('Amplifies low dialog volume by adding dynamic software gain up to +6dB', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                    value: _audioBoostActive,
+                    activeColor: settingsAccent,
+                    onChanged: (val) {
+                      setModalState(() {
+                        _audioBoostActive = val;
+                      });
+                      setState(() {
+                        _audioBoostActive = val;
+                      });
+                      _updateAudioFilters();
+                    },
+                  ),
+                  SwitchListTile(
+                    title: const Text('Night Mode (DRC)', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                    subtitle: const Text('Dynamic Range Compression levels volume spikes - quiet dialogs get louder, action blasts get quieter', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                    value: _nightModeActive,
+                    activeColor: settingsAccent,
+                    onChanged: (val) {
+                      setModalState(() {
+                        _nightModeActive = val;
+                      });
+                      setState(() {
+                        _nightModeActive = val;
+                      });
+                      _updateAudioFilters();
+                    },
+                  ),
+                  const SizedBox(height: 20),
+                ],
               ),
             );
           },

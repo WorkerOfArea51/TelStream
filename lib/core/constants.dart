@@ -14,22 +14,33 @@ class ChannelCategory {
 }
 
 class Constants {
-  static const String currentVersion = '2.5.0';
+  static const String currentVersion = '2.6.0';
   static const String changelog = '''
-### 🚀 What's New in v2.5.0
+### 🚀 What's New in v2.6.0
 
-This update introduces intelligent auto-skipping, visual seekbar preloading, and lag-free slider dragging for a truly premium, seamless streaming experience.
+This major update introduces the Google Pixel-inspired Material 3 Expressive UI, customizable gestures, advanced offline library features, real-time download speed analytics, and structured history search.
 
-#### 🤖 Intelligent Skip Intro & Outro
-* **Crowdsourced Anime Detection**: Integrated the Jikan MAL Search and AniSkip APIs to automatically retrieve precise opening and ending time intervals for anime.
-* **Contextual Skip Buttons**: A beautiful, floating frosted-glass skip button ("Skip Intro" / "Skip Outro") appears dynamically when the play position enters an active range.
-* **Auto-Skip Mode**: Enable the "Auto Skip" toggle to instantly jump past intros/outros automatically, accompanied by a clean OSD toast notification.
-* **Smart Local Heuristic Fallback**: Falls back to logical defaults (1:30 to 3:00 for intros, last 120s to last 30s for outros) for non-anime web series.
+#### 🎨 Material 3 Expressive UI
+* **Pixel Style Loaders**: Organic skeleton loaders replace loading spinners for screens and lists.
+* **Expansion Transitions**: Hero widgets deliver fluid detail expansions across screens.
+* **M3 Cards**: Rounded container styles (20px-24px corners) applied consistently.
 
-#### 📈 Visual Seekbar Preloading
-* **Download Buffer Visualization**: Both the Standard and Wavy seekbar styles now render a light, translucent secondary track showing how much of the video is preloaded in real-time.
-* **Lag-Free Slider Scrubbing**: Extracted seekbar controls to an isolated stateful sub-tree, eliminating layout rebuild overhead and delivering silky-smooth, 60fps sliding.
-* **Direct Player Toggles**: Toggle Auto Play, Auto Next, and Auto Skip preferences instantly via checklist checkboxes rendered below the player seekbar.
+#### 📈 Adaptive Streaming & Pre-fetching
+* **Adaptive Cache Profiles**: Define Aggressive (100MB buffer), Balanced (30MB), or Mobile Saver (10MB) profiles to optimize bandwidth.
+* **Next-Episode Pre-fetching**: Starts background-downloading the first 10MB of the next episode as you near the current episode's outro range for instant continuation.
+
+#### 📥 Advanced Offline Library & Downloader
+* **True Offline Library**: Access completely downloaded episodes directly via file paths, enabling full playback without any network verification checks.
+* **Active Downloads Manager**: Displays real-time download speeds (MB/s), estimated time of arrival (ETA), and cancellation capabilities.
+
+#### 📺 Gestural Mapping & Audio Night Mode
+* **Custom Gestural Actions**: Bind Left/Right vertical swipe gestures to Brightness, Volume, or Playback Speed.
+* **Audio Night Mode (DRC)**: Dynamic Range Compression levels sudden volume spikes (amplifying dialog, quietening explosions).
+* **Software Audio Boost**: Boost volume up to +6dB software gain inside the media player.
+
+#### 🕒 Structured Watch History
+* **Accordion Grouping**: History screen now groups watches under series folders with season/episode drill-down.
+* **Master Search Filter**: Search series groups or nested episodes instantly by title, season, or episode label.
 ''';
 
   // Telegram API Credentials from secrets.dart

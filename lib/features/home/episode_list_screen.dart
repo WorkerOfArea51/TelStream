@@ -12,6 +12,7 @@ import '../../services/download_service.dart';
 import '../../services/tdlib_service.dart';
 import '../../services/tmdb_service.dart';
 import '../../core/logger.dart';
+import '../../core/widgets/shimmer_card.dart';
 
 class EpisodeListScreen extends ConsumerStatefulWidget {
   final AnimeSeason season;
@@ -529,12 +530,10 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
               ),
             ),
           if (_isLoadingEpisodes)
-            const SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.all(32.0),
-                child: Center(
-                  child: CircularProgressIndicator(),
-                ),
+            SliverList(
+              delegate: SliverChildBuilderDelegate(
+                (context, index) => const ShimmerEpisodeCard(),
+                childCount: 4,
               ),
             )
           else if (_errorMessage != null)

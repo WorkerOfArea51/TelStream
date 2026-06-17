@@ -15,6 +15,7 @@ import '../player/pip_manager.dart';
 import 'settings_provider.dart';
 import 'video_settings_screen.dart';
 import 'advanced_cache_manager_screen.dart';
+import 'downloads_manager_screen.dart';
 import '../../core/widgets/whats_new_dialog.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/logger.dart';
@@ -425,6 +426,21 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 context,
                 MaterialPageRoute(builder: (_) => const AdvancedCacheManagerScreen()),
               ).then((_) => _calculateCacheSize());
+            },
+          ),
+          const SizedBox(height: 8),
+          ListTile(
+            tileColor: theme.cardColor,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            leading: Icon(Icons.downloading, color: settingsAccent),
+            title: const Text('Active Downloads Manager'),
+            subtitle: Text('Monitor real-time download speeds, ETAs, and cancel running tasks.', style: TextStyle(color: isDark ? Colors.white54 : Colors.black54)),
+            trailing: Icon(Icons.chevron_right, color: isDark ? Colors.white54 : Colors.black54),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const DownloadsManagerScreen()),
+              );
             },
           ),
           const SizedBox(height: 8),

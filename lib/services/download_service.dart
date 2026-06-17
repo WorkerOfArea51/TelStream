@@ -14,6 +14,8 @@ class DownloadTask {
   final double progress;
   final String? localPath;
   final bool isCompleted;
+  final double speedBytesPerSecond;
+  final int etaSeconds;
 
   DownloadTask({
     required this.fileId,
@@ -21,12 +23,16 @@ class DownloadTask {
     this.progress = 0.0,
     this.localPath,
     this.isCompleted = false,
+    this.speedBytesPerSecond = 0.0,
+    this.etaSeconds = 0,
   });
 
   DownloadTask copyWith({
     double? progress,
     String? localPath,
     bool? isCompleted,
+    double? speedBytesPerSecond,
+    int? etaSeconds,
   }) {
     return DownloadTask(
       fileId: fileId,
@@ -34,7 +40,29 @@ class DownloadTask {
       progress: progress ?? this.progress,
       localPath: localPath ?? this.localPath,
       isCompleted: isCompleted ?? this.isCompleted,
+      speedBytesPerSecond: speedBytesPerSecond ?? this.speedBytesPerSecond,
+      etaSeconds: etaSeconds ?? this.etaSeconds,
     );
+  }
+
+  String get speedString {
+    if (speedBytesPerSecond <= 0) return '0.0 KB/s';
+    final kb = speedBytesPerSecond / 1024;
+    if (kb < 1024) {
+      return '${kb.toStringAsFixed(1)} KB/s';
+    }
+    final mb = kb / 1024;
+    return '${mb.toStringAsFixed(1)} MB/s';
+  }
+
+  String get etaString {
+    if (etaSeconds <= 0 || progress >= 1.0) return 'Calculating...';
+    if (etaSeconds < 60) {
+      return '${etaSeconds}s left';
+    }
+    final minutes = etaSeconds ~/ 60;
+    final seconds = etaSeconds % 60;
+    return '${minutes}m ${seconds}s left';
   }
 }
 
@@ -44,6 +72,8 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
   static const _channel = MethodChannel('com.darkmatter.telstream/downloads');
   final Map<int, int> _lastNotificationTimes = {};
   final List<int> _pausedForStreamingFileIds = [];
+  final Map<int, int> _lastDownloadedSizes = {};
+  final Map<int, int> _lastUpdateTimes = {};
 
   @override
   Map<int, DownloadTask> build() {
@@ -155,12 +185,40 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
 
           if (isCompleted && tempPath.isNotEmpty) {
             _saveFilePermanently(fileId, tempPath, task.title);
+            _lastDownloadedSizes.remove(fileId);
+            _lastUpdateTimes.remove(fileId);
           } else {
+            // Speed and ETA calculation
+            final now = DateTime.now().millisecondsSinceEpoch;
+            final lastSize = _lastDownloadedSizes[fileId];
+            final lastTime = _lastUpdateTimes[fileId];
+            
+            double speed = 0.0;
+            int eta = 0;
+            
+            if (lastSize != null && lastTime != null && now > lastTime) {
+              final sizeDelta = downloadedSize - lastSize;
+              final timeDeltaMs = now - lastTime;
+              if (timeDeltaMs > 0 && sizeDelta >= 0) {
+                speed = sizeDelta / (timeDeltaMs / 1000.0); // bytes/sec
+                final remainingBytes = expectedSize - downloadedSize;
+                eta = speed > 0 ? (remainingBytes / speed).round() : 0;
+              }
+            }
+            
+            // Only update speed tracking every 500ms to avoid noisy fluctuations
+            if (lastTime == null || (now - lastTime) >= 500) {
+              _lastDownloadedSizes[fileId] = downloadedSize;
+              _lastUpdateTimes[fileId] = now;
+            }
+
             state = {
               ...state,
               fileId: task.copyWith(
                 progress: progress,
                 isCompleted: false,
+                speedBytesPerSecond: speed > 0 ? speed : task.speedBytesPerSecond,
+                etaSeconds: eta > 0 ? eta : task.etaSeconds,
               ),
             };
             _updateNativeNotification(fileId, task.title, progress);

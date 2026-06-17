@@ -9,7 +9,7 @@ import '../../core/widgets/whats_new_dialog.dart';
 import '../settings/settings_screen.dart';
 import 'history_screen.dart';
 import 'network_stream_screen.dart';
-import 'downloads_screen.dart';
+import 'offline_library_screen.dart';
 import 'global_search_screen.dart';
 
 class MoreScreen extends ConsumerStatefulWidget {
@@ -122,7 +122,7 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
               onTap: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => const DownloadsScreen()),
+                  MaterialPageRoute(builder: (context) => const OfflineLibraryScreen()),
                 );
               },
             ),

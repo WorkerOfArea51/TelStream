@@ -8,208 +8,24 @@ import '../../core/widgets/aligned_name_text.dart';
 import '../player/pip_manager.dart';
 import 'home_controller.dart';
 import '../../models/anime_models.dart';
+import '../../core/theme/app_theme.dart';
 
-class HistoryScreen extends ConsumerWidget {
+class HistoryScreen extends ConsumerStatefulWidget {
   const HistoryScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final historyLogs = ref.watch(historyLogProvider);
-    
-    final animeList = ref.watch(animeControllerProvider).value ?? [];
-    final moviesList = ref.watch(moviesControllerProvider).value ?? [];
-    final webSeriesList = ref.watch(webSeriesControllerProvider).value ?? [];
-    
-    final allSeries = [...animeList, ...moviesList, ...webSeriesList];
+  ConsumerState<HistoryScreen> createState() => _HistoryScreenState();
+}
 
-    final theme = Theme.of(context);
-    return Scaffold(
-      backgroundColor: Colors.black,
-      appBar: AppBar(
-        backgroundColor: Colors.black,
-        elevation: 0,
-        title: const Text('History', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 22)),
-        actions: [
-          if (historyLogs.isNotEmpty)
-            IconButton(
-              icon: const Icon(Icons.delete_sweep, color: Colors.orange),
-              onPressed: () => _confirmClearHistory(context, ref),
-            ),
-        ],
-      ),
-      body: historyLogs.isEmpty
-          ? _buildEmptyState(context)
-          : ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              itemCount: historyLogs.length,
-              itemBuilder: (context, index) {
-                final log = historyLogs[index];
-                
-                // Find matching series and episode details
-                AnimeSeries? matchedSeries;
-                for (var series in allSeries) {
-                  if (series.coreName == log['seriesName']) {
-                    matchedSeries = series;
-                    break;
-                  }
-                }
+class _HistoryScreenState extends ConsumerState<HistoryScreen> {
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+  final Set<String> _expandedSeries = {};
 
-                td.Message? episodeMsg;
-                AnimeSeason? matchedSeason;
-                int? episodeListIndex;
-                td.File? posterFile;
-                td.Minithumbnail? minithumbnail;
-                int? fileId;
-                String epFileName = '';
-
-                if (matchedSeries != null) {
-                  final msgId = log['messageId'] as int;
-                  // Try to find the episode by messageId across all seasons first
-                  for (var season in matchedSeries.seasons) {
-                    final idx = season.episodes.indexWhere((ep) => ep.id == msgId);
-                    if (idx != -1) {
-                      episodeMsg = season.episodes[idx];
-                      matchedSeason = season;
-                      episodeListIndex = idx;
-                      break;
-                    }
-                  }
-
-                  // If not found by messageId, fallback to index-based lookup in the first season
-                  if (episodeMsg == null && matchedSeries.seasons.isNotEmpty) {
-                    final firstSeason = matchedSeries.seasons.first;
-                    final epIdx = log['episodeIndex'] as int;
-                    if (epIdx >= 0 && epIdx < firstSeason.episodes.length) {
-                      episodeMsg = firstSeason.episodes[epIdx];
-                      matchedSeason = firstSeason;
-                      episodeListIndex = epIdx;
-                    }
-                  }
-
-                  // Now resolve poster from the matched season, or fallback to first season's poster
-                  final seasonForPoster = matchedSeason ?? (matchedSeries.seasons.isNotEmpty ? matchedSeries.seasons.first : null);
-                  if (seasonForPoster != null) {
-                    final latestPoster = seasonForPoster.posterMessage;
-                    if (latestPoster.content is td.MessagePhoto) {
-                      final photo = latestPoster.content as td.MessagePhoto;
-                      if (photo.photo.sizes.isNotEmpty) {
-                        posterFile = photo.photo.sizes.last.photo;
-                      }
-                      minithumbnail = photo.photo.minithumbnail;
-                    }
-                  }
-
-                  // Resolve fresh file ID from matching message content
-                  if (episodeMsg != null) {
-                    if (episodeMsg.content is td.MessageVideo) {
-                      final v = episodeMsg.content as td.MessageVideo;
-                      fileId = v.video.video.id;
-                      epFileName = v.video.fileName;
-                    } else if (episodeMsg.content is td.MessageDocument) {
-                      final d = episodeMsg.content as td.MessageDocument;
-                      fileId = d.document.document.id;
-                      epFileName = d.document.fileName;
-                    }
-                  }
-
-                  // Fallback to stored videoFileId if we couldn't resolve it dynamically
-                  fileId ??= log['videoFileId'] as int?;
-                }
-
-                final seriesName = matchedSeries != null ? matchedSeries.coreName : log['seriesName'] as String;
-                final episodeTitle = log['episodeTitle'] as String;
-                final timestamp = log['timestamp'] as int;
-                final position = log['position'] as int;
-
-                final dt = DateTime.fromMillisecondsSinceEpoch(timestamp);
-                final timeAgo = _formatDateTime(dt);
-
-                // Watch progress display (position in seconds -> readable format)
-                final progressStr = position > 0 
-                    ? 'Watched up to ${_formatDuration(position)}' 
-                    : 'Started watching';
-
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 8),
-                  decoration: BoxDecoration(
-                    color: theme.cardColor,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: theme.colorScheme.onSurface.withOpacity(0.08), width: 1),
-                  ),
-                  child: ListTile(
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    leading: ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: SizedBox(
-                        width: 48,
-                        height: 64,
-                        child: posterFile != null
-                            ? TdThumbnail(file: posterFile, minithumbnail: minithumbnail)
-                            : Container(
-                                color: Colors.orange.withOpacity(0.1),
-                                child: const Icon(Icons.movie, color: Colors.orange, size: 28),
-                              ),
-                      ),
-                    ),
-                    title: AlignedNameText(
-                      text: seriesName,
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white),
-                    ),
-                    subtitle: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const SizedBox(height: 4),
-                        Text(
-                          episodeTitle,
-                          style: const TextStyle(color: Colors.orange, fontSize: 12, fontWeight: FontWeight.bold),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          '$progressStr • $timeAgo',
-                          style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 11),
-                        ),
-                      ],
-                    ),
-                    trailing: fileId != null && matchedSeries != null
-                        ? IconButton(
-                            icon: const Icon(Icons.play_circle_fill, color: Colors.orange, size: 32),
-                            onPressed: () {
-                              ref.read(pipControllerProvider.notifier).playVideo(
-                                context,
-                                messageId: episodeMsg?.id ?? log['messageId'] as int,
-                                videoFileId: fileId!,
-                                videoTitle: '$seriesName - ${epFileName.isNotEmpty ? epFileName : episodeTitle}',
-                                episodeList: matchedSeason?.episodes ?? matchedSeries!.seasons.first.episodes,
-                                currentEpisodeIndex: episodeListIndex ?? log['episodeIndex'] as int,
-                                seriesName: seriesName,
-                              );
-                            },
-                          )
-                        : const Icon(Icons.play_circle_outline, color: Colors.white24, size: 28),
-                  ),
-                );
-              },
-            ),
-    );
-  }
-
-  Widget _buildEmptyState(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(
-            '(｡•́︿•̀｡)',
-            style: const TextStyle(fontSize: 48, color: Colors.orangeAccent, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 16),
-          const Text(
-            'No watch history found',
-            style: TextStyle(color: Colors.white70, fontSize: 16),
-          ),
-        ],
-      ),
-    );
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   String _formatDateTime(DateTime dt) {
@@ -234,25 +50,26 @@ class HistoryScreen extends ConsumerWidget {
     return '$minutes:$secs';
   }
 
-  void _confirmClearHistory(BuildContext context, WidgetRef ref) {
+  void _confirmClearHistory(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: theme.cardColor,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(24),
           side: BorderSide(color: theme.colorScheme.onSurface.withOpacity(0.08), width: 1),
         ),
-        title: const Text('Clear History', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-        content: const Text(
+        title: Text('Clear History', style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontWeight: FontWeight.bold)),
+        content: Text(
           'Are you sure you want to clear your watch history? This cannot be undone.',
-          style: TextStyle(color: Colors.white70),
+          style: TextStyle(color: isDark ? Colors.white70 : Colors.black87),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel', style: TextStyle(color: Colors.white54)),
+            child: Text('Cancel', style: TextStyle(color: isDark ? Colors.white54 : Colors.black54)),
           ),
           TextButton(
             onPressed: () async {
@@ -266,7 +83,344 @@ class HistoryScreen extends ConsumerWidget {
                 );
               }
             },
-            child: const Text('Clear', style: TextStyle(color: Colors.orange)),
+            child: const Text('Clear', style: TextStyle(color: Colors.orangeAccent)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final historyLogs = ref.watch(historyLogProvider);
+    
+    final animeList = ref.watch(animeControllerProvider).value ?? [];
+    final moviesList = ref.watch(moviesControllerProvider).value ?? [];
+    final webSeriesList = ref.watch(webSeriesControllerProvider).value ?? [];
+    
+    final allSeries = [...animeList, ...moviesList, ...webSeriesList];
+
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final customTheme = theme.extension<AppThemeExtension>();
+    final settingsAccent = customTheme?.settingsAccent ?? theme.primaryColor;
+
+    // Filter logs based on master search query
+    final filteredLogs = historyLogs.where((log) {
+      if (_searchQuery.isEmpty) return true;
+      final query = _searchQuery.toLowerCase();
+      final seriesName = (log['seriesName'] as String).toLowerCase();
+      final episodeTitle = (log['episodeTitle'] as String).toLowerCase();
+      return seriesName.contains(query) || episodeTitle.contains(query);
+    }).toList();
+
+    // Group logs by seriesName
+    final Map<String, List<Map<String, dynamic>>> groupedLogs = {};
+    for (final log in filteredLogs) {
+      final seriesName = log['seriesName'] as String;
+      groupedLogs.putIfAbsent(seriesName, () => []).add(log);
+    }
+
+    // Sort series names by newest watch timestamp first
+    final sortedSeriesNames = groupedLogs.keys.toList()
+      ..sort((a, b) {
+        final timeA = groupedLogs[a]!.first['timestamp'] as int;
+        final timeB = groupedLogs[b]!.first['timestamp'] as int;
+        return timeB.compareTo(timeA);
+      });
+
+    return Scaffold(
+      backgroundColor: theme.scaffoldBackgroundColor,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        title: Text(
+          'Watch History',
+          style: TextStyle(
+            color: isDark ? Colors.white : Colors.black87,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        iconTheme: IconThemeData(color: isDark ? Colors.white : Colors.black87),
+        actions: [
+          if (historyLogs.isNotEmpty)
+            IconButton(
+              icon: const Icon(Icons.delete_sweep_rounded, color: Colors.orangeAccent),
+              onPressed: () => _confirmClearHistory(context),
+            ),
+        ],
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(64),
+          child: Padding(
+            padding: const EdgeInsets.only(left: 16.0, right: 16.0, bottom: 12.0),
+            child: Container(
+              decoration: BoxDecoration(
+                color: theme.cardColor,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: theme.colorScheme.onSurface.withOpacity(0.08), width: 1),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: TextField(
+                controller: _searchController,
+                style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+                decoration: InputDecoration(
+                  hintText: 'Search history...',
+                  hintStyle: TextStyle(color: isDark ? Colors.white30 : Colors.black38),
+                  border: InputBorder.none,
+                  icon: Icon(Icons.search, color: settingsAccent),
+                ),
+                onChanged: (val) {
+                  setState(() {
+                    _searchQuery = val;
+                  });
+                },
+              ),
+            ),
+          ),
+        ),
+      ),
+      body: historyLogs.isEmpty
+          ? _buildEmptyState()
+          : filteredLogs.isEmpty
+              ? Center(
+                  child: Text(
+                    'No matching history entries',
+                    style: TextStyle(color: isDark ? Colors.white30 : Colors.black38),
+                  ),
+                )
+              : ListView.builder(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: sortedSeriesNames.length,
+                  itemBuilder: (context, index) {
+                    final seriesName = sortedSeriesNames[index];
+                    final seriesLogs = groupedLogs[seriesName]!;
+                    final isExpanded = _expandedSeries.contains(seriesName);
+
+                    // Resolve series details
+                    AnimeSeries? matchedSeries;
+                    for (var series in allSeries) {
+                      if (series.coreName == seriesName) {
+                        matchedSeries = series;
+                        break;
+                      }
+                    }
+
+                    // Resolve poster from first season
+                    td.File? posterFile;
+                    td.Minithumbnail? minithumbnail;
+                    if (matchedSeries != null && matchedSeries.seasons.isNotEmpty) {
+                      final latestPoster = matchedSeries.seasons.first.posterMessage;
+                      if (latestPoster.content is td.MessagePhoto) {
+                        final photo = latestPoster.content as td.MessagePhoto;
+                        if (photo.photo.sizes.isNotEmpty) {
+                          posterFile = photo.photo.sizes.last.photo;
+                        }
+                        minithumbnail = photo.photo.minithumbnail;
+                      }
+                    }
+
+                    final totalEpCount = seriesLogs.length;
+                    final newestLog = seriesLogs.first;
+                    final newestTime = DateTime.fromMillisecondsSinceEpoch(newestLog['timestamp'] as int);
+                    final newestTimeStr = _formatDateTime(newestTime);
+
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      decoration: BoxDecoration(
+                        color: theme.cardColor,
+                        borderRadius: BorderRadius.circular(24), // M3 design
+                        border: Border.all(color: theme.colorScheme.onSurface.withOpacity(0.08), width: 1),
+                      ),
+                      clipBehavior: Clip.antiAlias,
+                      child: Column(
+                        children: [
+                          ListTile(
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            leading: ClipRRect(
+                              borderRadius: BorderRadius.circular(12),
+                              child: SizedBox(
+                                width: 44,
+                                height: 58,
+                                child: posterFile != null
+                                    ? TdThumbnail(file: posterFile, minithumbnail: minithumbnail)
+                                    : Container(
+                                        color: settingsAccent.withOpacity(0.1),
+                                        child: Icon(Icons.movie_rounded, color: settingsAccent, size: 24),
+                                      ),
+                              ),
+                            ),
+                            title: AlignedNameText(
+                              text: seriesName,
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 15,
+                                color: isDark ? Colors.white : Colors.black87,
+                              ),
+                            ),
+                            subtitle: Padding(
+                              padding: const EdgeInsets.only(top: 4.0),
+                              child: Text(
+                                '$totalEpCount watched • Last: $newestTimeStr',
+                                style: TextStyle(
+                                  color: isDark ? Colors.white54 : Colors.black54,
+                                  fontSize: 11,
+                                ),
+                              ),
+                            ),
+                            trailing: Icon(
+                              isExpanded ? Icons.expand_less_rounded : Icons.expand_more_rounded,
+                              color: isDark ? Colors.white54 : Colors.black54,
+                            ),
+                            onTap: () {
+                              setState(() {
+                                if (isExpanded) {
+                                  _expandedSeries.remove(seriesName);
+                                } else {
+                                  _expandedSeries.add(seriesName);
+                                }
+                              });
+                            },
+                          ),
+                          if (isExpanded) ...[
+                            const Divider(color: Colors.white10, height: 1),
+                            ListView.builder(
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              itemCount: seriesLogs.length,
+                              itemBuilder: (context, epIndex) {
+                                final log = seriesLogs[epIndex];
+                                final msgId = log['messageId'] as int;
+                                final episodeTitle = log['episodeTitle'] as String;
+                                final timestamp = log['timestamp'] as int;
+                                final position = log['position'] as int;
+
+                                final epTime = DateTime.fromMillisecondsSinceEpoch(timestamp);
+                                final epTimeStr = _formatDateTime(epTime);
+
+                                // Resolve episode Details
+                                td.Message? episodeMsg;
+                                AnimeSeason? matchedSeason;
+                                int? episodeListIndex;
+                                int? fileId;
+                                String epFileName = '';
+
+                                if (matchedSeries != null) {
+                                  // Find in seasons
+                                  for (var season in matchedSeries.seasons) {
+                                    final idx = season.episodes.indexWhere((ep) => ep.id == msgId);
+                                    if (idx != -1) {
+                                      episodeMsg = season.episodes[idx];
+                                      matchedSeason = season;
+                                      episodeListIndex = idx;
+                                      break;
+                                    }
+                                  }
+
+                                  // Fallback to first season index
+                                  if (episodeMsg == null && matchedSeries.seasons.isNotEmpty) {
+                                    final firstSeason = matchedSeries.seasons.first;
+                                    final epIdx = log['episodeIndex'] as int;
+                                    if (epIdx >= 0 && epIdx < firstSeason.episodes.length) {
+                                      episodeMsg = firstSeason.episodes[epIdx];
+                                      matchedSeason = firstSeason;
+                                      episodeListIndex = epIdx;
+                                    }
+                                  }
+
+                                  if (episodeMsg != null) {
+                                    if (episodeMsg.content is td.MessageVideo) {
+                                      final v = episodeMsg.content as td.MessageVideo;
+                                      fileId = v.video.video.id;
+                                      epFileName = v.video.fileName;
+                                    } else if (episodeMsg.content is td.MessageDocument) {
+                                      final d = episodeMsg.content as td.MessageDocument;
+                                      fileId = d.document.document.id;
+                                      epFileName = d.document.fileName;
+                                    }
+                                  }
+                                }
+
+                                fileId ??= log['videoFileId'] as int?;
+
+                                final progressStr = position > 0 
+                                    ? 'Watched to ${_formatDuration(position)}' 
+                                    : 'Started';
+
+                                return Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                  color: epIndex % 2 == 0 
+                                      ? (isDark ? Colors.white.withOpacity(0.01) : Colors.black.withOpacity(0.01))
+                                      : Colors.transparent,
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              episodeTitle,
+                                              style: TextStyle(
+                                                color: settingsAccent,
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 2),
+                                            Text(
+                                              '$progressStr • $epTimeStr',
+                                              style: TextStyle(
+                                                color: isDark ? Colors.white38 : Colors.black38,
+                                                fontSize: 11,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      fileId != null && matchedSeries != null
+                                          ? IconButton(
+                                              icon: Icon(Icons.play_circle_fill_rounded, color: settingsAccent, size: 28),
+                                              onPressed: () {
+                                                ref.read(pipControllerProvider.notifier).playVideo(
+                                                  context,
+                                                  messageId: episodeMsg?.id ?? log['messageId'] as int,
+                                                  videoFileId: fileId!,
+                                                  videoTitle: '$seriesName - ${epFileName.isNotEmpty ? epFileName : episodeTitle}',
+                                                  episodeList: matchedSeason?.episodes ?? matchedSeries!.seasons.first.episodes,
+                                                  currentEpisodeIndex: episodeListIndex ?? log['episodeIndex'] as int,
+                                                  seriesName: seriesName,
+                                                );
+                                              },
+                                            )
+                                          : const Icon(Icons.play_circle_outline, color: Colors.white24, size: 24),
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
+                          ],
+                        ],
+                      ),
+                    );
+                  },
+                ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            '(｡•́︿•̀｡)',
+            style: const TextStyle(fontSize: 48, color: Colors.orangeAccent, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'No watch history found',
+            style: TextStyle(color: isDark ? Colors.white70 : Colors.black54, fontSize: 16),
           ),
         ],
       ),

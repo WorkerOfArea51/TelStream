@@ -7,6 +7,7 @@ import '../../models/anime_models.dart';
 import '../../services/storage_service.dart';
 import '../../core/widgets/td_thumbnail.dart';
 import '../../core/widgets/aligned_name_text.dart';
+import '../../core/widgets/shimmer_card.dart';
 import 'home_controller.dart';
 import 'episode_list_screen.dart';
 import '../player/pip_manager.dart';
@@ -221,7 +222,17 @@ class _LibraryViewState extends ConsumerState<LibraryView> with SingleTickerProv
             ),
           );
         },
-        loading: () => Center(child: CircularProgressIndicator(color: theme.primaryColor)),
+        loading: () => GridView.builder(
+          padding: const EdgeInsets.only(left: 12, right: 12, top: 12, bottom: 96),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            childAspectRatio: 0.65,
+            crossAxisSpacing: 12,
+            mainAxisSpacing: 12,
+          ),
+          itemCount: 6,
+          itemBuilder: (context, index) => const ShimmerCard(),
+        ),
         error: (err, stack) => Center(child: Text('Error: $err', style: TextStyle(color: theme.colorScheme.error))),
       ),
     );
@@ -240,7 +251,7 @@ class _LibraryViewState extends ConsumerState<LibraryView> with SingleTickerProv
       final dur = storage.getVideoDuration(msgId);
       if (dur > 0) {
         final progress = pos / dur;
-        return progress < 0.9 && progress > 0.01;
+        return progress < 0.95 && progress > 0.01;
       }
       return pos > 0;
     }).toList();
@@ -741,7 +752,7 @@ class ContinueWatchingShelf extends StatelessWidget {
                 margin: const EdgeInsets.symmetric(horizontal: 6.0),
                 decoration: BoxDecoration(
                   color: theme.cardColor,
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(20), // Premium M3 Expressive card style
                   border: Border.all(
                     color: theme.colorScheme.onSurface.withOpacity(0.08),
                     width: 1,

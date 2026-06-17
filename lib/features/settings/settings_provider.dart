@@ -16,6 +16,10 @@ class VideoSettings {
   final bool pinchToZoom;
   final int cacheLimitMb;
   final int cacheTtlDays;
+  final String streamingProfile;
+  final String leftSwipeGesture;
+  final String rightSwipeGesture;
+  final String doubleTapAction;
 
   const VideoSettings({
     this.doubleTapSeekDuration = 10,
@@ -32,6 +36,10 @@ class VideoSettings {
     this.pinchToZoom = true,
     this.cacheLimitMb = 2048, // 2GB default
     this.cacheTtlDays = 7,     // 7 days default
+    this.streamingProfile = 'Balanced',
+    this.leftSwipeGesture = 'Brightness',
+    this.rightSwipeGesture = 'Volume',
+    this.doubleTapAction = 'Seek',
   });
 
   VideoSettings copyWith({
@@ -49,6 +57,10 @@ class VideoSettings {
     bool? pinchToZoom,
     int? cacheLimitMb,
     int? cacheTtlDays,
+    String? streamingProfile,
+    String? leftSwipeGesture,
+    String? rightSwipeGesture,
+    String? doubleTapAction,
   }) {
     return VideoSettings(
       doubleTapSeekDuration: doubleTapSeekDuration ?? this.doubleTapSeekDuration,
@@ -65,6 +77,10 @@ class VideoSettings {
       pinchToZoom: pinchToZoom ?? this.pinchToZoom,
       cacheLimitMb: cacheLimitMb ?? this.cacheLimitMb,
       cacheTtlDays: cacheTtlDays ?? this.cacheTtlDays,
+      streamingProfile: streamingProfile ?? this.streamingProfile,
+      leftSwipeGesture: leftSwipeGesture ?? this.leftSwipeGesture,
+      rightSwipeGesture: rightSwipeGesture ?? this.rightSwipeGesture,
+      doubleTapAction: doubleTapAction ?? this.doubleTapAction,
     );
   }
 
@@ -84,6 +100,10 @@ class VideoSettings {
       'pinchToZoom': pinchToZoom,
       'cacheLimitMb': cacheLimitMb,
       'cacheTtlDays': cacheTtlDays,
+      'streamingProfile': streamingProfile,
+      'leftSwipeGesture': leftSwipeGesture,
+      'rightSwipeGesture': rightSwipeGesture,
+      'doubleTapAction': doubleTapAction,
     };
   }
 
@@ -103,6 +123,10 @@ class VideoSettings {
       pinchToZoom: json['pinchToZoom'] ?? true,
       cacheLimitMb: json['cacheLimitMb'] ?? 2048,
       cacheTtlDays: json['cacheTtlDays'] ?? 7,
+      streamingProfile: json['streamingProfile'] ?? 'Balanced',
+      leftSwipeGesture: json['leftSwipeGesture'] ?? 'Brightness',
+      rightSwipeGesture: json['rightSwipeGesture'] ?? 'Volume',
+      doubleTapAction: json['doubleTapAction'] ?? 'Seek',
     );
   }
 }

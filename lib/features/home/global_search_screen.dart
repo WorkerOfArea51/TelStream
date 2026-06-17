@@ -4,6 +4,7 @@ import 'package:tdlib/td_api.dart' as td;
 import '../../models/anime_models.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/td_thumbnail.dart';
+import '../../core/constants.dart';
 import 'home_controller.dart';
 import 'episode_list_screen.dart';
 
@@ -245,8 +246,8 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
               onTap: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(
-                    builder: (context) => EpisodeListScreen(
+                  PremiumPageRoute(
+                    child: EpisodeListScreen(
                       series: series,
                       season: season,
                       heroTag: heroTag,

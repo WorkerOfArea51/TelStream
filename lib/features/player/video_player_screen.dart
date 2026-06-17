@@ -6,7 +6,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:tdlib/td_api.dart' as td;
-import 'package:connectivity_plus/connectivity_plus.dart';
 import '../../services/tdlib_service.dart';
 import '../../services/storage_service.dart';
 import '../../services/download_service.dart';
@@ -58,7 +57,6 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
 
   StreamSubscription? _completedSubscription;
   StreamSubscription? _tracksSubscription;
-  StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
   Timer? _saveTimer;
   bool _nextEpisodePreloaded = false;
 
@@ -146,11 +144,8 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
           nativePlayer.setProperty('volume-max', '200');
         }
 
-        // Setup connectivity subscription for network caching profiles
-        _initNetworkProfiling();
-        _connectivitySubscription = Connectivity().onConnectivityChanged.listen((results) {
-          _applyNetworkCacheProfile(results);
-        });
+        // Apply adaptive streaming profile
+        _applyStreamingProfile();
       }
     } catch (e, stack) {
       Log.e('Failed to configure native player features', e, stack);
@@ -304,10 +299,13 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         }
       }
 
-      // Check and trigger next episode preloading if progress >= 80%
+      // Check and trigger next episode preloading if progress >= 80% or within 2 minutes of the ending
       if (!_nextEpisodePreloaded && player.state.duration.inSeconds > 0) {
-        final progress = player.state.position.inSeconds / player.state.duration.inSeconds;
-        if (progress >= 0.8) {
+        final position = player.state.position.inSeconds;
+        final duration = player.state.duration.inSeconds;
+        final progress = position / duration;
+        final remaining = duration - position;
+        if (progress >= 0.8 || remaining <= 120) {
           _nextEpisodePreloaded = true;
           _preloadNextEpisode();
         }
@@ -608,7 +606,6 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
     _updatesSubscription?.cancel();
     _completedSubscription?.cancel();
     _tracksSubscription?.cancel();
-    _connectivitySubscription?.cancel();
     _saveTimer?.cancel();
     
     try {
@@ -680,12 +677,12 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
     }
 
     if (nextFileId != null) {
-      Log.i('Preloading next episode (ID: $nextFileId) - downloading first 15MB');
+      Log.i('Preloading next episode (ID: $nextFileId) - downloading first 10MB');
       _tdlibService.send(td.DownloadFile(
         fileId: nextFileId,
         priority: 1, // Low priority for background preloading
         offset: 0,
-        limit: 15728640, // 15 MB limit
+        limit: 10485760, // 10 MB limit (10 * 1024 * 1024)
         synchronous: false,
       ));
     }
@@ -746,49 +743,35 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
     );
   }
 
-  Future<void> _initNetworkProfiling() async {
-    try {
-      final connectivityResults = await Connectivity().checkConnectivity();
-      _applyNetworkCacheProfile(connectivityResults);
-    } catch (e) {
-      Log.w('Failed to check initial connectivity: $e');
-    }
-  }
-
-  void _applyNetworkCacheProfile(List<ConnectivityResult> results) {
+  void _applyStreamingProfile() {
     try {
       if (player.platform is NativePlayer) {
         final nativePlayer = player.platform as NativePlayer;
-        final profileMode = _storageService.getNetworkProfileMode();
+        final profile = _settings.streamingProfile;
         
-        bool isWifi = false;
-        if (profileMode == 'wifi') {
-          isWifi = true;
-        } else if (profileMode == 'mobile') {
-          isWifi = false;
-        } else {
-          // auto mode
-          isWifi = results.contains(ConnectivityResult.wifi) ||
-              results.contains(ConnectivityResult.ethernet) ||
-              results.contains(ConnectivityResult.vpn);
-        }
-        
-        if (isWifi) {
-          nativePlayer.setProperty('demuxer-max-bytes', '134217728'); // 128 MB
-          nativePlayer.setProperty('demuxer-max-back-bytes', '67108864'); // 64 MB back buffer
-          nativePlayer.setProperty('demuxer-readahead-secs', '120'); // 120s
+        if (profile == 'Aggressive Buffer') {
+          nativePlayer.setProperty('demuxer-max-bytes', '104857600'); // 100 MB
+          nativePlayer.setProperty('demuxer-max-back-bytes', '52428800'); // 50 MB
+          nativePlayer.setProperty('demuxer-readahead-secs', '120');
           nativePlayer.setProperty('cache-pause-wait', '2');
-          Log.i('Applied Wi-Fi Profile: Caching boundary set to 128MB, back buffer 64MB');
-        } else {
-          nativePlayer.setProperty('demuxer-max-bytes', '16777216'); // 16 MB
-          nativePlayer.setProperty('demuxer-max-back-bytes', '16777216'); // 16 MB back buffer
-          nativePlayer.setProperty('demuxer-readahead-secs', '20'); // 20s
+          Log.i('Applied Aggressive Buffer Profile: 100MB buffer, 50MB back buffer, 120s prefetch');
+        } else if (profile == 'Mobile Saver') {
+          nativePlayer.setProperty('demuxer-max-bytes', '10485760'); // 10 MB
+          nativePlayer.setProperty('demuxer-max-back-bytes', '5242880'); // 5 MB
+          nativePlayer.setProperty('demuxer-readahead-secs', '30');
           nativePlayer.setProperty('cache-pause-wait', '4');
-          Log.i('Applied Mobile Data Profile: Caching boundary set to 16MB, back buffer 16MB');
+          Log.i('Applied Mobile Saver Profile: 10MB buffer, 5MB back buffer, 30s prefetch');
+        } else {
+          // Balanced profile
+          nativePlayer.setProperty('demuxer-max-bytes', '31457280'); // 30 MB
+          nativePlayer.setProperty('demuxer-max-back-bytes', '15728640'); // 15 MB
+          nativePlayer.setProperty('demuxer-readahead-secs', '60');
+          nativePlayer.setProperty('cache-pause-wait', '3');
+          Log.i('Applied Balanced Profile: 30MB buffer, 15MB back buffer, 60s prefetch');
         }
       }
     } catch (e) {
-      Log.w('Failed to apply network cache profile: $e');
+      Log.w('Failed to apply streaming profile: $e');
     }
   }
 }
