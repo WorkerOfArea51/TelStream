@@ -1757,6 +1757,48 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     final customTheme = theme.extension<AppThemeExtension>();
     final settingsAccent = customTheme?.settingsAccent ?? theme.primaryColor;
 
+    final storage = ref.watch(storageServiceProvider);
+    final isFlutterSub = storage.getSubtitleRenderer() == 'flutter';
+    
+    SubtitleViewConfiguration subtitleConfig;
+    if (isFlutterSub) {
+      final subSize = storage.getSubtitleFontSize();
+      final subColorHex = storage.getSubtitleColor();
+      final subFont = storage.getSubtitleFont();
+      
+      Color parsedColor;
+      try {
+        final hex = subColorHex.replaceAll('#', '');
+        if (hex.length == 6) {
+          parsedColor = Color(int.parse('0xFF$hex'));
+        } else if (hex.length == 8) {
+          parsedColor = Color(int.parse('0x$hex'));
+        } else {
+          parsedColor = Colors.white;
+        }
+      } catch (_) {
+        parsedColor = Colors.white;
+      }
+
+      subtitleConfig = SubtitleViewConfiguration(
+        style: TextStyle(
+          fontSize: subSize * 0.5,
+          color: parsedColor,
+          fontFamily: subFont,
+          shadows: const [
+            Shadow(offset: Offset(-1.5, -1.5), color: Colors.black),
+            Shadow(offset: Offset(1.5, -1.5), color: Colors.black),
+            Shadow(offset: Offset(1.5, 1.5), color: Colors.black),
+            Shadow(offset: Offset(-1.5, 1.5), color: Colors.black),
+            Shadow(offset: Offset(0, 2.0), color: Colors.black54, blurRadius: 4.0),
+          ],
+        ),
+        padding: const EdgeInsets.only(bottom: 24),
+      );
+    } else {
+      subtitleConfig = const SubtitleViewConfiguration(visible: false);
+    }
+
     return GestureDetector(
       onTap: _toggleControls,
       onScaleStart: _handleScaleStart,
@@ -1807,6 +1849,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                           controller: widget.controller,
                           controls: NoVideoControls,
                           fit: BoxFit.fill,
+                          subtitleViewConfiguration: subtitleConfig,
                         ),
                       ),
                     )
@@ -1814,6 +1857,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                       controller: widget.controller,
                       controls: NoVideoControls,
                       fit: _fit,
+                      subtitleViewConfiguration: subtitleConfig,
                     ),
             ),
           ),

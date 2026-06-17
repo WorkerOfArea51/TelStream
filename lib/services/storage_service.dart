@@ -502,6 +502,15 @@ class StorageService {
     await _save();
   }
 
+  String getSubtitleRenderer() {
+    return _data['subtitle_renderer'] as String? ?? (Platform.isAndroid ? 'flutter' : 'native');
+  }
+
+  Future<void> setSubtitleRenderer(String value) async {
+    _data['subtitle_renderer'] = value;
+    await _save();
+  }
+
   // --- Audio Boost Preferences ---
 
   bool getVolumeBoostEnabled() {

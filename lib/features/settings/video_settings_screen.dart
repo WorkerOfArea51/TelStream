@@ -141,6 +141,32 @@ class VideoSettingsScreen extends ConsumerWidget {
               (context as Element).markNeedsBuild();
             },
           ),
+          ListTile(
+            title: Text('Subtitle Renderer', style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
+            subtitle: Text(
+              ref.watch(storageServiceProvider).getSubtitleRenderer() == "flutter"
+                  ? 'Flutter (Highly compatible, recommended on Android)'
+                  : 'Native libass (Supports stylized typesetting)',
+              style: TextStyle(color: isDark ? Colors.white54 : Colors.black54, fontSize: 12),
+            ),
+            trailing: DropdownButton<String>(
+              value: ref.watch(storageServiceProvider).getSubtitleRenderer(),
+              dropdownColor: theme.cardColor,
+              underline: const SizedBox(),
+              style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+              icon: Icon(Icons.arrow_drop_down, color: isDark ? Colors.white70 : Colors.black54),
+              items: const [
+                DropdownMenuItem(value: 'flutter', child: Text('Flutter (Compatible)')),
+                DropdownMenuItem(value: 'native', child: Text('Native (libass)')),
+              ],
+              onChanged: (String? value) async {
+                if (value != null) {
+                  await ref.read(storageServiceProvider).setSubtitleRenderer(value);
+                  (context as Element).markNeedsBuild();
+                }
+              },
+            ),
+          ),
 
           const SizedBox(height: 24),
           _buildSectionHeader(context, 'Smart Auto-Play Next'),

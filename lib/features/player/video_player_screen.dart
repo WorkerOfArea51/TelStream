@@ -78,10 +78,13 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
     _settings = ref.read(videoSettingsProvider);
     
     final localFontPath = _storageService.localFontPath;
+    final subtitleRenderer = _storageService.getSubtitleRenderer();
+    final useNative = subtitleRenderer == 'native';
+
     player = Player(
       configuration: PlayerConfiguration(
         pitch: _settings.pitchCorrection,
-        libass: true,
+        libass: useNative,
         libassAndroidFont: 'assets/fonts/Roboto-Regular.ttf',
         libassAndroidFontName: 'Roboto',
       ),
@@ -96,40 +99,62 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         nativePlayer.setProperty('cache-pause', 'yes'); // Stalls playback if buffer runs out to prevent decoding corrupted frames
         nativePlayer.setProperty('cache-pause-initial', 'yes'); // Ensure initial buffer is populated to prevent decoder underflow/freeze
         nativePlayer.setProperty('hr-seek', 'no'); // Disable high-precision seeking on slow networks to seek instantly to keyframes
-        nativePlayer.setProperty('sub-visibility', 'yes');
-        nativePlayer.setProperty('sub-auto', 'all');
-        nativePlayer.setProperty('embeddedfonts', 'yes'); // Enable embedded fonts inside media containers (MKV, etc.)
-        nativePlayer.setProperty('sub-fix-timing', 'yes');
-        nativePlayer.setProperty('blend-subtitles', 'yes');
-
+        
         if (Platform.isAndroid) {
           nativePlayer.setProperty('hwdec', 'mediacodec-copy');
         }
         
-        // Load subtitle customizations
-        final subSize = _storageService.getSubtitleFontSize();
-        final subColor = _storageService.getSubtitleColor();
-        final subDelay = _storageService.getSubtitleDelay();
-        final subFont = _storageService.getSubtitleFont();
-        final volBoost = _storageService.getVolumeBoostEnabled();
+        if (useNative) {
+          nativePlayer.setProperty('sub-visibility', 'yes');
+          nativePlayer.setProperty('sub-auto', 'all');
+          nativePlayer.setProperty('embeddedfonts', 'yes'); // Enable embedded fonts inside media containers (MKV, etc.)
+          nativePlayer.setProperty('sub-fix-timing', 'yes');
+          nativePlayer.setProperty('blend-subtitles', 'no'); // Set to 'no' to ensure visibility on Android GPU textures
 
-        nativePlayer.setProperty('sub-size', subSize.round().toString());
-        nativePlayer.setProperty('sub-color', subColor);
-        nativePlayer.setProperty('sub-delay', subDelay.toString());
-        
-        if (volBoost) {
-          nativePlayer.setProperty('volume-max', '200');
+          // Load subtitle customizations
+          final subSize = _storageService.getSubtitleFontSize();
+          final subColor = _storageService.getSubtitleColor();
+          final subDelay = _storageService.getSubtitleDelay();
+          final subFont = _storageService.getSubtitleFont();
+
+          nativePlayer.setProperty('sub-size', subSize.round().toString());
+          nativePlayer.setProperty('sub-color', subColor);
+          nativePlayer.setProperty('sub-delay', subDelay.toString());
+
+          if (localFontPath != null) {
+            final fontFile = File(localFontPath);
+            nativePlayer.setProperty('sub-fonts-dir', fontFile.parent.path);
+            
+            // Set sub-font to the absolute path of the chosen font TTF file.
+            String resolvedFontPath = fontFile.path; // Default to Roboto-Regular.ttf path
+            if (subFont.toLowerCase().contains('arial')) {
+              resolvedFontPath = '${fontFile.parent.path}/Arial.ttf';
+            } else if (subFont.toLowerCase().contains('dejavu')) {
+              resolvedFontPath = '${fontFile.parent.path}/DejaVuSans.ttf';
+            } else if (subFont.toLowerCase().contains('sans-serif')) {
+              resolvedFontPath = '${fontFile.parent.path}/sans-serif.ttf';
+            } else if (subFont.toLowerCase().contains('roboto')) {
+              resolvedFontPath = '${fontFile.parent.path}/Roboto.ttf';
+            }
+            
+            nativePlayer.setProperty('sub-font', resolvedFontPath);
+            
+            if (Platform.isAndroid) {
+              final useSysFonts = _storageService.getSubtitleSystemFonts();
+              nativePlayer.setProperty('sub-font-provider', useSysFonts ? 'auto' : 'none');
+            }
+            Log.i('Native MPV configured with sub-fonts-dir: ${fontFile.parent.path} and sub-font: $resolvedFontPath');
+          }
+        } else {
+          // Flutter rendering mode
+          nativePlayer.setProperty('sub-visibility', 'yes');
+          nativePlayer.setProperty('sub-auto', 'all');
+          nativePlayer.setProperty('sub-delay', _storageService.getSubtitleDelay().toString());
         }
 
-        if (localFontPath != null) {
-          final fontFile = File(localFontPath);
-          nativePlayer.setProperty('sub-fonts-dir', fontFile.parent.path);
-          nativePlayer.setProperty('sub-font', subFont);
-          if (Platform.isAndroid) {
-            final useSysFonts = _storageService.getSubtitleSystemFonts();
-            nativePlayer.setProperty('sub-font-provider', useSysFonts ? 'auto' : 'none');
-          }
-          Log.i('Native MPV configured with sub-fonts-dir: ${fontFile.parent.path}');
+        final volBoost = _storageService.getVolumeBoostEnabled();
+        if (volBoost) {
+          nativePlayer.setProperty('volume-max', '200');
         }
 
         // Setup connectivity subscription for network caching profiles
@@ -624,7 +649,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
     }
     
     try {
-      if (!_pipController.isTransitioning) {
+      if (_pipController.activePlayer == null) {
         SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp, DeviceOrientation.portraitDown]);
         SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
       }
