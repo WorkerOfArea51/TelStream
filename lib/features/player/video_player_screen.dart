@@ -99,6 +99,9 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         nativePlayer.setProperty('hr-seek', 'no'); // Disable high-precision seeking on slow networks to seek instantly to keyframes
         nativePlayer.setProperty('sub-visibility', 'yes');
         nativePlayer.setProperty('sub-auto', 'all');
+        if (Platform.isAndroid) {
+          nativePlayer.setProperty('hwdec', 'mediacodec-copy');
+        }
         
         if (localFontPath != null) {
           final fontFile = File(localFontPath);
@@ -113,8 +116,8 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
     _pipController.setActivePlayer(player);
     controller = VideoController(
       player,
-      configuration: VideoControllerConfiguration(
-        enableHardwareAcceleration: !Platform.isAndroid,
+      configuration: const VideoControllerConfiguration(
+        enableHardwareAcceleration: true,
       ),
     );
     
