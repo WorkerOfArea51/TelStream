@@ -241,6 +241,23 @@ class AppThemeNotifier extends Notifier<AppThemeState> {
         selectedItemColor: preset.primaryColor,
         unselectedItemColor: subTextColor,
       ),
+      navigationBarTheme: NavigationBarThemeData(
+        backgroundColor: isDark ? (isAmoled ? Colors.black : scaffoldBg) : Colors.white,
+        indicatorColor: preset.primaryColor.withValues(alpha: 0.15),
+        iconTheme: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
+            return IconThemeData(color: preset.primaryColor);
+          }
+          return IconThemeData(color: subTextColor);
+        }),
+        labelTextStyle: WidgetStateProperty.resolveWith((states) {
+          final style = TextStyle(fontSize: 12, fontWeight: FontWeight.w500);
+          if (states.contains(WidgetState.selected)) {
+            return style.copyWith(color: preset.primaryColor, fontWeight: FontWeight.bold);
+          }
+          return style.copyWith(color: subTextColor);
+        }),
+      ),
       extensions: [
         AppThemeExtension(
           settingsBackground: settingsBg,

@@ -135,15 +135,6 @@ class SkipTimesService {
   }
 
   List<SkipInterval> _getHeuristicFallback(double totalDuration) {
-    // Standard heuristics for episodes longer than 10 minutes (600s)
-    if (totalDuration > 600) {
-      return [
-        // Default Intro (Opening): 1:30 (90s) to 3:00 (180s)
-        const SkipInterval(startTime: 90.0, endTime: 180.0, type: 'op'),
-        // Default Outro (Ending): Last 120s to last 30s
-        SkipInterval(startTime: totalDuration - 120.0, endTime: totalDuration - 30.0, type: 'ed'),
-      ];
-    }
     return [];
   }
 }

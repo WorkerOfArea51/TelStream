@@ -97,16 +97,21 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         nativePlayer.setProperty('cache-pause-initial', 'no'); // Start playing immediately without artificial startup delay
         nativePlayer.setProperty('hr-seek', 'no'); // Disable high-precision seeking on slow networks to seek instantly to keyframes
         
+        // Set synchronization clocks and framedrop to maintain perfect audio/video/subtitle sync at high speed
+        nativePlayer.setProperty('video-sync', 'audio');
+        nativePlayer.setProperty('framedrop', 'vo');
+        nativePlayer.setProperty('sub-fix-timing', 'yes');
+
         if (Platform.isAndroid) {
           final hwAcc = _storageService.getHardwareAcceleration();
-          nativePlayer.setProperty('hwdec', hwAcc ? 'mediacodec-copy' : 'no');
+          // Use direct mediacodec instead of mediacodec-copy to bypass GPU->RAM copy bottle-neck
+          nativePlayer.setProperty('hwdec', hwAcc ? 'mediacodec' : 'no');
         }
         
         if (useNative) {
           nativePlayer.setProperty('sub-visibility', 'yes');
           nativePlayer.setProperty('sub-auto', 'all');
           nativePlayer.setProperty('embeddedfonts', 'yes'); // Enable embedded fonts inside media containers (MKV, etc.)
-          nativePlayer.setProperty('sub-fix-timing', 'yes');
           nativePlayer.setProperty('blend-subtitles', 'yes'); // Set to 'yes' to blend subtitles into GPU texture frames
 
           // Load subtitle customizations

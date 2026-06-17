@@ -1,4 +1,3 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -72,48 +71,35 @@ class _MainScreenState extends ConsumerState<MainScreen> {
           index: _currentIndex,
           children: _screens,
         ),
-        extendBody: true, // Allows translucent navigation bar to blend in
-        bottomNavigationBar: ClipRect(
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-            child: BottomNavigationBar(
-              backgroundColor: theme.scaffoldBackgroundColor.withOpacity(0.85),
-              elevation: 0,
-              type: BottomNavigationBarType.fixed,
-              selectedItemColor: theme.primaryColor,
-              unselectedItemColor: theme.brightness == Brightness.dark ? Colors.white38 : Colors.black38,
-              selectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
-              unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.normal, fontSize: 11),
-              currentIndex: _currentIndex,
-              onTap: (index) {
-                setState(() {
-                  _currentIndex = index;
-                });
-              },
-              items: const [
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.tv),
-                  activeIcon: Icon(Icons.tv),
-                  label: 'Anime',
-                ),
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.movie_outlined),
-                  activeIcon: Icon(Icons.movie),
-                  label: 'Movies',
-                ),
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.video_collection_outlined),
-                  activeIcon: Icon(Icons.video_collection),
-                  label: 'Web Series',
-                ),
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.more_horiz_outlined),
-                  activeIcon: Icon(Icons.more_horiz),
-                  label: 'More',
-                ),
-              ],
+        bottomNavigationBar: NavigationBar(
+          selectedIndex: _currentIndex,
+          onDestinationSelected: (index) {
+            setState(() {
+              _currentIndex = index;
+            });
+          },
+          destinations: const [
+            NavigationDestination(
+              icon: Icon(Icons.tv_outlined),
+              selectedIcon: Icon(Icons.tv),
+              label: 'Anime',
             ),
-          ),
+            NavigationDestination(
+              icon: Icon(Icons.movie_outlined),
+              selectedIcon: Icon(Icons.movie),
+              label: 'Movies',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.video_collection_outlined),
+              selectedIcon: Icon(Icons.video_collection),
+              label: 'Web Series',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.more_horiz_outlined),
+              selectedIcon: Icon(Icons.more_horiz),
+              label: 'More',
+            ),
+          ],
         ),
       ),
     );

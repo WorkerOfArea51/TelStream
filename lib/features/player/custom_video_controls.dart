@@ -192,12 +192,71 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
           _skipTimesLoaded = true;
         });
         Log.i('Loaded ${_skipIntervals.length} skip intervals for ${widget.seriesName}');
+        _mergeChapterSkipIntervals();
       }
     } catch (e, stack) {
       Log.e('Error loading skip times', e, stack);
     } finally {
       _isLoadingSkipTimes = false;
     }
+  }
+
+  List<SkipInterval> _extractSkipTimesFromChapters() {
+    final List<SkipInterval> intervals = [];
+    if (_chapters.isEmpty) return intervals;
+    
+    for (int i = 0; i < _chapters.length; i++) {
+      final ch = _chapters[i];
+      final titleLower = ch.title.toLowerCase().trim();
+      
+      // Check for opening/intro
+      final isOp = titleLower.contains('intro') ||
+                   titleLower.contains('opening') ||
+                   titleLower == 'op' ||
+                   titleLower.startsWith('op ') ||
+                   titleLower.endsWith(' op');
+                   
+      // Check for ending/outro
+      final isEd = titleLower.contains('outro') ||
+                   titleLower.contains('ending') ||
+                   titleLower.contains('credits') ||
+                   titleLower.contains('credit') ||
+                   titleLower == 'ed' ||
+                   titleLower.startsWith('ed ') ||
+                   titleLower.endsWith(' ed');
+                   
+      if (isOp || isEd) {
+        final start = ch.position.inSeconds.toDouble();
+        final end = (i + 1 < _chapters.length)
+            ? _chapters[i + 1].position.inSeconds.toDouble()
+            : widget.player.state.duration.inSeconds.toDouble();
+            
+        intervals.add(SkipInterval(
+          startTime: start,
+          endTime: end,
+          type: isOp ? 'op' : 'ed',
+        ));
+      }
+    }
+    return intervals;
+  }
+
+  void _mergeChapterSkipIntervals() {
+    final chapterIntervals = _extractSkipTimesFromChapters();
+    if (chapterIntervals.isEmpty) return;
+    
+    setState(() {
+      final existingKeys = _skipIntervals.map((e) => '${e.type}_${e.startTime.round()}').toSet();
+      final List<SkipInterval> merged = List.from(_skipIntervals);
+      for (final interval in chapterIntervals) {
+        final key = '${interval.type}_${interval.startTime.round()}';
+        if (!existingKeys.contains(key)) {
+          merged.add(interval);
+          existingKeys.add(key);
+        }
+      }
+      _skipIntervals = merged;
+    });
   }
 
   void _checkSkipTimes(Duration pos) {
@@ -893,6 +952,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
               _chapters = loadedChapters;
               _hasChapters = loadedChapters.isNotEmpty;
             });
+            _mergeChapterSkipIntervals();
           }
           return;
         }

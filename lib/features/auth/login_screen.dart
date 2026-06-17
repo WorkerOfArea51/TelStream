@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'auth_controller.dart';
-import '../../core/widgets/glassy_container.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({Key? key}) : super(key: key);
@@ -46,37 +45,47 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         child: Center(
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(24.0),
-            child: GlassyContainer(
-              padding: const EdgeInsets.all(32.0),
-              borderRadius: 32.0, // squircle shape
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.stream, size: 80, color: Colors.blueAccent),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'TelStream',
-                    style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.white),
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Stream Telegram Videos Seamlessly',
-                    style: TextStyle(color: Colors.white70),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 48),
-                  
-                  if (authState.errorMessage != null)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 16),
-                      child: Text(
-                        authState.errorMessage!,
-                        style: const TextStyle(color: Colors.redAccent),
-                      ),
+            child: Card(
+              elevation: 0,
+              color: Colors.black.withValues(alpha: 0.6), // solid, high-legibility M3 container card
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(24),
+                side: BorderSide(
+                  color: Colors.white.withValues(alpha: 0.12),
+                  width: 1.5,
+                ),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(32.0),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.stream, size: 80, color: Colors.blueAccent),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'TelStream',
+                      style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.white),
                     ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Stream Telegram Videos Seamlessly',
+                      style: TextStyle(color: Colors.white70),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 48),
+                    
+                    if (authState.errorMessage != null)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 16),
+                        child: Text(
+                          authState.errorMessage!,
+                          style: const TextStyle(color: Colors.redAccent),
+                        ),
+                      ),
 
-                  _buildForm(authState, authController),
-                ],
+                    _buildForm(authState, authController),
+                  ],
+                ),
               ),
             ),
           ),

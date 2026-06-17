@@ -411,233 +411,256 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         padding: const EdgeInsets.all(16),
         children: [
           Text('Storage Management', style: TextStyle(color: settingsAccent, fontWeight: FontWeight.bold, fontSize: 16)),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           _buildStorageGauge(theme, settingsAccent, isDark),
           const SizedBox(height: 12),
-          ListTile(
-            tileColor: theme.cardColor,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            leading: const Icon(Icons.cleaning_services, color: Colors.redAccent),
-            title: const Text('Advanced Cache Manager'),
-            subtitle: Text('View detailed storage cache breakdown and clear cache per series.', style: TextStyle(color: isDark ? Colors.white54 : Colors.black54)),
-            trailing: Icon(Icons.chevron_right, color: isDark ? Colors.white54 : Colors.black54),
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const AdvancedCacheManagerScreen()),
-              ).then((_) => _calculateCacheSize());
-            },
-          ),
-          const SizedBox(height: 8),
-          ListTile(
-            tileColor: theme.cardColor,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            leading: Icon(Icons.downloading, color: settingsAccent),
-            title: const Text('Active Downloads Manager'),
-            subtitle: Text('Monitor real-time download speeds, ETAs, and cancel running tasks.', style: TextStyle(color: isDark ? Colors.white54 : Colors.black54)),
-            trailing: Icon(Icons.chevron_right, color: isDark ? Colors.white54 : Colors.black54),
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const DownloadsManagerScreen()),
-              );
-            },
-          ),
-          const SizedBox(height: 8),
-          ListTile(
-            tileColor: theme.cardColor,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            leading: Icon(Icons.disc_full, color: isDark ? Colors.white70 : Colors.black54),
-            title: const Text('Cache Size Limit'),
-            trailing: DropdownButton<int>(
-              value: settings.cacheLimitMb,
-              dropdownColor: theme.cardColor,
-              underline: const SizedBox(),
-              icon: Icon(Icons.arrow_drop_down, color: isDark ? Colors.white70 : Colors.black54),
-              items: const [
-                DropdownMenuItem(value: 1024, child: Text('1 GB')),
-                DropdownMenuItem(value: 2048, child: Text('2 GB')),
-                DropdownMenuItem(value: 5120, child: Text('5 GB')),
-                DropdownMenuItem(value: -1, child: Text('Unlimited')),
+          Card(
+            elevation: 0,
+            color: theme.cardColor,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+              side: BorderSide(color: theme.colorScheme.onSurface.withValues(alpha: 0.08), width: 1),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: Column(
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.cleaning_services, color: Colors.redAccent),
+                  title: const Text('Advanced Cache Manager'),
+                  subtitle: Text('View detailed storage cache breakdown and clear cache per series.', style: TextStyle(color: isDark ? Colors.white54 : Colors.black54, fontSize: 12)),
+                  trailing: Icon(Icons.chevron_right, color: isDark ? Colors.white54 : Colors.black54),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const AdvancedCacheManagerScreen()),
+                    ).then((_) => _calculateCacheSize());
+                  },
+                ),
+                Divider(color: theme.dividerColor, height: 1, indent: 56, endIndent: 16),
+                ListTile(
+                  leading: Icon(Icons.downloading, color: settingsAccent),
+                  title: const Text('Active Downloads Manager'),
+                  subtitle: Text('Monitor real-time download speeds, ETAs, and cancel running tasks.', style: TextStyle(color: isDark ? Colors.white54 : Colors.black54, fontSize: 12)),
+                  trailing: Icon(Icons.chevron_right, color: isDark ? Colors.white54 : Colors.black54),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const DownloadsManagerScreen()),
+                    );
+                  },
+                ),
+                Divider(color: theme.dividerColor, height: 1, indent: 56, endIndent: 16),
+                ListTile(
+                  leading: Icon(Icons.disc_full, color: isDark ? Colors.white70 : Colors.black54),
+                  title: const Text('Cache Size Limit'),
+                  trailing: DropdownButton<int>(
+                    value: settings.cacheLimitMb,
+                    dropdownColor: theme.cardColor,
+                    underline: const SizedBox(),
+                    icon: Icon(Icons.arrow_drop_down, color: isDark ? Colors.white70 : Colors.black54),
+                    items: const [
+                      DropdownMenuItem(value: 1024, child: Text('1 GB')),
+                      DropdownMenuItem(value: 2048, child: Text('2 GB')),
+                      DropdownMenuItem(value: 5120, child: Text('5 GB')),
+                      DropdownMenuItem(value: -1, child: Text('Unlimited')),
+                    ],
+                    onChanged: (int? value) {
+                      if (value != null) {
+                        ref.read(videoSettingsProvider.notifier).updateSettings(
+                          settings.copyWith(cacheLimitMb: value)
+                        );
+                      }
+                    },
+                  ),
+                ),
+                Divider(color: theme.dividerColor, height: 1, indent: 56, endIndent: 16),
+                ListTile(
+                  leading: Icon(Icons.hourglass_empty, color: isDark ? Colors.white70 : Colors.black54),
+                  title: const Text('Cache Auto-Delete TTL'),
+                  trailing: DropdownButton<int>(
+                    value: settings.cacheTtlDays,
+                    dropdownColor: theme.cardColor,
+                    underline: const SizedBox(),
+                    icon: Icon(Icons.arrow_drop_down, color: isDark ? Colors.white70 : Colors.black54),
+                    items: const [
+                      DropdownMenuItem(value: 3, child: Text('3 Days')),
+                      DropdownMenuItem(value: 7, child: Text('7 Days')),
+                      DropdownMenuItem(value: 14, child: Text('14 Days')),
+                      DropdownMenuItem(value: -1, child: Text('Never')),
+                    ],
+                    onChanged: (int? value) {
+                      if (value != null) {
+                        ref.read(videoSettingsProvider.notifier).updateSettings(
+                          settings.copyWith(cacheTtlDays: value)
+                        );
+                      }
+                    },
+                  ),
+                ),
+                Divider(color: theme.dividerColor, height: 1, indent: 56, endIndent: 16),
+                ListTile(
+                  leading: Icon(Icons.folder, color: isDark ? Colors.orangeAccent : Colors.orange),
+                  title: const Text('Download Folder'),
+                  subtitle: Text(_downloadPath, style: TextStyle(color: isDark ? Colors.white54 : Colors.black54, fontSize: 11)),
+                  trailing: Icon(Icons.folder_open, color: isDark ? Colors.white70 : Colors.black54, size: 20),
+                  onTap: _selectDownloadDirectory,
+                ),
+                Divider(color: theme.dividerColor, height: 1, indent: 56, endIndent: 16),
+                ListTile(
+                  leading: Icon(Icons.movie_filter_outlined, color: isDark ? Colors.tealAccent : Colors.teal),
+                  title: const Text('TMDB Custom API Key'),
+                  subtitle: Text(
+                    ref.read(storageServiceProvider).getTmdbApiKey()?.isNotEmpty == true
+                        ? 'Using Custom API Key'
+                        : 'Using System Default Key',
+                    style: TextStyle(color: isDark ? Colors.white54 : Colors.black54, fontSize: 11),
+                  ),
+                  trailing: Icon(Icons.vpn_key, color: isDark ? Colors.white70 : Colors.black54, size: 20),
+                  onTap: _showTmdbApiKeyDialog,
+                ),
               ],
-              onChanged: (int? value) {
-                if (value != null) {
-                  ref.read(videoSettingsProvider.notifier).updateSettings(
-                    settings.copyWith(cacheLimitMb: value)
-                  );
-                }
-              },
             ),
-          ),
-          const SizedBox(height: 8),
-          ListTile(
-            tileColor: theme.cardColor,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            leading: Icon(Icons.hourglass_empty, color: isDark ? Colors.white70 : Colors.black54),
-            title: const Text('Cache Auto-Delete TTL'),
-            trailing: DropdownButton<int>(
-              value: settings.cacheTtlDays,
-              dropdownColor: theme.cardColor,
-              underline: const SizedBox(),
-              icon: Icon(Icons.arrow_drop_down, color: isDark ? Colors.white70 : Colors.black54),
-              items: const [
-                DropdownMenuItem(value: 3, child: Text('3 Days')),
-                DropdownMenuItem(value: 7, child: Text('7 Days')),
-                DropdownMenuItem(value: 14, child: Text('14 Days')),
-                DropdownMenuItem(value: -1, child: Text('Never')),
-              ],
-              onChanged: (int? value) {
-                if (value != null) {
-                  ref.read(videoSettingsProvider.notifier).updateSettings(
-                    settings.copyWith(cacheTtlDays: value)
-                  );
-                }
-              },
-            ),
-          ),
-          const SizedBox(height: 8),
-          ListTile(
-            tileColor: theme.cardColor,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            leading: Icon(Icons.folder, color: isDark ? Colors.orangeAccent : Colors.orange),
-            title: const Text('Download Folder'),
-            subtitle: Text(_downloadPath, style: TextStyle(color: isDark ? Colors.white54 : Colors.black54, fontSize: 11)),
-            trailing: Icon(Icons.folder_open, color: isDark ? Colors.white70 : Colors.black54, size: 20),
-            onTap: _selectDownloadDirectory,
-          ),
-          const SizedBox(height: 8),
-          ListTile(
-            tileColor: theme.cardColor,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            leading: Icon(Icons.movie_filter_outlined, color: isDark ? Colors.tealAccent : Colors.teal),
-            title: const Text('TMDB Custom API Key'),
-            subtitle: Text(
-              ref.read(storageServiceProvider).getTmdbApiKey()?.isNotEmpty == true
-                  ? 'Using Custom API Key'
-                  : 'Using System Default Key',
-              style: TextStyle(color: isDark ? Colors.white54 : Colors.black54, fontSize: 11),
-            ),
-            trailing: Icon(Icons.vpn_key, color: isDark ? Colors.white70 : Colors.black54, size: 20),
-            onTap: _showTmdbApiKeyDialog,
           ),
 
-          const SizedBox(height: 32),
+          const SizedBox(height: 24),
           Text('Playback', style: TextStyle(color: settingsAccent, fontWeight: FontWeight.bold, fontSize: 16)),
-          const SizedBox(height: 16),
-          ListTile(
-            tileColor: theme.cardColor,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            leading: Icon(Icons.video_settings, color: isDark ? Colors.white70 : Colors.black54),
-            title: const Text('Video Player Preferences'),
-            subtitle: Text('Gestures, audio, subtitles, and player UI', style: TextStyle(color: isDark ? Colors.white54 : Colors.black54)),
-            trailing: Icon(Icons.chevron_right, color: isDark ? Colors.white54 : Colors.black54),
-            onTap: () {
-              Navigator.push(context, MaterialPageRoute(builder: (_) => const VideoSettingsScreen()));
-            },
+          const SizedBox(height: 12),
+          Card(
+            elevation: 0,
+            color: theme.cardColor,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+              side: BorderSide(color: theme.colorScheme.onSurface.withValues(alpha: 0.08), width: 1),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: ListTile(
+              leading: Icon(Icons.video_settings, color: isDark ? Colors.white70 : Colors.black54),
+              title: const Text('Video Player Preferences'),
+              subtitle: Text('Gestures, audio, subtitles, and player UI', style: TextStyle(color: isDark ? Colors.white54 : Colors.black54, fontSize: 12)),
+              trailing: Icon(Icons.chevron_right, color: isDark ? Colors.white54 : Colors.black54),
+              onTap: () {
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const VideoSettingsScreen()));
+              },
+            ),
           ),
           
-          const SizedBox(height: 32),
+          const SizedBox(height: 24),
           Text('Appearance', style: TextStyle(color: settingsAccent, fontWeight: FontWeight.bold, fontSize: 16)),
-          const SizedBox(height: 16),
-          ListTile(
-            tileColor: theme.cardColor,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            leading: Icon(
-              themeState.themeMode == ThemeMode.light
-                  ? Icons.light_mode
-                  : themeState.themeMode == ThemeMode.dark
-                      ? Icons.dark_mode
-                      : Icons.settings_brightness,
-              color: isDark ? Colors.white70 : Colors.black54,
+          const SizedBox(height: 12),
+          Card(
+            elevation: 0,
+            color: theme.cardColor,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+              side: BorderSide(color: theme.colorScheme.onSurface.withValues(alpha: 0.08), width: 1),
             ),
-            title: const Text('Theme Mode'),
-            subtitle: Text(
-              ref.read(storageServiceProvider).getThemeMode().toUpperCase(),
-              style: TextStyle(color: isDark ? Colors.white54 : Colors.black45, fontSize: 12),
-            ),
-            trailing: DropdownButton<String>(
-              value: ref.read(storageServiceProvider).getThemeMode(),
-              dropdownColor: theme.cardColor,
-              underline: const SizedBox(),
-              icon: Icon(Icons.arrow_drop_down, color: isDark ? Colors.white70 : Colors.black54),
-              items: const [
-                DropdownMenuItem(value: 'system', child: Text('System')),
-                DropdownMenuItem(value: 'light', child: Text('Light')),
-                DropdownMenuItem(value: 'dark', child: Text('Dark')),
-                DropdownMenuItem(value: 'amoled', child: Text('AMOLED Dark')),
-              ],
-              onChanged: (String? value) {
-                if (value != null) {
-                  ref.read(appThemeProvider.notifier).updateThemeMode(value);
-                }
-              },
-            ),
-          ),
-          const SizedBox(height: 8),
-          ListTile(
-            tileColor: theme.cardColor,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            leading: Icon(Icons.palette, color: isDark ? Colors.white70 : Colors.black54),
-            title: const Text('Color Theme'),
-            subtitle: Text(
-              themeState.activePreset.name,
-              style: TextStyle(color: isDark ? Colors.white54 : Colors.black45, fontSize: 12),
-            ),
-            trailing: DropdownButton<String>(
-              value: themeState.colorThemeId,
-              dropdownColor: theme.cardColor,
-              underline: const SizedBox(),
-              icon: Icon(Icons.arrow_drop_down, color: isDark ? Colors.white70 : Colors.black54),
-              items: appThemes.map((preset) {
-                return DropdownMenuItem(
-                  value: preset.id,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 12,
-                        height: 12,
-                        decoration: BoxDecoration(
-                          color: preset.primaryColor,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(preset.name),
-                    ],
+            clipBehavior: Clip.antiAlias,
+            child: Column(
+              children: [
+                ListTile(
+                  leading: Icon(
+                    themeState.themeMode == ThemeMode.light
+                        ? Icons.light_mode
+                        : themeState.themeMode == ThemeMode.dark
+                            ? Icons.dark_mode
+                            : Icons.settings_brightness,
+                    color: isDark ? Colors.white70 : Colors.black54,
                   ),
-                );
-              }).toList(),
-              onChanged: (String? value) {
-                if (value != null) {
-                  ref.read(appThemeProvider.notifier).updateColorTheme(value);
-                }
-              },
+                  title: const Text('Theme Mode'),
+                  subtitle: Text(
+                    ref.read(storageServiceProvider).getThemeMode().toUpperCase(),
+                    style: TextStyle(color: isDark ? Colors.white54 : Colors.black45, fontSize: 12),
+                  ),
+                  trailing: DropdownButton<String>(
+                    value: ref.read(storageServiceProvider).getThemeMode(),
+                    dropdownColor: theme.cardColor,
+                    underline: const SizedBox(),
+                    icon: Icon(Icons.arrow_drop_down, color: isDark ? Colors.white70 : Colors.black54),
+                    items: const [
+                      DropdownMenuItem(value: 'system', child: Text('System')),
+                      DropdownMenuItem(value: 'light', child: Text('Light')),
+                      DropdownMenuItem(value: 'dark', child: Text('Dark')),
+                      DropdownMenuItem(value: 'amoled', child: Text('AMOLED Dark')),
+                    ],
+                    onChanged: (String? value) {
+                      if (value != null) {
+                        ref.read(appThemeProvider.notifier).updateThemeMode(value);
+                      }
+                    },
+                  ),
+                ),
+                Divider(color: theme.dividerColor, height: 1, indent: 56, endIndent: 16),
+                ListTile(
+                  leading: Icon(Icons.palette, color: isDark ? Colors.white70 : Colors.black54),
+                  title: const Text('Color Theme'),
+                  subtitle: Text(
+                    themeState.activePreset.name,
+                    style: TextStyle(color: isDark ? Colors.white54 : Colors.black45, fontSize: 12),
+                  ),
+                  trailing: DropdownButton<String>(
+                    value: themeState.colorThemeId,
+                    dropdownColor: theme.cardColor,
+                    underline: const SizedBox(),
+                    icon: Icon(Icons.arrow_drop_down, color: isDark ? Colors.white70 : Colors.black54),
+                    items: appThemes.map((preset) {
+                      return DropdownMenuItem(
+                        value: preset.id,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              width: 12,
+                              height: 12,
+                              decoration: BoxDecoration(
+                                color: preset.primaryColor,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(preset.name),
+                          ],
+                        ),
+                      );
+                    }).toList(),
+                    onChanged: (String? value) {
+                      if (value != null) {
+                        ref.read(appThemeProvider.notifier).updateColorTheme(value);
+                      }
+                    },
+                  ),
+                ),
+              ],
             ),
           ),
 
-          const SizedBox(height: 32),
-          Text('Account', style: TextStyle(color: settingsAccent, fontWeight: FontWeight.bold, fontSize: 16)),
-          const SizedBox(height: 16),
-          ListTile(
-            tileColor: theme.cardColor,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            leading: const Icon(Icons.logout, color: Colors.redAccent),
-            title: const Text('Logout from TelStream'),
-            onTap: _logout,
-          ),
-
-          const SizedBox(height: 32),
-          Text('Info', style: TextStyle(color: settingsAccent, fontWeight: FontWeight.bold, fontSize: 16)),
-          const SizedBox(height: 16),
-          ListTile(
-            tileColor: theme.cardColor,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            leading: Icon(Icons.history_edu_rounded, color: isDark ? Colors.white70 : Colors.black54),
-            title: const Text("What's New / Changelog"),
-            subtitle: Text("View release notes for this version", style: TextStyle(color: isDark ? Colors.white54 : Colors.black54)),
-            trailing: Icon(Icons.chevron_right, color: isDark ? Colors.white54 : Colors.black54),
-            onTap: () => WhatsNewDialog.show(context),
+          const SizedBox(height: 24),
+          Text('Account & Info', style: TextStyle(color: settingsAccent, fontWeight: FontWeight.bold, fontSize: 16)),
+          const SizedBox(height: 12),
+          Card(
+            elevation: 0,
+            color: theme.cardColor,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+              side: BorderSide(color: theme.colorScheme.onSurface.withValues(alpha: 0.08), width: 1),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: Column(
+              children: [
+                ListTile(
+                  leading: Icon(Icons.history_edu_rounded, color: isDark ? Colors.white70 : Colors.black54),
+                  title: const Text("What's New / Changelog"),
+                  subtitle: Text("View release notes for this version", style: TextStyle(color: isDark ? Colors.white54 : Colors.black54, fontSize: 12)),
+                  trailing: Icon(Icons.chevron_right, color: isDark ? Colors.white54 : Colors.black54),
+                  onTap: () => WhatsNewDialog.show(context),
+                ),
+                Divider(color: theme.dividerColor, height: 1, indent: 56, endIndent: 16),
+                ListTile(
+                  leading: const Icon(Icons.logout, color: Colors.redAccent),
+                  title: const Text('Logout from TelStream'),
+                  onTap: _logout,
+                ),
+              ],
+            ),
           ),
         ],
       ),

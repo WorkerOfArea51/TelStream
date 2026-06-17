@@ -81,94 +81,139 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
                 ),
               ],
             ),
-            const SizedBox(height: 32),
+            const SizedBox(height: 24),
 
-            // Downloaded only switch
-            _buildSwitchTile(
-              title: 'Downloaded only',
-              subtitle: 'Filters libraries to only show watched/local episodes',
-              value: isDownloadedOnly,
-              onChanged: (val) {
-                ref.read(downloadedOnlyProvider.notifier).toggle(val);
-              },
+            // General Preferences Card
+            Card(
+              elevation: 0,
+              color: theme.cardColor,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+                side: BorderSide(color: theme.colorScheme.onSurface.withValues(alpha: 0.08), width: 1),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: Column(
+                children: [
+                  _buildSwitchTile(
+                    title: 'Downloaded only',
+                    subtitle: 'Filters libraries to only show watched/local episodes',
+                    value: isDownloadedOnly,
+                    onChanged: (val) {
+                      ref.read(downloadedOnlyProvider.notifier).toggle(val);
+                    },
+                  ),
+                  Divider(color: theme.dividerColor, height: 1, indent: 16, endIndent: 16),
+                  _buildSwitchTile(
+                    title: 'Incognito mode',
+                    subtitle: 'Pauses watch history and progress logging',
+                    value: isIncognitoMode,
+                    onChanged: (val) {
+                      ref.read(incognitoModeProvider.notifier).toggle(val);
+                    },
+                  ),
+                ],
+              ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 16),
 
-            // Incognito mode switch
-            _buildSwitchTile(
-              title: 'Incognito mode',
-              subtitle: 'Pauses watch history and progress logging',
-              value: isIncognitoMode,
-              onChanged: (val) {
-                ref.read(incognitoModeProvider.notifier).toggle(val);
-              },
+            // Navigation Items Card
+            Card(
+              elevation: 0,
+              color: theme.cardColor,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+                side: BorderSide(color: theme.colorScheme.onSurface.withValues(alpha: 0.08), width: 1),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: Column(
+                children: [
+                  _buildMenuTile(
+                    icon: Icons.history,
+                    title: 'History',
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const HistoryScreen()),
+                      );
+                    },
+                  ),
+                  Divider(color: theme.dividerColor, height: 1, indent: 56, endIndent: 16),
+                  _buildMenuTile(
+                    icon: Icons.download_done_rounded,
+                    title: 'Downloads',
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const OfflineLibraryScreen()),
+                      );
+                    },
+                  ),
+                  Divider(color: theme.dividerColor, height: 1, indent: 56, endIndent: 16),
+                  _buildMenuTile(
+                    icon: Icons.link,
+                    title: 'Network stream',
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const NetworkStreamScreen()),
+                      );
+                    },
+                  ),
+                  Divider(color: theme.dividerColor, height: 1, indent: 56, endIndent: 16),
+                  _buildMenuTile(
+                    icon: Icons.search_rounded,
+                    title: 'Global Search',
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const GlobalSearchScreen()),
+                      );
+                    },
+                  ),
+                ],
+              ),
             ),
-            Divider(color: theme.dividerColor, height: 32),
+            const SizedBox(height: 16),
 
-            // Navigation Items
-            _buildMenuTile(
-              icon: Icons.history,
-              title: 'History',
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const HistoryScreen()),
-                );
-              },
-            ),
-            _buildMenuTile(
-              icon: Icons.download_done_rounded,
-              title: 'Downloads',
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const OfflineLibraryScreen()),
-                );
-              },
-            ),
-            _buildMenuTile(
-              icon: Icons.link,
-              title: 'Network stream',
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const NetworkStreamScreen()),
-                );
-              },
-            ),
-            _buildMenuTile(
-              icon: Icons.search_rounded,
-              title: 'Global Search',
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const GlobalSearchScreen()),
-                );
-              },
-            ),
-            _buildMenuTile(
-              icon: Icons.settings,
-              title: 'Settings',
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const SettingsScreen()),
-                );
-              },
-            ),
-            _buildMenuTile(
-              icon: Icons.system_update_alt_rounded,
-              title: 'Check for update',
-              onTap: () {
-                _manuallyCheckForUpdate(context);
-              },
-            ),
-            _buildMenuTile(
-              icon: Icons.info_outline,
-              title: 'About',
-              onTap: () {
-                _showAboutDialog(context);
-              },
+            // Settings & System Card
+            Card(
+              elevation: 0,
+              color: theme.cardColor,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+                side: BorderSide(color: theme.colorScheme.onSurface.withValues(alpha: 0.08), width: 1),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: Column(
+                children: [
+                  _buildMenuTile(
+                    icon: Icons.settings,
+                    title: 'Settings',
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const SettingsScreen()),
+                      );
+                    },
+                  ),
+                  Divider(color: theme.dividerColor, height: 1, indent: 56, endIndent: 16),
+                  _buildMenuTile(
+                    icon: Icons.system_update_alt_rounded,
+                    title: 'Check for update',
+                    onTap: () {
+                      _manuallyCheckForUpdate(context);
+                    },
+                  ),
+                  Divider(color: theme.dividerColor, height: 1, indent: 56, endIndent: 16),
+                  _buildMenuTile(
+                    icon: Icons.info_outline,
+                    title: 'About',
+                    onTap: () {
+                      _showAboutDialog(context);
+                    },
+                  ),
+                ],
+              ),
             ),
           ],
         ),
@@ -538,27 +583,17 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
     final textColor = isDark ? Colors.white : Colors.black87;
     final subTextColor = isDark ? Colors.white54 : Colors.black54;
 
-    return Container(
-      decoration: BoxDecoration(
-        color: theme.cardColor,
-        borderRadius: BorderRadius.circular(12),
+    return SwitchListTile(
+      title: Text(
+        title,
+        style: TextStyle(color: textColor, fontWeight: FontWeight.w600, fontSize: 15),
       ),
-      child: SwitchListTile(
-        activeThumbColor: isDark ? Colors.black : Colors.white,
-        activeTrackColor: theme.primaryColor,
-        inactiveThumbColor: isDark ? Colors.white70 : Colors.black38,
-        inactiveTrackColor: isDark ? Colors.white10 : Colors.black12,
-        title: Text(
-          title,
-          style: TextStyle(color: textColor, fontWeight: FontWeight.w600, fontSize: 15),
-        ),
-        subtitle: Text(
-          subtitle,
-          style: TextStyle(color: subTextColor, fontSize: 12),
-        ),
-        value: value,
-        onChanged: onChanged,
+      subtitle: Text(
+        subtitle,
+        style: TextStyle(color: subTextColor, fontSize: 12),
       ),
+      value: value,
+      onChanged: onChanged,
     );
   }
 
@@ -573,24 +608,17 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
     final textColor = isDark ? Colors.white : Colors.black87;
     final subTextColor = isDark ? Colors.white38 : Colors.black54;
 
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 4),
-      decoration: BoxDecoration(
-        color: theme.cardColor,
-        borderRadius: BorderRadius.circular(12),
+    return ListTile(
+      leading: Icon(icon, color: theme.primaryColor, size: 24),
+      title: Text(
+        title,
+        style: TextStyle(color: textColor, fontWeight: FontWeight.w500, fontSize: 15),
       ),
-      child: ListTile(
-        leading: Icon(icon, color: theme.primaryColor, size: 24),
-        title: Text(
-          title,
-          style: TextStyle(color: textColor, fontWeight: FontWeight.w500, fontSize: 15),
-        ),
-        subtitle: subtitle != null
-            ? Text(subtitle, style: TextStyle(color: subTextColor, fontSize: 12))
-            : null,
-        trailing: Icon(Icons.chevron_right, color: subTextColor.withValues(alpha: 0.5), size: 20),
-        onTap: onTap,
-      ),
+      subtitle: subtitle != null
+          ? Text(subtitle, style: TextStyle(color: subTextColor, fontSize: 12))
+          : null,
+      trailing: Icon(Icons.chevron_right, color: subTextColor.withValues(alpha: 0.5), size: 20),
+      onTap: onTap,
     );
   }
 }
