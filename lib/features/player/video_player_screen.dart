@@ -77,7 +77,6 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
     _pipController = ref.read(pipControllerProvider.notifier);
     _settings = ref.read(videoSettingsProvider);
     
-    final localFontPath = _storageService.localFontPath;
     final subtitleRenderer = _storageService.getSubtitleRenderer();
     final useNative = subtitleRenderer == 'native';
 
@@ -85,7 +84,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
       configuration: PlayerConfiguration(
         pitch: _settings.pitchCorrection,
         libass: true, // Always enable libass to allow subtitle parsing for both native and flutter modes
-        libassAndroidFont: localFontPath ?? 'assets/fonts/Roboto-Regular.ttf',
+        libassAndroidFont: 'assets/fonts/Roboto-Regular.ttf',
         libassAndroidFontName: 'Roboto',
       ),
     );
@@ -122,30 +121,19 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
           nativePlayer.setProperty('sub-color', subColor);
           nativePlayer.setProperty('sub-delay', subDelay.toString());
 
-          if (localFontPath != null) {
-            final fontFile = File(localFontPath);
-            nativePlayer.setProperty('sub-fonts-dir', fontFile.parent.path);
-            
-            // Set sub-font to the font family name.
-            String resolvedFontFamily = 'Roboto'; // Default to Roboto
-            if (subFont.toLowerCase().contains('arial')) {
-              resolvedFontFamily = 'Arial';
-            } else if (subFont.toLowerCase().contains('dejavu')) {
-              resolvedFontFamily = 'DejaVuSans';
-            } else if (subFont.toLowerCase().contains('sans-serif')) {
-              resolvedFontFamily = 'sans-serif';
-            } else if (subFont.toLowerCase().contains('roboto')) {
-              resolvedFontFamily = 'Roboto';
-            }
-            
-            nativePlayer.setProperty('sub-font', resolvedFontFamily);
-            
-            if (Platform.isAndroid) {
-              final useSysFonts = _storageService.getSubtitleSystemFonts();
-              nativePlayer.setProperty('sub-font-provider', useSysFonts ? 'auto' : 'none');
-            }
-            Log.i('Native MPV configured with sub-fonts-dir: ${fontFile.parent.path} and sub-font family: $resolvedFontFamily');
+          // Set sub-font to the font family name.
+          String resolvedFontFamily = 'Roboto'; // Default to Roboto
+          if (subFont.toLowerCase().contains('arial')) {
+            resolvedFontFamily = 'Arial';
+          } else if (subFont.toLowerCase().contains('dejavu')) {
+            resolvedFontFamily = 'DejaVuSans';
+          } else if (subFont.toLowerCase().contains('sans-serif')) {
+            resolvedFontFamily = 'sans-serif';
+          } else if (subFont.toLowerCase().contains('roboto')) {
+            resolvedFontFamily = 'Roboto';
           }
+          
+          nativePlayer.setProperty('sub-font', resolvedFontFamily);
         } else {
           // Flutter rendering mode
           nativePlayer.setProperty('sub-visibility', 'no'); // Hide native subtitle overlay to avoid duplication

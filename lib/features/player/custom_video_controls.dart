@@ -676,63 +676,6 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     }
   }
 
-  bool _isCurrentPositionInIntro(Duration position) {
-    if (!_hasChapters || _chapters.isEmpty) {
-      return position.inSeconds >= 5 && position.inSeconds <= 300;
-    }
-
-    for (int i = 0; i < _chapters.length; i++) {
-      final ch = _chapters[i];
-      final titleLower = ch.title.toLowerCase();
-      
-      if (titleLower.contains('intro') ||
-          titleLower.contains('opening') ||
-          titleLower.contains('op') ||
-          titleLower.contains('recap')) {
-        
-        final start = ch.position;
-        final end = (i + 1 < _chapters.length) 
-            ? _chapters[i + 1].position 
-            : widget.player.state.duration;
-
-        if (position >= start && position < end) {
-          return true;
-        }
-      }
-    }
-    return false;
-  }
-
-  void _handleSkipIntroTap(Duration currentPos) {
-    if (_hasChapters && _chapters.isNotEmpty) {
-      for (int i = 0; i < _chapters.length; i++) {
-        final ch = _chapters[i];
-        final titleLower = ch.title.toLowerCase();
-        if (titleLower.contains('intro') ||
-            titleLower.contains('opening') ||
-            titleLower.contains('op') ||
-            titleLower.contains('recap')) {
-          
-          final start = ch.position;
-          final end = (i + 1 < _chapters.length) 
-              ? _chapters[i + 1].position 
-              : widget.player.state.duration;
-
-          if (currentPos >= start && currentPos < end) {
-            final safeTarget = _clampSeekTarget(end, showMessage: true);
-            _performSeek(safeTarget);
-            _showOSD('Skipped Chapter: ${ch.title}');
-            return;
-          }
-        }
-      }
-    }
-    
-    final target = currentPos + const Duration(seconds: 85);
-    final safeTarget = _clampSeekTarget(target, showMessage: true);
-    _performSeek(safeTarget);
-    _showOSD('Skipped Intro (+85s)');
-  }
 
   int _getActiveChapterIndex(Duration currentPos) {
     if (_chapters.isEmpty) return -1;
@@ -2090,58 +2033,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
               ),
             ),
 
-          // Skip Intro Overlay Button
-          StreamBuilder<Duration>(
-            stream: widget.player.stream.position,
-            builder: (context, snapshot) {
-              final pos = snapshot.data ?? widget.player.state.position;
-              final showSkip = !_isLocked && _isCurrentPositionInIntro(pos);
-              
-              return AnimatedPositioned(
-                duration: const Duration(milliseconds: 300),
-                curve: Curves.easeInOut,
-                right: showSkip ? 32 : -200,
-                bottom: _showControls ? 140 : 40,
-                child: AnimatedOpacity(
-                  duration: const Duration(milliseconds: 300),
-                  opacity: showSkip ? 1.0 : 0.0,
-                  child: InkWell(
-                    onTap: () => _handleSkipIntroTap(pos),
-                    borderRadius: BorderRadius.circular(20),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(20),
-                      child: BackdropFilter(
-                        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                          decoration: BoxDecoration(
-                            color: Colors.black.withOpacity(0.65),
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: Colors.white24, width: 1),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.fast_forward, color: settingsAccent, size: 18),
-                              const SizedBox(width: 8),
-                              const Text(
-                                'Skip Intro',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              );
-            },
-          ),
+
 
           // Controls UI Overlay
           if (_showControls && !_isLocked)
