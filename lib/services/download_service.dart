@@ -177,7 +177,7 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
       _dirWatcherSubscription = downloadsDir.watch().listen((event) {
         _syncDownloadsWithDisk();
       });
-    } catch (e, stackTrace) {
+    } catch (e) {
       Log.w('Directory watcher failed to start: $e');
     }
   }

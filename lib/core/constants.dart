@@ -14,47 +14,28 @@ class ChannelCategory {
 }
 
 class Constants {
-  static const String currentVersion = '2.3.6';
+  static const String currentVersion = '2.4.0';
   static const String changelog = '''
-### 🚀 What's New in v2.3.6
+### 🚀 What's New in v2.4.0
 
-This update resolves video orientation issues when switching episodes and implements a dual-mode subtitle renderer on Android!
+This major update brings premium playback optimizations, granular subtitle presets, real-time seek scrubbing, watched progress overlays, and an Advanced Cache Manager!
 
-#### 📺 Orientation Continuity
-* **Seamless Episode Transitions**: Verified active player state during page replacement to prevent orientation resets. The player now remains in landscape mode seamlessly when transitioning between episodes, only restoring portrait mode when you exit playback.
+#### ⚡ Buttery Smooth Playback & Seeking
+* **Instant Seeks**: Seeks within the already-downloaded part of a streaming video are now instantaneous and buffer-free.
+* **Low-Latency Buffering**: Reduced target buffer sizes during network seeks from 2.5MB to 1MB, ensuring super-fast play resume.
+* **Real-Time Seek Scrubbing**: Dragging the seekbar slider now updates video frames in real-time for downloaded regions.
+* **Wi-Fi Back Buffer Boost**: Dynamically increased the player back-buffer allocation to 64MB on Wi-Fi, keeping recently played scenes cached in RAM.
+* **Snappier Gestures**: Double-tap to seek gesture delay reduced from 500ms to 300ms for extra responsiveness.
 
-#### 💬 Subtitle Compatibility
-* **Dual Subtitle Renderer**: Added a Subtitle Renderer setting in Player Preferences. You can choose between a highly-compatible Flutter-based overlay rendering engine (which renders widgets on top of the player) and Native libass.
-* **Hardware Acceleration Toggle**: Added a toggle under Subtitles section to enable/disable GPU-accelerated video decoding. Disabling this fallback to software decoding, which resolves issues where subtitles are hidden by Android direct-to-surface GPU overlays.
-* **Native Font Family Resolution**: Fixed font loading in Native libass mode on Android by properly mapping family names to the custom fonts directory instead of using file paths.
-* **Outline Customization Styling**: Custom font size, color, delay, and font preferences are fully applied to the Flutter renderer with premium black stroke outlines for optimal readability.
+#### 💬 Subtitle Presets
+* **One-Tap Styles**: Added subtitle preset chips at the top of the Subtitle Customizer (Default White, Classic Yellow, Soft Cyan, Large & Bold, Compact Minimal). Select your style instantly!
 
----
+#### 📺 Watched Progress Overlays
+* **Premium Thumbnail Progress**: Episodes you've started watching now display a clean, subtle progress bar at the bottom edge of their thumbnail preview, keeping the episode list neat and modern.
 
-### 🚀 What's New in v2.3.5
-
-This update brings dynamic storage stats, UI overlap fixes, and advanced subtitle rendering improvements!
-
-#### 📊 Dynamic Storage Stats
-* **Real-time Disk Gauges**: Replaced hardcoded values in Settings. The app now dynamically calculates cache, downloads, and actual total/free device storage using platform APIs (StatFs on Android, PowerShell on Windows) to match your device's file manager.
-
-#### 📺 Episode List Layout & Navigation
-* **Bottom Scroll Spacer**: Added a 120px bottom scroll margin to the episode list. This allows you to scroll all cards completely above the floating favorite icon, ensuring download buttons are never blocked.
-
-#### 💬 Subtitle Compatibility Enhancements
-* **Hardware Accelerated Blending**: Configured decoder blending and timing fixes (`blend-subtitles` and `sub-fix-timing`) to display PGS/VobSub graphics, ASS, and SRT subtitle tracks seamlessly on Android.
-* **Asynchronous Selection Verification**: Added a 300ms verification retry loop during track changes to ensure manual selections are properly synchronized and persist through track list updates.
-
----
-
-### 🚀 What's New in v2.3.4
-
-This update brings a critical fix for Android subtitle rendering and introduces customizable system font integration!
-
-#### 💬 Subtitle Display & System Fonts
-* **System Fonts Integration**: Enabled mpv system font provider fallback on Android to resolve missing/invisible subtitles in custom/foreign language media.
-* **Asset Path Initialization**: Fixed native font loader initializer exception by strictly using validated asset paths.
-* **On-the-Fly Toggle & Settings**: Added a "Use System Fonts" toggle inside both the in-video Subtitle Customizer dialog and Player Preferences settings.
+#### 🧹 Advanced Cache Manager
+* **Granular Storage View**: Added a detailed storage gauge in Settings showing videos, documents, poster images, and temporary cache sizes.
+* **Per-Series Cache Purge**: Exposes cached size per series, allowing you to delete cache files on a per-show basis to save space!
 ''';
 
   // Telegram API Credentials from secrets.dart

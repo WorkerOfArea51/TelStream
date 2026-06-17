@@ -7,7 +7,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:file_picker/file_picker.dart';
 import '../../services/permission_service.dart';
-import '../../services/tdlib_service.dart';
 import '../../services/storage_service.dart';
 import '../../services/download_service.dart';
 import '../auth/auth_controller.dart';
@@ -15,6 +14,7 @@ import '../auth/login_screen.dart';
 import '../player/pip_manager.dart';
 import 'settings_provider.dart';
 import 'video_settings_screen.dart';
+import 'advanced_cache_manager_screen.dart';
 import '../../core/widgets/whats_new_dialog.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/logger.dart';
@@ -377,25 +377,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
-  void _clearCache() async {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Clearing cache (including images)...'), duration: Duration(milliseconds: 800)),
-    );
-
-    final storage = ref.read(storageServiceProvider);
-    final excludedPaths = storage.getDownloadedFiles().values.toList();
-
-    await ref.read(tdlibServiceProvider).clearVideoCache(includePhotos: true, excludedPaths: excludedPaths);
-    await _calculateCacheSize();
-    await _loadStorageSpace();
-
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Cache cleared successfully!'), backgroundColor: Colors.green),
-    );
-  }
-
   void _logout() async {
     ref.read(pipControllerProvider.notifier).close();
     ref.read(authControllerProvider.notifier).logout();
@@ -436,9 +417,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             tileColor: theme.cardColor,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             leading: const Icon(Icons.cleaning_services, color: Colors.redAccent),
-            title: const Text('Clear Cache'),
-            subtitle: Text('TelStream caches videos and poster images. Clearing this deletes them and frees up storage.', style: TextStyle(color: isDark ? Colors.white54 : Colors.black54)),
-            onTap: _clearCache,
+            title: const Text('Advanced Cache Manager'),
+            subtitle: Text('View detailed storage cache breakdown and clear cache per series.', style: TextStyle(color: isDark ? Colors.white54 : Colors.black54)),
+            trailing: Icon(Icons.chevron_right, color: isDark ? Colors.white54 : Colors.black54),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const AdvancedCacheManagerScreen()),
+              ).then((_) => _calculateCacheSize());
+            },
           ),
           const SizedBox(height: 8),
           ListTile(

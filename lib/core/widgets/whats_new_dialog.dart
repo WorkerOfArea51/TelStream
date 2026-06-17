@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../../core/constants.dart';
-import '../../services/update_service.dart';
 import 'changelog_parser.dart';
 
 class WhatsNewDialog extends StatelessWidget {

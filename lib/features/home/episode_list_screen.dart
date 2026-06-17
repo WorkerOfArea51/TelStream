@@ -684,7 +684,6 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
     }
     final double progressValue = (duration > 0) ? (savedPos / duration).clamp(0.0, 1.0) : 0.0;
     final isCompleted = progressValue > 0.9;
-    final showProgressBar = progressValue > 0.01 && !isCompleted;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -751,6 +750,25 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
                             ),
                           ),
                         ),
+                        if (progressValue > 0.0)
+                          Positioned(
+                            left: 0,
+                            right: 0,
+                            bottom: 0,
+                            child: Container(
+                              height: 3,
+                              color: Colors.black38,
+                              child: Align(
+                                alignment: Alignment.centerLeft,
+                                child: FractionallySizedBox(
+                                  widthFactor: progressValue,
+                                  child: Container(
+                                    color: settingsAccent,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
                       ],
                     ),
                   ),
@@ -804,18 +822,6 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
                   trailingWidget,
                 ],
               ),
-              if (showProgressBar) ...[
-                const SizedBox(height: 10),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(1),
-                  child: LinearProgressIndicator(
-                    value: progressValue,
-                    minHeight: 2.5,
-                    backgroundColor: isDark ? Colors.white10 : Colors.black12,
-                    valueColor: AlwaysStoppedAnimation<Color>(settingsAccent),
-                  ),
-                ),
-              ],
             ],
           ),
         ),

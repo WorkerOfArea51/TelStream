@@ -433,6 +433,9 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
     }
 
     _resolvedVideoFileId = freshFileId ?? widget.videoFileId;
+    if (widget.seriesName.isNotEmpty && _resolvedVideoFileId != null && _resolvedVideoFileId != 0) {
+      _storageService.associateFileWithSeries(widget.seriesName, _resolvedVideoFileId!);
+    }
 
     if (mounted) {
       setState(() {
@@ -499,7 +502,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         // Handle mid-play seek buffering updates
         if (_isPlaying && _pendingSeekTarget != null && _initialDownloadedSize != null) {
           final totalSize = event.file.expectedSize;
-          final targetBuffer = (totalSize * 0.03).clamp(2621440, 8388608);
+          final targetBuffer = (totalSize * 0.01).clamp(524288, 2097152); // Optimized: 512KB to 2MB buffer
           final downloadedDelta = event.file.local.downloadedSize - _initialDownloadedSize!;
           
           if (event.file.local.isDownloadingCompleted || downloadedDelta >= targetBuffer) {
@@ -541,16 +544,19 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
     final expectedSize = _expectedSize;
 
     if (totalDuration > 0 && expectedSize > 0) {
-      // Check if file is fully downloaded
+      // Calculate corresponding byte offset
+      final fraction = position.inSeconds / totalDuration;
+      int byteOffset = (fraction * expectedSize).round();
+
+      // Check if file is fully downloaded or if target offset is within already-downloaded prefix
       final isCompleted = _downloadedPrefixSize >= expectedSize;
-      if (isCompleted) {
+      final isWithinDownloadedRange = byteOffset < _downloadedPrefixSize;
+
+      if (isCompleted || isWithinDownloadedRange) {
         player.seek(position);
         return;
       }
 
-      // Calculate corresponding byte offset
-      final fraction = position.inSeconds / totalDuration;
-      int byteOffset = (fraction * expectedSize).round();
       if (byteOffset >= expectedSize - 2097152) {
         byteOffset = (expectedSize - 2097152).clamp(0, expectedSize);
       }
@@ -767,14 +773,16 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         
         if (isWifi) {
           nativePlayer.setProperty('demuxer-max-bytes', '134217728'); // 128 MB
+          nativePlayer.setProperty('demuxer-max-back-bytes', '67108864'); // 64 MB back buffer
           nativePlayer.setProperty('demuxer-readahead-secs', '120'); // 120s
           nativePlayer.setProperty('cache-pause-wait', '2');
-          Log.i('Applied Wi-Fi Profile: Caching boundary set to 128MB');
+          Log.i('Applied Wi-Fi Profile: Caching boundary set to 128MB, back buffer 64MB');
         } else {
           nativePlayer.setProperty('demuxer-max-bytes', '16777216'); // 16 MB
+          nativePlayer.setProperty('demuxer-max-back-bytes', '16777216'); // 16 MB back buffer
           nativePlayer.setProperty('demuxer-readahead-secs', '20'); // 20s
           nativePlayer.setProperty('cache-pause-wait', '4');
-          Log.i('Applied Mobile Data Profile: Caching boundary set to 16MB');
+          Log.i('Applied Mobile Data Profile: Caching boundary set to 16MB, back buffer 16MB');
         }
       }
     } catch (e) {

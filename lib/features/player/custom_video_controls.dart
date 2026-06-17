@@ -131,6 +131,28 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
   Offset? _dragStartFocalPoint;
   DateTime? _lastSeekWarningTime;
   StreamSubscription<double>? _volumeSubscription;
+  DateTime? _lastDragSeekTime;
+
+  bool _isPositionDownloaded(Duration position) {
+    if (widget.expectedSize <= 0) return true;
+    final totalDuration = widget.player.state.duration;
+    if (totalDuration.inMilliseconds <= 0) return false;
+    
+    final isDownloadedCompleted = widget.downloadedPrefixSize >= widget.expectedSize;
+    if (isDownloadedCompleted) return true;
+    
+    final fraction = position.inSeconds / totalDuration.inSeconds;
+    final byteOffset = fraction * widget.expectedSize;
+    return byteOffset < widget.downloadedPrefixSize;
+  }
+
+  void _throttledSeek(Duration target) {
+    final now = DateTime.now();
+    if (_lastDragSeekTime == null || now.difference(_lastDragSeekTime!).inMilliseconds > 150) {
+      _lastDragSeekTime = now;
+      _performSeek(target);
+    }
+  }
 
   @override
   void initState() {
@@ -377,13 +399,13 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
 
     final safeTarget = _clampSeekTarget(clampedTarget, showMessage: true);
     
-    _doubleTapSeekTimer = Timer(const Duration(milliseconds: 500), () {
+    _doubleTapSeekTimer = Timer(const Duration(milliseconds: 300), () {
       if (mounted) {
         _performSeek(safeTarget);
       }
     });
 
-    _doubleTapOverlayTimer = Timer(const Duration(milliseconds: 650), () {
+    _doubleTapOverlayTimer = Timer(const Duration(milliseconds: 500), () {
       if (mounted) {
         setState(() {
           _doubleTapSeekOpacity = 0.0;
@@ -2217,6 +2239,10 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                                       setState(() {
                                         _draggingValue = v;
                                       });
+                                      final target = Duration(milliseconds: v.toInt());
+                                      if (_isPositionDownloaded(target)) {
+                                        _throttledSeek(target);
+                                      }
                                     } : null,
                                     onChangeEnd: (v) {
                                       _startHideTimer();
@@ -2386,6 +2412,41 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setModalState) {
+            Widget buildPresetChip(String label, double size, String colorHex, String fontFamily) {
+              final isSelected = fontSize == size && color == colorHex && font == fontFamily;
+              final accent = settingsAccent;
+
+              return Padding(
+                padding: const EdgeInsets.only(right: 8.0),
+                child: ChoiceChip(
+                  label: Text(label, style: const TextStyle(fontSize: 12)),
+                  selected: isSelected,
+                  selectedColor: accent,
+                  backgroundColor: Colors.white10,
+                  labelStyle: TextStyle(
+                    color: isSelected ? Colors.black : Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  onSelected: (selected) {
+                    if (selected) {
+                      setModalState(() {
+                        fontSize = size;
+                        color = colorHex;
+                        font = fontFamily;
+                      });
+                      storage.setSubtitleFontSize(size);
+                      storage.setSubtitleColor(colorHex);
+                      storage.setSubtitleFont(fontFamily);
+                      
+                      _applySubtitleProperty('sub-size', size.round().toString());
+                      _applySubtitleProperty('sub-color', colorHex);
+                      _applySubtitleProperty('sub-font', fontFamily);
+                    }
+                  },
+                ),
+              );
+            }
+
             return Padding(
               padding: const EdgeInsets.all(20.0),
               child: SingleChildScrollView(
@@ -2408,6 +2469,22 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                     ),
                     const Divider(color: Colors.white24),
                     const SizedBox(height: 10),
+                    const Text('Presets', style: TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 6),
+                    SizedBox(
+                      height: 38,
+                      child: ListView(
+                        scrollDirection: Axis.horizontal,
+                        children: [
+                          buildPresetChip('Default White', 45, '#FFFFFF', 'Roboto'),
+                          buildPresetChip('Classic Anime', 45, '#FFFF00', 'Roboto'),
+                          buildPresetChip('Soft Cyan', 45, '#00FFFF', 'Roboto'),
+                          buildPresetChip('Large & Bold', 60, '#FFFFFF', 'Roboto'),
+                          buildPresetChip('Compact Minimal', 30, '#E0E0E0', 'Roboto'),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
                     Text('Font Size: ${fontSize.round()}px', style: const TextStyle(color: Colors.white70, fontSize: 14)),
                     Slider(
                       value: fontSize,

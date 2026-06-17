@@ -70,7 +70,7 @@ class StorageService {
         _data = json.decode(content);
         loaded = true;
         Log.i('User storage loaded successfully');
-      } catch (e, stackTrace) {
+      } catch (e) {
         Log.w('Primary user storage corrupted, trying backup: $e');
       }
     }
@@ -539,6 +539,19 @@ class StorageService {
 
   Future<void> setNetworkProfileMode(String value) async {
     _data['network_profile_mode'] = value;
+    await _save();
+  }
+
+  // --- Series Files Mapping (for Cache Manager) ---
+
+  Map<String, String> getSeriesFiles() {
+    if (_data['series_files'] == null) return {};
+    return Map<String, String>.from(_data['series_files']);
+  }
+
+  Future<void> associateFileWithSeries(String seriesName, int fileId) async {
+    _data['series_files'] ??= <String, dynamic>{};
+    _data['series_files'][fileId.toString()] = seriesName;
     await _save();
   }
 }
