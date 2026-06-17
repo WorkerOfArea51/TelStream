@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:math' as math;
 import 'dart:ui';
 import 'package:flutter/material.dart';
@@ -11,6 +12,7 @@ import 'package:flutter_volume_controller/flutter_volume_controller.dart';
 import '../settings/settings_provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../../services/storage_service.dart';
+import '../../core/logger.dart';
 
 class CustomVideoControls extends ConsumerStatefulWidget {
   final Player player;
@@ -200,10 +202,14 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
 
     final remaining = dur.inSeconds - pos.inSeconds;
     
-    if (remaining <= 15 && remaining > 0 && !_autoNextTriggered) {
+    final bool isOutro = _isCurrentPositionInOutro(pos);
+    final outroThreshold = ref.read(storageServiceProvider).getVideoSettings()['outro_threshold_seconds'] as int? ?? 45;
+    final bool shouldTrigger = isOutro || (remaining <= outroThreshold && remaining > 0);
+
+    if (shouldTrigger && !_autoNextTriggered) {
       _autoNextTriggered = true;
       _startAutoNextCountdown();
-    } else if (remaining > 15 && _autoNextTriggered) {
+    } else if (!shouldTrigger && _autoNextTriggered) {
       _cancelAutoNextCountdown();
       _autoNextTriggered = false;
     }
@@ -1044,11 +1050,13 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     } else if (_isVerticalDrag && _scale <= 1.0) {
       final double deltaY = details.focalPointDelta.dy;
       if (_dragStartFocalPoint!.dx > screenWidth / 2 && volGestures) {
+        final bool volumeBoost = ref.read(storageServiceProvider).getVolumeBoostEnabled();
+        final maxVol = volumeBoost ? 200.0 : 100.0;
         setState(() {
           _currentVolume -= deltaY * 0.2;
-          _currentVolume = _currentVolume.clamp(0.0, 100.0);
+          _currentVolume = _currentVolume.clamp(0.0, maxVol);
           try {
-            FlutterVolumeController.setVolume(_currentVolume / 100.0);
+            FlutterVolumeController.setVolume((_currentVolume / 100.0).clamp(0.0, 1.0));
           } catch (_) {}
           widget.player.setVolume(_currentVolume);
           _showVolumeIndicator = true;
@@ -1544,6 +1552,11 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                                 ),
                               ),
                               const Spacer(),
+                              if (_trackSelectorIsSubtitle)
+                                IconButton(
+                                  icon: const Icon(Icons.tune, color: Colors.white),
+                                  onPressed: _showSubtitleCustomizerDialog,
+                                ),
                               IconButton(
                                 icon: const Icon(Icons.close, color: Colors.white60),
                                 onPressed: () => setState(() => _showTrackSelectorPanel = false),
@@ -1927,7 +1940,14 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
           if (_showBrightnessIndicator && !_isLocked)
             Positioned(top: 100, left: 40, child: _buildOSD(Icons.light_mode, _currentBrightness)),
           if (_showVolumeIndicator && !_isLocked)
-            Positioned(top: 100, right: 40, child: _buildOSD(_currentVolume == 0 ? Icons.volume_off : Icons.volume_up, _currentVolume / 100)),
+            Positioned(
+              top: 100, right: 40,
+              child: _buildOSD(
+                _currentVolume == 0 ? Icons.volume_off : Icons.volume_up,
+                _currentVolume > 100 ? (_currentVolume - 100) / 100 : _currentVolume / 100,
+                isBoosted: _currentVolume > 100,
+              ),
+            ),
           if (_showSeekIndicator && !_isLocked)
             Center(
               child: Container(
@@ -2344,26 +2364,37 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     );
   }
 
-  Widget _buildOSD(IconData icon, double value) {
+  Widget _buildOSD(IconData icon, double value, {bool isBoosted = false}) {
     final theme = Theme.of(context);
     final customTheme = theme.extension<AppThemeExtension>();
     final settingsAccent = customTheme?.settingsAccent ?? theme.primaryColor;
+    final displayValue = value.clamp(0.0, 1.0);
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(12)),
       child: Column(
         children: [
-          Icon(icon, color: Colors.white, size: 28),
+          Icon(icon, color: isBoosted ? Colors.amber : Colors.white, size: 28),
           const SizedBox(height: 8),
           Container(
             width: 4, height: 100,
             decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(2)),
             alignment: Alignment.bottomCenter,
             child: Container(
-              width: 4, height: 100 * value,
-              decoration: BoxDecoration(color: settingsAccent, borderRadius: BorderRadius.circular(2)),
+              width: 4, height: 100 * displayValue,
+              decoration: BoxDecoration(
+                color: isBoosted ? Colors.amber : settingsAccent,
+                borderRadius: BorderRadius.circular(2),
+              ),
             ),
           ),
+          if (isBoosted) ...[
+            const SizedBox(height: 4),
+            const Text(
+              'BOOST',
+              style: TextStyle(color: Colors.amber, fontSize: 8, fontWeight: FontWeight.bold),
+            ),
+          ],
         ],
       ),
     );
@@ -2385,6 +2416,207 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
         ),
       ),
     );
+  }
+
+  void _showSubtitleCustomizerDialog() {
+    final storage = ref.read(storageServiceProvider);
+    double fontSize = storage.getSubtitleFontSize();
+    String color = storage.getSubtitleColor();
+    double delay = storage.getSubtitleDelay();
+    String font = storage.getSubtitleFont();
+
+    final theme = Theme.of(context);
+    final customTheme = theme.extension<AppThemeExtension>();
+    final settingsAccent = customTheme?.settingsAccent ?? theme.primaryColor;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.black.withOpacity(0.95),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Padding(
+              padding: const EdgeInsets.all(20.0),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Subtitle Customizer',
+                          style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close, color: Colors.white60),
+                          onPressed: () => Navigator.pop(context),
+                        ),
+                      ],
+                    ),
+                    const Divider(color: Colors.white24),
+                    const SizedBox(height: 10),
+                    Text('Font Size: ${fontSize.round()}px', style: const TextStyle(color: Colors.white70, fontSize: 14)),
+                    Slider(
+                      value: fontSize,
+                      min: 15,
+                      max: 80,
+                      divisions: 65,
+                      activeColor: settingsAccent,
+                      inactiveColor: Colors.white24,
+                      onChanged: (val) {
+                        setModalState(() => fontSize = val);
+                        storage.setSubtitleFontSize(val);
+                        _applySubtitleProperty('sub-size', val.round().toString());
+                      },
+                    ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('Delay Sync: ${delay >= 0 ? "+" : ""}${delay.toStringAsFixed(1)}s', style: const TextStyle(color: Colors.white70, fontSize: 14)),
+                        TextButton(
+                          onPressed: () {
+                            setModalState(() => delay = 0.0);
+                            storage.setSubtitleDelay(0.0);
+                            _applySubtitleProperty('sub-delay', '0.0');
+                          },
+                          child: const Text('Reset', style: TextStyle(color: Colors.redAccent, fontSize: 12)),
+                        ),
+                      ],
+                    ),
+                    Slider(
+                      value: delay,
+                      min: -10.0,
+                      max: 10.0,
+                      divisions: 200,
+                      activeColor: settingsAccent,
+                      inactiveColor: Colors.white24,
+                      onChanged: (val) {
+                        final roundedVal = (val * 10).round() / 10;
+                        setModalState(() => delay = roundedVal);
+                        storage.setSubtitleDelay(roundedVal);
+                        _applySubtitleProperty('sub-delay', roundedVal.toString());
+                      },
+                    ),
+                    const Text('Text Color', style: TextStyle(color: Colors.white70, fontSize: 14)),
+                    const SizedBox(height: 8),
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          _buildColorOption(setModalState, storage, 'White', '#FFFFFF', color),
+                          _buildColorOption(setModalState, storage, 'Yellow', '#FFFF00', color),
+                          _buildColorOption(setModalState, storage, 'Cyan', '#00FFFF', color),
+                          _buildColorOption(setModalState, storage, 'Green', '#00FF00', color),
+                          _buildColorOption(setModalState, storage, 'Red', '#FF0000', color),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    const Text('Font Family', style: TextStyle(color: Colors.white70, fontSize: 14)),
+                    const SizedBox(height: 8),
+                    DropdownButton<String>(
+                      value: font,
+                      dropdownColor: Colors.black,
+                      style: const TextStyle(color: Colors.white, fontSize: 14),
+                      underline: Container(height: 1, color: settingsAccent),
+                      isExpanded: true,
+                      items: const [
+                        DropdownMenuItem(value: 'Roboto', child: Text('Roboto')),
+                        DropdownMenuItem(value: 'Arial', child: Text('Arial')),
+                        DropdownMenuItem(value: 'sans-serif', child: Text('Sans-Serif')),
+                        DropdownMenuItem(value: 'DejaVuSans', child: Text('DejaVuSans')),
+                      ],
+                      onChanged: (val) {
+                        if (val != null) {
+                          setModalState(() => font = val);
+                          storage.setSubtitleFont(val);
+                          _applySubtitleProperty('sub-font', val);
+                        }
+                      },
+                    ),
+                    if (Platform.isAndroid) ...[
+                      const SizedBox(height: 16),
+                      SwitchListTile(
+                        title: const Text('Use System Fonts', style: TextStyle(color: Colors.white70, fontSize: 14)),
+                        subtitle: const Text('Access Android system fonts for subtitle fallback. Fixes missing subtitles.', style: TextStyle(color: Colors.white38, fontSize: 11)),
+                        value: storage.getSubtitleSystemFonts(),
+                        activeColor: settingsAccent,
+                        contentPadding: EdgeInsets.zero,
+                        onChanged: (val) {
+                          setModalState(() {});
+                          storage.setSubtitleSystemFonts(val);
+                          _applySubtitleProperty('sub-font-provider', val ? 'auto' : 'none');
+                        },
+                      ),
+                    ],
+                    const SizedBox(height: 20),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildColorOption(StateSetter setModalState, StorageService storage, String label, String hexCode, String selectedColor) {
+    final isSelected = hexCode == selectedColor;
+    final theme = Theme.of(context);
+    final accent = theme.extension<AppThemeExtension>()?.settingsAccent ?? theme.primaryColor;
+
+    return Padding(
+      padding: const EdgeInsets.only(right: 8.0),
+      child: ChoiceChip(
+        label: Text(label),
+        selected: isSelected,
+        selectedColor: accent,
+        backgroundColor: Colors.white10,
+        labelStyle: TextStyle(color: isSelected ? Colors.black : Colors.white, fontWeight: FontWeight.bold),
+        onSelected: (selected) {
+          if (selected) {
+            setModalState(() {});
+            storage.setSubtitleColor(hexCode);
+            _applySubtitleProperty('sub-color', hexCode);
+          }
+        },
+      ),
+    );
+  }
+
+  void _applySubtitleProperty(String name, String value) {
+    try {
+      if (widget.player.platform is NativePlayer) {
+        final nativePlayer = widget.player.platform as NativePlayer;
+        nativePlayer.setProperty(name, value);
+        Log.i('Applied subtitle property dynamically: $name = $value');
+      }
+    } catch (e) {
+      Log.e('Failed to apply subtitle property $name', e);
+    }
+  }
+
+  bool _isCurrentPositionInOutro(Duration position) {
+    if (!_hasChapters || _chapters.isEmpty) return false;
+    for (int i = 0; i < _chapters.length; i++) {
+      final ch = _chapters[i];
+      final titleLower = ch.title.toLowerCase();
+      if (titleLower.contains('outro') ||
+          titleLower.contains('credits') ||
+          titleLower.contains('credit') ||
+          titleLower.contains('ending') ||
+          titleLower.contains('ed')) {
+        if (position >= ch.position) {
+          return true;
+        }
+      }
+    }
+    return false;
   }
 
   String _formatDuration(Duration d) {

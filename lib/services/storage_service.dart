@@ -432,6 +432,97 @@ class StorageService {
     _data['preferred_audio_track'] = value;
     await _save();
   }
+
+  // --- TMDB Cache & Config ---
+
+  String? getTmdbApiKey() {
+    return _data['tmdb_api_key'] as String?;
+  }
+
+  Future<void> setTmdbApiKey(String? value) async {
+    _data['tmdb_api_key'] = value;
+    await _save();
+  }
+
+  dynamic getTmdbCache(String key) {
+    _data['tmdb_cache'] ??= <String, dynamic>{};
+    return _data['tmdb_cache'][key];
+  }
+
+  Future<void> setTmdbCache(String key, dynamic value) async {
+    _data['tmdb_cache'] ??= <String, dynamic>{};
+    _data['tmdb_cache'][key] = value;
+    await _save();
+  }
+
+  // --- Subtitle Preferences ---
+
+  double getSubtitleFontSize() {
+    return (_data['subtitle_font_size'] as num?)?.toDouble() ?? 45.0;
+  }
+
+  Future<void> setSubtitleFontSize(double value) async {
+    _data['subtitle_font_size'] = value;
+    await _save();
+  }
+
+  String getSubtitleColor() {
+    return _data['subtitle_color'] as String? ?? '#FFFFFF';
+  }
+
+  Future<void> setSubtitleColor(String value) async {
+    _data['subtitle_color'] = value;
+    await _save();
+  }
+
+  double getSubtitleDelay() {
+    return (_data['subtitle_delay'] as num?)?.toDouble() ?? 0.0;
+  }
+
+  Future<void> setSubtitleDelay(double value) async {
+    _data['subtitle_delay'] = value;
+    await _save();
+  }
+
+  String getSubtitleFont() {
+    return _data['subtitle_font'] as String? ?? 'Roboto';
+  }
+
+  Future<void> setSubtitleFont(String value) async {
+    _data['subtitle_font'] = value;
+    await _save();
+  }
+
+  bool getSubtitleSystemFonts() {
+    return _data['subtitle_system_fonts'] as bool? ?? true;
+  }
+
+  Future<void> setSubtitleSystemFonts(bool value) async {
+    _data['subtitle_system_fonts'] = value;
+    await _save();
+  }
+
+  // --- Audio Boost Preferences ---
+
+  bool getVolumeBoostEnabled() {
+    return _data['volume_boost_enabled'] as bool? ?? false;
+  }
+
+  Future<void> setVolumeBoostEnabled(bool value) async {
+    _data['volume_boost_enabled'] = value;
+    await _save();
+  }
+
+  // --- Network Profiles ---
+
+  String getNetworkProfileMode() {
+    return _data['network_profile_mode'] as String? ?? 'auto';
+  }
+
+  Future<void> setNetworkProfileMode(String value) async {
+    _data['network_profile_mode'] = value;
+    await _save();
+  }
 }
 
 class FavoritesNotifier extends Notifier<List<String>> {

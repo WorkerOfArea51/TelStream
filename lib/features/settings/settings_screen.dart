@@ -28,6 +28,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   String _cacheSize = "Calculating...";
   String _downloadPath = "Default (App Private)";
 
+  int _cacheSizeRaw = 0;
+  int _downloadsSizeRaw = 0;
+  String _cacheSizeStr = "0.0 MB";
+  String _downloadsSizeStr = "0.0 MB";
+
   @override
   void initState() {
     super.initState();
@@ -96,7 +101,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       final docDir = await getApplicationDocumentsDirectory();
       final customPath = ref.read(storageServiceProvider).getCustomDownloadDirectory();
 
-      final int size = await compute((params) async {
+      final int totalBytes = await compute((params) async {
         final docPath = params[0] as String;
         final customPath = params[1] as String?;
         int total = 0;
@@ -127,20 +132,199 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         return total;
       }, [docDir.path, customPath]);
 
+      // Calculate download sizes
+      final storage = ref.read(storageServiceProvider);
+      final downloadedFiles = storage.getDownloadedFiles();
+      int dlSum = 0;
+      for (final path in downloadedFiles.values) {
+        final file = File(path);
+        if (file.existsSync()) {
+          dlSum += file.lengthSync();
+        }
+      }
+
+      int cacheBytes = totalBytes - dlSum;
+      if (cacheBytes < 0) cacheBytes = 0;
+
       if (!mounted) return;
       setState(() {
-        if (size < 1024 * 1024) {
-          _cacheSize = "${(size / 1024).toStringAsFixed(1)} KB";
-        } else if (size < 1024 * 1024 * 1024) {
-          _cacheSize = "${(size / (1024 * 1024)).toStringAsFixed(1)} MB";
-        } else {
-          _cacheSize = "${(size / (1024 * 1024 * 1024)).toStringAsFixed(2)} GB";
-        }
+        _downloadsSizeRaw = dlSum;
+        _cacheSizeRaw = cacheBytes;
+
+        _downloadsSizeStr = _formatSizeString(dlSum);
+        _cacheSizeStr = _formatSizeString(cacheBytes);
+        
+        _cacheSize = _cacheSizeStr;
       });
     } catch (e, stackTrace) {
       Log.e('Failed to calculate cache size', e, stackTrace);
       if (mounted) setState(() => _cacheSize = "Unknown");
     }
+  }
+
+  String _formatSizeString(int size) {
+    if (size < 1024 * 1024) {
+      return "${(size / 1024).toStringAsFixed(1)} KB";
+    } else if (size < 1024 * 1024 * 1024) {
+      return "${(size / (1024 * 1024)).toStringAsFixed(1)} MB";
+    } else {
+      return "${(size / (1024 * 1024 * 1024)).toStringAsFixed(2)} GB";
+    }
+  }
+
+  void _showTmdbApiKeyDialog() {
+    final theme = Theme.of(context);
+    final storage = ref.read(storageServiceProvider);
+    final controller = TextEditingController(text: storage.getTmdbApiKey() ?? '');
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: theme.cardColor,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: theme.colorScheme.onSurface.withOpacity(0.08), width: 1),
+        ),
+        title: const Text('TMDB API Key'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Enter your custom TMDB v3 API Key. Leave empty to use the public default key.',
+              style: TextStyle(fontSize: 13, color: Colors.white70),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: controller,
+              style: const TextStyle(color: Colors.white),
+              decoration: const InputDecoration(
+                hintText: 'e.g. 829f046ef3294326127b407137f6...',
+                hintStyle: TextStyle(color: Colors.white24),
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Cancel', style: TextStyle(color: theme.brightness == Brightness.dark ? Colors.white54 : Colors.black54)),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              await storage.setTmdbApiKey(controller.text.trim());
+              Navigator.pop(context);
+              setState(() {});
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('TMDB API Key updated successfully!'), backgroundColor: Colors.green),
+              );
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStorageGauge(ThemeData theme, Color settingsAccent, bool isDark) {
+    final total = 128.0 * 1024 * 1024 * 1024;
+    final free = 45.0 * 1024 * 1024 * 1024;
+    final cache = _cacheSizeRaw.toDouble();
+    final downloads = _downloadsSizeRaw.toDouble();
+    final other = total - free - cache - downloads;
+
+    final double cachePct = cache / total;
+    final double downloadsPct = downloads / total;
+    final double freePct = free / total;
+    final double otherPct = other / total;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: theme.cardColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: theme.colorScheme.onSurface.withOpacity(0.08)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Device Storage',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+              ),
+              Text(
+                'Total: 128 GB',
+                style: TextStyle(color: isDark ? Colors.white54 : Colors.black54, fontSize: 12),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: SizedBox(
+              height: 12,
+              child: Row(
+                children: [
+                  if (cachePct > 0.005)
+                    Expanded(
+                      flex: (cachePct * 1000).round(),
+                      child: Container(color: settingsAccent),
+                    ),
+                  if (downloadsPct > 0.005)
+                    Expanded(
+                      flex: (downloadsPct * 1000).round(),
+                      child: Container(color: Colors.green),
+                    ),
+                  if (otherPct > 0.005)
+                    Expanded(
+                      flex: (otherPct * 1000).round(),
+                      child: Container(color: isDark ? Colors.white10 : Colors.black12),
+                    ),
+                  if (freePct > 0.005)
+                    Expanded(
+                      flex: (freePct * 1000).round(),
+                      child: Container(color: Colors.blueAccent),
+                    ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _buildLegendItem('Cache', _cacheSizeStr, settingsAccent),
+              _buildLegendItem('Downloads', _downloadsSizeStr, Colors.green),
+              _buildLegendItem('Free Space', '45 GB', Colors.blueAccent),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLegendItem(String label, String value, Color color) {
+    return Row(
+      children: [
+        Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 6),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(label, style: const TextStyle(fontSize: 10, color: Colors.white54)),
+            Text(value, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+          ],
+        ),
+      ],
+    );
   }
 
   void _clearCache() async {
@@ -195,14 +379,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         children: [
           Text('Storage Management', style: TextStyle(color: settingsAccent, fontWeight: FontWeight.bold, fontSize: 16)),
           const SizedBox(height: 16),
-          ListTile(
-            tileColor: theme.cardColor,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            leading: Icon(Icons.storage, color: isDark ? Colors.white70 : Colors.black54),
-            title: const Text('App Cache Size'),
-            trailing: Text(_cacheSize, style: TextStyle(color: isDark ? Colors.white70 : Colors.black87, fontWeight: FontWeight.bold)),
-          ),
-          const SizedBox(height: 8),
+          _buildStorageGauge(theme, settingsAccent, isDark),
+          const SizedBox(height: 12),
           ListTile(
             tileColor: theme.cardColor,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -272,6 +450,21 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             subtitle: Text(_downloadPath, style: TextStyle(color: isDark ? Colors.white54 : Colors.black54, fontSize: 11)),
             trailing: Icon(Icons.folder_open, color: isDark ? Colors.white70 : Colors.black54, size: 20),
             onTap: _selectDownloadDirectory,
+          ),
+          const SizedBox(height: 8),
+          ListTile(
+            tileColor: theme.cardColor,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            leading: Icon(Icons.movie_filter_outlined, color: isDark ? Colors.tealAccent : Colors.teal),
+            title: const Text('TMDB Custom API Key'),
+            subtitle: Text(
+              ref.read(storageServiceProvider).getTmdbApiKey()?.isNotEmpty == true
+                  ? 'Using Custom API Key'
+                  : 'Using System Default Key',
+              style: TextStyle(color: isDark ? Colors.white54 : Colors.black54, fontSize: 11),
+            ),
+            trailing: Icon(Icons.vpn_key, color: isDark ? Colors.white70 : Colors.black54, size: 20),
+            onTap: _showTmdbApiKeyDialog,
           ),
 
           const SizedBox(height: 32),

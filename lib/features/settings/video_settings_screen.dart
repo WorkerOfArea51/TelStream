@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'settings_provider.dart';
 import '../../core/theme/app_theme.dart';
+import '../../services/storage_service.dart';
 
 class VideoSettingsScreen extends ConsumerWidget {
   const VideoSettingsScreen({Key? key}) : super(key: key);
@@ -116,6 +117,121 @@ class VideoSettingsScreen extends ConsumerWidget {
             subtitle: 'Automatically adjust audio volume to maintain consistent loudness levels',
             value: settings.volumeNormalization,
             onChanged: (val) => notifier.updateSettings(settings.copyWith(volumeNormalization: val)),
+          ),
+          _buildSwitch(
+            context: context,
+            title: '200% Volume Boost Limit',
+            subtitle: 'Allows dynamic audio amplification up to 200% via player controls and swipe gestures',
+            value: ref.watch(storageServiceProvider).getVolumeBoostEnabled(),
+            onChanged: (val) async {
+              await ref.read(storageServiceProvider).setVolumeBoostEnabled(val);
+              (context as Element).markNeedsBuild();
+            },
+          ),
+
+          const SizedBox(height: 24),
+          _buildSectionHeader(context, 'Subtitles'),
+          _buildSwitch(
+            context: context,
+            title: 'Use System Fonts (Android)',
+            subtitle: 'Enables system font provider (e.g. Arial, fallback glyphs) for subtitle rendering. Recommended to fix missing/invisible subtitles.',
+            value: ref.watch(storageServiceProvider).getSubtitleSystemFonts(),
+            onChanged: (val) async {
+              await ref.read(storageServiceProvider).setSubtitleSystemFonts(val);
+              (context as Element).markNeedsBuild();
+            },
+          ),
+
+          const SizedBox(height: 24),
+          _buildSectionHeader(context, 'Smart Auto-Play Next'),
+          ListTile(
+            title: Text('Smart Outro Next Trigger Threshold', style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
+            subtitle: Text(
+              '${ref.watch(storageServiceProvider).getVideoSettings()["outro_threshold_seconds"] as int? ?? 45} seconds before end',
+              style: TextStyle(color: isDark ? Colors.white54 : Colors.black54, fontSize: 12),
+            ),
+            trailing: Icon(Icons.chevron_right, color: isDark ? Colors.white54 : Colors.black54),
+            onTap: () async {
+              final current = ref.read(storageServiceProvider).getVideoSettings()["outro_threshold_seconds"] as int? ?? 45;
+              final newValue = await showDialog<int>(
+                context: context,
+                builder: (context) => AlertDialog(
+                  backgroundColor: theme.cardColor,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    side: BorderSide(color: theme.colorScheme.onSurface.withOpacity(0.08), width: 1),
+                  ),
+                  title: Text('Smart Outro Threshold', style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
+                  content: StatefulBuilder(
+                    builder: (context, setDialogState) {
+                      return Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Text('Show the next episode autoplay prompt at:', style: TextStyle(fontSize: 13, color: Colors.white70)),
+                          const SizedBox(height: 12),
+                          DropdownButton<int>(
+                            value: current,
+                            dropdownColor: theme.cardColor,
+                            style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+                            isExpanded: true,
+                            items: const [
+                              DropdownMenuItem(value: 15, child: Text('15 Seconds before end')),
+                              DropdownMenuItem(value: 30, child: Text('30 Seconds before end')),
+                              DropdownMenuItem(value: 45, child: Text('45 Seconds before end')),
+                              DropdownMenuItem(value: 60, child: Text('60 Seconds before end')),
+                              DropdownMenuItem(value: 90, child: Text('90 Seconds before end')),
+                            ],
+                            onChanged: (val) {
+                              if (val != null) {
+                                Navigator.pop(context, val);
+                              }
+                            },
+                          ),
+                        ],
+                      );
+                    }
+                  ),
+                ),
+              );
+              if (newValue != null) {
+                final newMap = Map<String, dynamic>.from(ref.read(storageServiceProvider).getVideoSettings());
+                newMap["outro_threshold_seconds"] = newValue;
+                await ref.read(storageServiceProvider).updateVideoSettings(newMap);
+                (context as Element).markNeedsBuild();
+              }
+            },
+          ),
+
+          const SizedBox(height: 24),
+          _buildSectionHeader(context, 'Caching limits'),
+          ListTile(
+            title: Text('Dynamic Network Cache Profile', style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
+            subtitle: Text(
+              ref.watch(storageServiceProvider).getNetworkProfileMode() == "auto"
+                  ? 'Auto (Switch limits based on Wi-Fi vs Mobile)'
+                  : ref.watch(storageServiceProvider).getNetworkProfileMode() == "wifi"
+                      ? 'Wi-Fi Profile (128 MB cache buffer)'
+                      : 'Mobile Profile (16 MB cache buffer)',
+              style: TextStyle(color: isDark ? Colors.white54 : Colors.black54, fontSize: 12),
+            ),
+            trailing: DropdownButton<String>(
+              value: ref.watch(storageServiceProvider).getNetworkProfileMode(),
+              dropdownColor: theme.cardColor,
+              underline: const SizedBox(),
+              style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+              icon: Icon(Icons.arrow_drop_down, color: isDark ? Colors.white70 : Colors.black54),
+              items: const [
+                DropdownMenuItem(value: 'auto', child: Text('Auto (Wi-Fi vs Mobile)')),
+                DropdownMenuItem(value: 'wifi', child: Text('Force Wi-Fi Profile (128MB)')),
+                DropdownMenuItem(value: 'mobile', child: Text('Force Mobile Profile (16MB)')),
+              ],
+              onChanged: (String? value) async {
+                if (value != null) {
+                  await ref.read(storageServiceProvider).setNetworkProfileMode(value);
+                  (context as Element).markNeedsBuild();
+                }
+              },
+            ),
           ),
         ],
       ),

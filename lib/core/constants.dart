@@ -14,8 +14,19 @@ class ChannelCategory {
 }
 
 class Constants {
-  static const String currentVersion = '2.3.3';
+  static const String currentVersion = '2.3.4';
   static const String changelog = '''
+### 🚀 What's New in v2.3.4
+
+This update brings a critical fix for Android subtitle rendering and introduces customizable system font integration!
+
+#### 💬 Subtitle Display & System Fonts
+* **System Fonts Integration**: Enabled mpv system font provider fallback on Android to resolve missing/invisible subtitles in custom/foreign language media.
+* **Asset Path Initialization**: Fixed native font loader initializer exception by strictly using validated asset paths.
+* **On-the-Fly Toggle & Settings**: Added a "Use System Fonts" toggle inside both the in-video Subtitle Customizer dialog and Player Preferences settings.
+
+---
+
 ### 🚀 What's New in v2.3.3
 
 This update brings critical bug fixes for player seeking, back navigation, and Android subtitles!

@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:tdlib/td_api.dart' as td;
+import 'package:connectivity_plus/connectivity_plus.dart';
 import '../../services/tdlib_service.dart';
 import '../../services/storage_service.dart';
 import '../../services/download_service.dart';
@@ -57,6 +58,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
 
   StreamSubscription? _completedSubscription;
   StreamSubscription? _tracksSubscription;
+  StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
   Timer? _saveTimer;
   bool _nextEpisodePreloaded = false;
 
@@ -80,7 +82,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
       configuration: PlayerConfiguration(
         pitch: _settings.pitchCorrection,
         libass: true,
-        libassAndroidFont: localFontPath ?? 'assets/fonts/Roboto-Regular.ttf',
+        libassAndroidFont: 'assets/fonts/Roboto-Regular.ttf',
         libassAndroidFontName: 'Roboto',
       ),
     );
@@ -90,28 +92,53 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
       if (player.platform is NativePlayer) {
         final nativePlayer = player.platform as NativePlayer;
         nativePlayer.setProperty('cache', 'yes');
-        nativePlayer.setProperty('demuxer-max-bytes', '67108864'); // 64 MB buffer (smooths out network instability)
         nativePlayer.setProperty('demuxer-max-back-bytes', '16777216'); // 16 MB back buffer (instant backward seek)
-        nativePlayer.setProperty('demuxer-readahead-secs', '60'); // Buffer up to 60 seconds ahead
         nativePlayer.setProperty('cache-pause', 'yes'); // Stalls playback if buffer runs out to prevent decoding corrupted frames
         nativePlayer.setProperty('cache-pause-initial', 'yes'); // Ensure initial buffer is populated to prevent decoder underflow/freeze
-        nativePlayer.setProperty('cache-pause-wait', '2'); // Wait for only 2 seconds of buffered data before resuming after a stall
         nativePlayer.setProperty('hr-seek', 'no'); // Disable high-precision seeking on slow networks to seek instantly to keyframes
         nativePlayer.setProperty('sub-visibility', 'yes');
         nativePlayer.setProperty('sub-auto', 'all');
+        nativePlayer.setProperty('embeddedfonts', 'yes'); // Enable embedded fonts inside media containers (MKV, etc.)
+
         if (Platform.isAndroid) {
           nativePlayer.setProperty('hwdec', 'mediacodec-copy');
         }
         
+        // Load subtitle customizations
+        final subSize = _storageService.getSubtitleFontSize();
+        final subColor = _storageService.getSubtitleColor();
+        final subDelay = _storageService.getSubtitleDelay();
+        final subFont = _storageService.getSubtitleFont();
+        final volBoost = _storageService.getVolumeBoostEnabled();
+
+        nativePlayer.setProperty('sub-size', subSize.round().toString());
+        nativePlayer.setProperty('sub-color', subColor);
+        nativePlayer.setProperty('sub-delay', subDelay.toString());
+        
+        if (volBoost) {
+          nativePlayer.setProperty('volume-max', '200');
+        }
+
         if (localFontPath != null) {
           final fontFile = File(localFontPath);
           nativePlayer.setProperty('sub-fonts-dir', fontFile.parent.path);
-          nativePlayer.setProperty('sub-font', 'Roboto');
-          nativePlayer.setProperty('sub-font-provider', 'none');
+          nativePlayer.setProperty('sub-font', subFont);
+          if (Platform.isAndroid) {
+            final useSysFonts = _storageService.getSubtitleSystemFonts();
+            nativePlayer.setProperty('sub-font-provider', useSysFonts ? 'auto' : 'none');
+          }
           Log.i('Native MPV configured with sub-fonts-dir: ${fontFile.parent.path}');
         }
+
+        // Setup connectivity subscription for network caching profiles
+        _initNetworkProfiling();
+        _connectivitySubscription = Connectivity().onConnectivityChanged.listen((results) {
+          _applyNetworkCacheProfile(results);
+        });
       }
-    } catch (_) {}
+    } catch (e, stack) {
+      Log.e('Failed to configure native player features', e, stack);
+    }
 
     _pipController.setActivePlayer(player);
     controller = VideoController(
@@ -151,11 +178,13 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
       final prefSub = _storageService.getPreferredSubtitleTrack();
       final prefAudio = _storageService.getPreferredAudioTrack();
 
+      bool matched = false;
       if (prefSub != null) {
         if (prefSub == 'no') {
           if (player.state.track.subtitle != SubtitleTrack.no()) {
             player.setSubtitleTrack(SubtitleTrack.no());
           }
+          matched = true;
         } else {
           for (final track in tracks.subtitle) {
             final identifier = (track.language ?? track.title ?? track.id).toLowerCase();
@@ -165,13 +194,17 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
               if (player.state.track.subtitle != track) {
                 player.setSubtitleTrack(track);
                 Log.i('Automatically applied preferred subtitle track: ${track.language ?? track.title ?? track.id}');
-                break;
               }
+              matched = true;
+              break;
             }
           }
         }
-      } else {
-        // No preference saved yet. Let's auto-select English or the first subtitle track if available.
+      }
+
+      if (!matched) {
+        // No preference saved yet or matching preference not found.
+        // Let's auto-select English or the first subtitle track if available.
         if (tracks.subtitle.isNotEmpty) {
           SubtitleTrack? targetTrack;
           // Look for english track
@@ -183,7 +216,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
             }
           }
           // Fallback to first non-disabled track
-          targetTrack ??= tracks.subtitle.firstWhere((t) => t.id != 'no', orElse: () => tracks.subtitle.first);
+          targetTrack ??= tracks.subtitle.firstWhere((t) => t.id != 'no' && t.id != 'auto', orElse: () => tracks.subtitle.first);
           if (player.state.track.subtitle != targetTrack) {
             player.setSubtitleTrack(targetTrack);
             Log.i('Auto-selected default subtitle track: ${targetTrack.language ?? targetTrack.title ?? targetTrack.id}');
@@ -549,6 +582,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
     _updatesSubscription?.cancel();
     _completedSubscription?.cancel();
     _tracksSubscription?.cancel();
+    _connectivitySubscription?.cancel();
     _saveTimer?.cancel();
     
     try {
@@ -685,5 +719,49 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         ),
       ),
     );
+  }
+
+  Future<void> _initNetworkProfiling() async {
+    try {
+      final connectivityResults = await Connectivity().checkConnectivity();
+      _applyNetworkCacheProfile(connectivityResults);
+    } catch (e) {
+      Log.w('Failed to check initial connectivity: $e');
+    }
+  }
+
+  void _applyNetworkCacheProfile(List<ConnectivityResult> results) {
+    try {
+      if (player.platform is NativePlayer) {
+        final nativePlayer = player.platform as NativePlayer;
+        final profileMode = _storageService.getNetworkProfileMode();
+        
+        bool isWifi = false;
+        if (profileMode == 'wifi') {
+          isWifi = true;
+        } else if (profileMode == 'mobile') {
+          isWifi = false;
+        } else {
+          // auto mode
+          isWifi = results.contains(ConnectivityResult.wifi) ||
+              results.contains(ConnectivityResult.ethernet) ||
+              results.contains(ConnectivityResult.vpn);
+        }
+        
+        if (isWifi) {
+          nativePlayer.setProperty('demuxer-max-bytes', '134217728'); // 128 MB
+          nativePlayer.setProperty('demuxer-readahead-secs', '120'); // 120s
+          nativePlayer.setProperty('cache-pause-wait', '2');
+          Log.i('Applied Wi-Fi Profile: Caching boundary set to 128MB');
+        } else {
+          nativePlayer.setProperty('demuxer-max-bytes', '16777216'); // 16 MB
+          nativePlayer.setProperty('demuxer-readahead-secs', '20'); // 20s
+          nativePlayer.setProperty('cache-pause-wait', '4');
+          Log.i('Applied Mobile Data Profile: Caching boundary set to 16MB');
+        }
+      }
+    } catch (e) {
+      Log.w('Failed to apply network cache profile: $e');
+    }
   }
 }
