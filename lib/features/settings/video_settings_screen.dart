@@ -167,6 +167,16 @@ class VideoSettingsScreen extends ConsumerWidget {
               },
             ),
           ),
+          _buildSwitch(
+            context: context,
+            title: 'Hardware Acceleration',
+            subtitle: 'Enable GPU-accelerated video decoding. Disable this if subtitles do not display or if you experience rendering glitches on Android.',
+            value: ref.watch(storageServiceProvider).getHardwareAcceleration(),
+            onChanged: (val) async {
+              await ref.read(storageServiceProvider).setHardwareAcceleration(val);
+              (context as Element).markNeedsBuild();
+            },
+          ),
 
           const SizedBox(height: 24),
           _buildSectionHeader(context, 'Smart Auto-Play Next'),

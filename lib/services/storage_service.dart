@@ -503,11 +503,20 @@ class StorageService {
   }
 
   String getSubtitleRenderer() {
-    return _data['subtitle_renderer'] as String? ?? (Platform.isAndroid ? 'flutter' : 'native');
+    return _data['subtitle_renderer'] as String? ?? 'native';
   }
 
   Future<void> setSubtitleRenderer(String value) async {
     _data['subtitle_renderer'] = value;
+    await _save();
+  }
+
+  bool getHardwareAcceleration() {
+    return _data['hardware_acceleration'] as bool? ?? !Platform.isAndroid;
+  }
+
+  Future<void> setHardwareAcceleration(bool value) async {
+    _data['hardware_acceleration'] = value;
     await _save();
   }
 

@@ -24,8 +24,9 @@ This update resolves video orientation issues when switching episodes and implem
 * **Seamless Episode Transitions**: Verified active player state during page replacement to prevent orientation resets. The player now remains in landscape mode seamlessly when transitioning between episodes, only restoring portrait mode when you exit playback.
 
 #### 💬 Subtitle Compatibility
-* **Dual Subtitle Renderer**: Added a Subtitle Renderer setting in Player Preferences. On Android, it defaults to a highly-compatible Flutter-based overlay rendering engine to ensure subtitles display over hardware-accelerated video outputs.
-* **Native Path Resolution**: Fixed font loading in Native libass mode on Android by referencing absolute file paths to local TrueType fonts, bypassing fontconfig lookup failures.
+* **Dual Subtitle Renderer**: Added a Subtitle Renderer setting in Player Preferences. You can choose between a highly-compatible Flutter-based overlay rendering engine (which renders widgets on top of the player) and Native libass.
+* **Hardware Acceleration Toggle**: Added a toggle under Subtitles section to enable/disable GPU-accelerated video decoding. Disabling this fallback to software decoding, which resolves issues where subtitles are hidden by Android direct-to-surface GPU overlays.
+* **Native Font Family Resolution**: Fixed font loading in Native libass mode on Android by properly mapping family names to the custom fonts directory instead of using file paths.
 * **Outline Customization Styling**: Custom font size, color, delay, and font preferences are fully applied to the Flutter renderer with premium black stroke outlines for optimal readability.
 
 ---

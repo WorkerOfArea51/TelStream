@@ -84,7 +84,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
     player = Player(
       configuration: PlayerConfiguration(
         pitch: _settings.pitchCorrection,
-        libass: useNative,
+        libass: true, // Always enable libass to allow subtitle parsing for both native and flutter modes
         libassAndroidFont: 'assets/fonts/Roboto-Regular.ttf',
         libassAndroidFontName: 'Roboto',
       ),
@@ -101,7 +101,8 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         nativePlayer.setProperty('hr-seek', 'no'); // Disable high-precision seeking on slow networks to seek instantly to keyframes
         
         if (Platform.isAndroid) {
-          nativePlayer.setProperty('hwdec', 'mediacodec-copy');
+          final hwAcc = _storageService.getHardwareAcceleration();
+          nativePlayer.setProperty('hwdec', hwAcc ? 'mediacodec-copy' : 'no');
         }
         
         if (useNative) {
@@ -125,29 +126,29 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
             final fontFile = File(localFontPath);
             nativePlayer.setProperty('sub-fonts-dir', fontFile.parent.path);
             
-            // Set sub-font to the absolute path of the chosen font TTF file.
-            String resolvedFontPath = fontFile.path; // Default to Roboto-Regular.ttf path
+            // Set sub-font to the font family name.
+            String resolvedFontFamily = 'Roboto'; // Default to Roboto
             if (subFont.toLowerCase().contains('arial')) {
-              resolvedFontPath = '${fontFile.parent.path}/Arial.ttf';
+              resolvedFontFamily = 'Arial';
             } else if (subFont.toLowerCase().contains('dejavu')) {
-              resolvedFontPath = '${fontFile.parent.path}/DejaVuSans.ttf';
+              resolvedFontFamily = 'DejaVuSans';
             } else if (subFont.toLowerCase().contains('sans-serif')) {
-              resolvedFontPath = '${fontFile.parent.path}/sans-serif.ttf';
+              resolvedFontFamily = 'sans-serif';
             } else if (subFont.toLowerCase().contains('roboto')) {
-              resolvedFontPath = '${fontFile.parent.path}/Roboto.ttf';
+              resolvedFontFamily = 'Roboto';
             }
             
-            nativePlayer.setProperty('sub-font', resolvedFontPath);
+            nativePlayer.setProperty('sub-font', resolvedFontFamily);
             
             if (Platform.isAndroid) {
               final useSysFonts = _storageService.getSubtitleSystemFonts();
               nativePlayer.setProperty('sub-font-provider', useSysFonts ? 'auto' : 'none');
             }
-            Log.i('Native MPV configured with sub-fonts-dir: ${fontFile.parent.path} and sub-font: $resolvedFontPath');
+            Log.i('Native MPV configured with sub-fonts-dir: ${fontFile.parent.path} and sub-font family: $resolvedFontFamily');
           }
         } else {
           // Flutter rendering mode
-          nativePlayer.setProperty('sub-visibility', 'yes');
+          nativePlayer.setProperty('sub-visibility', 'no'); // Hide native subtitle overlay to avoid duplication
           nativePlayer.setProperty('sub-auto', 'all');
           nativePlayer.setProperty('sub-delay', _storageService.getSubtitleDelay().toString());
         }
@@ -167,11 +168,12 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
       Log.e('Failed to configure native player features', e, stack);
     }
 
+    final hwAcc = _storageService.getHardwareAcceleration();
     _pipController.setActivePlayer(player);
     controller = VideoController(
       player,
-      configuration: const VideoControllerConfiguration(
-        enableHardwareAcceleration: true,
+      configuration: VideoControllerConfiguration(
+        enableHardwareAcceleration: hwAcc,
       ),
     );
     
