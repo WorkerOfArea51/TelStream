@@ -97,7 +97,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         nativePlayer.setProperty('cache', 'yes');
         nativePlayer.setProperty('demuxer-max-back-bytes', '16777216'); // 16 MB back buffer (instant backward seek)
         nativePlayer.setProperty('cache-pause', 'yes'); // Stalls playback if buffer runs out to prevent decoding corrupted frames
-        nativePlayer.setProperty('cache-pause-initial', 'yes'); // Ensure initial buffer is populated to prevent decoder underflow/freeze
+        nativePlayer.setProperty('cache-pause-initial', 'no'); // Start playing immediately without artificial startup delay
         nativePlayer.setProperty('hr-seek', 'no'); // Disable high-precision seeking on slow networks to seek instantly to keyframes
         
         if (Platform.isAndroid) {
@@ -110,7 +110,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
           nativePlayer.setProperty('sub-auto', 'all');
           nativePlayer.setProperty('embeddedfonts', 'yes'); // Enable embedded fonts inside media containers (MKV, etc.)
           nativePlayer.setProperty('sub-fix-timing', 'yes');
-          nativePlayer.setProperty('blend-subtitles', 'no'); // Set to 'no' to ensure visibility on Android GPU textures
+          nativePlayer.setProperty('blend-subtitles', 'yes'); // Set to 'yes' to blend subtitles into GPU texture frames
 
           // Load subtitle customizations
           final subSize = _storageService.getSubtitleFontSize();

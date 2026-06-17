@@ -512,7 +512,7 @@ class StorageService {
   }
 
   bool getHardwareAcceleration() {
-    return _data['hardware_acceleration'] as bool? ?? !Platform.isAndroid;
+    return _data['hardware_acceleration'] as bool? ?? true;
   }
 
   Future<void> setHardwareAcceleration(bool value) async {
