@@ -652,9 +652,6 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         final isDownloadingPermanently = activeDownloads.containsKey(fileId);
         if (!isDownloadingPermanently) {
           _tdlibService.send(td.CancelDownloadFile(fileId: fileId, onlyIfPending: false));
-          Future.delayed(const Duration(milliseconds: 500), () {
-            _tdlibService.send(td.DeleteFile(fileId: fileId));
-          });
         }
       }
     } catch (_) {}
