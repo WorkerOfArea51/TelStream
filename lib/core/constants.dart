@@ -14,8 +14,24 @@ class ChannelCategory {
 }
 
 class Constants {
-  static const String currentVersion = '2.3.2';
+  static const String currentVersion = '2.3.3';
   static const String changelog = '''
+### 🚀 What's New in v2.3.3
+
+This update brings critical bug fixes for player seeking, back navigation, and Android subtitles!
+
+#### 📺 Gestures & Seeking
+* **Double-Tap Seek Debouncer**: Implemented a 500ms debounce on double-tap seeking. The UI increments immediately, but we wait for you to finish double-tapping before sending the seek command to TDLib/player, eliminating playback freezes and buffering stalls.
+
+#### 🧭 Orientation & Navigation
+* **Back-Navigation Orientation Reset**: Exiting playback via the back button or system back gesture now immediately restores the app's portrait mode orientation, while orientation is correctly kept in landscape when transitioning between episodes.
+
+#### 💬 Android Subtitles Reliability
+* **Native Font Fallback Engine**: Updated native player configuration and directory mappings to ensure external/embedded subtitle tracks render correctly on Android.
+* **Smart Auto-Select Track**: Automatically selects the first English/available subtitle track when no preference is saved.
+
+---
+
 ### 🚀 What's New in v2.3.2
 
 We have fixed major player issues and improved the seekbar style!

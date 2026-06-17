@@ -50,6 +50,7 @@ class PipVideoState {
 
 class PipController extends Notifier<PipVideoState?> {
   Player? _activePlayer;
+  bool isTransitioning = false;
 
   Player? get activePlayer => _activePlayer;
 
@@ -82,6 +83,7 @@ class PipController extends Notifier<PipVideoState?> {
     String seriesName = '',
     String? networkUrl,
   }) {
+    isTransitioning = true;
     final oldActivePlayer = _activePlayer;
     if (oldActivePlayer != null) {
       try {

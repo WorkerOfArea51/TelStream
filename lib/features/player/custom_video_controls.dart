@@ -88,6 +88,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
   double _doubleTapSeekOpacity = 0.0;
   int _doubleTapSeekAccumulated = 0;
   Timer? _doubleTapOverlayTimer;
+  Timer? _doubleTapSeekTimer;
   Duration? _doubleTapStartPosition;
 
   // Auto next episode countdown
@@ -259,6 +260,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     _brightnessSaveTimer?.cancel();
     _hideTimer?.cancel();
     _doubleTapOverlayTimer?.cancel();
+    _doubleTapSeekTimer?.cancel();
     _autoNextTimer?.cancel();
     _sleepTimer?.cancel();
     _osdTimer?.cancel();
@@ -331,6 +333,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     final isLeft = details.globalPosition.dx < screenWidth / 2;
 
     _doubleTapOverlayTimer?.cancel();
+    _doubleTapSeekTimer?.cancel();
 
     setState(() {
       if ((isLeft && _showRightSeekOverlay) || (!isLeft && _showLeftSeekOverlay)) {
@@ -367,12 +370,19 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
         seconds: target.inSeconds.clamp(0, dur.inSeconds > 0 ? dur.inSeconds : 86400));
 
     final safeTarget = _clampSeekTarget(clampedTarget, showMessage: true);
-    _performSeek(safeTarget);
+    
+    _doubleTapSeekTimer = Timer(const Duration(milliseconds: 500), () {
+      if (mounted) {
+        _performSeek(safeTarget);
+      }
+    });
 
     _doubleTapOverlayTimer = Timer(const Duration(milliseconds: 650), () {
       if (mounted) {
         setState(() {
           _doubleTapSeekOpacity = 0.0;
+          _doubleTapStartPosition = null;
+          _doubleTapSeekAccumulated = 0;
         });
       }
     });

@@ -80,7 +80,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
       configuration: PlayerConfiguration(
         pitch: _settings.pitchCorrection,
         libass: true,
-        libassAndroidFont: localFontPath ?? 'assets/fonts/Roboto-Regular.ttf',
+        libassAndroidFont: 'assets/fonts/Roboto-Regular.ttf',
       ),
     );
 
@@ -100,7 +100,8 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         if (localFontPath != null) {
           final fontFile = File(localFontPath);
           nativePlayer.setProperty('sub-fonts-dir', fontFile.parent.path);
-          nativePlayer.setProperty('sub-font', 'Roboto-Regular');
+          nativePlayer.setProperty('sub-font', 'Roboto');
+          nativePlayer.setProperty('sub-font-provider', 'none');
           Log.i('Native MPV configured with sub-fonts-dir: ${fontFile.parent.path}');
         }
       }
@@ -108,6 +109,10 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
 
     _pipController.setActivePlayer(player);
     controller = VideoController(player);
+    
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _pipController.isTransitioning = false;
+    });
     
     _initDownload();
     
@@ -152,6 +157,25 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
                 break;
               }
             }
+          }
+        }
+      } else {
+        // No preference saved yet. Let's auto-select English or the first subtitle track if available.
+        if (tracks.subtitle.isNotEmpty) {
+          SubtitleTrack? targetTrack;
+          // Look for english track
+          for (final track in tracks.subtitle) {
+            final lower = (track.language ?? track.title ?? '').toLowerCase();
+            if (lower.contains('eng') || lower.contains('en')) {
+              targetTrack = track;
+              break;
+            }
+          }
+          // Fallback to first non-disabled track
+          targetTrack ??= tracks.subtitle.firstWhere((t) => t.id != 'no', orElse: () => tracks.subtitle.first);
+          if (player.state.track.subtitle != targetTrack) {
+            player.setSubtitleTrack(targetTrack);
+            Log.i('Auto-selected default subtitle track: ${targetTrack.language ?? targetTrack.title ?? targetTrack.id}');
           }
         }
       }
@@ -547,8 +571,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
     }
     
     try {
-      final activePlayer = ref.read(pipControllerProvider.notifier).activePlayer;
-      if (activePlayer == null || activePlayer == player) {
+      if (!_pipController.isTransitioning) {
         SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp, DeviceOrientation.portraitDown]);
         SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
       }

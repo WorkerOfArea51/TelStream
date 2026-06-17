@@ -35,16 +35,29 @@ class StorageService {
       if (!await fontDir.exists()) {
         await fontDir.create(recursive: true);
       }
-      final fontFile = File('${fontDir.path}/Roboto-Regular.ttf');
-      if (!await fontFile.exists()) {
-        final byteData = await rootBundle.load('assets/fonts/Roboto-Regular.ttf');
-        await fontFile.writeAsBytes(byteData.buffer.asUint8List(
-          byteData.offsetInBytes,
-          byteData.lengthInBytes,
-        ));
-        Log.i('Subtitle font copied to local storage: ${fontFile.path}');
+      
+      final fontNames = [
+        'Roboto-Regular.ttf',
+        'Roboto.ttf',
+        'Arial.ttf',
+        'sans-serif.ttf',
+        'DejaVuSans.ttf'
+      ];
+      
+      final byteData = await rootBundle.load('assets/fonts/Roboto-Regular.ttf');
+      final bytes = byteData.buffer.asUint8List(
+        byteData.offsetInBytes,
+        byteData.lengthInBytes,
+      );
+      
+      for (final name in fontNames) {
+        final fontFile = File('${fontDir.path}/$name');
+        if (!await fontFile.exists()) {
+          await fontFile.writeAsBytes(bytes);
+          Log.i('Font asset copied: $name');
+        }
       }
-      _localFontPath = fontFile.path;
+      _localFontPath = File('${fontDir.path}/Roboto-Regular.ttf').path;
     } catch (e, stack) {
       Log.e('Failed to copy subtitle font', e, stack);
     }
