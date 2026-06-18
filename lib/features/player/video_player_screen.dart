@@ -108,11 +108,11 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         nativePlayer.setProperty('hr-seek', 'no'); // Disable high-precision seeking on slow networks to seek instantly to keyframes
         
         // Set synchronization clocks and framedrop to maintain perfect audio/video/subtitle sync at high speed
-        nativePlayer.setProperty('video-sync', 'audio');
+        nativePlayer.setProperty('video-sync', 'display-resample');
         nativePlayer.setProperty('audio-pitch-correction', 'yes');
         nativePlayer.setProperty('audio-buffer', '0.2'); // Increased to 0.2s to prevent audio underflow stutters
-        nativePlayer.setProperty('framedrop', 'vo'); // Set to 'vo' to drop output frames cleanly and avoid decoder lag
-        nativePlayer.setProperty('autosync', '0'); // Set to 0 to disable legacy resampling A/V adjustment, letting audio be the absolute master clock
+        nativePlayer.setProperty('framedrop', 'decoder'); // Set to 'decoder' to drop late frames in the decoder and avoid lag at 2x speed
+        nativePlayer.setProperty('autosync', '0'); // Set to 0 (ignored with display-resample)
         nativePlayer.setProperty('sub-fix-timing', 'yes');
         nativePlayer.setProperty('stream-buffer-size', '8388608'); // 8 MB stream buffer for high-throughput network reading
         nativePlayer.setProperty('vd-lavc-fast', 'yes'); // Enable fast decoding optimizations

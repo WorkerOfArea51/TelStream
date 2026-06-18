@@ -157,7 +157,7 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
           final file = File(posterFile.local.path);
           if (await file.exists()) {
             final palette = await PaletteGenerator.fromImageProvider(
-              FileImage(file),
+              ResizeImage(FileImage(file), width: 50, height: 75),
               maximumColorCount: 16,
             );
             final color = palette.vibrantColor?.color ?? palette.dominantColor?.color;
@@ -199,7 +199,7 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
             final file = File(event.file.local.path);
             if (await file.exists()) {
               final palette = await PaletteGenerator.fromImageProvider(
-                FileImage(file),
+                ResizeImage(FileImage(file), width: 50, height: 75),
                 maximumColorCount: 16,
               );
               final color = palette.vibrantColor?.color ?? palette.dominantColor?.color;
