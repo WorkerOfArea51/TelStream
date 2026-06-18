@@ -2383,7 +2383,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
           // Auto Play Next Countdown Overlay
           if (_showAutoNextCountdown && !_isLocked)
             Positioned(
-              bottom: _showControls ? 200 : 30,
+              bottom: _showControls ? 130 : 30,
               right: 30,
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(16),
@@ -2455,63 +2455,47 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
           if (_showControls && !_isLocked && !_showTrackSelectorPanel && !_showRatioPanel) ...[
             // Top Bar
             Positioned(
-              top: 32, left: 24, right: 24,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                decoration: BoxDecoration(
-                  color: const Color(0xEB1C1B1F),
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: Colors.white10),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.4),
-                      blurRadius: 16,
-                      offset: const Offset(0, 8),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  children: [
-                    IconButton(icon: const Icon(Icons.arrow_back, color: Colors.white), onPressed: widget.onBack),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(widget.videoTitle, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis),
-                    ),
-                    if (_sleepTimerSecondsRemaining != null)
-                      Padding(
-                        padding: const EdgeInsets.only(right: 4.0),
-                        child: Text(
-                          _formatSleepTimeRemaining(_sleepTimerSecondsRemaining!),
-                          style: TextStyle(
-                            color: settingsAccent,
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold,
-                          ),
+              top: 40, left: 16, right: 16,
+              child: Row(
+                children: [
+                  IconButton(icon: const Icon(Icons.arrow_back, color: Colors.white), onPressed: widget.onBack),
+                  Expanded(
+                    child: Text(widget.videoTitle, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis),
+                  ),
+                  if (_sleepTimerSecondsRemaining != null)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 4.0),
+                      child: Text(
+                        _formatSleepTimeRemaining(_sleepTimerSecondsRemaining!),
+                        style: TextStyle(
+                          color: settingsAccent,
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
-                    IconButton(
-                      icon: Icon(
-                        _sleepTimerSecondsRemaining != null ? Icons.snooze : Icons.snooze_outlined,
-                        color: _sleepTimerSecondsRemaining != null ? settingsAccent : Colors.white,
-                      ),
-                      onPressed: _showSleepTimerSelector,
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.subtitles, color: Colors.white), 
-                      onPressed: () => _showTrackSelector(
-                        title: 'Subtitles',
-                        isSubtitle: true,
-                      ),
+                  IconButton(
+                    icon: Icon(
+                      _sleepTimerSecondsRemaining != null ? Icons.snooze : Icons.snooze_outlined,
+                      color: _sleepTimerSecondsRemaining != null ? settingsAccent : Colors.white,
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.headphones, color: Colors.white), 
-                      onPressed: () => _showTrackSelector(
-                        title: 'Audio Tracks',
-                        isSubtitle: false,
-                      ),
+                    onPressed: _showSleepTimerSelector,
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.subtitles, color: Colors.white), 
+                    onPressed: () => _showTrackSelector(
+                      title: 'Subtitles',
+                      isSubtitle: true,
                     ),
-                  ],
-                ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.headphones, color: Colors.white), 
+                    onPressed: () => _showTrackSelector(
+                      title: 'Audio Tracks',
+                      isSubtitle: false,
+                    ),
+                  ),
+                ],
               ),
             ),
             
@@ -2561,96 +2545,81 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
 
             // Bottom Bar
             Positioned(
-              bottom: 24, left: 24, right: 24,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                decoration: BoxDecoration(
-                  color: const Color(0xEB1C1B1F),
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: Colors.white10),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.4),
-                      blurRadius: 16,
-                      offset: const Offset(0, 8),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Action Row (mpvEx style)
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [
-                        _buildActionButton(Icons.lock_open, 'Lock', () {
-                          setState(() => _isLocked = true);
-                          _startHideTimer();
-                        }),
-                        _buildActionButton(Icons.screen_rotation, 'Rotate', _toggleFullscreen),
-                        _buildActionButton(
-                          Icons.aspect_ratio,
-                          'Fit: ${_getRatioLabel(_currentAspectRatioString)}',
-                          _handleAspectRatioButtonTap,
-                          onLongPress: _tapToSwitchRatio ? _showAspectRatioPanel : null,
-                        ),
-                        if (_hasChapters)
-                          _buildActionButton(Icons.list, 'Chapters', _openChaptersPanel),
-                        _buildActionButton(Icons.speed, '${_currentSpeed}x', _toggleSpeed),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    
-                    // Seekbar & Time
-                    PlayerSeekBar(
-                      player: widget.player,
-                      downloadedPrefixSize: widget.downloadedPrefixSize,
-                      expectedSize: widget.expectedSize,
-                      seekbarStyle: settings.seekbarStyle,
-                      settingsAccent: settingsAccent,
-                      isPositionDownloaded: _isPositionDownloaded,
-                      throttledSeek: _throttledSeek,
-                      cancelHideTimer: () => _hideTimer?.cancel(),
-                      startHideTimer: _startHideTimer,
-                      clampSeekTarget: (target) => _clampSeekTarget(target, showMessage: false),
-                      onSeekPerformed: _performSeek,
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        _buildCheckboxToggle(
-                          label: 'Auto Play',
-                          value: true,
-                          onChanged: (_) {},
-                          settingsAccent: settingsAccent,
-                        ),
-                        const SizedBox(width: 24),
-                        _buildCheckboxToggle(
-                          label: 'Auto Next',
-                          value: settings.autoplayNextVideo,
-                          onChanged: (val) {
-                            if (val != null) {
-                              notifier.updateSettings(settings.copyWith(autoplayNextVideo: val));
-                            }
-                          },
-                          settingsAccent: settingsAccent,
-                        ),
-                        const SizedBox(width: 24),
-                        _buildCheckboxToggle(
-                          label: 'Auto Skip',
-                          value: settings.autoSkipIntroOutro,
-                          onChanged: (val) {
-                            if (val != null) {
-                              notifier.updateSettings(settings.copyWith(autoSkipIntroOutro: val));
-                            }
-                          },
-                          settingsAccent: settingsAccent,
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
+              bottom: 16, left: 16, right: 16,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Action Row (mpvEx style)
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      _buildActionButton(Icons.lock_open, 'Lock', () {
+                        setState(() => _isLocked = true);
+                        _startHideTimer();
+                      }),
+                      _buildActionButton(Icons.screen_rotation, 'Rotate', _toggleFullscreen),
+                      _buildActionButton(
+                        Icons.aspect_ratio,
+                        'Fit: ${_getRatioLabel(_currentAspectRatioString)}',
+                        _handleAspectRatioButtonTap,
+                        onLongPress: _tapToSwitchRatio ? _showAspectRatioPanel : null,
+                      ),
+                      if (_hasChapters)
+                        _buildActionButton(Icons.list, 'Chapters', _openChaptersPanel),
+                      _buildActionButton(Icons.speed, '${_currentSpeed}x', _toggleSpeed),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  
+                  // Seekbar & Time
+                  PlayerSeekBar(
+                    player: widget.player,
+                    downloadedPrefixSize: widget.downloadedPrefixSize,
+                    expectedSize: widget.expectedSize,
+                    seekbarStyle: settings.seekbarStyle,
+                    settingsAccent: settingsAccent,
+                    isPositionDownloaded: _isPositionDownloaded,
+                    throttledSeek: _throttledSeek,
+                    cancelHideTimer: () => _hideTimer?.cancel(),
+                    startHideTimer: _startHideTimer,
+                    clampSeekTarget: (target) => _clampSeekTarget(target, showMessage: false),
+                    onSeekPerformed: _performSeek,
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      _buildCheckboxToggle(
+                        label: 'Auto Play',
+                        value: true,
+                        onChanged: (_) {},
+                        settingsAccent: settingsAccent,
+                      ),
+                      const SizedBox(width: 24),
+                      _buildCheckboxToggle(
+                        label: 'Auto Next',
+                        value: settings.autoplayNextVideo,
+                        onChanged: (val) {
+                          if (val != null) {
+                            notifier.updateSettings(settings.copyWith(autoplayNextVideo: val));
+                          }
+                        },
+                        settingsAccent: settingsAccent,
+                      ),
+                      const SizedBox(width: 24),
+                      _buildCheckboxToggle(
+                        label: 'Auto Skip',
+                        value: settings.autoSkipIntroOutro,
+                        onChanged: (val) {
+                          if (val != null) {
+                            notifier.updateSettings(settings.copyWith(autoSkipIntroOutro: val));
+                          }
+                        },
+                        settingsAccent: settingsAccent,
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
           ],
@@ -2658,7 +2627,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
           // Contextual Skip Intro/Outro Button
           if ((_showIntroOverlay || _showOutroOverlay) && !_isLocked && !widget.isPip)
             Positioned(
-              bottom: _showControls ? 210 : 40,
+              bottom: _showControls ? 140 : 40,
               right: 24,
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(12),

@@ -81,78 +81,111 @@ class _LibraryViewState extends ConsumerState<LibraryView> with SingleTickerProv
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      appBar: AppBar(
-        backgroundColor: theme.scaffoldBackgroundColor,
-        elevation: 0,
-        title: _isSearching
-            ? TextField(
-                controller: _searchController,
-                style: TextStyle(color: textColor),
-                autofocus: true,
-                decoration: InputDecoration(
-                  hintText: 'Search...',
-                  hintStyle: TextStyle(color: subTextColor),
-                  border: InputBorder.none,
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(132),
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+            child: Container(
+              decoration: BoxDecoration(
+                color: theme.cardColor,
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(
+                  color: theme.colorScheme.onSurface.withOpacity(0.08),
+                  width: 1,
                 ),
-                onChanged: (val) {
-                  ref.read(provider.notifier).search(val);
-                },
-              )
-            : Text(
-                '${ref.watch(provider.notifier).resolvedChatTitle} ${state.value != null ? "(${_getFilteredList(state.value!, favorites, isDownloadedOnly).length})" : ""}',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20, color: textColor),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.15),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
               ),
-        actions: [
-          if (_isSearching)
-            IconButton(
-              icon: Icon(Icons.close, color: subTextColor),
-              onPressed: () {
-                setState(() {
-                  _isSearching = false;
-                  _searchController.clear();
-                });
-                ref.read(provider.notifier).search('');
-              },
-            )
-          else
-            IconButton(
-              icon: Icon(Icons.search, color: subTextColor),
-              onPressed: () {
-                setState(() {
-                  _isSearching = true;
-                });
-              },
-            ),
-          PopupMenuButton<SortOrder>(
-            icon: Icon(Icons.sort, color: subTextColor),
-            color: theme.cardColor,
-            onSelected: (SortOrder order) {
-              ref.read(provider.notifier).setSortOrder(order);
-            },
-            itemBuilder: (context) => [
-              PopupMenuItem(value: SortOrder.aToZ, child: Text('Name (A-Z)', style: TextStyle(color: textColor))),
-              PopupMenuItem(value: SortOrder.zToA, child: Text('Name (Z-A)', style: TextStyle(color: textColor))),
-              PopupMenuItem(value: SortOrder.newest, child: Text('Newest First', style: TextStyle(color: textColor))),
-              PopupMenuItem(value: SortOrder.oldest, child: Text('Oldest First', style: TextStyle(color: textColor))),
-            ],
-          ),
-        ],
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(48),
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: TabBar(
-              controller: _subTabController,
-              isScrollable: true,
-              tabAlignment: TabAlignment.start,
-              indicatorColor: theme.primaryColor,
-              labelColor: theme.primaryColor,
-              unselectedLabelColor: subTextColor,
-              indicatorSize: TabBarIndicatorSize.label,
-              tabs: const [
-                Tab(text: 'All'),
-                Tab(text: 'Favorites'),
-              ],
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    children: [
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: _isSearching
+                            ? TextField(
+                                controller: _searchController,
+                                style: TextStyle(color: textColor),
+                                autofocus: true,
+                                decoration: InputDecoration(
+                                  hintText: 'Search...',
+                                  hintStyle: TextStyle(color: subTextColor),
+                                  border: InputBorder.none,
+                                ),
+                                onChanged: (val) {
+                                  ref.read(provider.notifier).search(val);
+                                },
+                              )
+                            : Text(
+                                '${ref.watch(provider.notifier).resolvedChatTitle} ${state.value != null ? "(${_getFilteredList(state.value!, favorites, isDownloadedOnly).length})" : ""}',
+                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: textColor),
+                              ),
+                      ),
+                      if (_isSearching)
+                        IconButton(
+                          icon: Icon(Icons.close, color: subTextColor),
+                          onPressed: () {
+                            setState(() {
+                              _isSearching = false;
+                              _searchController.clear();
+                            });
+                            ref.read(provider.notifier).search('');
+                          },
+                        )
+                      else
+                        IconButton(
+                          icon: Icon(Icons.search, color: subTextColor),
+                          onPressed: () {
+                            setState(() {
+                              _isSearching = true;
+                            });
+                          },
+                        ),
+                      PopupMenuButton<SortOrder>(
+                        icon: Icon(Icons.sort, color: subTextColor),
+                        color: theme.cardColor,
+                        onSelected: (SortOrder order) {
+                          ref.read(provider.notifier).setSortOrder(order);
+                        },
+                        itemBuilder: (context) => [
+                          PopupMenuItem(value: SortOrder.aToZ, child: Text('Name (A-Z)', style: TextStyle(color: textColor))),
+                          PopupMenuItem(value: SortOrder.zToA, child: Text('Name (Z-A)', style: TextStyle(color: textColor))),
+                          PopupMenuItem(value: SortOrder.newest, child: Text('Newest First', style: TextStyle(color: textColor))),
+                          PopupMenuItem(value: SortOrder.oldest, child: Text('Oldest First', style: TextStyle(color: textColor))),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 16),
+                    child: Divider(color: Colors.white10, height: 1),
+                  ),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: TabBar(
+                      controller: _subTabController,
+                      isScrollable: true,
+                      tabAlignment: TabAlignment.start,
+                      indicatorColor: theme.primaryColor,
+                      labelColor: theme.primaryColor,
+                      unselectedLabelColor: subTextColor,
+                      indicatorSize: TabBarIndicatorSize.label,
+                      dividerColor: Colors.transparent,
+                      tabs: const [
+                        Tab(text: 'All'),
+                        Tab(text: 'Favorites'),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
