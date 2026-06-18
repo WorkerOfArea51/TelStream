@@ -110,9 +110,9 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         // Set synchronization clocks and framedrop to maintain perfect audio/video/subtitle sync at high speed
         nativePlayer.setProperty('video-sync', 'audio');
         nativePlayer.setProperty('audio-pitch-correction', 'yes');
-        nativePlayer.setProperty('audio-buffer', '0.05');
-        nativePlayer.setProperty('framedrop', 'decoder');
-        nativePlayer.setProperty('autosync', '30');
+        nativePlayer.setProperty('audio-buffer', '0.2'); // Increased to 0.2s to prevent audio underflow stutters
+        nativePlayer.setProperty('framedrop', 'vo'); // Set to 'vo' to drop output frames cleanly and avoid decoder lag
+        nativePlayer.setProperty('autosync', '0'); // Set to 0 to disable legacy resampling A/V adjustment, letting audio be the absolute master clock
         nativePlayer.setProperty('sub-fix-timing', 'yes');
         nativePlayer.setProperty('stream-buffer-size', '8388608'); // 8 MB stream buffer for high-throughput network reading
         nativePlayer.setProperty('vd-lavc-fast', 'yes'); // Enable fast decoding optimizations
@@ -132,7 +132,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
           nativePlayer.setProperty('sub-visibility', 'yes');
           nativePlayer.setProperty('sub-auto', 'all');
           nativePlayer.setProperty('embeddedfonts', 'yes'); // Enable embedded fonts inside media containers (MKV, etc.)
-          nativePlayer.setProperty('blend-subtitles', 'yes'); // Set to 'yes' to blend subtitles into GPU texture frames
+          nativePlayer.setProperty('blend-subtitles', 'no'); // Set to 'no' so subtitles render independently and sync perfectly with the master audio clock
 
           // Load subtitle customizations
           final subSize = _storageService.getSubtitleFontSize();

@@ -448,27 +448,7 @@ class StorageService {
     await _save();
   }
 
-  // --- TMDB Cache & Config ---
 
-  String? getTmdbApiKey() {
-    return _data['tmdb_api_key'] as String?;
-  }
-
-  Future<void> setTmdbApiKey(String? value) async {
-    _data['tmdb_api_key'] = value;
-    await _save();
-  }
-
-  dynamic getTmdbCache(String key) {
-    _data['tmdb_cache'] ??= <String, dynamic>{};
-    return _data['tmdb_cache'][key];
-  }
-
-  Future<void> setTmdbCache(String key, dynamic value) async {
-    _data['tmdb_cache'] ??= <String, dynamic>{};
-    _data['tmdb_cache'][key] = value;
-    await _save();
-  }
 
   // --- MAL ID Cache ---
 

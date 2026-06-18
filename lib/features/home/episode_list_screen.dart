@@ -13,7 +13,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../services/storage_service.dart';
 import '../../services/download_service.dart';
 import '../../services/tdlib_service.dart';
-import '../../services/tmdb_service.dart';
 import '../../core/logger.dart';
 import '../../core/widgets/shimmer_card.dart';
 
@@ -37,8 +36,6 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
   late AnimeSeason _selectedSeason;
   bool _isLoadingEpisodes = false;
   String? _errorMessage;
-  TmdbSeriesMetadata? _tmdbMetadata;
-  List<TmdbEpisodeMetadata> _tmdbEpisodes = [];
   Color? _extractedAccentColor;
   StreamSubscription? _posterUpdateSub;
 
@@ -46,50 +43,13 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
   void initState() {
     super.initState();
     _selectedSeason = widget.season;
-    _loadTmdbMetadata();
     _extractColorFromPoster();
     if (_selectedSeason.episodes.isEmpty) {
       _loadEpisodesDynamically();
     }
   }
 
-  Future<void> _loadTmdbMetadata() async {
-    if (!mounted) return;
-    setState(() {
-      _tmdbMetadata = null;
-      _tmdbEpisodes = [];
-    });
 
-    try {
-      final tmdbService = ref.read(tmdbServiceProvider);
-      final metadata = await tmdbService.fetchMetadata(widget.series.coreName);
-      if (metadata != null && mounted) {
-        setState(() {
-          _tmdbMetadata = metadata;
-        });
-
-        int seasonNum = 1;
-        final match = RegExp(r'\d+').firstMatch(_selectedSeason.seasonName);
-        if (match != null) {
-          seasonNum = int.tryParse(match.group(0)!) ?? 1;
-        }
-
-        final eps = await tmdbService.fetchSeasonEpisodes(metadata.tmdbId, seasonNum);
-        if (eps.isNotEmpty && mounted) {
-          setState(() {
-            _tmdbEpisodes = eps;
-          });
-        }
-        
-        // Extract theme color from network poster
-        _extractColorFromPoster();
-      }
-    } catch (e, stack) {
-      Log.e('Failed to load TMDB details for ${widget.series.coreName}', e, stack);
-    } finally {
-      // Done loading
-    }
-  }
 
   Future<void> _loadEpisodesDynamically() async {
     if (!mounted) return;
@@ -180,26 +140,6 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
 
   Future<void> _extractColorFromPoster() async {
     if (!mounted) return;
-
-    // Try network image first if TMDB metadata has posterPath
-    final posterUrl = _tmdbMetadata?.posterPath;
-    if (posterUrl != null && posterUrl.isNotEmpty) {
-      try {
-        final palette = await PaletteGenerator.fromImageProvider(
-          NetworkImage(posterUrl),
-          maximumColorCount: 16,
-        );
-        final color = palette.vibrantColor?.color ?? palette.dominantColor?.color;
-        if (color != null && mounted) {
-          setState(() {
-            _extractedAccentColor = color;
-          });
-          return;
-        }
-      } catch (e) {
-        Log.w('Failed to extract color from TMDB network poster: $e');
-      }
-    }
 
     // Fallback to Telegram local file poster
     td.File? posterFile;
@@ -411,13 +351,7 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
     final settingsAccent = _extractedAccentColor ?? customTheme?.settingsAccent ?? theme.primaryColor;
     final isDark = theme.brightness == Brightness.dark;
 
-    final posterUrl = _tmdbMetadata?.posterPath;
-    final backdropUrl = _tmdbMetadata?.backdropPath;
-    final title = _tmdbMetadata?.title ?? _selectedSeason.fullTitle;
-    final rating = _tmdbMetadata?.rating ?? 0.0;
-    final releaseDate = _tmdbMetadata?.releaseDate ?? '';
-    final genres = _tmdbMetadata?.genres ?? [];
-    final overview = _tmdbMetadata?.overview ?? "No overview available from TMDB. Enjoy streaming.";
+    final title = _selectedSeason.fullTitle;
 
     return Theme(
       data: theme.copyWith(
@@ -447,14 +381,7 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
               background: Stack(
                 fit: StackFit.expand,
                 children: [
-                  if (backdropUrl != null)
-                    Image.network(
-                      backdropUrl,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) => _buildLocalBackdrop(posterFile, minithumbnail),
-                    )
-                  else
-                    _buildLocalBackdrop(posterFile, minithumbnail),
+                  _buildLocalBackdrop(posterFile, minithumbnail),
                   BackdropFilter(
                     filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
                     child: Container(color: Colors.black.withOpacity(0.4)),
@@ -505,26 +432,11 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
                           tag: effectiveHeroTag,
                           child: ClipRRect(
                             borderRadius: BorderRadius.circular(12),
-                            child: Stack(
-                              fit: StackFit.expand,
-                              children: [
-                                TdThumbnail(
-                                  file: posterFile,
-                                  minithumbnail: minithumbnail,
-                                  autoDownload: true,
-                                  borderRadius: BorderRadius.zero,
-                                ),
-                                if (posterUrl != null)
-                                  Image.network(
-                                    posterUrl,
-                                    fit: BoxFit.cover,
-                                    loadingBuilder: (context, child, loadingProgress) {
-                                      if (loadingProgress == null) return child;
-                                      return const SizedBox.shrink();
-                                    },
-                                    errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
-                                  ),
-                              ],
+                            child: TdThumbnail(
+                              file: posterFile,
+                              minithumbnail: minithumbnail,
+                              autoDownload: true,
+                              borderRadius: BorderRadius.zero,
                             ),
                           ),
                         ),
@@ -544,68 +456,20 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
                               ),
                             ),
                             const SizedBox(height: 8),
-                            Row(
-                              children: [
-                                const Icon(Icons.star, color: Colors.amber, size: 18),
-                                const SizedBox(width: 4),
-                                Text(
-                                  rating > 0 ? rating.toStringAsFixed(1) : 'N/A',
-                                  style: TextStyle(
-                                    color: isDark ? Colors.white70 : Colors.black87,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 14,
-                                  ),
-                                ),
-                                if (releaseDate.isNotEmpty) ...[
-                                  Text('  •  ', style: TextStyle(color: isDark ? Colors.white30 : Colors.black26)),
-                                  Text(
-                                    releaseDate.split('-').first,
-                                    style: TextStyle(
-                                      color: isDark ? Colors.white70 : Colors.black87,
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                                ],
-                              ],
-                            ),
-                            const SizedBox(height: 12),
-                            if (genres.isNotEmpty)
-                              Wrap(
-                                spacing: 6,
-                                runSpacing: 6,
-                                children: genres.take(3).map((g) => Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                  decoration: BoxDecoration(
-                                    color: settingsAccent.withOpacity(0.12),
-                                    borderRadius: BorderRadius.circular(6),
-                                    border: Border.all(color: settingsAccent.withOpacity(0.2), width: 0.5),
-                                  ),
-                                  child: Text(
-                                    g,
-                                    style: TextStyle(
-                                      color: settingsAccent,
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                )).toList(),
+                            Text(
+                              '${_selectedSeason.episodes.length} Episodes',
+                              style: TextStyle(
+                                color: isDark ? Colors.white70 : Colors.black87,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
                               ),
+                            ),
                           ],
                         ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 16),
-                  Text(
-                    overview,
-                    style: TextStyle(
-                      color: isDark ? Colors.white60 : Colors.black54,
-                      fontSize: 13,
-                      height: 1.4,
-                    ),
-                    maxLines: 4,
-                    overflow: TextOverflow.ellipsis,
-                  ),
                   _buildResumePlayButton(context, settingsAccent),
                   const SizedBox(height: 16),
                   const Divider(color: Colors.white12, height: 1),
@@ -649,7 +513,6 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
                               _selectedSeason = season;
                               _extractedAccentColor = null;
                             });
-                            _loadTmdbMetadata();
                             _extractColorFromPoster();
                             if (season.episodes.isEmpty) {
                               _loadEpisodesDynamically();
@@ -736,19 +599,8 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
 
     if (fileId == null) return const SizedBox.shrink();
 
-    // Parse episode index and query TMDB still/info
-    final parsedEpNum = _parseEpisodeNumber(fileTitle, index);
-    TmdbEpisodeMetadata? mappedEpisode;
-    for (final ep in _tmdbEpisodes) {
-      if (ep.episodeNumber == parsedEpNum) {
-        mappedEpisode = ep;
-        break;
-      }
-    }
-
-    final epTitle = mappedEpisode?.title ?? fileTitle;
-    final epOverview = mappedEpisode?.overview ?? 'No description available for this episode.';
-    final epStillUrl = mappedEpisode?.stillPath;
+    final epTitle = fileTitle;
+    const epOverview = 'No description available for this episode.';
 
     final downloadTasks = ref.watch(downloadControllerProvider);
     final task = downloadTasks[fileId];
@@ -859,14 +711,7 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
                     child: Stack(
                       fit: StackFit.expand,
                       children: [
-                        if (epStillUrl != null)
-                          Image.network(
-                            epStillUrl,
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) => _buildEpisodePlaceholder(msg),
-                          )
-                        else
-                          _buildEpisodePlaceholder(msg),
+                        _buildEpisodePlaceholder(msg),
                         Container(color: Colors.black26),
                         Center(
                           child: Container(

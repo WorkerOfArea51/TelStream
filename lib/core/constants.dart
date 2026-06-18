@@ -14,33 +14,20 @@ class ChannelCategory {
 }
 
 class Constants {
-  static const String currentVersion = '2.6.0';
+  static const String currentVersion = '2.6.1';
   static const String changelog = '''
-### 🚀 What's New in v2.6.0
+### 🚀 What's New in v2.6.1
 
-This major update introduces the Google Pixel-inspired Material 3 Expressive UI, customizable gestures, advanced offline library features, real-time download speed analytics, and structured history search.
+This update resolves video speed sync issues and simplifies UI metadata.
 
-#### 🎨 Material 3 Expressive UI
-* **Pixel Style Loaders**: Organic skeleton loaders replace loading spinners for screens and lists.
-* **Expansion Transitions**: Hero widgets deliver fluid detail expansions across screens.
-* **M3 Cards**: Rounded container styles (20px-24px corners) applied consistently.
+#### ⚡ High-Speed Playback Synchronization
+* **Optimized Master Clock**: Increased audio buffer to 200ms and disabled autosync speed adjustments, establishing the audio clock as the absolute master sync reference.
+* **Clean Frame Dropping**: Shifted frame dropping to the output layer (`vo`) instead of the decoder, avoiding keyframe decoding artifacts or glitches.
+* **Independent Subtitle Rendering**: Disabled subtitle texture blending to prevent subtitle lag, rendering them dynamically on screen at proper timestamps regardless of video frame rate.
 
-#### 📈 Adaptive Streaming & Pre-fetching
-* **Adaptive Cache Profiles**: Define Aggressive (100MB buffer), Balanced (30MB), or Mobile Saver (10MB) profiles to optimize bandwidth.
-* **Next-Episode Pre-fetching**: Starts background-downloading the first 10MB of the next episode as you near the current episode's outro range for instant continuation.
-
-#### 📥 Advanced Offline Library & Downloader
-* **True Offline Library**: Access completely downloaded episodes directly via file paths, enabling full playback without any network verification checks.
-* **Active Downloads Manager**: Displays real-time download speeds (MB/s), estimated time of arrival (ETA), and cancellation capabilities.
-
-#### 📺 Gestural Mapping & Audio Night Mode
-* **Custom Gestural Actions**: Bind Left/Right vertical swipe gestures to Brightness, Volume, or Playback Speed.
-* **Audio Night Mode (DRC)**: Dynamic Range Compression levels sudden volume spikes (amplifying dialog, quietening explosions).
-* **Software Audio Boost**: Boost volume up to +6dB software gain inside the media player.
-
-#### 🕒 Structured Watch History
-* **Accordion Grouping**: History screen now groups watches under series folders with season/episode drill-down.
-* **Master Search Filter**: Search series groups or nested episodes instantly by title, season, or episode label.
+#### 🧹 TMDB Integration Removed
+* **Anime Cleanups**: Removed all TMDB service code, metadata fetchers, and settings configs.
+* **Offline-First UI Details**: Reverted to pure local metadata (TDLib details, filenames, and local Telegram posters) for a faster, offline-friendly details screen layout.
 ''';
 
   // Telegram API Credentials from secrets.dart
