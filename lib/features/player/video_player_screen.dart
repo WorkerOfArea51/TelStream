@@ -91,6 +91,10 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
     try {
       if (player.platform is NativePlayer) {
         final nativePlayer = player.platform as NativePlayer;
+        
+        // Enable fast rendering/scaling profile to save GPU/CPU thermals and prevent lag
+        nativePlayer.setProperty('profile', 'fast');
+
         nativePlayer.setProperty('cache', 'yes');
         nativePlayer.setProperty('demuxer-max-back-bytes', '16777216'); // 16 MB back buffer (instant backward seek)
         nativePlayer.setProperty('cache-pause', 'yes'); // Stalls playback if buffer runs out to prevent decoding corrupted frames
@@ -99,18 +103,26 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         
         // Set synchronization clocks and framedrop to maintain perfect audio/video/subtitle sync at high speed
         nativePlayer.setProperty('video-sync', 'audio');
-        nativePlayer.setProperty('framedrop', 'decoder');
-        nativePlayer.setProperty('autosync', '30');
+        nativePlayer.setProperty('audio-samplerate', '48000');
+        nativePlayer.setProperty('audio-pitch-correction', 'yes');
+        nativePlayer.setProperty('audio-buffer', '0.2');
+        nativePlayer.setProperty('framedrop', 'vo');
+        nativePlayer.setProperty('autosync', '0');
         nativePlayer.setProperty('sub-fix-timing', 'yes');
         nativePlayer.setProperty('stream-buffer-size', '8388608'); // 8 MB stream buffer for high-throughput network reading
         nativePlayer.setProperty('vd-lavc-fast', 'yes'); // Enable fast decoding optimizations
         nativePlayer.setProperty('vd-lavc-skiploopfilter', 'bidir'); // Skip loop filtering on B-frames to save CPU in heavy scenes
 
-        if (Platform.isAndroid) {
-          final hwDecMode = _storageService.getHardwareDecoderMode();
-          nativePlayer.setProperty('hwdec', hwDecMode);
+        final hwDecMode = _storageService.getHardwareDecoderMode();
+        if (hwDecMode != 'no') {
+          if (Platform.isAndroid) {
+            nativePlayer.setProperty('hwdec', hwDecMode);
+          } else {
+            nativePlayer.setProperty('hwdec', 'auto');
+          }
+        } else {
+          nativePlayer.setProperty('hwdec', 'no');
         }
-        
         if (useNative) {
           nativePlayer.setProperty('sub-visibility', 'yes');
           nativePlayer.setProperty('sub-auto', 'all');
@@ -401,55 +413,33 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
 
   DateTime? _lastUpdateTime;
 
-  Future<void> _initDownload() async {
-    if (widget.networkUrl != null && widget.networkUrl!.isNotEmpty) {
-      if (mounted) {
-        setState(() {
-          _resolvedVideoFileId = widget.videoFileId;
-          _isPlaying = true;
-          _isInitializing = false;
-        });
-      }
-      player.open(Media(widget.networkUrl!));
-      player.setVolume(100.0);
-      return;
-    }
-
-    int? freshFileId;
-    for (final category in Constants.categories) {
-      try {
-        final res = await _tdlibService.sendAsync(td.GetMessage(
-          chatId: category.channelId,
-          messageId: widget.messageId,
-        )).timeout(const Duration(seconds: 3));
-        
-        if (res is td.Message) {
-          if (res.content is td.MessageVideo) {
-            freshFileId = (res.content as td.MessageVideo).video.video.id;
-          } else if (res.content is td.MessageDocument) {
-            freshFileId = (res.content as td.MessageDocument).document.document.id;
-          }
-          if (freshFileId != null) {
-            Log.i('Resolved fresh file ID $freshFileId for message ${widget.messageId} in category ${category.title}');
-            break;
-          }
+  void _startPlayback(String localPath) {
+    if (_isPlaying) return;
+    _isPlaying = true;
+    player.open(Media(localPath), play: true).then((_) {
+      if (!mounted) return;
+      final savedPos = _storageService.getWatchPosition(widget.messageId);
+      if (savedPos > 0) {
+        if (player.state.duration.inSeconds > 0) {
+          _handleCustomSeek(Duration(seconds: savedPos));
+        } else {
+          late final StreamSubscription<Duration> durSub;
+          durSub = player.stream.duration.listen((dur) {
+            if (dur.inSeconds > 0) {
+              durSub.cancel();
+              if (mounted) {
+                _handleCustomSeek(Duration(seconds: savedPos));
+              }
+            }
+          });
         }
-      } catch (e) {
-        Log.w('Failed to check category ${category.title} for message ${widget.messageId}: $e');
       }
-    }
+    });
+    player.setVolume(100.0);
+  }
 
-    _resolvedVideoFileId = freshFileId ?? widget.videoFileId;
-    if (widget.seriesName.isNotEmpty && _resolvedVideoFileId != null && _resolvedVideoFileId != 0) {
-      _storageService.associateFileWithSeries(widget.seriesName, _resolvedVideoFileId!);
-    }
-
-    if (mounted) {
-      setState(() {
-        _isInitializing = false;
-      });
-    }
-
+  void _listenToUpdates() {
+    _updatesSubscription?.cancel();
     _updatesSubscription = _tdlibService.updates.listen((event) {
       if (event is td.UpdateFile && event.file.id == _resolvedVideoFileId) {
         final localPath = event.file.local.path;
@@ -483,27 +473,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         }
 
         if (localPath.isNotEmpty && !_isPlaying) {
-          _isPlaying = true;
-          player.open(Media(localPath), play: true).then((_) {
-            if (!mounted) return;
-            final savedPos = _storageService.getWatchPosition(widget.messageId);
-            if (savedPos > 0) {
-              if (player.state.duration.inSeconds > 0) {
-                _handleCustomSeek(Duration(seconds: savedPos));
-              } else {
-                late final StreamSubscription<Duration> durSub;
-                durSub = player.stream.duration.listen((dur) {
-                  if (dur.inSeconds > 0) {
-                    durSub.cancel();
-                    if (mounted) {
-                      _handleCustomSeek(Duration(seconds: savedPos));
-                    }
-                  }
-                });
-              }
-            }
-          });
-          player.setVolume(100.0);
+          _startPlayback(localPath);
         }
 
         // Handle mid-play seek buffering updates
@@ -527,15 +497,99 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         }
       }
     });
+  }
 
-    // Reverted startup offset to 0 so the file header is downloaded sequentially
-    _tdlibService.send(td.DownloadFile(
-      fileId: _resolvedVideoFileId!,
-      priority: 32,
-      offset: 0,
-      limit: 0,
-      synchronous: false,
-    ));
+  Future<void> _initDownload() async {
+    if (widget.networkUrl != null && widget.networkUrl!.isNotEmpty) {
+      if (mounted) {
+        setState(() {
+          _resolvedVideoFileId = widget.videoFileId;
+          _isPlaying = true;
+          _isInitializing = false;
+        });
+      }
+      player.open(Media(widget.networkUrl!));
+      player.setVolume(100.0);
+      return;
+    }
+
+    _resolvedVideoFileId = widget.videoFileId;
+    if (widget.seriesName.isNotEmpty && _resolvedVideoFileId != null && _resolvedVideoFileId != 0) {
+      _storageService.associateFileWithSeries(widget.seriesName, _resolvedVideoFileId!);
+    }
+
+    if (mounted) {
+      setState(() {
+        _isInitializing = false;
+      });
+    }
+
+    // Start listening to updates immediately to catch progress and local path updates
+    _listenToUpdates();
+
+    // Check if the file is already cached locally (fully or partially)
+    if (_resolvedVideoFileId != null && _resolvedVideoFileId != 0) {
+      try {
+        final res = await _tdlibService.sendAsync(td.GetFile(fileId: _resolvedVideoFileId!))
+            .timeout(const Duration(milliseconds: 300));
+        if (res is td.File && res.local.path.isNotEmpty) {
+          final localPath = res.local.path;
+          if (mounted) {
+            setState(() {
+              _downloadedPrefixSize = res.local.downloadedPrefixSize;
+              _expectedSize = res.expectedSize;
+            });
+          }
+          Log.i('Instant playback: playing cached file path: $localPath');
+          _startPlayback(localPath);
+        }
+      } catch (e) {
+        Log.w('Failed fast local GetFile check: $e');
+      }
+    }
+
+    if (_resolvedVideoFileId == 0) {
+      Log.i('videoFileId is 0, resolving fresh file ID via categories search...');
+      int? freshFileId;
+      for (final category in Constants.categories) {
+        try {
+          final res = await _tdlibService.sendAsync(td.GetMessage(
+            chatId: category.channelId,
+            messageId: widget.messageId,
+          )).timeout(const Duration(seconds: 3));
+          
+          if (res is td.Message) {
+            if (res.content is td.MessageVideo) {
+              freshFileId = (res.content as td.MessageVideo).video.video.id;
+            } else if (res.content is td.MessageDocument) {
+              freshFileId = (res.content as td.MessageDocument).document.document.id;
+            }
+            if (freshFileId != null) {
+              Log.i('Resolved fresh file ID $freshFileId for message ${widget.messageId} in category ${category.title}');
+              break;
+            }
+          }
+        } catch (e) {
+          Log.w('Failed to check category ${category.title} for message ${widget.messageId}: $e');
+        }
+      }
+      _resolvedVideoFileId = freshFileId ?? 0;
+      if (widget.seriesName.isNotEmpty && _resolvedVideoFileId != null && _resolvedVideoFileId != 0) {
+        _storageService.associateFileWithSeries(widget.seriesName, _resolvedVideoFileId!);
+      }
+      _listenToUpdates();
+    }
+
+    // Trigger download with highest priority sequentially. If already completed, this will be a no-op in TDLib.
+    if (_resolvedVideoFileId != null && _resolvedVideoFileId != 0) {
+      _tdlibService.send(td.DownloadFile(
+        fileId: _resolvedVideoFileId!,
+        priority: 32,
+        offset: 0,
+        limit: 0,
+        synchronous: false,
+      ));
+    }
   }
 
   void _handleCustomSeek(Duration position) {

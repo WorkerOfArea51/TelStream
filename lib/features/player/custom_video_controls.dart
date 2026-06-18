@@ -201,11 +201,16 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     }
   }
 
-  bool _isGenericChapter(String title) {
-    final name = title.trim().toLowerCase();
-    if (name.isEmpty) return true;
-    final chapterRegExp = RegExp(r'^(chapter|capitulo|capítulo|ch|ep|episode|eposide|part|partida)\s*[_\-]*\s*\d*$');
-    return chapterRegExp.hasMatch(name);
+  bool _isExcludedChapter(String title) {
+    final name = title.toLowerCase().trim();
+    return name.contains('preview') ||
+        name.contains('prologue') ||
+        name.contains('recap') ||
+        name.contains('next') ||
+        name.contains('info') ||
+        name.contains('sponsor') ||
+        name.contains('trailer') ||
+        name.contains('advertisement');
   }
 
   bool _isChapterIntro(VideoChapter ch, double start, double end) {
@@ -214,13 +219,20 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
         titleLower.contains('opening') ||
         titleLower == 'op' ||
         titleLower.startsWith('op ') ||
-        titleLower.endsWith(' op')) {
+        titleLower.endsWith(' op') ||
+        titleLower.contains('op 1') ||
+        titleLower.contains('op 2') ||
+        titleLower.contains('op1') ||
+        titleLower.contains('op2') ||
+        titleLower.contains('theme')) {
       return true;
     }
     
-    // Generic chapter heuristic (80s - 100s, starts in first 6 minutes)
+    if (_isExcludedChapter(ch.title)) return false;
+
+    // Durations between 70s and 110s starting in the first 6 minutes are highly likely to be the OP
     final duration = end - start;
-    if (_isGenericChapter(ch.title) && duration >= 80.0 && duration <= 100.0) {
+    if (duration >= 70.0 && duration <= 110.0) {
       if (start <= 360.0) {
         return true;
       }
@@ -236,14 +248,20 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
         titleLower.contains('credit') ||
         titleLower == 'ed' ||
         titleLower.startsWith('ed ') ||
-        titleLower.endsWith(' ed')) {
+        titleLower.endsWith(' ed') ||
+        titleLower.contains('ed 1') ||
+        titleLower.contains('ed 2') ||
+        titleLower.contains('ed1') ||
+        titleLower.contains('ed2')) {
       return true;
     }
     
-    // Generic chapter heuristic (80s - 100s, starts in last 4 minutes)
+    if (_isExcludedChapter(ch.title)) return false;
+
+    // Durations between 70s and 110s starting in the last 5 minutes are highly likely to be the ED
     final duration = end - start;
-    if (_isGenericChapter(ch.title) && duration >= 80.0 && duration <= 100.0) {
-      if (totalDuration > 0 && (totalDuration - start) <= 240.0) {
+    if (duration >= 70.0 && duration <= 110.0) {
+      if (totalDuration > 0 && (totalDuration - start) <= 300.0) {
         return true;
       }
     }
