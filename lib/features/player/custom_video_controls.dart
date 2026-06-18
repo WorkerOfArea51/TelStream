@@ -479,9 +479,22 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     _durationSubscription = widget.player.stream.duration.listen((dur) {
       if (dur.inSeconds > 0) {
         _loadSkipTimes(dur.inSeconds.toDouble());
+        _loadChapters();
       }
     });
     _playlistSubscription = widget.player.stream.playlist.listen((_) {
+      if (mounted) {
+        setState(() {
+          _chapters = [];
+          _hasChapters = false;
+          _skipIntervals = [];
+          _skipTimesLoaded = false;
+          _introSkipped = false;
+          _outroSkipped = false;
+          _showIntroOverlay = false;
+          _showOutroOverlay = false;
+        });
+      }
       Future.delayed(const Duration(milliseconds: 500), _loadChapters);
     });
     Future.delayed(const Duration(milliseconds: 500), _loadChapters);
@@ -2590,7 +2603,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                   const SizedBox(height: 16),
                   
                   // Seekbar & Time
-                  PlayerSeekBar(
+                   PlayerSeekBar(
                     player: widget.player,
                     downloadedPrefixSize: widget.downloadedPrefixSize,
                     expectedSize: widget.expectedSize,
@@ -2602,6 +2615,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                     startHideTimer: _startHideTimer,
                     clampSeekTarget: (target) => _clampSeekTarget(target, showMessage: false),
                     onSeekPerformed: _performSeek,
+                    chapters: _chapters,
                   ),
                   const SizedBox(height: 12),
                   Row(
@@ -3213,6 +3227,7 @@ class PlayerSeekBar extends StatefulWidget {
   final VoidCallback cancelHideTimer;
   final VoidCallback startHideTimer;
   final Duration Function(Duration) clampSeekTarget;
+  final List<VideoChapter> chapters;
 
   const PlayerSeekBar({
     Key? key,
@@ -3227,6 +3242,7 @@ class PlayerSeekBar extends StatefulWidget {
     required this.cancelHideTimer,
     required this.startHideTimer,
     required this.clampSeekTarget,
+    required this.chapters,
   }) : super(key: key);
 
   @override
@@ -3278,12 +3294,22 @@ class _PlayerSeekBarState extends State<PlayerSeekBar> {
                   if (maxVal == 0) maxVal = pos.inMilliseconds.toDouble(); // fallback
                   final val = pos.inMilliseconds.toDouble().clamp(0.0, maxVal > 0 ? maxVal : 1.0);
 
+                  final SliderTrackShape baseTrackShape = widget.seekbarStyle == 'Wavy'
+                      ? WavySliderTrackShape()
+                      : widget.seekbarStyle == 'Thick'
+                          ? const RectangularSliderTrackShape()
+                          : const RoundedRectSliderTrackShape();
+
+                  final trackShape = ChapterSliderTrackShape(
+                    delegate: baseTrackShape,
+                    chapters: widget.chapters,
+                    totalDuration: dur,
+                  );
+
                   return SliderTheme(
                     data: SliderThemeData(
                       trackHeight: widget.seekbarStyle == 'Thick' ? 8.0 : 4.0,
-                      trackShape: widget.seekbarStyle == 'Wavy'
-                          ? WavySliderTrackShape()
-                          : null,
+                      trackShape: trackShape,
                       thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6.0),
                       overlayShape: const RoundSliderOverlayShape(overlayRadius: 14.0),
                       activeTrackColor: widget.settingsAccent,
@@ -3502,4 +3528,92 @@ class VideoChapter {
   final Duration position;
 
   const VideoChapter({required this.title, required this.position});
+}
+
+class ChapterSliderTrackShape extends SliderTrackShape {
+  final SliderTrackShape delegate;
+  final List<VideoChapter> chapters;
+  final Duration totalDuration;
+
+  ChapterSliderTrackShape({
+    required this.delegate,
+    required this.chapters,
+    required this.totalDuration,
+  });
+
+  @override
+  Rect getPreferredRect({
+    required RenderBox parentBox,
+    Offset offset = Offset.zero,
+    required SliderThemeData sliderTheme,
+    bool isEnabled = false,
+    bool isDiscrete = false,
+  }) {
+    return delegate.getPreferredRect(
+      parentBox: parentBox,
+      offset: offset,
+      sliderTheme: sliderTheme,
+      isEnabled: isEnabled,
+      isDiscrete: isDiscrete,
+    );
+  }
+
+  @override
+  void paint(
+    PaintingContext context,
+    Offset offset, {
+    required RenderBox parentBox,
+    required SliderThemeData sliderTheme,
+    required Animation<double> enableAnimation,
+    required TextDirection textDirection,
+    required Offset thumbCenter,
+    Offset? secondaryOffset,
+    bool isEnabled = false,
+    bool isDiscrete = false,
+  }) {
+    delegate.paint(
+      context,
+      offset,
+      parentBox: parentBox,
+      sliderTheme: sliderTheme,
+      enableAnimation: enableAnimation,
+      textDirection: textDirection,
+      thumbCenter: thumbCenter,
+      secondaryOffset: secondaryOffset,
+      isEnabled: isEnabled,
+      isDiscrete: isDiscrete,
+    );
+
+    if (chapters.isEmpty || totalDuration.inMilliseconds <= 0) return;
+
+    final Rect trackRect = getPreferredRect(
+      parentBox: parentBox,
+      offset: offset,
+      sliderTheme: sliderTheme,
+      isEnabled: isEnabled,
+      isDiscrete: isDiscrete,
+    );
+
+    final double trackWidth = trackRect.width;
+    final double trackLeft = trackRect.left;
+
+    final Canvas canvas = context.canvas;
+    final Paint tickPaint = Paint()
+      ..color = Colors.black.withOpacity(0.8)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.0;
+
+    for (final chapter in chapters) {
+      final double fraction = chapter.position.inMilliseconds / totalDuration.inMilliseconds;
+      if (fraction <= 0.0 || fraction >= 1.0) continue;
+
+      final double tickX = trackLeft + fraction * trackWidth;
+
+      canvas.drawLine(
+        Offset(tickX, trackRect.top - 1.0),
+        Offset(tickX, trackRect.bottom + 1.0),
+        tickPaint,
+      );
+    }
+  }
 }

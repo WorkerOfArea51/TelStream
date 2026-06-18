@@ -106,7 +106,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         nativePlayer.setProperty('audio-samplerate', '48000');
         nativePlayer.setProperty('audio-pitch-correction', 'yes');
         nativePlayer.setProperty('audio-buffer', '0.2');
-        nativePlayer.setProperty('framedrop', 'vo');
+        nativePlayer.setProperty('framedrop', 'decoder');
         nativePlayer.setProperty('autosync', '0');
         nativePlayer.setProperty('sub-fix-timing', 'yes');
         nativePlayer.setProperty('stream-buffer-size', '8388608'); // 8 MB stream buffer for high-throughput network reading

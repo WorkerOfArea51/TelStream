@@ -82,46 +82,45 @@ class _LibraryViewState extends ConsumerState<LibraryView> with SingleTickerProv
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(132),
-        child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-            child: Container(
-              decoration: BoxDecoration(
-                color: theme.cardColor,
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(
-                  color: theme.colorScheme.onSurface.withOpacity(0.08),
-                  width: 1,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.15),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Row(
+        preferredSize: const Size.fromHeight(116),
+        child: Container(
+          color: theme.cardColor,
+          child: SafeArea(
+            bottom: false,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                  child: Row(
                     children: [
-                      const SizedBox(width: 16),
                       Expanded(
                         child: _isSearching
-                            ? TextField(
-                                controller: _searchController,
-                                style: TextStyle(color: textColor),
-                                autofocus: true,
-                                decoration: InputDecoration(
-                                  hintText: 'Search...',
-                                  hintStyle: TextStyle(color: subTextColor),
-                                  border: InputBorder.none,
+                            ? Container(
+                                height: 44,
+                                decoration: BoxDecoration(
+                                  color: theme.scaffoldBackgroundColor,
+                                  borderRadius: BorderRadius.circular(22),
+                                  border: Border.all(
+                                    color: theme.colorScheme.onSurface.withOpacity(0.12),
+                                    width: 1,
+                                  ),
                                 ),
-                                onChanged: (val) {
-                                  ref.read(provider.notifier).search(val);
-                                },
+                                padding: const EdgeInsets.symmetric(horizontal: 16),
+                                child: TextField(
+                                  controller: _searchController,
+                                  style: TextStyle(color: textColor),
+                                  autofocus: true,
+                                  decoration: InputDecoration(
+                                    hintText: 'Search...',
+                                    hintStyle: TextStyle(color: subTextColor),
+                                    border: InputBorder.none,
+                                    icon: Icon(Icons.search, color: subTextColor, size: 20),
+                                  ),
+                                  onChanged: (val) {
+                                    ref.read(provider.notifier).search(val);
+                                  },
+                                ),
                               )
                             : Text(
                                 '${ref.watch(provider.notifier).resolvedChatTitle} ${state.value != null ? "(${_getFilteredList(state.value!, favorites, isDownloadedOnly).length})" : ""}',
@@ -163,29 +162,29 @@ class _LibraryViewState extends ConsumerState<LibraryView> with SingleTickerProv
                       ),
                     ],
                   ),
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 16),
-                    child: Divider(color: Colors.white10, height: 1),
+                ),
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 16),
+                  child: Divider(color: Colors.white10, height: 1),
+                ),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: TabBar(
+                    controller: _subTabController,
+                    isScrollable: true,
+                    tabAlignment: TabAlignment.start,
+                    indicatorColor: theme.primaryColor,
+                    labelColor: theme.primaryColor,
+                    unselectedLabelColor: subTextColor,
+                    indicatorSize: TabBarIndicatorSize.label,
+                    dividerColor: Colors.transparent,
+                    tabs: const [
+                      Tab(text: 'All'),
+                      Tab(text: 'Favorites'),
+                    ],
                   ),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: TabBar(
-                      controller: _subTabController,
-                      isScrollable: true,
-                      tabAlignment: TabAlignment.start,
-                      indicatorColor: theme.primaryColor,
-                      labelColor: theme.primaryColor,
-                      unselectedLabelColor: subTextColor,
-                      indicatorSize: TabBarIndicatorSize.label,
-                      dividerColor: Colors.transparent,
-                      tabs: const [
-                        Tab(text: 'All'),
-                        Tab(text: 'Favorites'),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ),
@@ -229,7 +228,7 @@ class _LibraryViewState extends ConsumerState<LibraryView> with SingleTickerProv
                   sliver: SliverGrid(
                     gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: 2,
-                      childAspectRatio: 0.65,
+                      childAspectRatio: 0.72,
                       crossAxisSpacing: 12,
                       mainAxisSpacing: 12,
                     ),
@@ -259,7 +258,7 @@ class _LibraryViewState extends ConsumerState<LibraryView> with SingleTickerProv
           padding: const EdgeInsets.only(left: 12, right: 12, top: 12, bottom: 96),
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 2,
-            childAspectRatio: 0.65,
+            childAspectRatio: 0.72,
             crossAxisSpacing: 12,
             mainAxisSpacing: 12,
           ),
@@ -409,6 +408,7 @@ class _LibraryViewState extends ConsumerState<LibraryView> with SingleTickerProv
                 autoDownload: true,
                 width: double.infinity,
                 height: double.infinity,
+                borderRadius: BorderRadius.zero,
               ),
             ),
               

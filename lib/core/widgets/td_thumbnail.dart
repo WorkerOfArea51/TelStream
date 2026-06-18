@@ -16,6 +16,7 @@ class TdThumbnail extends ConsumerStatefulWidget {
   final double height;
   final BoxFit fit;
   final Alignment alignment;
+  final BorderRadius? borderRadius;
   
   const TdThumbnail({
     Key? key, 
@@ -26,6 +27,7 @@ class TdThumbnail extends ConsumerStatefulWidget {
     this.height = 60,
     this.fit = BoxFit.cover,
     this.alignment = Alignment.center,
+    this.borderRadius,
   }) : super(key: key);
 
   @override
@@ -116,7 +118,7 @@ class _TdThumbnailState extends ConsumerState<TdThumbnail> {
     final fileExists = imagePath != null && File(imagePath).existsSync();
 
     return ClipRRect(
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: widget.borderRadius ?? BorderRadius.circular(12),
       child: Container(
         width: widget.width,
         height: widget.height,

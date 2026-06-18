@@ -71,58 +71,35 @@ class _MainScreenState extends ConsumerState<MainScreen> {
           index: _currentIndex,
           children: _screens,
         ),
-        bottomNavigationBar: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-          child: Container(
-            decoration: BoxDecoration(
-              color: theme.cardColor,
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(
-                color: theme.colorScheme.onSurface.withOpacity(0.08),
-                width: 1,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.15),
-                  blurRadius: 12,
-                  offset: const Offset(0, -4),
-                ),
-              ],
+        bottomNavigationBar: NavigationBar(
+          selectedIndex: _currentIndex,
+          onDestinationSelected: (index) {
+            setState(() {
+              _currentIndex = index;
+            });
+          },
+          destinations: const [
+            NavigationDestination(
+              icon: Icon(Icons.tv_outlined),
+              selectedIcon: Icon(Icons.tv),
+              label: 'Anime',
             ),
-            clipBehavior: Clip.antiAlias,
-            child: NavigationBar(
-              backgroundColor: Colors.transparent,
-              elevation: 0,
-              selectedIndex: _currentIndex,
-              onDestinationSelected: (index) {
-                setState(() {
-                  _currentIndex = index;
-                });
-              },
-              destinations: const [
-                NavigationDestination(
-                  icon: Icon(Icons.tv_outlined),
-                  selectedIcon: Icon(Icons.tv),
-                  label: 'Anime',
-                ),
-                NavigationDestination(
-                  icon: Icon(Icons.movie_outlined),
-                  selectedIcon: Icon(Icons.movie),
-                  label: 'Movies',
-                ),
-                NavigationDestination(
-                  icon: Icon(Icons.video_collection_outlined),
-                  selectedIcon: Icon(Icons.video_collection),
-                  label: 'Web Series',
-                ),
-                NavigationDestination(
-                  icon: Icon(Icons.more_horiz_outlined),
-                  selectedIcon: Icon(Icons.more_horiz),
-                  label: 'More',
-                ),
-              ],
+            NavigationDestination(
+              icon: Icon(Icons.movie_outlined),
+              selectedIcon: Icon(Icons.movie),
+              label: 'Movies',
             ),
-          ),
+            NavigationDestination(
+              icon: Icon(Icons.video_collection_outlined),
+              selectedIcon: Icon(Icons.video_collection),
+              label: 'Web Series',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.more_horiz_outlined),
+              selectedIcon: Icon(Icons.more_horiz),
+              label: 'More',
+            ),
+          ],
         ),
       ),
     );
