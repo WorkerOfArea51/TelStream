@@ -15,6 +15,7 @@ class _TrackerSettingsScreenState extends ConsumerState<TrackerSettingsScreen> {
   late final TextEditingController _anilistController;
   late final TextEditingController _malController;
   late final TextEditingController _traktController;
+  late final TextEditingController _tmdbController;
 
   @override
   void initState() {
@@ -23,6 +24,7 @@ class _TrackerSettingsScreenState extends ConsumerState<TrackerSettingsScreen> {
     _anilistController = TextEditingController(text: storage.getAnilistToken() ?? '');
     _malController = TextEditingController(text: storage.getMalToken() ?? '');
     _traktController = TextEditingController(text: storage.getTraktToken() ?? '');
+    _tmdbController = TextEditingController(text: storage.getTmdbApiKey() ?? '');
   }
 
   @override
@@ -30,6 +32,7 @@ class _TrackerSettingsScreenState extends ConsumerState<TrackerSettingsScreen> {
     _anilistController.dispose();
     _malController.dispose();
     _traktController.dispose();
+    _tmdbController.dispose();
     super.dispose();
   }
 
@@ -45,6 +48,7 @@ class _TrackerSettingsScreenState extends ConsumerState<TrackerSettingsScreen> {
     await storage.setAnilistToken(_anilistController.text.trim());
     await storage.setMalToken(_malController.text.trim());
     await storage.setTraktToken(_traktController.text.trim());
+    await storage.setTmdbApiKey(_tmdbController.text.trim());
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -152,6 +156,22 @@ class _TrackerSettingsScreenState extends ConsumerState<TrackerSettingsScreen> {
             theme: theme,
           ),
 
+          const SizedBox(height: 24),
+
+          // TMDB Section
+          _buildTrackerSection(
+            title: 'The Movie Database (TMDB)',
+            icon: Icons.movie_filter_outlined,
+            controller: _tmdbController,
+            hintText: 'Paste TMDB API Key (v3)',
+            helperUrl: 'https://www.themoviedb.org/settings/api',
+            instructions: '1. Log in to TMDB and open API Settings.\n2. Request an API key (v3) for developer use.\n3. Paste your 32-character API key here. (Leave empty to use the system default key)',
+            accentColor: Colors.orangeAccent,
+            isDark: isDark,
+            theme: theme,
+            obscureText: false,
+          ),
+
           const SizedBox(height: 40),
 
           // Save button
@@ -186,6 +206,7 @@ class _TrackerSettingsScreenState extends ConsumerState<TrackerSettingsScreen> {
     required Color accentColor,
     required bool isDark,
     required ThemeData theme,
+    bool obscureText = true,
   }) {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -223,7 +244,7 @@ class _TrackerSettingsScreenState extends ConsumerState<TrackerSettingsScreen> {
           TextField(
             controller: controller,
             style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontSize: 13),
-            obscureText: true,
+            obscureText: obscureText,
             decoration: InputDecoration(
               hintText: hintText,
               hintStyle: TextStyle(color: isDark ? Colors.white24 : Colors.black26),

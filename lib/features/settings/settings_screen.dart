@@ -222,62 +222,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     }
   }
 
-  void _showTmdbApiKeyDialog() {
-    final theme = Theme.of(context);
-    final storage = ref.read(storageServiceProvider);
-    final controller = TextEditingController(text: storage.getTmdbApiKey() ?? '');
-    
-    showDialog(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        backgroundColor: theme.cardColor,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: BorderSide(color: theme.colorScheme.onSurface.withOpacity(0.08), width: 1),
-        ),
-        title: const Text('TMDB API Key'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Enter your custom TMDB v3 API Key. Leave empty to use the public default key.',
-              style: TextStyle(fontSize: 13, color: Colors.white70),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: controller,
-              style: const TextStyle(color: Colors.white),
-              decoration: const InputDecoration(
-                hintText: 'e.g. 829f046ef3294326127b407137f6...',
-                hintStyle: TextStyle(color: Colors.white24),
-                border: OutlineInputBorder(),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: Text('Cancel', style: TextStyle(color: theme.brightness == Brightness.dark ? Colors.white54 : Colors.black54)),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              final scaffoldMessenger = ScaffoldMessenger.of(context);
-              final navigator = Navigator.of(dialogContext);
-              await storage.setTmdbApiKey(controller.text.trim());
-              navigator.pop();
-              setState(() {});
-              scaffoldMessenger.showSnackBar(
-                const SnackBar(content: Text('TMDB API Key updated successfully!'), backgroundColor: Colors.green),
-              );
-            },
-            child: const Text('Save'),
-          ),
-        ],
-      ),
-    );
-  }
+
 
   Widget _buildStorageGauge(ThemeData theme, Color settingsAccent, bool isDark) {
     final total = _totalStorageRaw.toDouble();
@@ -506,19 +451,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   trailing: Icon(Icons.folder_open, color: isDark ? Colors.white70 : Colors.black54, size: 20),
                   onTap: _selectDownloadDirectory,
                 ),
-                Divider(color: theme.dividerColor, height: 1, indent: 56, endIndent: 16),
-                ListTile(
-                  leading: Icon(Icons.movie_filter_outlined, color: isDark ? Colors.tealAccent : Colors.teal),
-                  title: const Text('TMDB Custom API Key'),
-                  subtitle: Text(
-                    ref.read(storageServiceProvider).getTmdbApiKey()?.isNotEmpty == true
-                        ? 'Using Custom API Key'
-                        : 'Using System Default Key',
-                    style: TextStyle(color: isDark ? Colors.white54 : Colors.black54, fontSize: 11),
-                  ),
-                  trailing: Icon(Icons.vpn_key, color: isDark ? Colors.white70 : Colors.black54, size: 20),
-                  onTap: _showTmdbApiKeyDialog,
-                ),
+
               ],
             ),
           ),
