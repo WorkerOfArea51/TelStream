@@ -99,7 +99,8 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         
         // Set synchronization clocks and framedrop to maintain perfect audio/video/subtitle sync at high speed
         nativePlayer.setProperty('video-sync', 'audio');
-        nativePlayer.setProperty('framedrop', 'vo');
+        nativePlayer.setProperty('framedrop', 'decoder');
+        nativePlayer.setProperty('autosync', '30');
         nativePlayer.setProperty('sub-fix-timing', 'yes');
         nativePlayer.setProperty('stream-buffer-size', '8388608'); // 8 MB stream buffer for high-throughput network reading
         nativePlayer.setProperty('vd-lavc-fast', 'yes'); // Enable fast decoding optimizations
@@ -122,7 +123,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
           final subDelay = _storageService.getSubtitleDelay();
           final subFont = _storageService.getSubtitleFont();
 
-          nativePlayer.setProperty('sub-size', subSize.round().toString());
+          nativePlayer.setProperty('sub-font-size', subSize.round().toString());
           nativePlayer.setProperty('sub-color', subColor);
           nativePlayer.setProperty('sub-delay', subDelay.toString());
 

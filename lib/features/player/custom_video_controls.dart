@@ -201,36 +201,72 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     }
   }
 
+  bool _isGenericChapter(String title) {
+    final name = title.trim().toLowerCase();
+    if (name.isEmpty) return true;
+    final chapterRegExp = RegExp(r'^(chapter|capitulo|capítulo|ch|ep|episode|eposide|part|partida)\s*[_\-]*\s*\d*$');
+    return chapterRegExp.hasMatch(name);
+  }
+
+  bool _isChapterIntro(VideoChapter ch, double start, double end) {
+    final titleLower = ch.title.toLowerCase().trim();
+    if (titleLower.contains('intro') ||
+        titleLower.contains('opening') ||
+        titleLower == 'op' ||
+        titleLower.startsWith('op ') ||
+        titleLower.endsWith(' op')) {
+      return true;
+    }
+    
+    // Generic chapter heuristic (80s - 100s, starts in first 6 minutes)
+    final duration = end - start;
+    if (_isGenericChapter(ch.title) && duration >= 80.0 && duration <= 100.0) {
+      if (start <= 360.0) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  bool _isChapterOutro(VideoChapter ch, double start, double end, double totalDuration) {
+    final titleLower = ch.title.toLowerCase().trim();
+    if (titleLower.contains('outro') ||
+        titleLower.contains('ending') ||
+        titleLower.contains('credits') ||
+        titleLower.contains('credit') ||
+        titleLower == 'ed' ||
+        titleLower.startsWith('ed ') ||
+        titleLower.endsWith(' ed')) {
+      return true;
+    }
+    
+    // Generic chapter heuristic (80s - 100s, starts in last 4 minutes)
+    final duration = end - start;
+    if (_isGenericChapter(ch.title) && duration >= 80.0 && duration <= 100.0) {
+      if (totalDuration > 0 && (totalDuration - start) <= 240.0) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   List<SkipInterval> _extractSkipTimesFromChapters() {
     final List<SkipInterval> intervals = [];
     if (_chapters.isEmpty) return intervals;
     
+    final totalDuration = widget.player.state.duration.inSeconds.toDouble();
+    
     for (int i = 0; i < _chapters.length; i++) {
       final ch = _chapters[i];
-      final titleLower = ch.title.toLowerCase().trim();
+      final start = ch.position.inSeconds.toDouble();
+      final end = (i + 1 < _chapters.length)
+          ? _chapters[i + 1].position.inSeconds.toDouble()
+          : (totalDuration > 0 ? totalDuration : start + 90.0);
+          
+      final isOp = _isChapterIntro(ch, start, end);
+      final isEd = _isChapterOutro(ch, start, end, totalDuration);
       
-      // Check for opening/intro
-      final isOp = titleLower.contains('intro') ||
-                   titleLower.contains('opening') ||
-                   titleLower == 'op' ||
-                   titleLower.startsWith('op ') ||
-                   titleLower.endsWith(' op');
-                   
-      // Check for ending/outro
-      final isEd = titleLower.contains('outro') ||
-                   titleLower.contains('ending') ||
-                   titleLower.contains('credits') ||
-                   titleLower.contains('credit') ||
-                   titleLower == 'ed' ||
-                   titleLower.startsWith('ed ') ||
-                   titleLower.endsWith(' ed');
-                   
       if (isOp || isEd) {
-        final start = ch.position.inSeconds.toDouble();
-        final end = (i + 1 < _chapters.length)
-            ? _chapters[i + 1].position.inSeconds.toDouble()
-            : widget.player.state.duration.inSeconds.toDouble();
-            
         intervals.add(SkipInterval(
           startTime: start,
           endTime: end,
@@ -1081,6 +1117,19 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                                 final chapter = _chapters[index];
                                 final isSelected = index == activeIndex;
                                 
+                                final start = chapter.position.inSeconds.toDouble();
+                                final totalDuration = widget.player.state.duration.inSeconds.toDouble();
+                                final end = (index + 1 < _chapters.length)
+                                    ? _chapters[index + 1].position.inSeconds.toDouble()
+                                    : (totalDuration > 0 ? totalDuration : start + 90.0);
+                                    
+                                String displayTitle = chapter.title;
+                                if (_isChapterIntro(chapter, start, end)) {
+                                  displayTitle = 'Intro';
+                                } else if (_isChapterOutro(chapter, start, end, totalDuration)) {
+                                  displayTitle = 'Credits';
+                                }
+
                                 return Padding(
                                   padding: const EdgeInsets.only(bottom: 8),
                                   child: InkWell(
@@ -1090,7 +1139,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                                       setState(() {
                                         _showChaptersPanel = false;
                                         _showSeekIndicator = true;
-                                        _seekDirection = 'Chapter: ${chapter.title}';
+                                        _seekDirection = 'Chapter: $displayTitle';
                                       });
                                       Future.delayed(const Duration(milliseconds: 1000), () {
                                         if (mounted) {
@@ -1134,7 +1183,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                                           const SizedBox(width: 16),
                                           Expanded(
                                             child: Text(
-                                              chapter.title,
+                                              displayTitle,
                                               style: TextStyle(
                                                 color: isSelected ? settingsAccent : Colors.white,
                                                 fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
@@ -2334,7 +2383,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
           // Auto Play Next Countdown Overlay
           if (_showAutoNextCountdown && !_isLocked)
             Positioned(
-              bottom: _showControls ? 130 : 30,
+              bottom: _showControls ? 200 : 30,
               right: 30,
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(16),
@@ -2406,47 +2455,63 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
           if (_showControls && !_isLocked && !_showTrackSelectorPanel && !_showRatioPanel) ...[
             // Top Bar
             Positioned(
-              top: 40, left: 16, right: 16,
-              child: Row(
-                children: [
-                  IconButton(icon: const Icon(Icons.arrow_back, color: Colors.white), onPressed: widget.onBack),
-                  Expanded(
-                    child: Text(widget.videoTitle, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis),
-                  ),
-                  if (_sleepTimerSecondsRemaining != null)
-                    Padding(
-                      padding: const EdgeInsets.only(right: 4.0),
-                      child: Text(
-                        _formatSleepTimeRemaining(_sleepTimerSecondsRemaining!),
-                        style: TextStyle(
-                          color: settingsAccent,
-                          fontSize: 13,
-                          fontWeight: FontWeight.bold,
+              top: 32, left: 24, right: 24,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                decoration: BoxDecoration(
+                  color: const Color(0xEB1C1B1F),
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(color: Colors.white10),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.4),
+                      blurRadius: 16,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    IconButton(icon: const Icon(Icons.arrow_back, color: Colors.white), onPressed: widget.onBack),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(widget.videoTitle, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis),
+                    ),
+                    if (_sleepTimerSecondsRemaining != null)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 4.0),
+                        child: Text(
+                          _formatSleepTimeRemaining(_sleepTimerSecondsRemaining!),
+                          style: TextStyle(
+                            color: settingsAccent,
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
+                    IconButton(
+                      icon: Icon(
+                        _sleepTimerSecondsRemaining != null ? Icons.snooze : Icons.snooze_outlined,
+                        color: _sleepTimerSecondsRemaining != null ? settingsAccent : Colors.white,
+                      ),
+                      onPressed: _showSleepTimerSelector,
                     ),
-                  IconButton(
-                    icon: Icon(
-                      _sleepTimerSecondsRemaining != null ? Icons.snooze : Icons.snooze_outlined,
-                      color: _sleepTimerSecondsRemaining != null ? settingsAccent : Colors.white,
+                    IconButton(
+                      icon: const Icon(Icons.subtitles, color: Colors.white), 
+                      onPressed: () => _showTrackSelector(
+                        title: 'Subtitles',
+                        isSubtitle: true,
+                      ),
                     ),
-                    onPressed: _showSleepTimerSelector,
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.subtitles, color: Colors.white), 
-                    onPressed: () => _showTrackSelector(
-                      title: 'Subtitles',
-                      isSubtitle: true,
+                    IconButton(
+                      icon: const Icon(Icons.headphones, color: Colors.white), 
+                      onPressed: () => _showTrackSelector(
+                        title: 'Audio Tracks',
+                        isSubtitle: false,
+                      ),
                     ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.headphones, color: Colors.white), 
-                    onPressed: () => _showTrackSelector(
-                      title: 'Audio Tracks',
-                      isSubtitle: false,
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
             
@@ -2496,81 +2561,96 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
 
             // Bottom Bar
             Positioned(
-              bottom: 16, left: 16, right: 16,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Action Row (mpvEx style)
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      _buildActionButton(Icons.lock_open, 'Lock', () {
-                        setState(() => _isLocked = true);
-                        _startHideTimer();
-                      }),
-                      _buildActionButton(Icons.screen_rotation, 'Rotate', _toggleFullscreen),
-                      _buildActionButton(
-                        Icons.aspect_ratio,
-                        'Fit: ${_getRatioLabel(_currentAspectRatioString)}',
-                        _handleAspectRatioButtonTap,
-                        onLongPress: _tapToSwitchRatio ? _showAspectRatioPanel : null,
-                      ),
-                      if (_hasChapters)
-                        _buildActionButton(Icons.list, 'Chapters', _openChaptersPanel),
-                      _buildActionButton(Icons.speed, '${_currentSpeed}x', _toggleSpeed),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  
-                  // Seekbar & Time
-                  PlayerSeekBar(
-                    player: widget.player,
-                    downloadedPrefixSize: widget.downloadedPrefixSize,
-                    expectedSize: widget.expectedSize,
-                    seekbarStyle: settings.seekbarStyle,
-                    settingsAccent: settingsAccent,
-                    isPositionDownloaded: _isPositionDownloaded,
-                    throttledSeek: _throttledSeek,
-                    cancelHideTimer: () => _hideTimer?.cancel(),
-                    startHideTimer: _startHideTimer,
-                    clampSeekTarget: (target) => _clampSeekTarget(target, showMessage: false),
-                    onSeekPerformed: _performSeek,
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      _buildCheckboxToggle(
-                        label: 'Auto Play',
-                        value: true,
-                        onChanged: (_) {},
-                        settingsAccent: settingsAccent,
-                      ),
-                      const SizedBox(width: 24),
-                      _buildCheckboxToggle(
-                        label: 'Auto Next',
-                        value: settings.autoplayNextVideo,
-                        onChanged: (val) {
-                          if (val != null) {
-                            notifier.updateSettings(settings.copyWith(autoplayNextVideo: val));
-                          }
-                        },
-                        settingsAccent: settingsAccent,
-                      ),
-                      const SizedBox(width: 24),
-                      _buildCheckboxToggle(
-                        label: 'Auto Skip',
-                        value: settings.autoSkipIntroOutro,
-                        onChanged: (val) {
-                          if (val != null) {
-                            notifier.updateSettings(settings.copyWith(autoSkipIntroOutro: val));
-                          }
-                        },
-                        settingsAccent: settingsAccent,
-                      ),
-                    ],
-                  ),
-                ],
+              bottom: 24, left: 24, right: 24,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                decoration: BoxDecoration(
+                  color: const Color(0xEB1C1B1F),
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(color: Colors.white10),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.4),
+                      blurRadius: 16,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Action Row (mpvEx style)
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        _buildActionButton(Icons.lock_open, 'Lock', () {
+                          setState(() => _isLocked = true);
+                          _startHideTimer();
+                        }),
+                        _buildActionButton(Icons.screen_rotation, 'Rotate', _toggleFullscreen),
+                        _buildActionButton(
+                          Icons.aspect_ratio,
+                          'Fit: ${_getRatioLabel(_currentAspectRatioString)}',
+                          _handleAspectRatioButtonTap,
+                          onLongPress: _tapToSwitchRatio ? _showAspectRatioPanel : null,
+                        ),
+                        if (_hasChapters)
+                          _buildActionButton(Icons.list, 'Chapters', _openChaptersPanel),
+                        _buildActionButton(Icons.speed, '${_currentSpeed}x', _toggleSpeed),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    
+                    // Seekbar & Time
+                    PlayerSeekBar(
+                      player: widget.player,
+                      downloadedPrefixSize: widget.downloadedPrefixSize,
+                      expectedSize: widget.expectedSize,
+                      seekbarStyle: settings.seekbarStyle,
+                      settingsAccent: settingsAccent,
+                      isPositionDownloaded: _isPositionDownloaded,
+                      throttledSeek: _throttledSeek,
+                      cancelHideTimer: () => _hideTimer?.cancel(),
+                      startHideTimer: _startHideTimer,
+                      clampSeekTarget: (target) => _clampSeekTarget(target, showMessage: false),
+                      onSeekPerformed: _performSeek,
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        _buildCheckboxToggle(
+                          label: 'Auto Play',
+                          value: true,
+                          onChanged: (_) {},
+                          settingsAccent: settingsAccent,
+                        ),
+                        const SizedBox(width: 24),
+                        _buildCheckboxToggle(
+                          label: 'Auto Next',
+                          value: settings.autoplayNextVideo,
+                          onChanged: (val) {
+                            if (val != null) {
+                              notifier.updateSettings(settings.copyWith(autoplayNextVideo: val));
+                            }
+                          },
+                          settingsAccent: settingsAccent,
+                        ),
+                        const SizedBox(width: 24),
+                        _buildCheckboxToggle(
+                          label: 'Auto Skip',
+                          value: settings.autoSkipIntroOutro,
+                          onChanged: (val) {
+                            if (val != null) {
+                              notifier.updateSettings(settings.copyWith(autoSkipIntroOutro: val));
+                            }
+                          },
+                          settingsAccent: settingsAccent,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
           ],
@@ -2578,7 +2658,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
           // Contextual Skip Intro/Outro Button
           if ((_showIntroOverlay || _showOutroOverlay) && !_isLocked && !widget.isPip)
             Positioned(
-              bottom: _showControls ? 140 : 40,
+              bottom: _showControls ? 210 : 40,
               right: 24,
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(12),
@@ -2804,10 +2884,6 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
 
   void _showSubtitleCustomizerDialog() {
     final storage = ref.read(storageServiceProvider);
-    double fontSize = storage.getSubtitleFontSize();
-    String color = storage.getSubtitleColor();
-    double delay = storage.getSubtitleDelay();
-    String font = storage.getSubtitleFont();
 
     final theme = Theme.of(context);
     final customTheme = theme.extension<AppThemeExtension>();
@@ -2822,6 +2898,11 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setModalState) {
+            final fontSize = storage.getSubtitleFontSize();
+            final color = storage.getSubtitleColor();
+            final delay = storage.getSubtitleDelay();
+            final font = storage.getSubtitleFont();
+
             Widget buildPresetChip(String label, double size, String colorHex, String fontFamily) {
               final isSelected = fontSize == size && color == colorHex && font == fontFamily;
               final accent = settingsAccent;
@@ -2839,18 +2920,15 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                   ),
                   onSelected: (selected) {
                     if (selected) {
-                      setModalState(() {
-                        fontSize = size;
-                        color = colorHex;
-                        font = fontFamily;
-                      });
                       storage.setSubtitleFontSize(size);
                       storage.setSubtitleColor(colorHex);
                       storage.setSubtitleFont(fontFamily);
                       
-                      _applySubtitleProperty('sub-size', size.round().toString());
+                      _applySubtitleProperty('sub-font-size', size.round().toString());
                       _applySubtitleProperty('sub-color', colorHex);
                       _applySubtitleProperty('sub-font', fontFamily);
+                      setState(() {});
+                      setModalState(() {});
                     }
                   },
                 ),
@@ -2904,9 +2982,10 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                       activeColor: settingsAccent,
                       inactiveColor: Colors.white24,
                       onChanged: (val) {
-                        setModalState(() => fontSize = val);
                         storage.setSubtitleFontSize(val);
-                        _applySubtitleProperty('sub-size', val.round().toString());
+                        _applySubtitleProperty('sub-font-size', val.round().toString());
+                        setState(() {});
+                        setModalState(() {});
                       },
                     ),
                     Row(
@@ -2915,9 +2994,10 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                         Text('Delay Sync: ${delay >= 0 ? "+" : ""}${delay.toStringAsFixed(1)}s', style: const TextStyle(color: Colors.white70, fontSize: 14)),
                         TextButton(
                           onPressed: () {
-                            setModalState(() => delay = 0.0);
                             storage.setSubtitleDelay(0.0);
                             _applySubtitleProperty('sub-delay', '0.0');
+                            setState(() {});
+                            setModalState(() {});
                           },
                           child: const Text('Reset', style: TextStyle(color: Colors.redAccent, fontSize: 12)),
                         ),
@@ -2932,9 +3012,10 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                       inactiveColor: Colors.white24,
                       onChanged: (val) {
                         final roundedVal = (val * 10).round() / 10;
-                        setModalState(() => delay = roundedVal);
                         storage.setSubtitleDelay(roundedVal);
                         _applySubtitleProperty('sub-delay', roundedVal.toString());
+                        setState(() {});
+                        setModalState(() {});
                       },
                     ),
                     const Text('Text Color', style: TextStyle(color: Colors.white70, fontSize: 14)),
@@ -2968,9 +3049,10 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                       ],
                       onChanged: (val) {
                         if (val != null) {
-                          setModalState(() => font = val);
                           storage.setSubtitleFont(val);
                           _applySubtitleProperty('sub-font', val);
+                          setState(() {});
+                          setModalState(() {});
                         }
                       },
                     ),
@@ -2983,9 +3065,10 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                         activeColor: settingsAccent,
                         contentPadding: EdgeInsets.zero,
                         onChanged: (val) {
-                          setModalState(() {});
                           storage.setSubtitleSystemFonts(val);
                           _applySubtitleProperty('sub-font-provider', val ? 'auto' : 'none');
+                          setState(() {});
+                          setModalState(() {});
                         },
                       ),
                     ],
@@ -3090,9 +3173,10 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
         labelStyle: TextStyle(color: isSelected ? Colors.black : Colors.white, fontWeight: FontWeight.bold),
         onSelected: (selected) {
           if (selected) {
-            setModalState(() {});
             storage.setSubtitleColor(hexCode);
             _applySubtitleProperty('sub-color', hexCode);
+            setState(() {});
+            setModalState(() {});
           }
         },
       ),
@@ -3113,14 +3197,14 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
 
   bool _isCurrentPositionInOutro(Duration position) {
     if (!_hasChapters || _chapters.isEmpty) return false;
+    final totalDuration = widget.player.state.duration.inSeconds.toDouble();
     for (int i = 0; i < _chapters.length; i++) {
       final ch = _chapters[i];
-      final titleLower = ch.title.toLowerCase();
-      if (titleLower.contains('outro') ||
-          titleLower.contains('credits') ||
-          titleLower.contains('credit') ||
-          titleLower.contains('ending') ||
-          titleLower.contains('ed')) {
+      final start = ch.position.inSeconds.toDouble();
+      final end = (i + 1 < _chapters.length)
+          ? _chapters[i + 1].position.inSeconds.toDouble()
+          : (totalDuration > 0 ? totalDuration : start + 90.0);
+      if (_isChapterOutro(ch, start, end, totalDuration)) {
         if (position >= ch.position) {
           return true;
         }
