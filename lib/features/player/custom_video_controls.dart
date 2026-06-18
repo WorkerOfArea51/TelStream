@@ -222,24 +222,39 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     final titleLower = ch.title.toLowerCase().trim();
     if (titleLower.contains('intro') ||
         titleLower.contains('opening') ||
+        titleLower.contains('theme') ||
+        titleLower.contains('title sequence') ||
+        titleLower.contains('main title') ||
+        titleLower.contains('title screen') ||
+        titleLower.contains('opening credits') ||
         titleLower == 'op' ||
         titleLower.startsWith('op ') ||
         titleLower.endsWith(' op') ||
         titleLower.contains('op 1') ||
         titleLower.contains('op 2') ||
         titleLower.contains('op1') ||
-        titleLower.contains('op2') ||
-        titleLower.contains('theme')) {
+        titleLower.contains('op2')) {
       return true;
     }
     
     if (_isExcludedChapter(ch.title)) return false;
 
-    // Generic chapters (e.g. Chapter 2) starting in first 6 mins with duration 60s-120s are likely OPs
     final duration = end - start;
-    if (duration >= 60.0 && duration <= 120.0) {
-      if (start <= 360.0) {
-        return true;
+    final totalDuration = widget.player.state.duration.inSeconds.toDouble();
+
+    if (totalDuration <= 1680.0) {
+      // Short videos / Anime (< 28 mins)
+      if (duration >= 60.0 && duration <= 120.0) {
+        if (start <= 360.0) {
+          return true;
+        }
+      }
+    } else {
+      // Long videos / TV Shows / Movies (> 28 mins)
+      if (duration >= 25.0 && duration <= 95.0) {
+        if (start <= 900.0) { // first 15 mins
+          return true;
+        }
       }
     }
     return false;
@@ -251,6 +266,11 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
         titleLower.contains('ending') ||
         titleLower.contains('credits') ||
         titleLower.contains('credit') ||
+        titleLower.contains('closing') ||
+        titleLower.contains('post-credits') ||
+        titleLower.contains('preview') ||
+        titleLower.contains('teaser') ||
+        titleLower.contains('epilogue') ||
         titleLower == 'ed' ||
         titleLower.startsWith('ed ') ||
         titleLower.endsWith(' ed') ||
@@ -263,11 +283,21 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     
     if (_isExcludedChapter(ch.title)) return false;
 
-    // Generic chapters in last 5 mins with duration 60s-180s (since EDs can be followed by previews)
     final duration = end - start;
-    if (duration >= 60.0 && duration <= 180.0) {
-      if (totalDuration > 0 && (totalDuration - start) <= 300.0) {
-        return true;
+
+    if (totalDuration <= 1680.0) {
+      // Short videos / Anime (< 28 mins)
+      if (duration >= 60.0 && duration <= 180.0) {
+        if (totalDuration > 0 && (totalDuration - start) <= 300.0) {
+          return true;
+        }
+      }
+    } else {
+      // Long videos / TV Shows / Movies (> 28 mins)
+      if (duration >= 40.0 && duration <= 240.0) {
+        if (totalDuration > 0 && (totalDuration - start) <= 480.0) { // last 8 mins
+          return true;
+        }
       }
     }
     return false;

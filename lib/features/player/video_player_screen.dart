@@ -111,12 +111,12 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         nativePlayer.setProperty('video-sync', 'audio');
         nativePlayer.setProperty('audio-pitch-correction', 'yes');
         nativePlayer.setProperty('audio-buffer', '0.05');
-        nativePlayer.setProperty('framedrop', 'vo');
+        nativePlayer.setProperty('framedrop', 'decoder');
         nativePlayer.setProperty('autosync', '30');
         nativePlayer.setProperty('sub-fix-timing', 'yes');
         nativePlayer.setProperty('stream-buffer-size', '8388608'); // 8 MB stream buffer for high-throughput network reading
         nativePlayer.setProperty('vd-lavc-fast', 'yes'); // Enable fast decoding optimizations
-        nativePlayer.setProperty('vd-lavc-skiploopfilter', 'bidir'); // Skip loop filtering on B-frames to save CPU in heavy scenes
+        nativePlayer.setProperty('vd-lavc-skiploopfilter', 'all'); // Skip all loop filtering to keep up with 2x playback speed
 
         final hwDecMode = _storageService.getHardwareDecoderMode();
         if (hwDecMode != 'no') {
