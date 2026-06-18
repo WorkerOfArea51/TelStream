@@ -35,6 +35,13 @@ class TmdbService {
     // Remove square brackets and parentheses content
     clean = clean.replaceAll(RegExp(r'\[[^\]]*\]'), '');
     clean = clean.replaceAll(RegExp(r'\([^)]*\)'), '');
+    
+    // Remove season suffixes like ": Season 1", "Season 1", "S1", "S01", ": S1", " - Season 1", etc.
+    clean = clean.replaceAll(RegExp(r'[-\s:]+\s*(Season\s+\d+|S\d+)', caseSensitive: false), '');
+
+    // Strip trailing colons, hyphens, and whitespace
+    clean = clean.replaceAll(RegExp(r'[\s\-:]+$'), '');
+
     // Clean multiple spaces and special characters
     clean = clean.replaceAll(RegExp(r'\s+'), ' ').trim();
     

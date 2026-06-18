@@ -16,6 +16,7 @@ import 'settings_provider.dart';
 import 'video_settings_screen.dart';
 import 'advanced_cache_manager_screen.dart';
 import 'downloads_manager_screen.dart';
+import 'tracker_settings_screen.dart';
 import '../../core/widgets/whats_new_dialog.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/logger.dart';
@@ -630,6 +631,31 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   ),
                 ),
               ],
+            ),
+          ),
+
+          const SizedBox(height: 24),
+          Text('Trackers & Integrations', style: TextStyle(color: settingsAccent, fontWeight: FontWeight.bold, fontSize: 16)),
+          const SizedBox(height: 12),
+          Card(
+            elevation: 0,
+            color: theme.cardColor,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+              side: BorderSide(color: theme.colorScheme.onSurface.withValues(alpha: 0.08), width: 1),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: ListTile(
+              leading: Icon(Icons.sync_alt, color: isDark ? Colors.white70 : Colors.black54),
+              title: const Text('Tracker Accounts'),
+              subtitle: Text('MyAnimeList, AniList, and Trakt.tv syncing preferences.', style: TextStyle(color: isDark ? Colors.white54 : Colors.black54, fontSize: 12)),
+              trailing: Icon(Icons.chevron_right, color: isDark ? Colors.white54 : Colors.black54),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const TrackerSettingsScreen()),
+                );
+              },
             ),
           ),
 

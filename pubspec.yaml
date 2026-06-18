@@ -26,6 +26,7 @@ dependencies:
   flutter_volume_controller: ^2.0.1
   connectivity_plus: ^6.0.3
   http: ^1.2.1
+  palette_generator: ^0.3.3+7
 
 dev_dependencies:
   flutter_test:

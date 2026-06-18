@@ -14,6 +14,8 @@ import 'pip_manager.dart';
 import 'custom_video_controls.dart';
 import '../../core/logger.dart';
 import '../../core/constants.dart';
+import '../../services/streaming_proxy_service.dart';
+import '../../services/tracker_service.dart';
 
 class VideoPlayerScreen extends ConsumerStatefulWidget {
   final int messageId;
@@ -57,13 +59,16 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
 
   StreamSubscription? _completedSubscription;
   StreamSubscription? _tracksSubscription;
+  StreamSubscription? _bufferingSubscription;
   Timer? _saveTimer;
   bool _nextEpisodePreloaded = false;
+  bool _hasUpdatedTracker = false;
 
   late final StorageService _storageService;
   late final TdlibService _tdlibService;
   late final PipController _pipController;
   late final VideoSettings _settings;
+  late final StreamingProxyService _proxyService;
 
   @override
   void initState() {
@@ -74,6 +79,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
     _tdlibService = ref.read(tdlibServiceProvider);
     _pipController = ref.read(pipControllerProvider.notifier);
     _settings = ref.read(videoSettingsProvider);
+    _proxyService = ref.read(streamingProxyServiceProvider);
     
     final subtitleRenderer = _storageService.getSubtitleRenderer();
     final useNative = subtitleRenderer == 'native';
@@ -103,11 +109,10 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         
         // Set synchronization clocks and framedrop to maintain perfect audio/video/subtitle sync at high speed
         nativePlayer.setProperty('video-sync', 'audio');
-        nativePlayer.setProperty('audio-samplerate', '48000');
         nativePlayer.setProperty('audio-pitch-correction', 'yes');
-        nativePlayer.setProperty('audio-buffer', '0.2');
-        nativePlayer.setProperty('framedrop', 'decoder');
-        nativePlayer.setProperty('autosync', '0');
+        nativePlayer.setProperty('audio-buffer', '0.05');
+        nativePlayer.setProperty('framedrop', 'vo');
+        nativePlayer.setProperty('autosync', '30');
         nativePlayer.setProperty('sub-fix-timing', 'yes');
         nativePlayer.setProperty('stream-buffer-size', '8388608'); // 8 MB stream buffer for high-throughput network reading
         nativePlayer.setProperty('vd-lavc-fast', 'yes'); // Enable fast decoding optimizations
@@ -206,18 +211,54 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
       }
     });
 
-    // Auto-apply saved preferred tracks
+    // Auto-apply saved preferred tracks with smart sub/dub tracking
     _tracksSubscription = player.stream.tracks.listen((tracks) {
-      final prefSub = _storageService.getPreferredSubtitleTrack();
-      final prefAudio = _storageService.getPreferredAudioTrack();
+      if (tracks.audio.isEmpty) return;
 
-      bool matched = false;
+      // 1. Select the audio track based on global preference
+      final prefAudio = _storageService.getPreferredAudioTrack();
+      AudioTrack? targetAudioTrack;
+      if (prefAudio != null && prefAudio != 'auto') {
+        for (final track in tracks.audio) {
+          final identifier = (track.language ?? track.title ?? track.id).toLowerCase();
+          if (identifier == prefAudio.toLowerCase() ||
+              (track.title != null && track.title!.toLowerCase().contains(prefAudio.toLowerCase())) ||
+              (track.language != null && track.language!.toLowerCase().contains(prefAudio.toLowerCase()))) {
+            targetAudioTrack = track;
+            break;
+          }
+        }
+      }
+
+      // Apply audio track if resolved and not already set
+      if (targetAudioTrack != null) {
+        if (player.state.track.audio != targetAudioTrack) {
+          player.setAudioTrack(targetAudioTrack);
+          Log.i('Automatically applied preferred audio track: ${targetAudioTrack.language ?? targetAudioTrack.title ?? targetAudioTrack.id}');
+        }
+      } else {
+        targetAudioTrack = player.state.track.audio;
+      }
+
+      // 2. Classify audio language category for sub/dub logic
+      String audioLangCategory = 'other';
+      final lower = (targetAudioTrack.language ?? targetAudioTrack.title ?? '').toLowerCase();
+      if (lower.contains('jpn') || lower.contains('ja') || lower.contains('japanese')) {
+        audioLangCategory = 'jpn';
+      } else if (lower.contains('eng') || lower.contains('en') || lower.contains('english')) {
+        audioLangCategory = 'eng';
+      }
+
+      // 3. Select subtitle track based on the audio language preference
+      final prefSub = _storageService.getPreferredSubtitleTrackForAudioLanguage(audioLangCategory);
+      bool matchedSub = false;
+
       if (prefSub != null) {
         if (prefSub == 'no') {
           if (player.state.track.subtitle != SubtitleTrack.no()) {
             player.setSubtitleTrack(SubtitleTrack.no());
           }
-          matched = true;
+          matchedSub = true;
         } else {
           for (final track in tracks.subtitle) {
             final identifier = (track.language ?? track.title ?? track.id).toLowerCase();
@@ -226,59 +267,61 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
                 (track.language != null && track.language!.toLowerCase().contains(prefSub.toLowerCase()))) {
               if (player.state.track.subtitle != track) {
                 player.setSubtitleTrack(track);
-                Log.i('Automatically applied preferred subtitle track: ${track.language ?? track.title ?? track.id}');
+                Log.i('Automatically applied preferred subtitle track ($prefSub) for audio language category ($audioLangCategory)');
               }
-              matched = true;
+              matchedSub = true;
               break;
             }
           }
         }
       }
 
-      if (!matched) {
-        // No preference saved yet or matching preference not found.
-        // Only run auto-selection fallback if the current subtitle is disabled or set to auto
+      // 4. Default smart fallbacks if no user preference is saved
+      if (!matchedSub) {
         final currentSub = player.state.track.subtitle;
         if (currentSub.id == 'no' || currentSub.id == 'auto') {
-          if (tracks.subtitle.isNotEmpty) {
-            SubtitleTrack? targetTrack;
-            // Look for english track
-            for (final track in tracks.subtitle) {
-              final lower = (track.language ?? track.title ?? '').toLowerCase();
-              if (lower.contains('eng') || lower.contains('en')) {
-                targetTrack = track;
-                break;
-              }
+          if (audioLangCategory == 'eng') {
+            // English audio (Dub) -> Default to no subtitles
+            if (player.state.track.subtitle != SubtitleTrack.no()) {
+              player.setSubtitleTrack(SubtitleTrack.no());
+              Log.i('Smart Sub/Dub default: English audio -> Subtitles disabled');
             }
-            // Fallback to first non-disabled track
-            targetTrack ??= tracks.subtitle.firstWhere((t) => t.id != 'no' && t.id != 'auto', orElse: () => tracks.subtitle.first);
-            if (player.state.track.subtitle != targetTrack) {
-              player.setSubtitleTrack(targetTrack);
-              Log.i('Auto-selected default subtitle track: ${targetTrack.language ?? targetTrack.title ?? targetTrack.id}');
+          } else {
+            // Japanese / other audio (Sub) -> Default to English subtitle if available
+            if (tracks.subtitle.isNotEmpty) {
+              SubtitleTrack? targetSubTrack;
+              for (final track in tracks.subtitle) {
+                final lower = (track.language ?? track.title ?? '').toLowerCase();
+                if (lower.contains('eng') || lower.contains('en') || lower.contains('english')) {
+                  targetSubTrack = track;
+                  break;
+                }
+              }
+              targetSubTrack ??= tracks.subtitle.firstWhere(
+                (t) => t.id != 'no' && t.id != 'auto',
+                orElse: () => tracks.subtitle.first,
+              );
+              
+              if (player.state.track.subtitle != targetSubTrack) {
+                player.setSubtitleTrack(targetSubTrack);
+                Log.i('Smart Sub/Dub default: $audioLangCategory audio -> English/fallback subtitle: ${targetSubTrack.language ?? targetSubTrack.title ?? targetSubTrack.id}');
+              }
             }
           }
         }
       }
+    });
 
-      if (prefAudio != null) {
-        if (prefAudio == 'auto') {
-          if (player.state.track.audio != AudioTrack.auto()) {
-            player.setAudioTrack(AudioTrack.auto());
-          }
-        } else {
-          for (final track in tracks.audio) {
-            final identifier = (track.language ?? track.title ?? track.id).toLowerCase();
-            if (identifier == prefAudio.toLowerCase() ||
-                (track.title != null && track.title!.toLowerCase().contains(prefAudio.toLowerCase())) ||
-                (track.language != null && track.language!.toLowerCase().contains(prefAudio.toLowerCase()))) {
-              if (player.state.track.audio != track) {
-                player.setAudioTrack(track);
-                Log.i('Automatically applied preferred audio track: ${track.language ?? track.title ?? track.id}');
-                break;
-              }
-            }
-          }
-        }
+    _bufferingSubscription = player.stream.buffering.listen((buffering) {
+      if (mounted) {
+        setState(() {
+          _isBuffering = buffering;
+        });
+      }
+      
+      // Pause preload dynamically if buffering starts
+      if (buffering && _nextEpisodePreloaded) {
+        _cancelPreloadOfNextEpisode();
       }
     });
 
@@ -320,15 +363,25 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         }
       }
 
-      // Check and trigger next episode preloading if progress >= 80% or within 2 minutes of the ending
+      // Check and trigger next episode preloading if progress >= 25% (Adaptive Preload Pipeline)
       if (!_nextEpisodePreloaded && player.state.duration.inSeconds > 0) {
         final position = player.state.position.inSeconds;
         final duration = player.state.duration.inSeconds;
         final progress = position / duration;
-        final remaining = duration - position;
-        if (progress >= 0.8 || remaining <= 120) {
+        if (progress >= 0.25) {
           _nextEpisodePreloaded = true;
           _preloadNextEpisode();
+        }
+      }
+
+      // Check and trigger tracker watch progress syncing if progress >= 80%
+      if (!_hasUpdatedTracker && player.state.duration.inSeconds > 0) {
+        final position = player.state.position.inSeconds;
+        final duration = player.state.duration.inSeconds;
+        final progress = position / duration;
+        if (progress >= 0.8) {
+          _hasUpdatedTracker = true;
+          _syncProgressToTrackers();
         }
       }
     });
@@ -473,7 +526,15 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         }
 
         if (localPath.isNotEmpty && !_isPlaying) {
-          _startPlayback(localPath);
+          if (event.file.local.isDownloadingCompleted) {
+            Log.i('Proxy playback fallback: playing cached completed file path: $localPath');
+            _startPlayback(localPath);
+          } else {
+            Log.i('Proxy playback active: routing streaming through loopback server');
+            _proxyService.setDownloadOffset(_resolvedVideoFileId!, 0, event.file.local.downloadedSize);
+            final proxyUrl = _proxyService.getProxyUrl(_resolvedVideoFileId!);
+            _startPlayback(proxyUrl);
+          }
         }
 
         // Handle mid-play seek buffering updates
@@ -540,8 +601,15 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
               _expectedSize = res.expectedSize;
             });
           }
-          Log.i('Instant playback: playing cached file path: $localPath');
-          _startPlayback(localPath);
+          if (res.local.isDownloadingCompleted) {
+            Log.i('Instant playback: playing cached completed file path: $localPath');
+            _startPlayback(localPath);
+          } else {
+            Log.i('Instant playback: streaming active download via proxy: $localPath');
+            _proxyService.setDownloadOffset(_resolvedVideoFileId!, 0, res.local.downloadedSize);
+            final proxyUrl = _proxyService.getProxyUrl(_resolvedVideoFileId!);
+            _startPlayback(proxyUrl);
+          }
         }
       } catch (e) {
         Log.w('Failed fast local GetFile check: $e');
@@ -638,9 +706,16 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         onlyIfPending: false,
       ));
 
-      // Update download offset in TDLib
+      // Update download offset in TDLib and Proxy
+      final fileId = _resolvedVideoFileId ?? widget.videoFileId;
+      _tdlibService.sendAsync(td.GetFile(fileId: fileId)).then((res) {
+        if (res is td.File) {
+          _proxyService.setDownloadOffset(fileId, byteOffset, res.local.downloadedSize);
+        }
+      });
+
       _tdlibService.send(td.DownloadFile(
-        fileId: _resolvedVideoFileId ?? widget.videoFileId,
+        fileId: fileId,
         priority: 32,
         offset: byteOffset,
         limit: 0,
@@ -669,6 +744,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
     _updatesSubscription?.cancel();
     _completedSubscription?.cancel();
     _tracksSubscription?.cancel();
+    _bufferingSubscription?.cancel();
     _saveTimer?.cancel();
     
     try {
@@ -740,14 +816,39 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
     }
 
     if (nextFileId != null) {
-      Log.i('Preloading next episode (ID: $nextFileId) - downloading first 10MB');
+      Log.i('Preloading next episode (ID: $nextFileId) - downloading first 15MB');
       _tdlibService.send(td.DownloadFile(
         fileId: nextFileId,
         priority: 1, // Low priority for background preloading
         offset: 0,
-        limit: 10485760, // 10 MB limit (10 * 1024 * 1024)
+        limit: 15728640, // 15 MB limit (15 * 1024 * 1024)
         synchronous: false,
       ));
+    }
+  }
+
+  void _cancelPreloadOfNextEpisode() {
+    if (widget.episodeList == null || widget.currentEpisodeIndex == null) return;
+    final nextIndex = widget.currentEpisodeIndex! + 1;
+    if (nextIndex >= widget.episodeList!.length) return;
+
+    final nextMsg = widget.episodeList![nextIndex];
+    int? nextFileId;
+    
+    if (nextMsg.content is td.MessageVideo) {
+      nextFileId = (nextMsg.content as td.MessageVideo).video.video.id;
+    } else if (nextMsg.content is td.MessageDocument) {
+      nextFileId = (nextMsg.content as td.MessageDocument).document.document.id;
+    }
+
+    if (nextFileId != null) {
+      Log.i('Playback buffered: Cancelling next episode background preload (ID: $nextFileId)');
+      _tdlibService.send(td.CancelDownloadFile(
+        fileId: nextFileId,
+        onlyIfPending: true,
+      ));
+      // Reset preload status so it can retry preloading later
+      _nextEpisodePreloaded = false;
     }
   }
 
@@ -835,6 +936,70 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
       }
     } catch (e) {
       Log.w('Failed to apply streaming profile: $e');
+    }
+  }
+
+  Future<void> _syncProgressToTrackers() async {
+    if (widget.seriesName.isEmpty || widget.currentEpisodeIndex == null) return;
+    final episodeNumber = widget.currentEpisodeIndex! + 1;
+    final trackerService = ref.read(trackerServiceProvider);
+
+    Log.i('80% watched milestone reached. Syncing watch progress to enabled trackers for "${widget.seriesName}" Ep $episodeNumber');
+
+    // 1. AniList
+    if (_storageService.getAnilistToken()?.isNotEmpty == true) {
+      try {
+        final mediaId = await trackerService.searchAnilistId(widget.seriesName);
+        if (mediaId != null) {
+          final isCompleted = widget.episodeList != null && episodeNumber == widget.episodeList!.length;
+          await trackerService.updateAnilistProgress(
+            mediaId,
+            episodeNumber,
+            status: isCompleted ? 'COMPLETED' : 'CURRENT',
+          );
+        }
+      } catch (e) {
+        Log.w('AniList background progress sync failed: $e');
+      }
+    }
+
+    // 2. MyAnimeList
+    if (_storageService.getMalToken()?.isNotEmpty == true) {
+      try {
+        final animeId = await trackerService.searchMalId(widget.seriesName);
+        if (animeId != null) {
+          final isCompleted = widget.episodeList != null && episodeNumber == widget.episodeList!.length;
+          await trackerService.updateMalProgress(
+            animeId,
+            episodeNumber,
+            status: isCompleted ? 'completed' : 'watching',
+          );
+        }
+      } catch (e) {
+        Log.w('MAL background progress sync failed: $e');
+      }
+    }
+
+    // 3. Trakt.tv
+    if (_storageService.getTraktToken()?.isNotEmpty == true) {
+      try {
+        final showSlug = await trackerService.searchTraktId(widget.seriesName);
+        if (showSlug != null) {
+          int seasonNum = 1;
+          final match = RegExp(r'season\s*(\d+)', caseSensitive: false).firstMatch(widget.videoTitle);
+          if (match != null) {
+            seasonNum = int.tryParse(match.group(1)!) ?? 1;
+          }
+          await trackerService.updateTraktProgress(
+            showSlug,
+            seasonNum,
+            episodeNumber,
+            80.0,
+          );
+        }
+      } catch (e) {
+        Log.w('Trakt background scrobble failed: $e');
+      }
     }
   }
 }

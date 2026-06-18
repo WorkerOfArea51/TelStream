@@ -1,6 +1,9 @@
 import 'dart:ui';
+import 'dart:io';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:tdlib/td_api.dart' as td;
+import 'package:palette_generator/palette_generator.dart';
 import '../../models/anime_models.dart';
 import '../player/pip_manager.dart';
 import '../../core/widgets/wavy_progress_indicators.dart';
@@ -36,12 +39,15 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
   String? _errorMessage;
   TmdbSeriesMetadata? _tmdbMetadata;
   List<TmdbEpisodeMetadata> _tmdbEpisodes = [];
+  Color? _extractedAccentColor;
+  StreamSubscription? _posterUpdateSub;
 
   @override
   void initState() {
     super.initState();
     _selectedSeason = widget.season;
     _loadTmdbMetadata();
+    _extractColorFromPoster();
     if (_selectedSeason.episodes.isEmpty) {
       _loadEpisodesDynamically();
     }
@@ -74,6 +80,9 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
             _tmdbEpisodes = eps;
           });
         }
+        
+        // Extract theme color from network poster
+        _extractColorFromPoster();
       }
     } catch (e, stack) {
       Log.e('Failed to load TMDB details for ${widget.series.coreName}', e, stack);
@@ -161,6 +170,111 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
         });
       }
     }
+  }
+
+  @override
+  void dispose() {
+    _posterUpdateSub?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _extractColorFromPoster() async {
+    if (!mounted) return;
+
+    // Try network image first if TMDB metadata has posterPath
+    final posterUrl = _tmdbMetadata?.posterPath;
+    if (posterUrl != null && posterUrl.isNotEmpty) {
+      try {
+        final palette = await PaletteGenerator.fromImageProvider(
+          NetworkImage(posterUrl),
+          maximumColorCount: 16,
+        );
+        final color = palette.vibrantColor?.color ?? palette.dominantColor?.color;
+        if (color != null && mounted) {
+          setState(() {
+            _extractedAccentColor = color;
+          });
+          return;
+        }
+      } catch (e) {
+        Log.w('Failed to extract color from TMDB network poster: $e');
+      }
+    }
+
+    // Fallback to Telegram local file poster
+    td.File? posterFile;
+    if (_selectedSeason.posterMessage.content is td.MessagePhoto) {
+      final photo = _selectedSeason.posterMessage.content as td.MessagePhoto;
+      if (photo.photo.sizes.isNotEmpty) {
+        posterFile = photo.photo.sizes.last.photo;
+      }
+    }
+
+    if (posterFile != null) {
+      if (posterFile.local.path.isNotEmpty) {
+        // File is already downloaded
+        try {
+          final file = File(posterFile.local.path);
+          if (await file.exists()) {
+            final palette = await PaletteGenerator.fromImageProvider(
+              FileImage(file),
+              maximumColorCount: 16,
+            );
+            final color = palette.vibrantColor?.color ?? palette.dominantColor?.color;
+            if (color != null && mounted) {
+              setState(() {
+                _extractedAccentColor = color;
+              });
+            }
+          }
+        } catch (e) {
+          Log.w('Failed to extract color from local Telegram poster: $e');
+        }
+      } else {
+        // File is not downloaded yet, subscribe to updates
+        _subscribeToPosterUpdates(posterFile.id);
+      }
+    }
+  }
+
+  void _subscribeToPosterUpdates(int fileId) {
+    _posterUpdateSub?.cancel();
+    final tdlibService = ref.read(tdlibServiceProvider);
+
+    // Trigger download of the poster file if it hasn't started
+    tdlibService.send(td.DownloadFile(
+      fileId: fileId,
+      priority: 16,
+      offset: 0,
+      limit: 0,
+      synchronous: false,
+    ));
+
+    _posterUpdateSub = tdlibService.updates.listen((event) async {
+      if (event is td.UpdateFile && event.file.id == fileId) {
+        if (event.file.local.isDownloadingCompleted && event.file.local.path.isNotEmpty) {
+          _posterUpdateSub?.cancel();
+          _posterUpdateSub = null;
+          try {
+            final file = File(event.file.local.path);
+            if (await file.exists()) {
+              final palette = await PaletteGenerator.fromImageProvider(
+                FileImage(file),
+                maximumColorCount: 16,
+              );
+              final color = palette.vibrantColor?.color ?? palette.dominantColor?.color;
+              if (color != null && mounted) {
+                setState(() {
+                  _extractedAccentColor = color;
+                });
+              }
+            }
+          } catch (e) {
+            Log.w('Failed to extract color from downloaded Telegram poster: $e');
+          }
+        }
+      }
+    });
   }
 
   void _toggleFavorite() {
@@ -294,7 +408,7 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
 
     final theme = Theme.of(context);
     final customTheme = theme.extension<AppThemeExtension>();
-    final settingsAccent = customTheme?.settingsAccent ?? theme.primaryColor;
+    final settingsAccent = _extractedAccentColor ?? customTheme?.settingsAccent ?? theme.primaryColor;
     final isDark = theme.brightness == Brightness.dark;
 
     final posterUrl = _tmdbMetadata?.posterPath;
@@ -305,7 +419,15 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
     final genres = _tmdbMetadata?.genres ?? [];
     final overview = _tmdbMetadata?.overview ?? "No overview available from TMDB. Enjoy streaming.";
 
-    return Scaffold(
+    return Theme(
+      data: theme.copyWith(
+        primaryColor: settingsAccent,
+        colorScheme: theme.colorScheme.copyWith(
+          primary: settingsAccent,
+          secondary: settingsAccent,
+        ),
+      ),
+      child: Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       floatingActionButton: FloatingActionButton(
         onPressed: _toggleFavorite,
@@ -381,21 +503,30 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
                         clipBehavior: Clip.antiAlias,
                         child: Hero(
                           tag: effectiveHeroTag,
-                          child: posterUrl != null
-                              ? Image.network(
-                                  posterUrl,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (context, error, stackTrace) => TdThumbnail(
-                                    file: posterFile,
-                                    minithumbnail: minithumbnail,
-                                    autoDownload: true,
-                                  ),
-                                )
-                              : TdThumbnail(
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: Stack(
+                              fit: StackFit.expand,
+                              children: [
+                                TdThumbnail(
                                   file: posterFile,
                                   minithumbnail: minithumbnail,
                                   autoDownload: true,
+                                  borderRadius: BorderRadius.zero,
                                 ),
+                                if (posterUrl != null)
+                                  Image.network(
+                                    posterUrl,
+                                    fit: BoxFit.cover,
+                                    loadingBuilder: (context, child, loadingProgress) {
+                                      if (loadingProgress == null) return child;
+                                      return const SizedBox.shrink();
+                                    },
+                                    errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
+                                  ),
+                              ],
+                            ),
+                          ),
                         ),
                       ),
                       const SizedBox(width: 16),
@@ -516,8 +647,10 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
                           if (selected) {
                             setState(() {
                               _selectedSeason = season;
+                              _extractedAccentColor = null;
                             });
                             _loadTmdbMetadata();
+                            _extractColorFromPoster();
                             if (season.episodes.isEmpty) {
                               _loadEpisodesDynamically();
                             }
@@ -575,8 +708,9 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
           const SliverToBoxAdapter(child: SizedBox(height: 120)),
         ],
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildEpisodeCardItem(BuildContext context, td.Message msg, int index) {
     String fileTitle = 'Episode ${index + 1}';
@@ -621,7 +755,7 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
 
     final theme = Theme.of(context);
     final customTheme = theme.extension<AppThemeExtension>();
-    final settingsAccent = customTheme?.settingsAccent ?? theme.primaryColor;
+    final settingsAccent = _extractedAccentColor ?? customTheme?.settingsAccent ?? theme.primaryColor;
     final isDark = theme.brightness == Brightness.dark;
 
     Widget trailingWidget;

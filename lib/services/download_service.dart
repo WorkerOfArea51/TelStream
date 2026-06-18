@@ -7,6 +7,7 @@ import 'package:path_provider/path_provider.dart';
 import 'tdlib_service.dart';
 import 'storage_service.dart';
 import '../core/logger.dart';
+import '../features/settings/settings_provider.dart';
 
 class DownloadTask {
   final int fileId;
@@ -16,6 +17,7 @@ class DownloadTask {
   final bool isCompleted;
   final double speedBytesPerSecond;
   final int etaSeconds;
+  final bool isScheduled;
 
   DownloadTask({
     required this.fileId,
@@ -25,6 +27,7 @@ class DownloadTask {
     this.isCompleted = false,
     this.speedBytesPerSecond = 0.0,
     this.etaSeconds = 0,
+    this.isScheduled = false,
   });
 
   DownloadTask copyWith({
@@ -33,6 +36,7 @@ class DownloadTask {
     bool? isCompleted,
     double? speedBytesPerSecond,
     int? etaSeconds,
+    bool? isScheduled,
   }) {
     return DownloadTask(
       fileId: fileId,
@@ -42,6 +46,7 @@ class DownloadTask {
       isCompleted: isCompleted ?? this.isCompleted,
       speedBytesPerSecond: speedBytesPerSecond ?? this.speedBytesPerSecond,
       etaSeconds: etaSeconds ?? this.etaSeconds,
+      isScheduled: isScheduled ?? this.isScheduled,
     );
   }
 
@@ -74,12 +79,15 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
   final List<int> _pausedForStreamingFileIds = [];
   final Map<int, int> _lastDownloadedSizes = {};
   final Map<int, int> _lastUpdateTimes = {};
+  Timer? _schedulerTimer;
+  final Set<int> _pausedBySchedulerFileIds = {};
 
   @override
   Map<int, DownloadTask> build() {
     ref.onDispose(() {
       _subscription?.cancel();
       _dirWatcherSubscription?.cancel();
+      _schedulerTimer?.cancel();
     });
     _init();
     return {};
@@ -226,6 +234,97 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
         }
       }
     });
+    _startSchedulerTimer();
+    checkScheduler();
+  }
+
+  void _startSchedulerTimer() {
+    _schedulerTimer?.cancel();
+    _schedulerTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+      checkScheduler();
+    });
+  }
+
+  void checkScheduler() {
+    final settings = ref.read(videoSettingsProvider);
+    if (!settings.downloadSchedulerEnabled) {
+      if (_pausedBySchedulerFileIds.isNotEmpty) {
+        final toResume = List<int>.from(_pausedBySchedulerFileIds);
+        _pausedBySchedulerFileIds.clear();
+        final Map<int, DownloadTask> updated = {...state};
+        for (final fileId in toResume) {
+          final task = state[fileId];
+          if (task != null && !task.isCompleted) {
+            updated[fileId] = task.copyWith(isScheduled: false);
+            ref.read(tdlibServiceProvider).send(td.DownloadFile(
+              fileId: fileId,
+              priority: 32,
+              offset: 0,
+              limit: 0,
+              synchronous: false,
+            ));
+            Log.i('Scheduler disabled: Resumed download: ${task.title}');
+          }
+        }
+        state = updated;
+      }
+      return;
+    }
+
+    final now = DateTime.now();
+    final currentHour = now.hour;
+    final start = settings.downloadStartHour;
+    final end = settings.downloadEndHour;
+
+    bool isWithinWindow = false;
+    if (start < end) {
+      isWithinWindow = currentHour >= start && currentHour < end;
+    } else if (start > end) {
+      isWithinWindow = currentHour >= start || currentHour < end;
+    } else {
+      isWithinWindow = true;
+    }
+
+    if (isWithinWindow) {
+      if (_pausedBySchedulerFileIds.isNotEmpty) {
+        final toResume = List<int>.from(_pausedBySchedulerFileIds);
+        _pausedBySchedulerFileIds.clear();
+        final Map<int, DownloadTask> updated = {...state};
+        for (final fileId in toResume) {
+          final task = state[fileId];
+          if (task != null && !task.isCompleted) {
+            updated[fileId] = task.copyWith(isScheduled: false);
+            ref.read(tdlibServiceProvider).send(td.DownloadFile(
+              fileId: fileId,
+              priority: 32,
+              offset: 0,
+              limit: 0,
+              synchronous: false,
+            ));
+            Log.i('Inside scheduled window ($start:00 - $end:00): Resumed download: ${task.title}');
+          }
+        }
+        state = updated;
+      }
+    } else {
+      final Map<int, DownloadTask> updated = {...state};
+      bool changed = false;
+      state.forEach((fileId, task) {
+        if (!task.isCompleted && !_pausedBySchedulerFileIds.contains(fileId)) {
+          _pausedBySchedulerFileIds.add(fileId);
+          updated[fileId] = task.copyWith(isScheduled: true);
+          changed = true;
+          ref.read(tdlibServiceProvider).send(td.CancelDownloadFile(
+            fileId: fileId,
+            onlyIfPending: false,
+          ));
+          Log.i('Outside scheduled window ($start:00 - $end:00): Paused download: ${task.title}');
+        }
+      });
+      if (changed) {
+        state = updated;
+      }
+    }
   }
 
   void _watchDirectory(Directory downloadsDir) {
@@ -266,28 +365,61 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
       return; // Already downloaded
     }
 
+    final settings = ref.read(videoSettingsProvider);
+    bool isScheduledNow = false;
+
+    if (settings.downloadSchedulerEnabled) {
+      final now = DateTime.now();
+      final currentHour = now.hour;
+      final start = settings.downloadStartHour;
+      final end = settings.downloadEndHour;
+
+      bool isWithinWindow = false;
+      if (start < end) {
+        isWithinWindow = currentHour >= start && currentHour < end;
+      } else if (start > end) {
+        isWithinWindow = currentHour >= start || currentHour < end;
+      } else {
+        isWithinWindow = true;
+      }
+
+      if (!isWithinWindow) {
+        isScheduledNow = true;
+        _pausedBySchedulerFileIds.add(fileId);
+        Log.i('Download scheduled for off-peak hours ($start:00 - $end:00): $title');
+      }
+    }
+
     // Register the task in memory
     state = {
       ...state,
-      fileId: DownloadTask(fileId: fileId, title: title),
+      fileId: DownloadTask(
+        fileId: fileId,
+        title: title,
+        isScheduled: isScheduledNow,
+      ),
     };
 
     // Notify native background download service to start
     _updateNativeNotification(fileId, title, 0.0);
 
-    // Send TDLib DownloadFile command
-    ref.read(tdlibServiceProvider).send(td.DownloadFile(
-      fileId: fileId,
-      priority: 32,
-      offset: 0,
-      limit: 0,
-      synchronous: false,
-    ));
+    if (!isScheduledNow) {
+      // Send TDLib DownloadFile command
+      ref.read(tdlibServiceProvider).send(td.DownloadFile(
+        fileId: fileId,
+        priority: 32,
+        offset: 0,
+        limit: 0,
+        synchronous: false,
+      ));
+    }
   }
 
   Future<void> cancelDownload(int fileId) async {
     final task = state[fileId];
     final title = task?.title ?? 'Download';
+    
+    _pausedBySchedulerFileIds.remove(fileId);
     
     ref.read(tdlibServiceProvider).send(td.CancelDownloadFile(
       fileId: fileId,
@@ -305,6 +437,7 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
 
   Future<void> _saveFilePermanently(int fileId, String tempPath, String title) async {
     try {
+      _pausedBySchedulerFileIds.remove(fileId);
       final downloadsDir = await _getEffectiveDownloadsDirectory();
       if (!await downloadsDir.exists()) {
         await downloadsDir.create(recursive: true);
@@ -352,6 +485,7 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
           progress: 1.0,
           isCompleted: true,
           localPath: permanentPath,
+          isScheduled: false,
         ),
       };
 

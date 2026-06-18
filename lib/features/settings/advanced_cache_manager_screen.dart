@@ -337,6 +337,40 @@ class _AdvancedCacheManagerScreenState extends ConsumerState<AdvancedCacheManage
                           ],
                         ),
                         const SizedBox(height: 16),
+                        if (_totalCacheSize > 0) ...[
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(6),
+                            child: SizedBox(
+                              height: 10,
+                              width: double.infinity,
+                              child: Row(
+                                children: [
+                                  if (_videosSize > 0)
+                                    Expanded(
+                                      flex: ((_videosSize / _totalCacheSize) * 1000).round().clamp(1, 1000),
+                                      child: Container(color: Colors.orangeAccent),
+                                    ),
+                                  if (_docsSize > 0)
+                                    Expanded(
+                                      flex: ((_docsSize / _totalCacheSize) * 1000).round().clamp(1, 1000),
+                                      child: Container(color: Colors.blueAccent),
+                                    ),
+                                  if (_photosSize > 0)
+                                    Expanded(
+                                      flex: ((_photosSize / _totalCacheSize) * 1000).round().clamp(1, 1000),
+                                      child: Container(color: Colors.greenAccent),
+                                    ),
+                                  if (_tempSize > 0)
+                                    Expanded(
+                                      flex: ((_tempSize / _totalCacheSize) * 1000).round().clamp(1, 1000),
+                                      child: Container(color: Colors.redAccent),
+                                    ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                        ],
                         _buildBreakdownRow('Videos & MKV Streams', _videosSize, Colors.orangeAccent),
                         const SizedBox(height: 10),
                         _buildBreakdownRow('Embedded Subtitles & Docs', _docsSize, Colors.blueAccent),

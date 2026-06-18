@@ -433,6 +433,21 @@ class StorageService {
     await _save();
   }
 
+  String? getPreferredSubtitleTrackForAudioLanguage(String audioLang) {
+    _data['sub_pref_by_audio_lang'] ??= <String, dynamic>{};
+    return _data['sub_pref_by_audio_lang'][audioLang] as String?;
+  }
+
+  Future<void> setPreferredSubtitleTrackForAudioLanguage(String audioLang, String? value) async {
+    _data['sub_pref_by_audio_lang'] ??= <String, dynamic>{};
+    if (value == null) {
+      _data['sub_pref_by_audio_lang'].remove(audioLang);
+    } else {
+      _data['sub_pref_by_audio_lang'][audioLang] = value;
+    }
+    await _save();
+  }
+
   // --- TMDB Cache & Config ---
 
   String? getTmdbApiKey() {
@@ -465,6 +480,61 @@ class StorageService {
   Future<void> setMalIdForSeries(String seriesName, int malId) async {
     _data['mal_id_cache'] ??= <String, dynamic>{};
     _data['mal_id_cache'][seriesName] = malId;
+    await _save();
+  }
+
+  // --- AniList Cache & Token ---
+
+  int? getAnilistIdForSeries(String seriesName) {
+    _data['anilist_id_cache'] ??= <String, dynamic>{};
+    return _data['anilist_id_cache'][seriesName] as int?;
+  }
+
+  Future<void> setAnilistIdForSeries(String seriesName, int anilistId) async {
+    _data['anilist_id_cache'] ??= <String, dynamic>{};
+    _data['anilist_id_cache'][seriesName] = anilistId;
+    await _save();
+  }
+
+  String? getAnilistToken() {
+    return _data['anilist_token'] as String?;
+  }
+
+  Future<void> setAnilistToken(String? value) async {
+    _data['anilist_token'] = value;
+    await _save();
+  }
+
+  // --- MAL Token ---
+
+  String? getMalToken() {
+    return _data['mal_token'] as String?;
+  }
+
+  Future<void> setMalToken(String? value) async {
+    _data['mal_token'] = value;
+    await _save();
+  }
+
+  // --- Trakt Cache & Token ---
+
+  String? getTraktIdForSeries(String seriesName) {
+    _data['trakt_id_cache'] ??= <String, dynamic>{};
+    return _data['trakt_id_cache'][seriesName] as String?;
+  }
+
+  Future<void> setTraktIdForSeries(String seriesName, String traktId) async {
+    _data['trakt_id_cache'] ??= <String, dynamic>{};
+    _data['trakt_id_cache'][seriesName] = traktId;
+    await _save();
+  }
+
+  String? getTraktToken() {
+    return _data['trakt_token'] as String?;
+  }
+
+  Future<void> setTraktToken(String? value) async {
+    _data['trakt_token'] = value;
     await _save();
   }
 

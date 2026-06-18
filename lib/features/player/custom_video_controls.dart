@@ -12,6 +12,7 @@ import 'package:flutter_volume_controller/flutter_volume_controller.dart';
 import '../settings/settings_provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../../services/storage_service.dart';
+import '../../services/subtitle_downloader_service.dart';
 import '../../services/skip_times_service.dart';
 import '../../core/logger.dart';
 
@@ -110,6 +111,8 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
 
   // Skip Times variables
   StreamSubscription? _durationSubscription;
+  List<SkipInterval> _apiSkipIntervals = [];
+  List<SkipInterval> _chapterSkipIntervals = [];
   List<SkipInterval> _skipIntervals = [];
   bool _skipTimesLoaded = false;
   bool _isLoadingSkipTimes = false;
@@ -134,6 +137,8 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
   bool _hasChapters = false;
   bool _showChaptersPanel = false;
   StreamSubscription? _playlistSubscription;
+  int _chaptersLoadAttempts = 0;
+  Timer? _chaptersRetryTimer;
 
   // Pinch to zoom
   double _scale = 1.0;
@@ -188,11 +193,11 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
       );
       if (mounted) {
         setState(() {
-          _skipIntervals = intervals;
+          _apiSkipIntervals = intervals;
           _skipTimesLoaded = true;
         });
-        Log.i('Loaded ${_skipIntervals.length} skip intervals for ${widget.seriesName}');
-        _mergeChapterSkipIntervals();
+        Log.i('Loaded ${_apiSkipIntervals.length} skip intervals for ${widget.seriesName}');
+        _refreshSkipIntervals();
       }
     } catch (e, stack) {
       Log.e('Error loading skip times', e, stack);
@@ -230,9 +235,9 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     
     if (_isExcludedChapter(ch.title)) return false;
 
-    // Durations between 70s and 110s starting in the first 6 minutes are highly likely to be the OP
+    // Generic chapters (e.g. Chapter 2) starting in first 6 mins with duration 60s-120s are likely OPs
     final duration = end - start;
-    if (duration >= 70.0 && duration <= 110.0) {
+    if (duration >= 60.0 && duration <= 120.0) {
       if (start <= 360.0) {
         return true;
       }
@@ -258,9 +263,9 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     
     if (_isExcludedChapter(ch.title)) return false;
 
-    // Durations between 70s and 110s starting in the last 5 minutes are highly likely to be the ED
+    // Generic chapters in last 5 mins with duration 60s-180s (since EDs can be followed by previews)
     final duration = end - start;
-    if (duration >= 70.0 && duration <= 110.0) {
+    if (duration >= 60.0 && duration <= 180.0) {
       if (totalDuration > 0 && (totalDuration - start) <= 300.0) {
         return true;
       }
@@ -295,22 +300,44 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     return intervals;
   }
 
-  void _mergeChapterSkipIntervals() {
+  void _refreshSkipIntervals() {
+    final duration = widget.player.state.duration.inSeconds.toDouble();
+    if (duration <= 0) return;
+
     final chapterIntervals = _extractSkipTimesFromChapters();
-    if (chapterIntervals.isEmpty) return;
     
-    setState(() {
-      final existingKeys = _skipIntervals.map((e) => '${e.type}_${e.startTime.round()}').toSet();
-      final List<SkipInterval> merged = List.from(_skipIntervals);
-      for (final interval in chapterIntervals) {
-        final key = '${interval.type}_${interval.startTime.round()}';
-        if (!existingKeys.contains(key)) {
-          merged.add(interval);
-          existingKeys.add(key);
-        }
+    // Heuristics
+    final isAnime = widget.seriesName.isNotEmpty && duration >= 1080 && duration <= 1680;
+    final List<SkipInterval> heuristics = [];
+
+    // Combine API and Chapter intervals first to check if they have OP/ED
+    final List<SkipInterval> currentMerged = [..._apiSkipIntervals, ...chapterIntervals];
+    final hasOP = currentMerged.any((interval) => interval.type == 'op');
+    final hasED = currentMerged.any((interval) => interval.type == 'ed');
+
+    if (isAnime) {
+      if (!hasOP) {
+        heuristics.add(const SkipInterval(
+          startTime: 10.0,
+          endTime: 240.0, // Show for the first 4 minutes
+          type: 'op_heuristic',
+        ));
       }
-      _skipIntervals = merged;
-    });
+      if (!hasED) {
+        heuristics.add(SkipInterval(
+          startTime: duration - 180.0,
+          endTime: duration - 30.0,
+          type: 'ed_heuristic',
+        ));
+      }
+    }
+
+    if (mounted) {
+      setState(() {
+        _chapterSkipIntervals = chapterIntervals;
+        _skipIntervals = [..._apiSkipIntervals, ..._chapterSkipIntervals, ...heuristics];
+      });
+    }
   }
 
   void _checkSkipTimes(Duration pos) {
@@ -325,9 +352,9 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
 
     for (final interval in _skipIntervals) {
       if (currentSecs >= interval.startTime && currentSecs < interval.endTime) {
-        if (interval.type == 'op') {
+        if (interval.type == 'op' || interval.type == 'op_heuristic') {
           activeOP = interval;
-        } else if (interval.type == 'ed') {
+        } else if (interval.type == 'ed' || interval.type == 'ed_heuristic') {
           activeED = interval;
         }
       }
@@ -336,7 +363,8 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     // Handle Intro (OP)
     if (activeOP != null) {
       _currentActiveOP = activeOP;
-      if (settings.autoSkipIntroOutro) {
+      final isHeuristic = activeOP.type == 'op_heuristic';
+      if (settings.autoSkipIntroOutro && !isHeuristic) {
         if (!_introSkipped) {
           _introSkipped = true;
           final target = Duration(seconds: activeOP.endTime.toInt());
@@ -364,7 +392,8 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     // Handle Outro (ED)
     if (activeED != null) {
       _currentActiveED = activeED;
-      if (settings.autoSkipIntroOutro) {
+      final isHeuristic = activeED.type == 'ed_heuristic';
+      if (settings.autoSkipIntroOutro && !isHeuristic) {
         if (!_outroSkipped) {
           _outroSkipped = true;
           if (widget.hasNextEpisode && widget.onNextEpisode != null) {
@@ -480,6 +509,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
       if (dur.inSeconds > 0) {
         _loadSkipTimes(dur.inSeconds.toDouble());
         _loadChapters();
+        _refreshSkipIntervals();
       }
     });
     _playlistSubscription = widget.player.stream.playlist.listen((_) {
@@ -487,12 +517,15 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
         setState(() {
           _chapters = [];
           _hasChapters = false;
+          _apiSkipIntervals = [];
+          _chapterSkipIntervals = [];
           _skipIntervals = [];
           _skipTimesLoaded = false;
           _introSkipped = false;
           _outroSkipped = false;
           _showIntroOverlay = false;
           _showOutroOverlay = false;
+          _chaptersLoadAttempts = 0;
         });
       }
       Future.delayed(const Duration(milliseconds: 500), _loadChapters);
@@ -605,6 +638,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
 
   @override
   void dispose() {
+    _chaptersRetryTimer?.cancel();
     _bufferingSubscription?.cancel();
     _positionSubscription?.cancel();
     _durationSubscription?.cancel();
@@ -996,6 +1030,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
   }
 
   Future<void> _loadChapters() async {
+    _chaptersRetryTimer?.cancel();
     try {
       final dynamic platform = widget.player.platform;
       final countStr = await platform.getProperty('chapter-list/count');
@@ -1018,18 +1053,25 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
             setState(() {
               _chapters = loadedChapters;
               _hasChapters = loadedChapters.isNotEmpty;
+              _chaptersLoadAttempts = 0;
             });
-            _mergeChapterSkipIntervals();
+            _refreshSkipIntervals();
           }
           return;
         }
       }
     } catch (_) {}
-    if (mounted) {
-      setState(() {
-        _chapters = [];
-        _hasChapters = false;
-      });
+
+    if (mounted && _chaptersLoadAttempts < 5) {
+      _chaptersLoadAttempts++;
+      _chaptersRetryTimer = Timer(const Duration(milliseconds: 500), _loadChapters);
+    } else {
+      if (mounted) {
+        setState(() {
+          _chapters = [];
+          _hasChapters = false;
+        });
+      }
     }
   }
 
@@ -1913,11 +1955,17 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                                 ),
                               ),
                               const Spacer(),
-                              if (_trackSelectorIsSubtitle)
+                              if (_trackSelectorIsSubtitle) ...[
+                                IconButton(
+                                  icon: const Icon(Icons.cloud_download, color: Colors.white),
+                                  tooltip: 'Download Subtitles Online',
+                                  onPressed: _showSubtitleDownloaderDialog,
+                                ),
                                 IconButton(
                                   icon: const Icon(Icons.tune, color: Colors.white),
                                   onPressed: _showSubtitleCustomizerDialog,
-                                )
+                                ),
+                              ]
                               else
                                 IconButton(
                                   icon: const Icon(Icons.tune, color: Colors.white),
@@ -2030,8 +2078,21 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                                           final storage = ref.read(storageServiceProvider);
                                           if (_trackSelectorIsSubtitle) {
                                             widget.player.setSubtitleTrack(track);
-                                            storage.setPreferredSubtitleTrack(track.id == 'no' ? 'no' : (track.language ?? track.title ?? track.id));
-                                            Log.i('Selected subtitle track: ${track.id} (${track.title})');
+                                            
+                                            // Classify current audio track language to save preference under that category
+                                            final activeAudio = widget.player.state.track.audio;
+                                            String audioLangCategory = 'other';
+                                            final lower = (activeAudio.language ?? activeAudio.title ?? '').toLowerCase();
+                                            if (lower.contains('jpn') || lower.contains('ja') || lower.contains('japanese')) {
+                                              audioLangCategory = 'jpn';
+                                            } else if (lower.contains('eng') || lower.contains('en') || lower.contains('english')) {
+                                              audioLangCategory = 'eng';
+                                            }
+                                            
+                                            final trackPrefVal = track.id == 'no' ? 'no' : (track.language ?? track.title ?? track.id);
+                                            storage.setPreferredSubtitleTrackForAudioLanguage(audioLangCategory, trackPrefVal);
+                                            Log.i('Saved subtitle preference ($trackPrefVal) for audio language category ($audioLangCategory)');
+
                                             // Verify track change after brief delay
                                             Future.delayed(const Duration(milliseconds: 300), () {
                                               if (mounted) {
@@ -2045,7 +2106,64 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                                             });
                                           } else {
                                             widget.player.setAudioTrack(track);
-                                            storage.setPreferredAudioTrack(track.id == 'auto' ? 'auto' : (track.language ?? track.title ?? track.id));
+                                            final audioPrefVal = track.id == 'auto' ? 'auto' : (track.language ?? track.title ?? track.id);
+                                            storage.setPreferredAudioTrack(audioPrefVal);
+                                            Log.i('Saved audio preference ($audioPrefVal)');
+
+                                            // Classify the newly selected audio track to dynamically auto-apply matching subtitle preferences
+                                            final lower = (track.language ?? track.title ?? '').toLowerCase();
+                                            String newAudioLangCategory = 'other';
+                                            if (lower.contains('jpn') || lower.contains('ja') || lower.contains('japanese')) {
+                                              newAudioLangCategory = 'jpn';
+                                            } else if (lower.contains('eng') || lower.contains('en') || lower.contains('english')) {
+                                              newAudioLangCategory = 'eng';
+                                            }
+
+                                            final prefSub = storage.getPreferredSubtitleTrackForAudioLanguage(newAudioLangCategory);
+                                            final tracks = widget.player.state.tracks;
+
+                                            if (prefSub != null) {
+                                              if (prefSub == 'no') {
+                                                if (widget.player.state.track.subtitle != SubtitleTrack.no()) {
+                                                  widget.player.setSubtitleTrack(SubtitleTrack.no());
+                                                }
+                                              } else {
+                                                for (final t in tracks.subtitle) {
+                                                  final identifier = (t.language ?? t.title ?? t.id).toLowerCase();
+                                                  if (identifier == prefSub.toLowerCase() ||
+                                                      (t.title != null && t.title!.toLowerCase().contains(prefSub.toLowerCase())) ||
+                                                      (t.language != null && t.language!.toLowerCase().contains(prefSub.toLowerCase()))) {
+                                                    if (widget.player.state.track.subtitle != t) {
+                                                      widget.player.setSubtitleTrack(t);
+                                                    }
+                                                    break;
+                                                  }
+                                                }
+                                              }
+                                            } else {
+                                              // Apply smart default fallbacks on audio track change if no user preference exists yet
+                                              if (newAudioLangCategory == 'eng') {
+                                                if (widget.player.state.track.subtitle != SubtitleTrack.no()) {
+                                                  widget.player.setSubtitleTrack(SubtitleTrack.no());
+                                                }
+                                              } else if (tracks.subtitle.isNotEmpty) {
+                                                SubtitleTrack? targetSubTrack;
+                                                for (final t in tracks.subtitle) {
+                                                  final l = (t.language ?? t.title ?? '').toLowerCase();
+                                                  if (l.contains('eng') || l.contains('en') || l.contains('english')) {
+                                                    targetSubTrack = t;
+                                                    break;
+                                                  }
+                                                }
+                                                targetSubTrack ??= tracks.subtitle.firstWhere(
+                                                  (t) => t.id != 'no' && t.id != 'auto',
+                                                  orElse: () => tracks.subtitle.first,
+                                                );
+                                                if (widget.player.state.track.subtitle != targetSubTrack) {
+                                                  widget.player.setSubtitleTrack(targetSubTrack);
+                                                }
+                                              }
+                                            }
                                           }
                                           setState(() {
                                             _showTrackSelectorPanel = false;
@@ -2683,9 +2801,15 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                       child: InkWell(
                         onTap: () {
                           if (_showIntroOverlay && _currentActiveOP != null) {
-                            final target = Duration(seconds: _currentActiveOP!.endTime.toInt());
-                            final safeTarget = _clampSeekTarget(target, showMessage: false);
-                            _performSeek(safeTarget);
+                            if (_currentActiveOP!.type == 'op_heuristic') {
+                              final target = widget.player.state.position + const Duration(seconds: 90);
+                              final safeTarget = _clampSeekTarget(target, showMessage: false);
+                              _performSeek(safeTarget);
+                            } else {
+                              final target = Duration(seconds: _currentActiveOP!.endTime.toInt());
+                              final safeTarget = _clampSeekTarget(target, showMessage: false);
+                              _performSeek(safeTarget);
+                            }
                             setState(() {
                               _showIntroOverlay = false;
                             });
@@ -2693,9 +2817,15 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                             if (widget.hasNextEpisode && widget.onNextEpisode != null) {
                               widget.onNextEpisode!();
                             } else {
-                              final target = Duration(seconds: _currentActiveED!.endTime.toInt());
-                              final safeTarget = _clampSeekTarget(target, showMessage: false);
-                              _performSeek(safeTarget);
+                              if (_currentActiveED!.type == 'ed_heuristic') {
+                                final target = widget.player.state.duration - const Duration(seconds: 5);
+                                final safeTarget = _clampSeekTarget(target, showMessage: false);
+                                _performSeek(safeTarget);
+                              } else {
+                                final target = Duration(seconds: _currentActiveED!.endTime.toInt());
+                                final safeTarget = _clampSeekTarget(target, showMessage: false);
+                                _performSeek(safeTarget);
+                              }
                               setState(() {
                                 _showOutroOverlay = false;
                               });
@@ -2880,6 +3010,216 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
           ],
         ),
       ),
+    );
+  }
+
+  void _showSubtitleDownloaderDialog() {
+    final theme = Theme.of(context);
+    final customTheme = theme.extension<AppThemeExtension>();
+    final settingsAccent = customTheme?.settingsAccent ?? theme.primaryColor;
+
+    // Clean current video title as search query default
+    String defaultQuery = widget.videoTitle;
+    defaultQuery = defaultQuery.replaceAll(RegExp(r'[\[\(]\d{3,4}p[\]\)]', caseSensitive: false), '');
+    defaultQuery = defaultQuery.replaceAll(RegExp(r'(Dual|Multi)[-\s]Audio', caseSensitive: false), '');
+    defaultQuery = defaultQuery.replaceAll(RegExp(r'(10bit|x265|hevc|x264|h264|bdrip|web-rip|webrip)', caseSensitive: false), '');
+    defaultQuery = defaultQuery.replaceAll(RegExp(r'\[[^\]]*\]'), '');
+    defaultQuery = defaultQuery.replaceAll(RegExp(r'\([^)]*\)'), '');
+    defaultQuery = defaultQuery.replaceAll(RegExp(r'[-\s:]+\s*(Season\s+\d+|S\d+)', caseSensitive: false), '');
+    defaultQuery = defaultQuery.replaceAll(RegExp(r'\.(mkv|mp4|avi|mov|webm)$', caseSensitive: false), '');
+    defaultQuery = defaultQuery.replaceAll(RegExp(r'[\s\-:]+$'), '');
+    defaultQuery = defaultQuery.replaceAll(RegExp(r'\s+'), ' ').trim();
+
+    final queryController = TextEditingController(text: defaultQuery);
+    String selectedLangCode = 'eng';
+    
+    final downloader = ref.read(subtitleDownloaderServiceProvider);
+    List<SubtitleMatch> searchResults = [];
+    bool isSearching = false;
+    String? downloadingId;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.black.withOpacity(0.95),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Online Subtitle Downloader',
+                        style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close, color: Colors.white60),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                    ],
+                  ),
+                  const Divider(color: Colors.white24),
+                  const SizedBox(height: 8),
+                  
+                  // Search Controls Row
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: queryController,
+                          style: const TextStyle(color: Colors.white, fontSize: 13),
+                          decoration: InputDecoration(
+                            hintText: 'Search query...',
+                            hintStyle: const TextStyle(color: Colors.white24),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      DropdownButton<String>(
+                        value: selectedLangCode,
+                        dropdownColor: Colors.black,
+                        underline: const SizedBox(),
+                        style: const TextStyle(color: Colors.white, fontSize: 13),
+                        items: const [
+                          DropdownMenuItem(value: 'eng', child: Text('English')),
+                          DropdownMenuItem(value: 'spa', child: Text('Spanish')),
+                          DropdownMenuItem(value: 'fre', child: Text('French')),
+                          DropdownMenuItem(value: 'ger', child: Text('German')),
+                          DropdownMenuItem(value: 'ind', child: Text('Indonesian')),
+                          DropdownMenuItem(value: 'ara', child: Text('Arabic')),
+                        ],
+                        onChanged: (val) {
+                          if (val != null) {
+                            setModalState(() => selectedLangCode = val);
+                          }
+                        },
+                      ),
+                      const SizedBox(width: 8),
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: settingsAccent,
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                        onPressed: isSearching
+                            ? null
+                            : () async {
+                                setModalState(() {
+                                  isSearching = true;
+                                  searchResults = [];
+                                });
+                                final res = await downloader.searchSubtitles(
+                                  queryController.text.trim(),
+                                  lang: selectedLangCode,
+                                );
+                                setModalState(() {
+                                  isSearching = false;
+                                  searchResults = res;
+                                });
+                              },
+                        child: const Icon(Icons.search, color: Colors.black),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  
+                  // Results list
+                  Expanded(
+                    child: isSearching
+                        ? const Center(child: CircularProgressIndicator(color: Colors.orange))
+                        : searchResults.isEmpty
+                            ? const Center(
+                                child: Text(
+                                  'Search for subtitles to display results',
+                                  style: TextStyle(color: Colors.white38, fontSize: 13),
+                                ),
+                              )
+                            : ListView.builder(
+                                itemCount: searchResults.length,
+                                itemBuilder: (context, index) {
+                                  final sub = searchResults[index];
+                                  final isDownloading = downloadingId == sub.id;
+                                  
+                                  return Container(
+                                    margin: const EdgeInsets.only(bottom: 8),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withOpacity(0.04),
+                                      borderRadius: BorderRadius.circular(10),
+                                      border: Border.all(color: Colors.white10),
+                                    ),
+                                    child: ListTile(
+                                      title: Text(
+                                        sub.fileName,
+                                        style: const TextStyle(color: Colors.white, fontSize: 13),
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      subtitle: Text(
+                                        sub.language,
+                                        style: TextStyle(color: settingsAccent, fontSize: 11),
+                                      ),
+                                      trailing: isDownloading
+                                          ? const SizedBox(
+                                              width: 20,
+                                              height: 20,
+                                              child: CircularProgressIndicator(
+                                                color: Colors.orange,
+                                                strokeWidth: 2,
+                                              ),
+                                            )
+                                          : const Icon(Icons.download_rounded, color: Colors.white70),
+                                      onTap: isDownloading
+                                          ? null
+                                          : () async {
+                                              setModalState(() => downloadingId = sub.id);
+                                              final localPath = await downloader.downloadSubtitle(
+                                                sub.downloadUrl,
+                                                sub.fileName,
+                                              );
+                                              setModalState(() => downloadingId = null);
+                                              
+                                              if (localPath != null) {
+                                                widget.player.setSubtitleTrack(SubtitleTrack.uri(localPath));
+                                                if (mounted) {
+                                                  Navigator.pop(context);
+                                                  ScaffoldMessenger.of(context).showSnackBar(
+                                                    SnackBar(
+                                                      content: Text('Subtitle loaded: ${sub.fileName}'),
+                                                      backgroundColor: Colors.green,
+                                                    ),
+                                                  );
+                                                }
+                                              } else {
+                                                if (mounted) {
+                                                  ScaffoldMessenger.of(context).showSnackBar(
+                                                    const SnackBar(
+                                                      content: Text('Failed to download subtitle file'),
+                                                      backgroundColor: Colors.redAccent,
+                                                    ),
+                                                  );
+                                                }
+                                              }
+                                            },
+                                    ),
+                                  );
+                                },
+                              ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
     );
   }
 
