@@ -533,6 +533,21 @@ class StorageService {
     await _save();
   }
 
+  String getHardwareDecoderMode() {
+    final mode = _data['hardware_decoder_mode'] as String?;
+    if (mode != null) return mode;
+    // Fallback/migration from old boolean
+    final oldAcc = getHardwareAcceleration();
+    return oldAcc ? 'mediacodec-copy' : 'no';
+  }
+
+  Future<void> setHardwareDecoderMode(String value) async {
+    _data['hardware_decoder_mode'] = value;
+    // Keep backward compatibility boolean in sync
+    _data['hardware_acceleration'] = (value != 'no');
+    await _save();
+  }
+
   // --- Audio Boost Preferences ---
 
   bool getVolumeBoostEnabled() {

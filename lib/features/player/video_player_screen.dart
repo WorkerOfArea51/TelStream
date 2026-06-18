@@ -106,9 +106,8 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         nativePlayer.setProperty('vd-lavc-skiploopfilter', 'bidir'); // Skip loop filtering on B-frames to save CPU in heavy scenes
 
         if (Platform.isAndroid) {
-          final hwAcc = _storageService.getHardwareAcceleration();
-          // Use direct mediacodec instead of mediacodec-copy to bypass GPU->RAM copy bottle-neck
-          nativePlayer.setProperty('hwdec', hwAcc ? 'mediacodec' : 'no');
+          final hwDecMode = _storageService.getHardwareDecoderMode();
+          nativePlayer.setProperty('hwdec', hwDecMode);
         }
         
         if (useNative) {
@@ -159,12 +158,13 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
       Log.e('Failed to configure native player features', e, stack);
     }
 
-    final hwAcc = _storageService.getHardwareAcceleration();
+    final hwDecMode = _storageService.getHardwareDecoderMode();
+    final enableHw = hwDecMode != 'no';
     _pipController.setActivePlayer(player);
     controller = VideoController(
       player,
       configuration: VideoControllerConfiguration(
-        enableHardwareAcceleration: hwAcc,
+        enableHardwareAcceleration: enableHw,
       ),
     );
     

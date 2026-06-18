@@ -315,15 +315,37 @@ class VideoSettingsScreen extends ConsumerWidget {
                   ),
                 ),
                 Divider(color: theme.dividerColor, height: 1, indent: 16, endIndent: 16),
-                _buildSwitch(
-                  context: context,
-                  title: 'Hardware Acceleration',
-                  subtitle: 'Enable GPU-accelerated video decoding. Disable this if subtitles do not display or if you experience rendering glitches on Android.',
-                  value: ref.watch(storageServiceProvider).getHardwareAcceleration(),
-                  onChanged: (val) async {
-                    await ref.read(storageServiceProvider).setHardwareAcceleration(val);
-                    (context as Element).markNeedsBuild();
-                  },
+                ListTile(
+                  title: Text('Hardware Decoder Mode', style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
+                  subtitle: Padding(
+                    padding: const EdgeInsets.only(top: 4.0),
+                    child: Text(
+                      ref.watch(storageServiceProvider).getHardwareDecoderMode() == "mediacodec"
+                          ? 'Direct GPU (High performance, may cause gray artifacts on some devices)'
+                          : ref.watch(storageServiceProvider).getHardwareDecoderMode() == "mediacodec-copy"
+                              ? 'Compatible GPU (Stable, recommended for most devices)'
+                              : 'Disabled (Software decoding)',
+                      style: TextStyle(color: isDark ? Colors.white54 : Colors.black54, fontSize: 12),
+                    ),
+                  ),
+                  trailing: DropdownButton<String>(
+                    value: ref.watch(storageServiceProvider).getHardwareDecoderMode(),
+                    dropdownColor: theme.cardColor,
+                    underline: const SizedBox(),
+                    style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+                    icon: Icon(Icons.arrow_drop_down, color: isDark ? Colors.white70 : Colors.black54),
+                    items: const [
+                      DropdownMenuItem(value: 'mediacodec', child: Text('Direct GPU')),
+                      DropdownMenuItem(value: 'mediacodec-copy', child: Text('Compatible GPU')),
+                      DropdownMenuItem(value: 'no', child: Text('Disabled (Software)')),
+                    ],
+                    onChanged: (String? value) async {
+                      if (value != null) {
+                        await ref.read(storageServiceProvider).setHardwareDecoderMode(value);
+                        (context as Element).markNeedsBuild();
+                      }
+                    },
+                  ),
                 ),
               ],
             ),
