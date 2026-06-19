@@ -56,6 +56,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
   bool _isBuffering = false;
   int? _resolvedVideoFileId;
   bool _isInitializing = true;
+  bool _initialTrackSelectionDone = false;
 
   StreamSubscription? _completedSubscription;
   StreamSubscription? _tracksSubscription;
@@ -209,6 +210,8 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
     // Auto-apply saved preferred tracks with smart sub/dub tracking
     _tracksSubscription = player.stream.tracks.listen((tracks) {
       if (tracks.audio.isEmpty) return;
+      if (_initialTrackSelectionDone) return;
+      _initialTrackSelectionDone = true;
 
       // 1. Select the audio track based on global preference
       final prefAudio = _storageService.getPreferredAudioTrack();
@@ -305,6 +308,9 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
           }
         }
       }
+
+      // Update blend-subtitles based on selected track codec
+      _updateBlendSubtitlesForTrack(player, player.state.track.subtitle);
     });
 
     _bufferingSubscription = player.stream.buffering.listen((buffering) {
@@ -950,6 +956,49 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
       } catch (e) {
         Log.w('Trakt background scrobble failed: $e');
       }
+    }
+  }
+
+  Future<void> _updateBlendSubtitlesForTrack(Player player, SubtitleTrack track) async {
+    try {
+      if (player.platform is NativePlayer) {
+        final nativePlayer = player.platform as NativePlayer;
+        if (track.id == 'no' || track.id == 'auto') {
+          nativePlayer.setProperty('blend-subtitles', 'no');
+          return;
+        }
+        
+        final countStr = await nativePlayer.getProperty('track-list/count');
+        final count = int.tryParse(countStr) ?? 0;
+        for (int i = 0; i < count; i++) {
+          final type = await nativePlayer.getProperty('track-list/$i/type');
+          if (type == 'sub') {
+            final id = await nativePlayer.getProperty('track-list/$i/id');
+            if (id == track.id) {
+              final codec = (await nativePlayer.getProperty('track-list/$i/codec')).toLowerCase();
+              Log.i('Selected subtitle track ID ${track.id} has codec: $codec');
+              
+              final isGraphical = codec.contains('pgs') || 
+                                  codec.contains('hdmv') || 
+                                  codec.contains('dvd') || 
+                                  codec.contains('vob') || 
+                                  codec.contains('dvb') ||
+                                  codec == 'xsub';
+                                  
+              if (isGraphical) {
+                nativePlayer.setProperty('blend-subtitles', 'yes');
+                Log.i('Graphical subtitle detected. Set blend-subtitles to yes.');
+              } else {
+                nativePlayer.setProperty('blend-subtitles', 'no');
+                Log.i('Text subtitle detected. Set blend-subtitles to no.');
+              }
+              return;
+            }
+          }
+        }
+      }
+    } catch (e) {
+      Log.e('Failed to check and update blend-subtitles for track', e);
     }
   }
 }

@@ -18,7 +18,9 @@ class Constants {
   static const String changelog = '''
 ### 🚀 What's New in v2.6.4
 
-* **Forced Subtitles Fix**: Restored reliable subtitle loading and display for all release types (WebDL, BluRay, WebRip).
+* **Forced Subtitles & Selection Retention**: Prevented automatic track stream updates from overriding manual audio and subtitle track selections during playback.
+* **PGS & Graphical Subtitles Blending**: Auto-detects and blends PGS/image-based subtitle tracks directly onto the video stream.
+* **Android Decoder Warning**: Displays a compatible decoder notice when choosing graphical PGS subtitles under zero-copy mediacodec hardware acceleration.
 * **Expressive Material 3 Controls**: Realigned play control icons (Prev, circular Play/Pause, Next) horizontally and perfectly centered them.
 * **Collapsible Quick Actions Row**: Quick control actions (Mute, Rotate, Chapters, A-B Repeat, Sleep Timer) collapse under an animated Chevron toggle button.
 * **Intro Skip Helper**: Replaced automatic intro/outro triggers with a manual skip button (`90s+`) located next to the Next button.

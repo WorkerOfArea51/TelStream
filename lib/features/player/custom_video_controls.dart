@@ -2384,6 +2384,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                                           if (_trackSelectorIsSubtitle) {
                                             widget.player.setSubtitleTrack(track);
                                             _applySubtitleProperty('sub-visibility', track.id == 'no' ? 'no' : 'yes');
+                                            _updateBlendSubtitlesForTrack(widget.player, track);
                                             
                                             // Classify current audio track language to save preference under that category
                                             final activeAudio = widget.player.state.track.audio;
@@ -3866,6 +3867,61 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
   }
 
 
+
+  Future<void> _updateBlendSubtitlesForTrack(Player player, SubtitleTrack track) async {
+    try {
+      if (player.platform is NativePlayer) {
+        final nativePlayer = player.platform as NativePlayer;
+        if (track.id == 'no' || track.id == 'auto') {
+          nativePlayer.setProperty('blend-subtitles', 'no');
+          return;
+        }
+        
+        final countStr = await nativePlayer.getProperty('track-list/count');
+        final count = int.tryParse(countStr) ?? 0;
+        for (int i = 0; i < count; i++) {
+          final type = await nativePlayer.getProperty('track-list/$i/type');
+          if (type == 'sub') {
+            final id = await nativePlayer.getProperty('track-list/$i/id');
+            if (id == track.id) {
+              final codec = (await nativePlayer.getProperty('track-list/$i/codec')).toLowerCase();
+              Log.i('Selected subtitle track ID ${track.id} has codec: $codec');
+              
+              final isGraphical = codec.contains('pgs') || 
+                                  codec.contains('hdmv') || 
+                                  codec.contains('dvd') || 
+                                  codec.contains('vob') || 
+                                  codec.contains('dvb') ||
+                                  codec == 'xsub';
+                                  
+              if (isGraphical) {
+                nativePlayer.setProperty('blend-subtitles', 'yes');
+                Log.i('Graphical subtitle detected. Set blend-subtitles to yes.');
+                
+                // Show SnackBar if on Android with direct hardware decoding
+                final hwdec = ref.read(storageServiceProvider).getHardwareDecoderMode();
+                if (Platform.isAndroid && hwdec == 'mediacodec' && mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('PGS subtitles require HW+ (Compatible) or SW decoder to render on Android.'),
+                      backgroundColor: Colors.orange,
+                      duration: Duration(seconds: 4),
+                    ),
+                  );
+                }
+              } else {
+                nativePlayer.setProperty('blend-subtitles', 'no');
+                Log.i('Text subtitle detected. Set blend-subtitles to no.');
+              }
+              return;
+            }
+          }
+        }
+      }
+    } catch (e) {
+      Log.e('Failed to check and update blend-subtitles for track', e);
+    }
+  }
 
   void _applySubtitleProperty(String name, String value) {
     try {
