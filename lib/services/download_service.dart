@@ -160,6 +160,32 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
           await storage.removeDownloadedFile(fileId);
         }
       }
+
+      // Load active (incomplete) downloads from storage
+      final activeDownloads = storage.getActiveDownloads();
+      final tdlibService = ref.read(tdlibServiceProvider);
+      for (final entry in activeDownloads.entries) {
+        final fileId = entry.key;
+        final title = entry.value;
+        
+        loadedTasks[fileId] = DownloadTask(
+          fileId: fileId,
+          title: title,
+          progress: 0.0,
+          isCompleted: false,
+        );
+
+        // Resume download via TDLib
+        tdlibService.send(td.DownloadFile(
+          fileId: fileId,
+          priority: 32,
+          offset: 0,
+          limit: 0,
+          synchronous: false,
+        ));
+        Log.i('Resumed active queue download task: $title (ID: $fileId)');
+      }
+
       state = loadedTasks;
 
       // Start watching the downloads directory for real-time updates
@@ -400,6 +426,9 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
       ),
     };
 
+    // Persist active download in queue database
+    await ref.read(storageServiceProvider).addActiveDownload(fileId, title);
+
     // Notify native background download service to start
     _updateNativeNotification(fileId, title, 0.0);
 
@@ -420,6 +449,9 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
     final title = task?.title ?? 'Download';
     
     _pausedBySchedulerFileIds.remove(fileId);
+    
+    // Remove active download from persistent queue database
+    await ref.read(storageServiceProvider).removeActiveDownload(fileId);
     
     ref.read(tdlibServiceProvider).send(td.CancelDownloadFile(
       fileId: fileId,
@@ -473,7 +505,8 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
         
         Log.i('FILE SAVED PERMANENTLY: $permanentPath');
         
-        // 5. Save persistent mapping in JSON storage
+        // Remove from active queue database and save persistent mapping in JSON storage
+        await ref.read(storageServiceProvider).removeActiveDownload(fileId);
         await ref.read(storageServiceProvider).addDownloadedFile(fileId, permanentPath);
       } else {
         throw Exception("Temp file does not exist at $tempPath");

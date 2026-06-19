@@ -62,6 +62,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
   StreamSubscription? _bufferingSubscription;
   Timer? _saveTimer;
   bool _nextEpisodePreloaded = false;
+  Timer? _preloadCooldownTimer;
   bool _hasUpdatedTracker = false;
 
   late final StorageService _storageService;
@@ -740,6 +741,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
     _tracksSubscription?.cancel();
     _bufferingSubscription?.cancel();
     _saveTimer?.cancel();
+    _preloadCooldownTimer?.cancel();
     
     try {
       final position = player.state.position.inSeconds;
@@ -839,10 +841,17 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
       Log.i('Playback buffered: Cancelling next episode background preload (ID: $nextFileId)');
       _tdlibService.send(td.CancelDownloadFile(
         fileId: nextFileId,
-        onlyIfPending: true,
+        onlyIfPending: false,
       ));
-      // Reset preload status so it can retry preloading later
-      _nextEpisodePreloaded = false;
+      
+      // Start a 2-minute cooldown before resetting preloading status to protect against infinite buffering-preloading loops
+      _preloadCooldownTimer?.cancel();
+      _preloadCooldownTimer = Timer(const Duration(minutes: 2), () {
+        if (mounted) {
+          Log.i('Preloading cooldown complete. Resetting _nextEpisodePreloaded flag.');
+          _nextEpisodePreloaded = false;
+        }
+      });
     }
   }
 

@@ -329,6 +329,27 @@ class StorageService {
     }
   }
 
+  // --- Active (Incomplete) Downloads Queue ---
+
+  Map<int, String> getActiveDownloads() {
+    if (_data['active_downloads'] == null) return {};
+    final Map<String, dynamic> rawMap = Map<String, dynamic>.from(_data['active_downloads']);
+    return rawMap.map((key, value) => MapEntry(int.parse(key), value as String));
+  }
+
+  Future<void> addActiveDownload(int fileId, String title) async {
+    _data['active_downloads'] ??= <String, dynamic>{};
+    _data['active_downloads'][fileId.toString()] = title;
+    await _save();
+  }
+
+  Future<void> removeActiveDownload(int fileId) async {
+    if (_data['active_downloads'] != null) {
+      _data['active_downloads'].remove(fileId.toString());
+      await _save();
+    }
+  }
+
   // --- Theme Selection ---
 
   String getTheme() {
