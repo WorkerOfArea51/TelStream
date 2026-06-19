@@ -741,6 +741,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
       }
     });
     widget.player.setRate(_currentSpeed);
+    widget.player.seek(widget.player.state.position);
   }
 
   void _handleDoubleTap(TapDownDetails details, double screenWidth, int seekDuration) {
@@ -1460,6 +1461,9 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
       });
       final safeTarget = _clampSeekTarget(_swipeTargetPosition, showMessage: true);
       _performSeek(safeTarget);
+    }
+    if (_showSpeedIndicator) {
+      widget.player.seek(widget.player.state.position);
     }
     setState(() {
       _showVolumeIndicator = false;
@@ -2330,6 +2334,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
       onLongPressStart: (details) {
         if (_isLocked || !settings.dynamicSpeedOverlay) return;
         widget.player.setRate(2.0);
+        widget.player.seek(widget.player.state.position);
         setState(() {
           _showSeekIndicator = true;
           _seekDirection = '2.0x Fast Forwarding';
@@ -2338,6 +2343,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
       onLongPressEnd: (details) {
         if (!settings.dynamicSpeedOverlay) return;
         widget.player.setRate(_currentSpeed);
+        widget.player.seek(widget.player.state.position);
         setState(() {
           _showSeekIndicator = false;
         });
@@ -2659,6 +2665,28 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                       color: _sleepTimerSecondsRemaining != null ? settingsAccent : Colors.white,
                     ),
                     onPressed: _showSleepTimerSelector,
+                  ),
+                  Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 4),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.white54, width: 1),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: InkWell(
+                      onTap: _toggleDecoderMode,
+                      borderRadius: BorderRadius.circular(4),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                        child: Text(
+                          _getDecoderModeLabel(),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
                   IconButton(
                     icon: const Icon(Icons.subtitles, color: Colors.white), 
@@ -3427,6 +3455,28 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                         }
                       },
                     ),
+                    const SizedBox(height: 16),
+                    const Text('Subtitle Renderer', style: TextStyle(color: Colors.white70, fontSize: 14)),
+                    const SizedBox(height: 8),
+                    DropdownButton<String>(
+                      value: storage.getSubtitleRenderer(),
+                      dropdownColor: Colors.black,
+                      style: const TextStyle(color: Colors.white, fontSize: 14),
+                      underline: Container(height: 1, color: settingsAccent),
+                      isExpanded: true,
+                      items: const [
+                        DropdownMenuItem(value: 'flutter', child: Text('Flutter (Compatible)')),
+                        DropdownMenuItem(value: 'native', child: Text('Native (libass)')),
+                      ],
+                      onChanged: (val) {
+                        if (val != null) {
+                          storage.setSubtitleRenderer(val);
+                          _applySubtitleProperty('sub-visibility', val == 'native' ? 'yes' : 'no');
+                          setState(() {});
+                          setModalState(() {});
+                        }
+                      },
+                    ),
                     if (Platform.isAndroid) ...[
                       const SizedBox(height: 16),
                       SwitchListTile(
@@ -3564,6 +3614,58 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     } catch (e) {
       Log.e('Failed to apply subtitle property $name', e);
     }
+  }
+
+  String _getDecoderModeLabel() {
+    final mode = ref.read(storageServiceProvider).getHardwareDecoderMode();
+    if (mode == 'no') {
+      return 'SW';
+    } else if (mode == 'mediacodec') {
+      return 'HW';
+    } else if (mode == 'mediacodec-copy') {
+      return 'HW+';
+    }
+    return 'HW';
+  }
+
+  void _toggleDecoderMode() async {
+    final storage = ref.read(storageServiceProvider);
+    final currentMode = storage.getHardwareDecoderMode();
+    String nextMode;
+    String toastText;
+
+    if (currentMode == 'mediacodec') {
+      nextMode = 'mediacodec-copy';
+      toastText = 'Hardware Decoder: HW+ (Compatible)';
+    } else if (currentMode == 'mediacodec-copy') {
+      nextMode = 'no';
+      toastText = 'Hardware Decoder: SW (Software)';
+    } else {
+      nextMode = 'mediacodec';
+      toastText = 'Hardware Decoder: HW (Direct)';
+    }
+
+    await storage.setHardwareDecoderMode(nextMode);
+
+    try {
+      if (widget.player.platform is NativePlayer) {
+        final nativePlayer = widget.player.platform as NativePlayer;
+        if (nextMode != 'no') {
+          if (Platform.isAndroid) {
+            nativePlayer.setProperty('hwdec', nextMode);
+          } else {
+            nativePlayer.setProperty('hwdec', 'auto');
+          }
+        } else {
+          nativePlayer.setProperty('hwdec', 'no');
+        }
+      }
+    } catch (e) {
+      Log.w('Failed to apply hwdec change dynamically: $e');
+    }
+
+    _showSkipToast(toastText);
+    setState(() {});
   }
 
   bool _isCurrentPositionInOutro(Duration position) {

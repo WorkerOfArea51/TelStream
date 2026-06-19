@@ -1,9 +1,9 @@
 import 'dart:ui';
-import 'dart:io';
+
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:tdlib/td_api.dart' as td;
-import 'package:palette_generator/palette_generator.dart';
+
 import '../../models/anime_models.dart';
 import '../player/pip_manager.dart';
 import '../../core/widgets/wavy_progress_indicators.dart';
@@ -13,7 +13,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../services/storage_service.dart';
 import '../../services/download_service.dart';
 import '../../services/tdlib_service.dart';
-import '../../core/logger.dart';
+
 import '../../core/widgets/shimmer_card.dart';
 
 class EpisodeListScreen extends ConsumerStatefulWidget {
@@ -36,14 +36,11 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
   late AnimeSeason _selectedSeason;
   bool _isLoadingEpisodes = false;
   String? _errorMessage;
-  Color? _extractedAccentColor;
-  StreamSubscription? _posterUpdateSub;
 
   @override
   void initState() {
     super.initState();
     _selectedSeason = widget.season;
-    _extractColorFromPoster();
     if (_selectedSeason.episodes.isEmpty) {
       _loadEpisodesDynamically();
     }
@@ -134,88 +131,10 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
 
   @override
   void dispose() {
-    _posterUpdateSub?.cancel();
     super.dispose();
   }
 
-  Future<void> _extractColorFromPoster() async {
-    if (!mounted) return;
 
-    // Fallback to Telegram local file poster
-    td.File? posterFile;
-    if (_selectedSeason.posterMessage.content is td.MessagePhoto) {
-      final photo = _selectedSeason.posterMessage.content as td.MessagePhoto;
-      if (photo.photo.sizes.isNotEmpty) {
-        posterFile = photo.photo.sizes.last.photo;
-      }
-    }
-
-    if (posterFile != null) {
-      if (posterFile.local.path.isNotEmpty) {
-        // File is already downloaded
-        try {
-          final file = File(posterFile.local.path);
-          if (await file.exists()) {
-            final palette = await PaletteGenerator.fromImageProvider(
-              ResizeImage(FileImage(file), width: 50, height: 75),
-              maximumColorCount: 16,
-            );
-            final color = palette.vibrantColor?.color ?? palette.dominantColor?.color;
-            if (color != null && mounted) {
-              setState(() {
-                _extractedAccentColor = color;
-              });
-            }
-          }
-        } catch (e) {
-          Log.w('Failed to extract color from local Telegram poster: $e');
-        }
-      } else {
-        // File is not downloaded yet, subscribe to updates
-        _subscribeToPosterUpdates(posterFile.id);
-      }
-    }
-  }
-
-  void _subscribeToPosterUpdates(int fileId) {
-    _posterUpdateSub?.cancel();
-    final tdlibService = ref.read(tdlibServiceProvider);
-
-    // Trigger download of the poster file if it hasn't started
-    tdlibService.send(td.DownloadFile(
-      fileId: fileId,
-      priority: 16,
-      offset: 0,
-      limit: 0,
-      synchronous: false,
-    ));
-
-    _posterUpdateSub = tdlibService.updates.listen((event) async {
-      if (event is td.UpdateFile && event.file.id == fileId) {
-        if (event.file.local.isDownloadingCompleted && event.file.local.path.isNotEmpty) {
-          _posterUpdateSub?.cancel();
-          _posterUpdateSub = null;
-          try {
-            final file = File(event.file.local.path);
-            if (await file.exists()) {
-              final palette = await PaletteGenerator.fromImageProvider(
-                ResizeImage(FileImage(file), width: 50, height: 75),
-                maximumColorCount: 16,
-              );
-              final color = palette.vibrantColor?.color ?? palette.dominantColor?.color;
-              if (color != null && mounted) {
-                setState(() {
-                  _extractedAccentColor = color;
-                });
-              }
-            }
-          } catch (e) {
-            Log.w('Failed to extract color from downloaded Telegram poster: $e');
-          }
-        }
-      }
-    });
-  }
 
   void _toggleFavorite() {
     ref.read(favoritesProvider.notifier).toggleFavorite(widget.series.coreName);
@@ -231,20 +150,7 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
     }
   }
 
-  int _parseEpisodeNumber(String fileName, int indexFallback) {
-    final regexes = [
-      RegExp(r'e(\d+)', caseSensitive: false),
-      RegExp(r'ep(?:isode)?\.?\s*(\d+)', caseSensitive: false),
-      RegExp(r'\b(\d+)\b'),
-    ];
-    for (final reg in regexes) {
-      final match = reg.firstMatch(fileName);
-      if (match != null) {
-        return int.tryParse(match.group(1)!) ?? (indexFallback + 1);
-      }
-    }
-    return indexFallback + 1;
-  }
+
 
   Widget _buildLocalBackdrop(td.File? posterFile, td.Minithumbnail? minithumbnail) {
     return TdThumbnail(
@@ -348,7 +254,7 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
 
     final theme = Theme.of(context);
     final customTheme = theme.extension<AppThemeExtension>();
-    final settingsAccent = _extractedAccentColor ?? customTheme?.settingsAccent ?? theme.primaryColor;
+    final settingsAccent = customTheme?.settingsAccent ?? theme.primaryColor;
     final isDark = theme.brightness == Brightness.dark;
 
     final title = _selectedSeason.fullTitle;
@@ -511,9 +417,7 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
                           if (selected) {
                             setState(() {
                               _selectedSeason = season;
-                              _extractedAccentColor = null;
                             });
-                            _extractColorFromPoster();
                             if (season.episodes.isEmpty) {
                               _loadEpisodesDynamically();
                             }
@@ -600,14 +504,13 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
     if (fileId == null) return const SizedBox.shrink();
 
     final epTitle = fileTitle;
-    const epOverview = 'No description available for this episode.';
 
     final downloadTasks = ref.watch(downloadControllerProvider);
     final task = downloadTasks[fileId];
 
     final theme = Theme.of(context);
     final customTheme = theme.extension<AppThemeExtension>();
-    final settingsAccent = _extractedAccentColor ?? customTheme?.settingsAccent ?? theme.primaryColor;
+    final settingsAccent = customTheme?.settingsAccent ?? theme.primaryColor;
     final isDark = theme.brightness == Brightness.dark;
 
     Widget trailingWidget;
@@ -697,7 +600,7 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   // Episode Thumbnail/Still preview
                   Container(
@@ -782,17 +685,7 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
                             ),
                           ],
                         ),
-                        const SizedBox(height: 6),
-                        Text(
-                          epOverview,
-                          style: TextStyle(
-                            color: isDark ? Colors.white54 : Colors.black54,
-                            fontSize: 11,
-                            height: 1.3,
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
+
                       ],
                     ),
                   ),

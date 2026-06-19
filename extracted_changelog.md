@@ -1,18 +1,17 @@
-### 🚀 What's New in v2.0.2
+### 🚀 What's New in v2.6.2
 
-We've rolled out a major feature update for Appearance and Theming customization!
+This update brings UI enhancements, improved video player controls, and optimized high-speed video synchronization.
 
-#### 🎨 Custom Appearance & Theme Modes
-* **Theme Modes Supported**: Choose between **Light Mode**, **Dark Mode**, **Dark AMOLED Mode** (pure `#000000` black background for screen and settings to save battery), or **System Mode** (follows system settings).
-* **Color Themes Selector**: Personalize the app's accent and background colors:
-  * **TelStream Classic**: The default signature hybrid theme with solid black main pages and deep bluish-black settings.
-  * **Sunset Cyberpunk**: Neon magenta accent lines with dark purple-violet layouts.
-  * **Aurora Abyss**: Vibrant cyan accent highlights with dark teal backgrounds.
-  * **Midnight Slate**: Indigo accents with clean slate-grey configurations.
+#### ⚡ Playback Sync & Controls
+* **Perfect 2x Speed Sync**: Configured the master audio clock and aggressive decoder/rendering framedrops to ensure audio, video, and subtitles remain perfectly synchronized.
+* **On-the-fly Buffer Flushing**: Automatically performs seek resyncs on speed adjustments to rebuild player buffers instantly.
+* **HW/SW Decoder Switcher**: Switch hardware acceleration modes (`HW`, `HW+`, `SW`) on-the-fly directly from the player's control bar.
+* **Subtitle Renderer Settings**: Switch between Flutter and Native subtitle renderers right inside the player's subtitle customizer.
 
-#### ⚙️ Standard Settings Layout
-* Added a dedicated **Appearance** section inside settings for live theme preview and selection.
-* Completely dynamic accents and background resolution across the whole application.
+#### 🎨 Cleaner Episode List UI
+* **Aligned Episode Cards**: Episode list cards now have their content vertically centered for a clean look.
+* **Removed Descriptions**: Removed the generic "No description available" text from local episodes.
+* **Zero-Lag Folder Loading**: Removed dynamic theme color extraction from the poster image to ensure instant navigation.
 
 ---
 
