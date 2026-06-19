@@ -202,11 +202,13 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         if (player.platform is NativePlayer) {
           final nativePlayer = player.platform as NativePlayer;
           if (rate > 1.0) {
+            nativePlayer.setProperty('framedrop', 'decoder+vo');
             nativePlayer.setProperty('vd-lavc-skipframe', 'nonref');
             nativePlayer.setProperty('vd-lavc-skipidct', 'all');
             nativePlayer.setProperty('vd-lavc-skiploopfilter', 'all');
-            Log.i('Playback rate: $rate. Applied high-performance frame-drop/IDCT optimizations.');
+            Log.i('Playback rate: $rate. Applied high-performance frame-drop/IDCT/decoder+vo optimizations.');
           } else {
+            nativePlayer.setProperty('framedrop', 'vo');
             nativePlayer.setProperty('vd-lavc-skipframe', 'default');
             nativePlayer.setProperty('vd-lavc-skipidct', 'default');
             nativePlayer.setProperty('vd-lavc-skiploopfilter', 'default');
