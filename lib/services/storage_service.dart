@@ -97,6 +97,18 @@ class StorageService {
       };
       await _save(); // Initialize file
     }
+
+    // Migrations
+    final migratedKey = 'migrated_mediacodec_v2';
+    if (_data[migratedKey] != true) {
+      final currentMode = _data['hardware_decoder_mode'] as String?;
+      if (currentMode == 'mediacodec-copy' || currentMode == null) {
+        _data['hardware_decoder_mode'] = 'mediacodec';
+      }
+      _data[migratedKey] = true;
+      await _save();
+      Log.i('Migrated hardware_decoder_mode to zero-copy mediacodec.');
+    }
   }
 
   Future<void> _save() async {
@@ -606,15 +618,7 @@ class StorageService {
 
   String getHardwareDecoderMode() {
     final mode = _data['hardware_decoder_mode'] as String?;
-    if (mode != null) {
-      if (mode == 'mediacodec-copy') {
-        // Auto-upgrade to zero-copy mediacodec to prevent 2x playback lag
-        _data['hardware_decoder_mode'] = 'mediacodec';
-        _save();
-        return 'mediacodec';
-      }
-      return mode;
-    }
+    if (mode != null) return mode;
     // Fallback/migration from old boolean
     final oldAcc = getHardwareAcceleration();
     return oldAcc ? 'mediacodec' : 'no';
