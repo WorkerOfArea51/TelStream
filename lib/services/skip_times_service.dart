@@ -61,6 +61,8 @@ class SkipTimesService {
   // Clean series name for MAL search
   String _cleanTitleForMal(String title) {
     var clean = title.trim();
+    // Remove file extensions
+    clean = clean.replaceAll(RegExp(r'\.(?:mkv|mp4|avi|webm|flv|mov|ts|m4v)$', caseSensitive: false), '');
     // Remove release groups like [SubsPlease], [Erai-raws], [HorribleSubs]
     clean = clean.replaceAll(RegExp(r'\[[a-zA-Z0-9-\s\._~]+\]'), '');
     // Remove resolution patterns like [1080p], (720p), etc.
@@ -81,19 +83,66 @@ class SkipTimesService {
     return clean;
   }
 
+  int? _extractEpisodeNumber(String title) {
+    // Clean brackets and parentheses first to avoid false matching inside release tags/resolutions
+    var clean = title.replaceAll(RegExp(r'\[[^\]]*\]'), '').replaceAll(RegExp(r'\([^)]*\)'), '').trim();
+    // Remove file extensions
+    clean = clean.replaceAll(RegExp(r'\.(?:mkv|mp4|avi|webm|flv|mov|ts|m4v)$', caseSensitive: false), '').trim();
+    
+    // 1. Match typical formats: Episode 12, Ep. 12, Ep 12, E12, EP12
+    final epMatch = RegExp(r'\b(?:Episode|Ep|E)\.?\s*(\d{1,3})\b', caseSensitive: false).firstMatch(clean);
+    if (epMatch != null) {
+      return int.tryParse(epMatch.group(1)!);
+    }
+    
+    // 2. Match a standalone episode number at the end or after a dash, e.g. "Title - 12", "Title 03"
+    final numberMatch = RegExp(r'(?:-\s*|(?:\s+))\b(\d{1,3})\b(?:\s*v\d+)?\s*$', caseSensitive: false).firstMatch(clean);
+    if (numberMatch != null) {
+      return int.tryParse(numberMatch.group(1)!);
+    }
+    
+    // 3. Fallback: match any standalone 2-3 digit number in the clean title
+    final fallbackMatch = RegExp(r'\b(\d{2,3})\b').firstMatch(clean);
+    if (fallbackMatch != null) {
+      return int.tryParse(fallbackMatch.group(1)!);
+    }
+
+    return null;
+  }
+
   Future<List<SkipInterval>> fetchSkipTimes({
     required String seriesName,
     required int episodeNumber,
     required double totalDuration,
     String? videoTitle,
   }) async {
-    final cacheKey = '${seriesName}_$episodeNumber';
+    var finalSeriesName = seriesName;
+    var finalEpisodeNumber = episodeNumber;
+
+    if (videoTitle != null && videoTitle.isNotEmpty) {
+      // 1. If seriesName is empty, clean the videoTitle and use it as the series search query
+      if (finalSeriesName.isEmpty) {
+        finalSeriesName = _cleanTitleForMal(videoTitle);
+        Log.i('Extracted series name "$finalSeriesName" from video title: "$videoTitle"');
+      }
+      
+      // 2. If episodeNumber is 1 (default fallback), try to parse the actual episode number from the title
+      if (episodeNumber == 1) {
+        final extractedEp = _extractEpisodeNumber(videoTitle);
+        if (extractedEp != null) {
+          finalEpisodeNumber = extractedEp;
+          Log.i('Extracted episode number $finalEpisodeNumber from video title: "$videoTitle"');
+        }
+      }
+    }
+
+    final cacheKey = '${finalSeriesName}_$finalEpisodeNumber';
     if (_memoryCache.containsKey(cacheKey)) {
       return _memoryCache[cacheKey]!;
     }
 
     List<SkipInterval> intervals = [];
-    var searchQuery = seriesName;
+    var searchQuery = finalSeriesName;
 
     // Detect and append season to MAL search query if not already present in the folder name
     if (videoTitle != null && videoTitle.isNotEmpty) {
@@ -130,8 +179,8 @@ class SkipTimesService {
 
       // If we found a MAL ID, query AniSkip
       if (malId != null) {
-        Log.i('Fetching AniSkip times for MAL ID: $malId, Ep: $episodeNumber');
-        final url = Uri.parse('https://api.aniskip.com/v2/skip-times/$malId/$episodeNumber?types[]=op&types[]=ed');
+        Log.i('Fetching AniSkip times for MAL ID: $malId, Ep: $finalEpisodeNumber');
+        final url = Uri.parse('https://api.aniskip.com/v2/skip-times/$malId/$finalEpisodeNumber?types[]=op&types[]=ed');
         final response = await http.get(url).timeout(const Duration(seconds: 5));
 
         if (response.statusCode == 200) {
@@ -155,7 +204,7 @@ class SkipTimesService {
         }
       }
     } catch (e) {
-      Log.w('Failed to fetch skip times from API for $seriesName (Ep $episodeNumber): $e');
+      Log.w('Failed to fetch skip times from API for $finalSeriesName (Ep $finalEpisodeNumber): $e');
     }
 
     // Fallback if no skip times fetched (e.g. not an anime, API error, or no entry)

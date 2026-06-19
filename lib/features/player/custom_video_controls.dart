@@ -281,7 +281,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     final chapterIntervals = _extractSkipTimesFromChapters();
     
     // Heuristics
-    final isAnime = widget.seriesName.isNotEmpty && duration >= 1080 && duration <= 1680;
+    final isAnime = duration >= 1080 && duration <= 1680;
     final List<SkipInterval> heuristics = [];
 
     // Combine API and Chapter intervals first to check if they have OP/ED
