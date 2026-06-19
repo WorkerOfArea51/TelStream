@@ -14,22 +14,21 @@ class ChannelCategory {
 }
 
 class Constants {
-  static const String currentVersion = '2.6.2';
+  static const String currentVersion = '2.6.3';
   static const String changelog = '''
-### 🚀 What's New in v2.6.2
+### 🚀 What's New in v2.6.3
 
-This update brings UI enhancements, improved video player controls, and optimized high-speed video synchronization.
+This update brings Unified Native subtitle rendering, PGS/HDMV compatibility improvements, instant streaming startup, and high-speed video synchronization enhancements.
 
-#### ⚡ Playback Sync & Controls
-* **Perfect 2x Speed Sync**: Configured the master audio clock and aggressive decoder/rendering framedrops to ensure audio, video, and subtitles remain perfectly synchronized.
-* **On-the-fly Buffer Flushing**: Automatically performs seek resyncs on speed adjustments to rebuild player buffers instantly.
-* **HW/SW Decoder Switcher**: Switch hardware acceleration modes (`HW`, `HW+`, `SW`) on-the-fly directly from the player's control bar.
-* **Subtitle Renderer Settings**: Switch between Flutter and Native subtitle renderers right inside the player's subtitle customizer.
+#### ⚡ Subtitles & Playback Sync
+* **Unified Native Subtitles**: Migrated completely to the native `libass` rendering engine, removing the Flutter-compatible renderer for superior typography and format compatibility.
+* **PGS/HDMV Protection**: Automatically detects graphic subtitles (PGS/HDMV) in the Customizer sheet, displaying a warning and locking text styling parameters while keeping Delay Sync editable.
+* **Perfect 2x Speed Sync**: Audio-clock master synchronization coupled with aggressive multi-stage framedrop keeps audio, video, and subtitles in perfect alignment at 2x speed.
+* **HW/SW Decoder Switcher**: Cycles decoder modes (`HW`, `HW+`, `SW`) on-the-fly from the control bar.
 
-#### 🎨 Cleaner Episode List UI
-* **Aligned Episode Cards**: Episode list cards now have their content vertically centered for a clean look.
-* **Removed Descriptions**: Removed the generic "No description available" text from local episodes.
-* **Zero-Lag Folder Loading**: Removed dynamic theme color extraction from the poster image to ensure instant navigation.
+#### 🌐 Instant Startup & Performance
+* **Instant Streaming Startup**: Automatically detects out-of-buffer HTTP range requests (like end-of-file metadata reads) in the proxy layer, immediately shifting TDLib download offsets to bypass startup delay.
+* **Zero-Lag Episode Cards**: Removed poster theme color extraction and centered episode card content to resolve folder loading lags.
 ''';
 
   // Telegram API Credentials from secrets.dart

@@ -112,6 +112,42 @@ class StreamingProxyService {
       }
     }
 
+    // Auto-detect and shift TDLib download offset if the requested range is outside our current download buffer
+    try {
+      final res = await _tdlibService.sendAsync(td.GetFile(fileId: fileId));
+      if (res is td.File) {
+        final isCompleted = res.local.isDownloadingCompleted;
+        final prefixSize = res.local.downloadedPrefixSize;
+        final activeOffset = _activeDownloadOffsets[fileId] ?? 0;
+        final baseDownloaded = _downloadedSizeAtOffsets[fileId] ?? 0;
+        final downloadedDelta = (res.local.downloadedSize - baseDownloaded).clamp(0, res.expectedSize);
+        final activeRangeEnd = activeOffset + downloadedDelta;
+
+        if (!isCompleted &&
+            start > prefixSize &&
+            (start < activeOffset || start > activeRangeEnd + 1048576)) {
+          Log.i('Proxy auto-shifting TDLib download offset for file $fileId to $start (requested range: $start-$end, prefixSize: $prefixSize, activeOffset: $activeOffset, activeRangeEnd: $activeRangeEnd)');
+          
+          _tdlibService.send(td.CancelDownloadFile(
+            fileId: fileId,
+            onlyIfPending: false,
+          ));
+          
+          setDownloadOffset(fileId, start, res.local.downloadedSize);
+          
+          _tdlibService.send(td.DownloadFile(
+            fileId: fileId,
+            priority: 32,
+            offset: start,
+            limit: 0,
+            synchronous: false,
+          ));
+        }
+      }
+    } catch (e) {
+      Log.w('Proxy failed to check or auto-shift download offset: $e');
+    }
+
     // Set response headers
     request.response.headers.set(HttpHeaders.acceptRangesHeader, 'bytes');
     request.response.headers.contentType = ContentType('video', 'mp4'); // Default fallback mime

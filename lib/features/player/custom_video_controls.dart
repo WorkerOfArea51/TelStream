@@ -2112,6 +2112,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                                           final storage = ref.read(storageServiceProvider);
                                           if (_trackSelectorIsSubtitle) {
                                             widget.player.setSubtitleTrack(track);
+                                            _applySubtitleProperty('sub-visibility', track.id == 'no' ? 'no' : 'yes');
                                             
                                             // Classify current audio track language to save preference under that category
                                             final activeAudio = widget.player.state.track.audio;
@@ -2276,47 +2277,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     final customTheme = theme.extension<AppThemeExtension>();
     final settingsAccent = customTheme?.settingsAccent ?? theme.primaryColor;
 
-    final storage = ref.watch(storageServiceProvider);
-    final isFlutterSub = storage.getSubtitleRenderer() == 'flutter';
-    
-    SubtitleViewConfiguration subtitleConfig;
-    if (isFlutterSub) {
-      final subSize = storage.getSubtitleFontSize();
-      final subColorHex = storage.getSubtitleColor();
-      final subFont = storage.getSubtitleFont();
-      
-      Color parsedColor;
-      try {
-        final hex = subColorHex.replaceAll('#', '');
-        if (hex.length == 6) {
-          parsedColor = Color(int.parse('0xFF$hex'));
-        } else if (hex.length == 8) {
-          parsedColor = Color(int.parse('0x$hex'));
-        } else {
-          parsedColor = Colors.white;
-        }
-      } catch (_) {
-        parsedColor = Colors.white;
-      }
-
-      subtitleConfig = SubtitleViewConfiguration(
-        style: TextStyle(
-          fontSize: subSize * 0.5,
-          color: parsedColor,
-          fontFamily: subFont,
-          shadows: const [
-            Shadow(offset: Offset(-1.5, -1.5), color: Colors.black),
-            Shadow(offset: Offset(1.5, -1.5), color: Colors.black),
-            Shadow(offset: Offset(1.5, 1.5), color: Colors.black),
-            Shadow(offset: Offset(-1.5, 1.5), color: Colors.black),
-            Shadow(offset: Offset(0, 2.0), color: Colors.black54, blurRadius: 4.0),
-          ],
-        ),
-        padding: const EdgeInsets.only(bottom: 24),
-      );
-    } else {
-      subtitleConfig = const SubtitleViewConfiguration(visible: false);
-    }
+    const subtitleConfig = SubtitleViewConfiguration(visible: false);
 
     return GestureDetector(
       onTap: _toggleControls,
@@ -3281,6 +3242,19 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     );
   }
 
+  bool _isPgsTrack(SubtitleTrack track) {
+    if (track.id == 'no' || track.id == 'auto') return false;
+    final title = (track.title ?? '').toLowerCase();
+    final id = track.id.toLowerCase();
+    return title.contains('pgs') || title.contains('hdmv') || title.contains('sup') || 
+           id.contains('pgs') || id.contains('hdmv') || id.contains('sup');
+  }
+
+  bool _isCurrentSubtitlePgs() {
+    final activeSub = widget.player.state.track.subtitle;
+    return _isPgsTrack(activeSub);
+  }
+
   void _showSubtitleCustomizerDialog() {
     final storage = ref.read(storageServiceProvider);
 
@@ -3356,37 +3330,39 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                     ),
                     const Divider(color: Colors.white24),
                     const SizedBox(height: 10),
-                    const Text('Presets', style: TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 6),
-                    SizedBox(
-                      height: 38,
-                      child: ListView(
-                        scrollDirection: Axis.horizontal,
-                        children: [
-                          buildPresetChip('Default White', 45, '#FFFFFF', 'Roboto'),
-                          buildPresetChip('Classic Anime', 45, '#FFFF00', 'Roboto'),
-                          buildPresetChip('Soft Cyan', 45, '#00FFFF', 'Roboto'),
-                          buildPresetChip('Large & Bold', 60, '#FFFFFF', 'Roboto'),
-                          buildPresetChip('Compact Minimal', 30, '#E0E0E0', 'Roboto'),
-                        ],
+                    if (_isCurrentSubtitlePgs()) ...[
+                      Container(
+                        margin: const EdgeInsets.only(bottom: 16),
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.amber.withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: Colors.amber.withOpacity(0.5), width: 1),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.warning_amber_rounded, color: Colors.amber, size: 24),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: const [
+                                  Text(
+                                    'Graphic Subtitles Active',
+                                    style: TextStyle(color: Colors.amber, fontSize: 13, fontWeight: FontWeight.bold),
+                                  ),
+                                  SizedBox(height: 2),
+                                  Text(
+                                    'PGS/HDMV subtitles are image-based and do not support size, color, or font customizations.',
+                                    style: TextStyle(color: Colors.white70, fontSize: 11),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 16),
-                    Text('Font Size: ${fontSize.round()}px', style: const TextStyle(color: Colors.white70, fontSize: 14)),
-                    Slider(
-                      value: fontSize,
-                      min: 15,
-                      max: 80,
-                      divisions: 65,
-                      activeColor: settingsAccent,
-                      inactiveColor: Colors.white24,
-                      onChanged: (val) {
-                        storage.setSubtitleFontSize(val);
-                        _applySubtitleProperty('sub-font-size', val.round().toString());
-                        setState(() {});
-                        setModalState(() {});
-                      },
-                    ),
+                    ],
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -3417,82 +3393,104 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                         setModalState(() {});
                       },
                     ),
-                    const Text('Text Color', style: TextStyle(color: Colors.white70, fontSize: 14)),
-                    const SizedBox(height: 8),
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children: [
-                          _buildColorOption(setModalState, storage, 'White', '#FFFFFF', color),
-                          _buildColorOption(setModalState, storage, 'Yellow', '#FFFF00', color),
-                          _buildColorOption(setModalState, storage, 'Cyan', '#00FFFF', color),
-                          _buildColorOption(setModalState, storage, 'Green', '#00FF00', color),
-                          _buildColorOption(setModalState, storage, 'Red', '#FF0000', color),
-                        ],
+                    const SizedBox(height: 10),
+                    IgnorePointer(
+                      ignoring: _isCurrentSubtitlePgs(),
+                      child: Opacity(
+                        opacity: _isCurrentSubtitlePgs() ? 0.5 : 1.0,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('Presets', style: TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.bold)),
+                            const SizedBox(height: 6),
+                            SizedBox(
+                              height: 38,
+                              child: ListView(
+                                scrollDirection: Axis.horizontal,
+                                children: [
+                                  buildPresetChip('Default White', 45, '#FFFFFF', 'Roboto'),
+                                  buildPresetChip('Classic Anime', 45, '#FFFF00', 'Roboto'),
+                                  buildPresetChip('Soft Cyan', 45, '#00FFFF', 'Roboto'),
+                                  buildPresetChip('Large & Bold', 60, '#FFFFFF', 'Roboto'),
+                                  buildPresetChip('Compact Minimal', 30, '#E0E0E0', 'Roboto'),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            Text('Font Size: ${fontSize.round()}px', style: const TextStyle(color: Colors.white70, fontSize: 14)),
+                            Slider(
+                              value: fontSize,
+                              min: 15,
+                              max: 80,
+                              divisions: 65,
+                              activeColor: settingsAccent,
+                              inactiveColor: Colors.white24,
+                              onChanged: (val) {
+                                storage.setSubtitleFontSize(val);
+                                _applySubtitleProperty('sub-font-size', val.round().toString());
+                                setState(() {});
+                                setModalState(() {});
+                              },
+                            ),
+                            const SizedBox(height: 8),
+                            const Text('Text Color', style: TextStyle(color: Colors.white70, fontSize: 14)),
+                            const SizedBox(height: 8),
+                            SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              child: Row(
+                                children: [
+                                  _buildColorOption(setModalState, storage, 'White', '#FFFFFF', color),
+                                  _buildColorOption(setModalState, storage, 'Yellow', '#FFFF00', color),
+                                  _buildColorOption(setModalState, storage, 'Cyan', '#00FFFF', color),
+                                  _buildColorOption(setModalState, storage, 'Green', '#00FF00', color),
+                                  _buildColorOption(setModalState, storage, 'Red', '#FF0000', color),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            const Text('Font Family', style: TextStyle(color: Colors.white70, fontSize: 14)),
+                            const SizedBox(height: 8),
+                            DropdownButton<String>(
+                              value: font,
+                              dropdownColor: Colors.black,
+                              style: const TextStyle(color: Colors.white, fontSize: 14),
+                              underline: Container(height: 1, color: settingsAccent),
+                              isExpanded: true,
+                              items: const [
+                                DropdownMenuItem(value: 'Roboto', child: Text('Roboto')),
+                                DropdownMenuItem(value: 'Arial', child: Text('Arial')),
+                                DropdownMenuItem(value: 'sans-serif', child: Text('Sans-Serif')),
+                                DropdownMenuItem(value: 'DejaVuSans', child: Text('DejaVuSans')),
+                              ],
+                              onChanged: (val) {
+                                if (val != null) {
+                                  storage.setSubtitleFont(val);
+                                  _applySubtitleProperty('sub-font', val);
+                                  setState(() {});
+                                  setModalState(() {});
+                                }
+                              },
+                            ),
+                            if (Platform.isAndroid) ...[
+                              const SizedBox(height: 16),
+                              SwitchListTile(
+                                title: const Text('Use System Fonts', style: TextStyle(color: Colors.white70, fontSize: 14)),
+                                subtitle: const Text('Access Android system fonts for subtitle fallback. Fixes missing subtitles.', style: TextStyle(color: Colors.white38, fontSize: 11)),
+                                value: storage.getSubtitleSystemFonts(),
+                                activeColor: settingsAccent,
+                                contentPadding: EdgeInsets.zero,
+                                onChanged: (val) {
+                                  storage.setSubtitleSystemFonts(val);
+                                  _applySubtitleProperty('sub-font-provider', val ? 'auto' : 'none');
+                                  setState(() {});
+                                  setModalState(() {});
+                                },
+                              ),
+                            ],
+                          ],
+                        ),
                       ),
                     ),
-                    const SizedBox(height: 16),
-                    const Text('Font Family', style: TextStyle(color: Colors.white70, fontSize: 14)),
-                    const SizedBox(height: 8),
-                    DropdownButton<String>(
-                      value: font,
-                      dropdownColor: Colors.black,
-                      style: const TextStyle(color: Colors.white, fontSize: 14),
-                      underline: Container(height: 1, color: settingsAccent),
-                      isExpanded: true,
-                      items: const [
-                        DropdownMenuItem(value: 'Roboto', child: Text('Roboto')),
-                        DropdownMenuItem(value: 'Arial', child: Text('Arial')),
-                        DropdownMenuItem(value: 'sans-serif', child: Text('Sans-Serif')),
-                        DropdownMenuItem(value: 'DejaVuSans', child: Text('DejaVuSans')),
-                      ],
-                      onChanged: (val) {
-                        if (val != null) {
-                          storage.setSubtitleFont(val);
-                          _applySubtitleProperty('sub-font', val);
-                          setState(() {});
-                          setModalState(() {});
-                        }
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                    const Text('Subtitle Renderer', style: TextStyle(color: Colors.white70, fontSize: 14)),
-                    const SizedBox(height: 8),
-                    DropdownButton<String>(
-                      value: storage.getSubtitleRenderer(),
-                      dropdownColor: Colors.black,
-                      style: const TextStyle(color: Colors.white, fontSize: 14),
-                      underline: Container(height: 1, color: settingsAccent),
-                      isExpanded: true,
-                      items: const [
-                        DropdownMenuItem(value: 'flutter', child: Text('Flutter (Compatible)')),
-                        DropdownMenuItem(value: 'native', child: Text('Native (libass)')),
-                      ],
-                      onChanged: (val) {
-                        if (val != null) {
-                          storage.setSubtitleRenderer(val);
-                          _applySubtitleProperty('sub-visibility', val == 'native' ? 'yes' : 'no');
-                          setState(() {});
-                          setModalState(() {});
-                        }
-                      },
-                    ),
-                    if (Platform.isAndroid) ...[
-                      const SizedBox(height: 16),
-                      SwitchListTile(
-                        title: const Text('Use System Fonts', style: TextStyle(color: Colors.white70, fontSize: 14)),
-                        subtitle: const Text('Access Android system fonts for subtitle fallback. Fixes missing subtitles.', style: TextStyle(color: Colors.white38, fontSize: 11)),
-                        value: storage.getSubtitleSystemFonts(),
-                        activeColor: settingsAccent,
-                        contentPadding: EdgeInsets.zero,
-                        onChanged: (val) {
-                          storage.setSubtitleSystemFonts(val);
-                          _applySubtitleProperty('sub-font-provider', val ? 'auto' : 'none');
-                          setState(() {});
-                          setModalState(() {});
-                        },
-                      ),
-                    ],
                     const SizedBox(height: 20),
                   ],
                 ),

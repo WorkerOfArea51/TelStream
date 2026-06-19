@@ -81,8 +81,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
     _settings = ref.read(videoSettingsProvider);
     _proxyService = ref.read(streamingProxyServiceProvider);
     
-    final subtitleRenderer = _storageService.getSubtitleRenderer();
-    final useNative = subtitleRenderer == 'native';
+
 
     player = Player(
       configuration: PlayerConfiguration(
@@ -108,7 +107,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         nativePlayer.setProperty('hr-seek', 'no'); // Disable high-precision seeking on slow networks to seek instantly to keyframes
         
         // Set synchronization clocks and framedrop to maintain perfect audio/video/subtitle sync at high speed
-        nativePlayer.setProperty('video-sync', 'audio');
+        nativePlayer.setProperty('video-sync', 'display-resample');
         nativePlayer.setProperty('audio-pitch-correction', 'yes');
         nativePlayer.setProperty('audio-buffer', '0.2'); // Increased to 0.2s to prevent audio underflow stutters
         nativePlayer.setProperty('framedrop', 'decoder+vo'); // Drop late frames in both decoder and VO to avoid lag at 2x speed
@@ -117,6 +116,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         nativePlayer.setProperty('stream-buffer-size', '8388608'); // 8 MB stream buffer for high-throughput network reading
         nativePlayer.setProperty('vd-lavc-fast', 'yes'); // Enable fast decoding optimizations
         nativePlayer.setProperty('vd-lavc-skiploopfilter', 'all'); // Skip all loop filtering to keep up with 2x playback speed
+        nativePlayer.setProperty('vd-lavc-threads', '0'); // Enable multi-threaded video decoding to prevent lag at 2x speed
 
         final hwDecMode = _storageService.getHardwareDecoderMode();
         if (hwDecMode != 'no') {
@@ -128,41 +128,35 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         } else {
           nativePlayer.setProperty('hwdec', 'no');
         }
-        if (useNative) {
-          nativePlayer.setProperty('sub-visibility', 'yes');
-          nativePlayer.setProperty('sub-auto', 'all');
-          nativePlayer.setProperty('embeddedfonts', 'yes'); // Enable embedded fonts inside media containers (MKV, etc.)
-          nativePlayer.setProperty('blend-subtitles', 'no'); // Set to 'no' so subtitles render independently and sync perfectly with the master audio clock
+        // Always configure native subtitle rendering (libass)
+        nativePlayer.setProperty('sub-visibility', 'yes');
+        nativePlayer.setProperty('sub-auto', 'all');
+        nativePlayer.setProperty('embeddedfonts', 'yes'); // Enable embedded fonts inside media containers (MKV, etc.)
+        nativePlayer.setProperty('blend-subtitles', 'no'); // Set to 'no' so subtitles render independently and sync perfectly with the master audio clock
 
-          // Load subtitle customizations
-          final subSize = _storageService.getSubtitleFontSize();
-          final subColor = _storageService.getSubtitleColor();
-          final subDelay = _storageService.getSubtitleDelay();
-          final subFont = _storageService.getSubtitleFont();
+        // Load subtitle customizations
+        final subSize = _storageService.getSubtitleFontSize();
+        final subColor = _storageService.getSubtitleColor();
+        final subDelay = _storageService.getSubtitleDelay();
+        final subFont = _storageService.getSubtitleFont();
 
-          nativePlayer.setProperty('sub-font-size', subSize.round().toString());
-          nativePlayer.setProperty('sub-color', subColor);
-          nativePlayer.setProperty('sub-delay', subDelay.toString());
+        nativePlayer.setProperty('sub-font-size', subSize.round().toString());
+        nativePlayer.setProperty('sub-color', subColor);
+        nativePlayer.setProperty('sub-delay', subDelay.toString());
 
-          // Set sub-font to the font family name.
-          String resolvedFontFamily = 'Roboto'; // Default to Roboto
-          if (subFont.toLowerCase().contains('arial')) {
-            resolvedFontFamily = 'Arial';
-          } else if (subFont.toLowerCase().contains('dejavu')) {
-            resolvedFontFamily = 'DejaVuSans';
-          } else if (subFont.toLowerCase().contains('sans-serif')) {
-            resolvedFontFamily = 'sans-serif';
-          } else if (subFont.toLowerCase().contains('roboto')) {
-            resolvedFontFamily = 'Roboto';
-          }
-          
-          nativePlayer.setProperty('sub-font', resolvedFontFamily);
-        } else {
-          // Flutter rendering mode
-          nativePlayer.setProperty('sub-visibility', 'no'); // Hide native subtitle overlay to avoid duplication
-          nativePlayer.setProperty('sub-auto', 'all');
-          nativePlayer.setProperty('sub-delay', _storageService.getSubtitleDelay().toString());
+        // Set sub-font to the font family name.
+        String resolvedFontFamily = 'Roboto'; // Default to Roboto
+        if (subFont.toLowerCase().contains('arial')) {
+          resolvedFontFamily = 'Arial';
+        } else if (subFont.toLowerCase().contains('dejavu')) {
+          resolvedFontFamily = 'DejaVuSans';
+        } else if (subFont.toLowerCase().contains('sans-serif')) {
+          resolvedFontFamily = 'sans-serif';
+        } else if (subFont.toLowerCase().contains('roboto')) {
+          resolvedFontFamily = 'Roboto';
         }
+        
+        nativePlayer.setProperty('sub-font', resolvedFontFamily);
 
         final volBoost = _storageService.getVolumeBoostEnabled();
         if (volBoost) {
