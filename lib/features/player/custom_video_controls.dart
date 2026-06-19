@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:typed_data';
 import 'dart:math' as math;
 import 'dart:ui';
 import 'package:flutter/material.dart';
@@ -15,6 +16,8 @@ import '../../services/storage_service.dart';
 import '../../services/subtitle_downloader_service.dart';
 import '../../services/skip_times_service.dart';
 import '../../core/logger.dart';
+import 'package:path_provider/path_provider.dart';
+import '../../services/permission_service.dart';
 import 'pip_manager.dart';
 import '../../services/download_service.dart';
 
@@ -129,6 +132,11 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
   bool _toastShowing = false;
   String _toastMessage = '';
   Timer? _toastTimer;
+
+  bool _isMuted = false;
+  double _preMuteVolume = 100.0;
+  Duration? _abRepeatA;
+  Duration? _abRepeatB;
 
   // Sleep timer variables
   Timer? _sleepTimer;
@@ -435,6 +443,225 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     });
   }
 
+  void _checkAbRepeat(Duration pos) {
+    if (_abRepeatA != null && _abRepeatB != null) {
+      if (pos >= _abRepeatB!) {
+        _performSeek(_abRepeatA!);
+      }
+    }
+  }
+
+  void _toggleAbRepeat() {
+    final currentPos = widget.player.state.position;
+    setState(() {
+      if (_abRepeatA == null) {
+        _abRepeatA = currentPos;
+        _showSkipToast('A-B Repeat: Point A set');
+      } else if (_abRepeatB == null) {
+        if (currentPos <= _abRepeatA!) {
+          _showSkipToast('Point B must be after Point A');
+          return;
+        }
+        _abRepeatB = currentPos;
+        _showSkipToast('A-B Repeat: Repeating loop');
+        _performSeek(_abRepeatA!);
+      } else {
+        _abRepeatA = null;
+        _abRepeatB = null;
+        _showSkipToast('A-B Repeat: Cleared');
+      }
+    });
+  }
+
+  void _toggleMute() {
+    setState(() {
+      if (_isMuted) {
+        _isMuted = false;
+        _currentVolume = _preMuteVolume;
+        FlutterVolumeController.setVolume(_currentVolume / 100.0);
+        _showSkipToast('Volume restored');
+      } else {
+        _isMuted = true;
+        _preMuteVolume = _currentVolume;
+        _currentVolume = 0.0;
+        FlutterVolumeController.setVolume(0.0);
+        _showSkipToast('Volume muted');
+      }
+    });
+  }
+
+  Future<void> _takeScreenshot() async {
+    try {
+      final hasPermission = await ref.read(permissionServiceProvider).requestStoragePermission();
+      if (!hasPermission) {
+        _showSkipToast('Storage permission denied');
+        return;
+      }
+
+      final Uint8List? screenshotBytes = await widget.player.screenshot(format: 'image/png');
+      if (screenshotBytes == null || screenshotBytes.isEmpty) {
+        _showSkipToast('Failed to capture screenshot');
+        return;
+      }
+
+      Directory? baseDir;
+      if (Platform.isAndroid) {
+        final picturesDir = Directory('/storage/emulated/0/Pictures');
+        if (picturesDir.existsSync()) {
+          baseDir = Directory('/storage/emulated/0/Pictures/TelStream');
+        } else {
+          final downloadsDir = Directory('/storage/emulated/0/Download');
+          if (downloadsDir.existsSync()) {
+            baseDir = Directory('/storage/emulated/0/Download/TelStream');
+          }
+        }
+      }
+
+      if (baseDir == null) {
+        final docDir = await getApplicationDocumentsDirectory();
+        baseDir = Directory('${docDir.path}/Screenshots');
+      }
+
+      if (!baseDir.existsSync()) {
+        baseDir.createSync(recursive: true);
+      }
+
+      final cleanTitle = widget.videoTitle.replaceAll(RegExp(r'[^\w\-\.]'), '_');
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final filePath = '${baseDir.path}/Screenshot_${cleanTitle}_$timestamp.png';
+      final file = File(filePath);
+      await file.writeAsBytes(screenshotBytes);
+
+      _showSkipToast('Screenshot saved to ${baseDir.path.split("/").last}');
+    } catch (e, stack) {
+      Log.e('Failed to take screenshot', e, stack);
+      _showSkipToast('Error saving screenshot: $e');
+    }
+  }
+
+  Widget _buildCircularActionButton({
+    required IconData icon,
+    required String label,
+    required bool isActive,
+    required VoidCallback onTap,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: isActive ? Colors.white24 : Colors.black38,
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white24, width: 1),
+            ),
+            child: IconButton(
+              iconSize: 20,
+              padding: EdgeInsets.zero,
+              icon: Icon(icon, color: Colors.white),
+              onPressed: onTap,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            label,
+            style: const TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.w500),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildQuickActionRow() {
+    final settings = ref.watch(videoSettingsProvider);
+    final notifier = ref.read(videoSettingsProvider.notifier);
+    return Container(
+      height: 75,
+      margin: const EdgeInsets.only(top: 12),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Row(
+          children: [
+            _buildCircularActionButton(
+              icon: _isMuted ? Icons.volume_off : Icons.volume_up,
+              label: 'Mute',
+              isActive: _isMuted,
+              onTap: _toggleMute,
+            ),
+            _buildCircularActionButton(
+              icon: Icons.screen_rotation,
+              label: 'Rotate',
+              isActive: !_isFullscreen,
+              onTap: _toggleFullscreen,
+            ),
+            if (_hasChapters)
+              _buildCircularActionButton(
+                icon: Icons.format_list_bulleted,
+                label: 'Chapters',
+                isActive: _showChaptersPanel,
+                onTap: _openChaptersPanel,
+              ),
+            _buildCircularActionButton(
+              icon: Icons.repeat,
+              label: 'A-B Repeat',
+              isActive: _abRepeatA != null,
+              onTap: _toggleAbRepeat,
+            ),
+            _buildCircularActionButton(
+              icon: _sleepTimerSecondsRemaining != null ? Icons.snooze : Icons.snooze_outlined,
+              label: 'Sleep Timer',
+              isActive: _sleepTimerSecondsRemaining != null,
+              onTap: _showSleepTimerSelector,
+            ),
+            _buildCircularActionButton(
+              icon: _nightModeActive ? Icons.nights_stay : Icons.nights_stay_outlined,
+              label: 'Night Mode',
+              isActive: _nightModeActive,
+              onTap: () {
+                setState(() {
+                  _nightModeActive = !_nightModeActive;
+                  _updateAudioFilters();
+                  _showSkipToast(_nightModeActive ? 'Night Mode: Enabled' : 'Night Mode: Disabled');
+                });
+              },
+            ),
+            _buildCircularActionButton(
+              icon: settings.autoplayNextVideo ? Icons.skip_next : Icons.skip_next_outlined,
+              label: 'Auto Next',
+              isActive: settings.autoplayNextVideo,
+              onTap: () {
+                notifier.updateSettings(settings.copyWith(autoplayNextVideo: !settings.autoplayNextVideo));
+                _showSkipToast(!settings.autoplayNextVideo ? 'Auto Next: Enabled' : 'Auto Next: Disabled');
+              },
+            ),
+            _buildCircularActionButton(
+              icon: settings.autoSkipIntroOutro ? Icons.fast_forward : Icons.fast_forward_outlined,
+              label: 'Auto Skip',
+              isActive: settings.autoSkipIntroOutro,
+              onTap: () {
+                notifier.updateSettings(settings.copyWith(autoSkipIntroOutro: !settings.autoSkipIntroOutro));
+                _showSkipToast(!settings.autoSkipIntroOutro ? 'Auto Skip: Enabled' : 'Auto Skip: Disabled');
+              },
+            ),
+            _buildCircularActionButton(
+              icon: Icons.picture_in_picture_alt,
+              label: 'Pop-up Play',
+              isActive: false,
+              onTap: () {
+                _showSkipToast('Pop-up Play is handled automatically in background');
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildCheckboxToggle({
     required String label,
     required bool value,
@@ -500,6 +727,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     _positionSubscription = widget.player.stream.position.listen((pos) {
       _checkAutoNextTrigger(pos);
       _checkSkipTimes(pos);
+      _checkAbRepeat(pos);
     });
     _durationSubscription = widget.player.stream.duration.listen((dur) {
       if (dur.inSeconds > 0) {
@@ -2565,149 +2793,105 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
             Container(color: Colors.black54),
 
           if (_showControls && !_isLocked && !_showTrackSelectorPanel && !_showRatioPanel) ...[
-            // Top Bar
+            // Top Bar & Quick Actions
             Positioned(
               top: 40, left: 16, right: 16,
-              child: Row(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  IconButton(icon: const Icon(Icons.arrow_back, color: Colors.white), onPressed: widget.onBack),
-                  Expanded(
-                    child: Text(widget.videoTitle, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis),
-                  ),
-                  if (_sleepTimerSecondsRemaining != null)
-                    Padding(
-                      padding: const EdgeInsets.only(right: 4.0),
-                      child: Text(
-                        _formatSleepTimeRemaining(_sleepTimerSecondsRemaining!),
-                        style: TextStyle(
-                          color: settingsAccent,
-                          fontSize: 13,
-                          fontWeight: FontWeight.bold,
-                        ),
+                  Row(
+                    children: [
+                      IconButton(icon: const Icon(Icons.arrow_back, color: Colors.white), onPressed: widget.onBack),
+                      Expanded(
+                        child: Text(widget.videoTitle, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis),
                       ),
-                    ),
-                  IconButton(
-                    icon: Icon(
-                      _sleepTimerSecondsRemaining != null ? Icons.snooze : Icons.snooze_outlined,
-                      color: _sleepTimerSecondsRemaining != null ? settingsAccent : Colors.white,
-                    ),
-                    onPressed: _showSleepTimerSelector,
-                  ),
-                  Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 4),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: Colors.white54, width: 1),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: InkWell(
-                      onTap: _toggleDecoderMode,
-                      borderRadius: BorderRadius.circular(4),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                        child: Text(
-                          _getDecoderModeLabel(),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 12,
+                      if (_sleepTimerSecondsRemaining != null)
+                        Padding(
+                          padding: const EdgeInsets.only(right: 4.0),
+                          child: Text(
+                            _formatSleepTimeRemaining(_sleepTimerSecondsRemaining!),
+                            style: TextStyle(
+                              color: settingsAccent,
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 4),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.white54, width: 1.5),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: InkWell(
+                          onTap: _toggleDecoderMode,
+                          borderRadius: BorderRadius.circular(4),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                            child: Text(
+                              _getDecoderModeLabel(),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 11,
+                              ),
+                            ),
                           ),
                         ),
                       ),
-                    ),
+                      IconButton(
+                        icon: const Icon(Icons.closed_caption_outlined, color: Colors.white), 
+                        onPressed: () => _showTrackSelector(
+                          title: 'Subtitles',
+                          isSubtitle: true,
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.music_note_outlined, color: Colors.white), 
+                        onPressed: () => _showTrackSelector(
+                          title: 'Audio Tracks',
+                          isSubtitle: false,
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.playlist_play_outlined, color: Colors.white),
+                        onPressed: _showQueueManagerSheet,
+                      ),
+                    ],
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.subtitles, color: Colors.white), 
-                    onPressed: () => _showTrackSelector(
-                      title: 'Subtitles',
-                      isSubtitle: true,
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.headphones, color: Colors.white), 
-                    onPressed: () => _showTrackSelector(
-                      title: 'Audio Tracks',
-                      isSubtitle: false,
-                    ),
-                  ),
+                  _buildQuickActionRow(),
                 ],
               ),
             ),
             
-            // Center Play/Pause
-            Center(
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  IconButton(
-                    iconSize: 48,
-                    icon: Icon(
-                      Icons.skip_previous,
-                      color: widget.hasPrevEpisode ? Colors.white : Colors.white24,
-                    ),
-                    onPressed: widget.hasPrevEpisode ? widget.onPrevEpisode : null,
+            // Middle-Right Screenshot Camera Button
+            Positioned(
+              right: 16,
+              top: 0,
+              bottom: 0,
+              child: Center(
+                child: Container(
+                  decoration: const BoxDecoration(
+                    color: Colors.black38,
+                    shape: BoxShape.circle,
                   ),
-                  const SizedBox(width: 32),
-                  StreamBuilder<bool>(
-                    stream: widget.player.stream.playing,
-                    builder: (context, snapshot) {
-                      final playing = snapshot.data ?? widget.player.state.playing;
-                      return IconButton(
-                        iconSize: 64,
-                        icon: Icon(playing ? Icons.pause_circle_filled : Icons.play_circle_filled, color: Colors.white),
-                        onPressed: () {
-                          if (playing) {
-                            widget.player.pause();
-                          } else {
-                            widget.player.play();
-                          }
-                        },
-                      );
-                    },
+                  child: IconButton(
+                    icon: const Icon(Icons.camera_alt_outlined, color: Colors.white),
+                    iconSize: 28,
+                    onPressed: _takeScreenshot,
                   ),
-                  const SizedBox(width: 32),
-                  IconButton(
-                    iconSize: 48,
-                    icon: Icon(
-                      Icons.skip_next,
-                      color: widget.hasNextEpisode ? Colors.white : Colors.white24,
-                    ),
-                    onPressed: widget.hasNextEpisode ? widget.onNextEpisode : null,
-                  ),
-                ],
+                ),
               ),
             ),
 
-            // Bottom Bar
+            // Bottom Bar seekbar and playback controls
             Positioned(
               bottom: 16, left: 16, right: 16,
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Action Row (mpvEx style)
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      _buildActionButton(Icons.lock_open, 'Lock', () {
-                        setState(() => _isLocked = true);
-                        _startHideTimer();
-                      }),
-                      _buildActionButton(Icons.screen_rotation, 'Rotate', _toggleFullscreen),
-                      _buildActionButton(
-                        Icons.aspect_ratio,
-                        'Fit: ${_getRatioLabel(_currentAspectRatioString)}',
-                        _handleAspectRatioButtonTap,
-                        onLongPress: _tapToSwitchRatio ? _showAspectRatioPanel : null,
-                      ),
-                      if (_hasChapters)
-                        _buildActionButton(Icons.list, 'Chapters', _openChaptersPanel),
-                      _buildActionButton(Icons.playlist_play, 'Queue', _showQueueManagerSheet),
-                      _buildActionButton(Icons.speed, '${_currentSpeed}x', _toggleSpeed),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  
-                  // Seekbar & Time
-                   PlayerSeekBar(
+                  PlayerSeekBar(
                     player: widget.player,
                     downloadedPrefixSize: widget.downloadedPrefixSize,
                     expectedSize: widget.expectedSize,
@@ -2721,37 +2905,80 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                     onSeekPerformed: _performSeek,
                     chapters: _chapters,
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 10),
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      _buildCheckboxToggle(
-                        label: 'Auto Play',
-                        value: true,
-                        onChanged: (_) {},
-                        settingsAccent: settingsAccent,
-                      ),
-                      const SizedBox(width: 24),
-                      _buildCheckboxToggle(
-                        label: 'Auto Next',
-                        value: settings.autoplayNextVideo,
-                        onChanged: (val) {
-                          if (val != null) {
-                            notifier.updateSettings(settings.copyWith(autoplayNextVideo: val));
-                          }
+                      IconButton(
+                        icon: const Icon(Icons.lock_open_outlined, color: Colors.white70),
+                        iconSize: 24,
+                        onPressed: () {
+                          setState(() => _isLocked = true);
+                          _startHideTimer();
                         },
-                        settingsAccent: settingsAccent,
                       ),
-                      const SizedBox(width: 24),
-                      _buildCheckboxToggle(
-                        label: 'Auto Skip',
-                        value: settings.autoSkipIntroOutro,
-                        onChanged: (val) {
-                          if (val != null) {
-                            notifier.updateSettings(settings.copyWith(autoSkipIntroOutro: val));
-                          }
-                        },
-                        settingsAccent: settingsAccent,
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            iconSize: 28,
+                            icon: Icon(
+                              Icons.skip_previous,
+                              color: widget.hasPrevEpisode ? Colors.white : Colors.white24,
+                            ),
+                            onPressed: widget.hasPrevEpisode ? widget.onPrevEpisode : null,
+                          ),
+                          const SizedBox(width: 16),
+                          StreamBuilder<bool>(
+                            stream: widget.player.stream.playing,
+                            builder: (context, snapshot) {
+                              final playing = snapshot.data ?? widget.player.state.playing;
+                              return Container(
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  border: Border.all(color: Colors.white, width: 1.5),
+                                ),
+                                child: IconButton(
+                                  icon: Icon(playing ? Icons.pause : Icons.play_arrow, color: Colors.white),
+                                  iconSize: 32,
+                                  onPressed: () {
+                                    if (playing) {
+                                      widget.player.pause();
+                                    } else {
+                                      widget.player.play();
+                                    }
+                                  },
+                                ),
+                              );
+                            },
+                          ),
+                          const SizedBox(width: 16),
+                          IconButton(
+                            iconSize: 28,
+                            icon: Icon(
+                              Icons.skip_next,
+                              color: widget.hasNextEpisode ? Colors.white : Colors.white24,
+                            ),
+                            onPressed: widget.hasNextEpisode ? widget.onNextEpisode : null,
+                          ),
+                        ],
+                      ),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          TextButton(
+                            onPressed: _toggleSpeed,
+                            child: Text(
+                              'Speed (${_currentSpeed}x)',
+                              style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.fit_screen_outlined, color: Colors.white),
+                            iconSize: 24,
+                            onPressed: _handleAspectRatioButtonTap,
+                          ),
+                        ],
                       ),
                     ],
                   ),
