@@ -664,6 +664,16 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
         child: Row(
           children: [
             ...firstThree,
+            AnimatedSize(
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeInOut,
+              child: _quickActionsExpanded
+                  ? Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: remaining,
+                    )
+                  : const SizedBox.shrink(),
+            ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 10),
               child: Column(
@@ -698,16 +708,6 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                   ),
                 ],
               ),
-            ),
-            AnimatedSize(
-              duration: const Duration(milliseconds: 300),
-              curve: Curves.easeInOut,
-              child: _quickActionsExpanded
-                  ? Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: remaining,
-                    )
-                  : const SizedBox.shrink(),
             ),
           ],
         ),
@@ -2983,6 +2983,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                   ),
                   const SizedBox(height: 10),
                   SizedBox(
+                    width: double.infinity,
                     height: 48,
                     child: Stack(
                       alignment: Alignment.center,
@@ -3005,6 +3006,21 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                         Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
+                            Visibility(
+                              visible: false,
+                              maintainSize: true,
+                              child: TextButton(
+                                onPressed: null,
+                                child: const Text(
+                                  '90s+',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 16),
                             IconButton(
                               iconSize: 28,
                               icon: Icon(
