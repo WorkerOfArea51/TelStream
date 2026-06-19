@@ -207,21 +207,9 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     }
   }
 
-  bool _isExcludedChapter(String title) {
-    final name = title.toLowerCase().trim();
-    return name.contains('preview') ||
-        name.contains('prologue') ||
-        name.contains('recap') ||
-        name.contains('next') ||
-        name.contains('info') ||
-        name.contains('sponsor') ||
-        name.contains('trailer') ||
-        name.contains('advertisement');
-  }
-
   bool _isChapterIntro(VideoChapter ch, double start, double end) {
     final titleLower = ch.title.toLowerCase().trim();
-    if (titleLower.contains('intro') ||
+    return titleLower.contains('intro') ||
         titleLower.contains('opening') ||
         titleLower.contains('theme') ||
         titleLower.contains('title sequence') ||
@@ -234,36 +222,12 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
         titleLower.contains('op 1') ||
         titleLower.contains('op 2') ||
         titleLower.contains('op1') ||
-        titleLower.contains('op2')) {
-      return true;
-    }
-    
-    if (_isExcludedChapter(ch.title)) return false;
-
-    final duration = end - start;
-    final totalDuration = widget.player.state.duration.inSeconds.toDouble();
-
-    if (totalDuration <= 1680.0) {
-      // Short videos / Anime (< 28 mins)
-      if (duration >= 60.0 && duration <= 120.0) {
-        if (start <= 360.0) {
-          return true;
-        }
-      }
-    } else {
-      // Long videos / TV Shows / Movies (> 28 mins)
-      if (duration >= 25.0 && duration <= 95.0) {
-        if (start <= 900.0) { // first 15 mins
-          return true;
-        }
-      }
-    }
-    return false;
+        titleLower.contains('op2');
   }
 
   bool _isChapterOutro(VideoChapter ch, double start, double end, double totalDuration) {
     final titleLower = ch.title.toLowerCase().trim();
-    if (titleLower.contains('outro') ||
+    return titleLower.contains('outro') ||
         titleLower.contains('ending') ||
         titleLower.contains('credits') ||
         titleLower.contains('credit') ||
@@ -278,30 +242,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
         titleLower.contains('ed 1') ||
         titleLower.contains('ed 2') ||
         titleLower.contains('ed1') ||
-        titleLower.contains('ed2')) {
-      return true;
-    }
-    
-    if (_isExcludedChapter(ch.title)) return false;
-
-    final duration = end - start;
-
-    if (totalDuration <= 1680.0) {
-      // Short videos / Anime (< 28 mins)
-      if (duration >= 60.0 && duration <= 180.0) {
-        if (totalDuration > 0 && (totalDuration - start) <= 300.0) {
-          return true;
-        }
-      }
-    } else {
-      // Long videos / TV Shows / Movies (> 28 mins)
-      if (duration >= 40.0 && duration <= 240.0) {
-        if (totalDuration > 0 && (totalDuration - start) <= 480.0) { // last 8 mins
-          return true;
-        }
-      }
-    }
-    return false;
+        titleLower.contains('ed2');
   }
 
   List<SkipInterval> _extractSkipTimesFromChapters() {
@@ -2795,7 +2736,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
           ],
 
           // Contextual Skip Intro/Outro Button
-          if ((_showIntroOverlay || _showOutroOverlay) && !_isLocked && !widget.isPip)
+          if ((_showIntroOverlay || (_showOutroOverlay && !_showAutoNextCountdown)) && !_isLocked && !widget.isPip)
             Positioned(
               bottom: _showControls ? 140 : 40,
               right: 24,
