@@ -38,6 +38,26 @@ class SkipTimesService {
 
   SkipTimesService(this._storageService);
 
+  String? _extractSeason(String title) {
+    // Match "Season 2", "Season 02", "S2", "S02"
+    final match = RegExp(r'(?:Season\s*|S)(\d+)', caseSensitive: false).firstMatch(title);
+    if (match != null) {
+      final seasonNum = int.tryParse(match.group(1)!);
+      if (seasonNum != null) {
+        return 'Season $seasonNum';
+      }
+    }
+    // Match "2nd Season", "1st Season", etc.
+    final matchOrder = RegExp(r'(\d+)(?:st|nd|rd|th)\s*Season', caseSensitive: false).firstMatch(title);
+    if (matchOrder != null) {
+      final seasonNum = int.tryParse(matchOrder.group(1)!);
+      if (seasonNum != null) {
+        return 'Season $seasonNum';
+      }
+    }
+    return null;
+  }
+
   // Clean series name for MAL search
   String _cleanTitleForMal(String title) {
     var clean = title.trim();
@@ -49,8 +69,10 @@ class SkipTimesService {
     clean = clean.replaceAll(RegExp(r'(Dual|Multi)[-\s]Audio', caseSensitive: false), '');
     // Remove encode tags
     clean = clean.replaceAll(RegExp(r'(10bit|x265|hevc|x264|h264|bdrip|web-rip|webrip)', caseSensitive: false), '');
-    // Remove season terms like Season 1, S1, S2, etc.
-    clean = clean.replaceAll(RegExp(r'(Season\s+\d+|S\d+)', caseSensitive: false), '');
+    
+    // Strip episode numbers at the end, but preserve season numbers (e.g. S2, Season 2)
+    clean = clean.replaceAll(RegExp(r'(?:[-\s]+(?:Episode|Ep)\s*\d+|[-\s]+\d+)\s*$', caseSensitive: false), '');
+
     // Remove square brackets and parentheses content
     clean = clean.replaceAll(RegExp(r'\[[^\]]*\]'), '');
     clean = clean.replaceAll(RegExp(r'\([^)]*\)'), '');
@@ -63,6 +85,7 @@ class SkipTimesService {
     required String seriesName,
     required int episodeNumber,
     required double totalDuration,
+    String? videoTitle,
   }) async {
     final cacheKey = '${seriesName}_$episodeNumber';
     if (_memoryCache.containsKey(cacheKey)) {
@@ -70,7 +93,17 @@ class SkipTimesService {
     }
 
     List<SkipInterval> intervals = [];
-    final cleanName = _cleanTitleForMal(seriesName);
+    var searchQuery = seriesName;
+
+    // Detect and append season to MAL search query if not already present in the folder name
+    if (videoTitle != null && videoTitle.isNotEmpty) {
+      final season = _extractSeason(videoTitle);
+      if (season != null && !searchQuery.toLowerCase().contains(season.toLowerCase())) {
+        searchQuery = '$searchQuery $season';
+      }
+    }
+
+    final cleanName = _cleanTitleForMal(searchQuery);
     if (cleanName.isEmpty) return _getHeuristicFallback(totalDuration);
 
     try {

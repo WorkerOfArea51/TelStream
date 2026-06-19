@@ -190,6 +190,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
         seriesName: widget.seriesName,
         episodeNumber: widget.currentEpisodeIndex + 1,
         totalDuration: duration,
+        videoTitle: widget.videoTitle,
       );
       if (mounted) {
         setState(() {
