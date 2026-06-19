@@ -44,13 +44,13 @@ This update brings Unified Native subtitle rendering, PGS/HDMV compatibility imp
     ),
     ChannelCategory(
       title: 'Movies',
-      channelId: -1000000000001, // PLACEHOLDER
-      inviteLink: 'https://t.me/placeholder_movies', // PLACEHOLDER
+      channelId: Secrets.movieChannelId,
+      inviteLink: Secrets.movieInviteLink,
     ),
     ChannelCategory(
       title: 'Web Series',
-      channelId: -1000000000002, // PLACEHOLDER
-      inviteLink: 'https://t.me/placeholder_series', // PLACEHOLDER
+      channelId: Secrets.webSeriesChannelId,
+      inviteLink: Secrets.webSeriesInviteLink,
     ),
   ];
 }
