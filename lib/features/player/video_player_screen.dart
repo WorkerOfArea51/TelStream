@@ -60,7 +60,6 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
   StreamSubscription? _completedSubscription;
   StreamSubscription? _tracksSubscription;
   StreamSubscription? _bufferingSubscription;
-  StreamSubscription? _rateSubscription;
   Timer? _saveTimer;
   bool _nextEpisodePreloaded = false;
   Timer? _preloadCooldownTimer;
@@ -112,7 +111,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         nativePlayer.setProperty('video-sync', 'audio');
         nativePlayer.setProperty('audio-pitch-correction', 'yes');
         nativePlayer.setProperty('audio-buffer', '0.2'); // Increased to 0.2s to prevent audio underflow stutters
-        nativePlayer.setProperty('framedrop', 'decoder+vo'); // Drop late frames in both decoder and VO to maintain perfect A/V sync at all speeds
+        nativePlayer.setProperty('framedrop', 'vo'); // Drop late frames in VO to avoid lag at 2x speed without decoder slideshow freezes
         nativePlayer.setProperty('sub-fix-timing', 'yes');
         nativePlayer.setProperty('stream-buffer-size', '8388608'); // 8 MB stream buffer for high-throughput network reading
         nativePlayer.setProperty('vd-lavc-fast', 'yes'); // Enable fast decoding optimizations
@@ -196,29 +195,6 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
     } else {
       _resetOrientationAndUI();
     }
-    // Dynamic rate subscription to apply decode skipping for high speed playback (> 1.0x)
-    _rateSubscription = player.stream.rate.listen((rate) {
-      try {
-        if (player.platform is NativePlayer) {
-          final nativePlayer = player.platform as NativePlayer;
-          if (rate > 1.0) {
-            nativePlayer.setProperty('framedrop', 'decoder+vo');
-            nativePlayer.setProperty('vd-lavc-skipframe', 'nonref');
-            nativePlayer.setProperty('vd-lavc-skipidct', 'all');
-            nativePlayer.setProperty('vd-lavc-skiploopfilter', 'all');
-            Log.i('Playback rate: $rate. Applied high-performance frame-drop/IDCT/decoder+vo optimizations.');
-          } else {
-            nativePlayer.setProperty('framedrop', 'decoder+vo');
-            nativePlayer.setProperty('vd-lavc-skipframe', 'default');
-            nativePlayer.setProperty('vd-lavc-skipidct', 'default');
-            nativePlayer.setProperty('vd-lavc-skiploopfilter', 'default');
-            Log.i('Playback rate: $rate. Restored standard decoding configurations.');
-          }
-        }
-      } catch (e) {
-        Log.w('Failed to set rate-dependent native player properties: $e');
-      }
-    });
 
     // Auto-Play Next Episode Logic
     _completedSubscription = player.stream.completed.listen((completed) {
@@ -763,7 +739,6 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
     _completedSubscription?.cancel();
     _tracksSubscription?.cancel();
     _bufferingSubscription?.cancel();
-    _rateSubscription?.cancel();
     _saveTimer?.cancel();
     _preloadCooldownTimer?.cancel();
     
