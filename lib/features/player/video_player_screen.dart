@@ -112,7 +112,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         nativePlayer.setProperty('video-sync', 'audio');
         nativePlayer.setProperty('audio-pitch-correction', 'yes');
         nativePlayer.setProperty('audio-buffer', '0.2'); // Increased to 0.2s to prevent audio underflow stutters
-        nativePlayer.setProperty('framedrop', 'vo'); // Drop late frames in VO to avoid lag at 2x speed without decoder slideshow freezes
+        nativePlayer.setProperty('framedrop', 'decoder+vo'); // Drop late frames in both decoder and VO to maintain perfect A/V sync at all speeds
         nativePlayer.setProperty('sub-fix-timing', 'yes');
         nativePlayer.setProperty('stream-buffer-size', '8388608'); // 8 MB stream buffer for high-throughput network reading
         nativePlayer.setProperty('vd-lavc-fast', 'yes'); // Enable fast decoding optimizations
@@ -208,7 +208,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
             nativePlayer.setProperty('vd-lavc-skiploopfilter', 'all');
             Log.i('Playback rate: $rate. Applied high-performance frame-drop/IDCT/decoder+vo optimizations.');
           } else {
-            nativePlayer.setProperty('framedrop', 'vo');
+            nativePlayer.setProperty('framedrop', 'decoder+vo');
             nativePlayer.setProperty('vd-lavc-skipframe', 'default');
             nativePlayer.setProperty('vd-lavc-skipidct', 'default');
             nativePlayer.setProperty('vd-lavc-skiploopfilter', 'default');
