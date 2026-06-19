@@ -14,8 +14,17 @@ class ChannelCategory {
 }
 
 class Constants {
-  static const String currentVersion = '2.6.3';
+  static const String currentVersion = '2.6.4';
   static const String changelog = '''
+### 🚀 What's New in v2.6.4
+
+* **Forced Subtitles Fix**: Restored reliable subtitle loading and display for all release types (WebDL, BluRay, WebRip).
+* **Expressive Material 3 Controls**: Realigned play control icons (Prev, circular Play/Pause, Next) horizontally and perfectly centered them.
+* **Collapsible Quick Actions Row**: Quick control actions (Mute, Rotate, Chapters, A-B Repeat, Sleep Timer) collapse under an animated Chevron toggle button.
+* **Intro Skip Helper**: Replaced automatic intro/outro triggers with a manual skip button (`90s+`) located next to the Next button.
+* **Autoplay Next Slide-in Card**: Animate episode autoplay countdown card to slide in smoothly after a 2-second delay.
+* **Dynamic Screenshot Saving**: Screenshots are saved under custom download paths if configured, otherwise falling back cleanly to picture and download directories.
+
 ### 🚀 What's New in v2.6.3
 
 This update brings Unified Native subtitle rendering, PGS/HDMV compatibility improvements, instant streaming startup, and high-speed video synchronization enhancements.

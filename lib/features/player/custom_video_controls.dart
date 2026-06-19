@@ -125,10 +125,10 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
   bool _outroSkipped = false;
   bool _showIntroOverlay = false;
   bool _showOutroOverlay = false;
-  bool _isSkipButtonExpanded = true;
-  Timer? _skipButtonCollapseTimer;
-  SkipInterval? _currentActiveOP;
-  SkipInterval? _currentActiveED;
+  // bool _isSkipButtonExpanded = true;
+  // Timer? _skipButtonCollapseTimer;
+  // SkipInterval? _currentActiveOP;
+  // SkipInterval? _currentActiveED;
   bool _toastShowing = false;
   String _toastMessage = '';
   Timer? _toastTimer;
@@ -137,6 +137,9 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
   double _preMuteVolume = 100.0;
   Duration? _abRepeatA;
   Duration? _abRepeatB;
+  bool _quickActionsExpanded = false;
+  bool _autoNextSlideIn = false;
+  Timer? _autoNextSlideInTimer;
 
   // Sleep timer variables
   Timer? _sleepTimer;
@@ -324,109 +327,109 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     }
   }
 
-  void _triggerSkipButtonCollapseTimer() {
-    _skipButtonCollapseTimer?.cancel();
-    setState(() {
-      _isSkipButtonExpanded = true;
-    });
-    _skipButtonCollapseTimer = Timer(const Duration(seconds: 2), () {
-      if (mounted) {
-        setState(() {
-          _isSkipButtonExpanded = false;
-        });
-      }
-    });
-  }
-
-  void _checkSkipTimes(Duration pos) {
-    if (_skipIntervals.isEmpty) return;
-    
-    final settings = ref.read(videoSettingsProvider);
-    final currentSecs = pos.inSeconds.toDouble();
-
-    // Check if we are inside any OP or ED interval
-    SkipInterval? activeOP;
-    SkipInterval? activeED;
-
-    for (final interval in _skipIntervals) {
-      if (currentSecs >= interval.startTime && currentSecs < interval.endTime) {
-        if (interval.type == 'op' || interval.type == 'op_heuristic') {
-          activeOP = interval;
-        } else if (interval.type == 'ed' || interval.type == 'ed_heuristic') {
-          activeED = interval;
-        }
-      }
-    }
-
-    // Handle Intro (OP)
-    if (activeOP != null) {
-      _currentActiveOP = activeOP;
-      final isHeuristic = activeOP.type == 'op_heuristic';
-      if (settings.autoSkipIntroOutro && !isHeuristic) {
-        if (!_introSkipped) {
-          _introSkipped = true;
-          final target = Duration(seconds: activeOP.endTime.toInt());
-          final safeTarget = _clampSeekTarget(target, showMessage: false);
-          _performSeek(safeTarget);
-          _showSkipToast('Auto-skipped Intro');
-        }
-      } else {
-        if (!_showIntroOverlay) {
-          _triggerSkipButtonCollapseTimer();
-          setState(() {
-            _showIntroOverlay = true;
-          });
-        }
-      }
-    } else {
-      _currentActiveOP = null;
-      _introSkipped = false;
-      if (_showIntroOverlay) {
-        setState(() {
-          _showIntroOverlay = false;
-          _isSkipButtonExpanded = true;
-          _skipButtonCollapseTimer?.cancel();
-        });
-      }
-    }
-
-    // Handle Outro (ED)
-    if (activeED != null) {
-      _currentActiveED = activeED;
-      final isHeuristic = activeED.type == 'ed_heuristic';
-      if (settings.autoSkipIntroOutro && !isHeuristic) {
-        if (!_outroSkipped) {
-          _outroSkipped = true;
-          if (widget.hasNextEpisode && widget.onNextEpisode != null) {
-            widget.onNextEpisode!();
-            _showSkipToast('Auto-playing Next Episode');
-          } else {
-            final target = Duration(seconds: activeED.endTime.toInt());
-            final safeTarget = _clampSeekTarget(target, showMessage: false);
-            _performSeek(safeTarget);
-            _showSkipToast('Auto-skipped Outro');
-          }
-        }
-      } else {
-        if (!_showOutroOverlay) {
-          _triggerSkipButtonCollapseTimer();
-          setState(() {
-            _showOutroOverlay = true;
-          });
-        }
-      }
-    } else {
-      _currentActiveED = null;
-      _outroSkipped = false;
-      if (_showOutroOverlay) {
-        setState(() {
-          _showOutroOverlay = false;
-          _isSkipButtonExpanded = true;
-          _skipButtonCollapseTimer?.cancel();
-        });
-      }
-    }
-  }
+  // void _triggerSkipButtonCollapseTimer() {
+  //   _skipButtonCollapseTimer?.cancel();
+  //   setState(() {
+  //     _isSkipButtonExpanded = true;
+  //   });
+  //   _skipButtonCollapseTimer = Timer(const Duration(seconds: 2), () {
+  //     if (mounted) {
+  //       setState(() {
+  //         _isSkipButtonExpanded = false;
+  //       });
+  //     }
+  //   });
+  // }
+  // 
+  // void _checkSkipTimes(Duration pos) {
+  //   if (_skipIntervals.isEmpty) return;
+  //   
+  //   final settings = ref.read(videoSettingsProvider);
+  //   final currentSecs = pos.inSeconds.toDouble();
+  // 
+  //   // Check if we are inside any OP or ED interval
+  //   SkipInterval? activeOP;
+  //   SkipInterval? activeED;
+  // 
+  //   for (final interval in _skipIntervals) {
+  //     if (currentSecs >= interval.startTime && currentSecs < interval.endTime) {
+  //       if (interval.type == 'op' || interval.type == 'op_heuristic') {
+  //         activeOP = interval;
+  //       } else if (interval.type == 'ed' || interval.type == 'ed_heuristic') {
+  //         activeED = interval;
+  //       }
+  //     }
+  //   }
+  // 
+  //   // Handle Intro (OP)
+  //   if (activeOP != null) {
+  //     _currentActiveOP = activeOP;
+  //     final isHeuristic = activeOP.type == 'op_heuristic';
+  //     if (settings.autoSkipIntroOutro && !isHeuristic) {
+  //       if (!_introSkipped) {
+  //         _introSkipped = true;
+  //         final target = Duration(seconds: activeOP.endTime.toInt());
+  //         final safeTarget = _clampSeekTarget(target, showMessage: false);
+  //         _performSeek(safeTarget);
+  //         _showSkipToast('Auto-skipped Intro');
+  //       }
+  //     } else {
+  //       if (!_showIntroOverlay) {
+  //         _triggerSkipButtonCollapseTimer();
+  //         setState(() {
+  //           _showIntroOverlay = true;
+  //         });
+  //       }
+  //     }
+  //   } else {
+  //     _currentActiveOP = null;
+  //     _introSkipped = false;
+  //     if (_showIntroOverlay) {
+  //       setState(() {
+  //         _showIntroOverlay = false;
+  //         _isSkipButtonExpanded = true;
+  //         _skipButtonCollapseTimer?.cancel();
+  //       });
+  //     }
+  //   }
+  // 
+  //   // Handle Outro (ED)
+  //   if (activeED != null) {
+  //     _currentActiveED = activeED;
+  //     final isHeuristic = activeED.type == 'ed_heuristic';
+  //     if (settings.autoSkipIntroOutro && !isHeuristic) {
+  //       if (!_outroSkipped) {
+  //         _outroSkipped = true;
+  //         if (widget.hasNextEpisode && widget.onNextEpisode != null) {
+  //           widget.onNextEpisode!();
+  //           _showSkipToast('Auto-playing Next Episode');
+  //         } else {
+  //           final target = Duration(seconds: activeED.endTime.toInt());
+  //           final safeTarget = _clampSeekTarget(target, showMessage: false);
+  //           _performSeek(safeTarget);
+  //           _showSkipToast('Auto-skipped Outro');
+  //         }
+  //       }
+  //     } else {
+  //       if (!_showOutroOverlay) {
+  //         _triggerSkipButtonCollapseTimer();
+  //         setState(() {
+  //           _showOutroOverlay = true;
+  //         });
+  //       }
+  //     }
+  //   } else {
+  //     _currentActiveED = null;
+  //     _outroSkipped = false;
+  //     if (_showOutroOverlay) {
+  //       setState(() {
+  //         _showOutroOverlay = false;
+  //         _isSkipButtonExpanded = true;
+  //         _skipButtonCollapseTimer?.cancel();
+  //       });
+  //     }
+  //   }
+  // }
 
   void _showSkipToast(String msg) {
     _toastTimer?.cancel();
@@ -504,15 +507,35 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
         return;
       }
 
+      final storage = ref.read(storageServiceProvider);
+      final customPath = storage.getCustomDownloadDirectory();
       Directory? baseDir;
-      if (Platform.isAndroid) {
-        final picturesDir = Directory('/storage/emulated/0/Pictures');
-        if (picturesDir.existsSync()) {
-          baseDir = Directory('/storage/emulated/0/Pictures/TelStream');
-        } else {
-          final downloadsDir = Directory('/storage/emulated/0/Download');
-          if (downloadsDir.existsSync()) {
-            baseDir = Directory('/storage/emulated/0/Download/TelStream');
+
+      if (customPath != null && customPath.isNotEmpty) {
+        baseDir = Directory('$customPath/Screenshots');
+      } else if (Platform.isAndroid) {
+        final telstreamRoot = Directory('/storage/emulated/0/TelStream/Screenshots');
+        final downloadDir = Directory('/storage/emulated/0/Download/TelStream/Screenshots');
+        final picturesDir = Directory('/storage/emulated/0/Pictures/TelStream/Screenshots');
+
+        try {
+          if (!telstreamRoot.existsSync()) {
+            telstreamRoot.createSync(recursive: true);
+          }
+          baseDir = telstreamRoot;
+        } catch (_) {
+          try {
+            if (!downloadDir.existsSync()) {
+              downloadDir.createSync(recursive: true);
+            }
+            baseDir = downloadDir;
+          } catch (_) {
+            try {
+              if (!picturesDir.existsSync()) {
+                picturesDir.createSync(recursive: true);
+              }
+              baseDir = picturesDir;
+            } catch (_) {}
           }
         }
       }
@@ -532,7 +555,11 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
       final file = File(filePath);
       await file.writeAsBytes(screenshotBytes);
 
-      _showSkipToast('Screenshot saved to ${baseDir.path.split("/").last}');
+      String displayPath = baseDir.path;
+      if (displayPath.startsWith('/storage/emulated/0/')) {
+        displayPath = displayPath.replaceFirst('/storage/emulated/0/', '');
+      }
+      _showSkipToast('Screenshot saved to $displayPath');
     } catch (e, stack) {
       Log.e('Failed to take screenshot', e, stack);
       _showSkipToast('Error saving screenshot: $e');
@@ -576,8 +603,58 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
   }
 
   Widget _buildQuickActionRow() {
-    final settings = ref.watch(videoSettingsProvider);
-    final notifier = ref.read(videoSettingsProvider.notifier);
+    final List<Widget> items = [
+      _buildCircularActionButton(
+        icon: _isMuted ? Icons.volume_off : Icons.volume_up,
+        label: 'Mute',
+        isActive: _isMuted,
+        onTap: _toggleMute,
+      ),
+      _buildCircularActionButton(
+        icon: Icons.screen_rotation,
+        label: 'Rotate',
+        isActive: !_isFullscreen,
+        onTap: _toggleFullscreen,
+      ),
+      if (_hasChapters)
+        _buildCircularActionButton(
+          icon: Icons.format_list_bulleted,
+          label: 'Chapters',
+          isActive: _showChaptersPanel,
+          onTap: _openChaptersPanel,
+        ),
+      _buildCircularActionButton(
+        icon: Icons.repeat,
+        label: 'A-B Repeat',
+        isActive: _abRepeatA != null,
+        onTap: _toggleAbRepeat,
+      ),
+      _buildCircularActionButton(
+        icon: _sleepTimerSecondsRemaining != null ? Icons.snooze : Icons.snooze_outlined,
+        label: 'Sleep Timer',
+        isActive: _sleepTimerSecondsRemaining != null,
+        onTap: _showSleepTimerSelector,
+      ),
+    ];
+
+    if (items.length <= 3) {
+      return Container(
+        height: 75,
+        margin: const EdgeInsets.only(top: 12),
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          physics: const BouncingScrollPhysics(),
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(
+            children: items,
+          ),
+        ),
+      );
+    }
+
+    final firstThree = items.sublist(0, 3);
+    final remaining = items.sublist(3);
+
     return Container(
       height: 75,
       margin: const EdgeInsets.only(top: 12),
@@ -587,74 +664,51 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
         padding: const EdgeInsets.symmetric(horizontal: 16),
         child: Row(
           children: [
-            _buildCircularActionButton(
-              icon: _isMuted ? Icons.volume_off : Icons.volume_up,
-              label: 'Mute',
-              isActive: _isMuted,
-              onTap: _toggleMute,
-            ),
-            _buildCircularActionButton(
-              icon: Icons.screen_rotation,
-              label: 'Rotate',
-              isActive: !_isFullscreen,
-              onTap: _toggleFullscreen,
-            ),
-            if (_hasChapters)
-              _buildCircularActionButton(
-                icon: Icons.format_list_bulleted,
-                label: 'Chapters',
-                isActive: _showChaptersPanel,
-                onTap: _openChaptersPanel,
+            ...firstThree,
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: Colors.black38,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white24, width: 1),
+                    ),
+                    child: IconButton(
+                      iconSize: 20,
+                      padding: EdgeInsets.zero,
+                      icon: Icon(
+                        _quickActionsExpanded ? Icons.arrow_back : Icons.arrow_forward,
+                        color: Colors.white,
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          _quickActionsExpanded = !_quickActionsExpanded;
+                        });
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    _quickActionsExpanded ? 'Less' : 'More',
+                    style: const TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.w500),
+                  ),
+                ],
               ),
-            _buildCircularActionButton(
-              icon: Icons.repeat,
-              label: 'A-B Repeat',
-              isActive: _abRepeatA != null,
-              onTap: _toggleAbRepeat,
             ),
-            _buildCircularActionButton(
-              icon: _sleepTimerSecondsRemaining != null ? Icons.snooze : Icons.snooze_outlined,
-              label: 'Sleep Timer',
-              isActive: _sleepTimerSecondsRemaining != null,
-              onTap: _showSleepTimerSelector,
-            ),
-            _buildCircularActionButton(
-              icon: _nightModeActive ? Icons.nights_stay : Icons.nights_stay_outlined,
-              label: 'Night Mode',
-              isActive: _nightModeActive,
-              onTap: () {
-                setState(() {
-                  _nightModeActive = !_nightModeActive;
-                  _updateAudioFilters();
-                  _showSkipToast(_nightModeActive ? 'Night Mode: Enabled' : 'Night Mode: Disabled');
-                });
-              },
-            ),
-            _buildCircularActionButton(
-              icon: settings.autoplayNextVideo ? Icons.skip_next : Icons.skip_next_outlined,
-              label: 'Auto Next',
-              isActive: settings.autoplayNextVideo,
-              onTap: () {
-                notifier.updateSettings(settings.copyWith(autoplayNextVideo: !settings.autoplayNextVideo));
-                _showSkipToast(!settings.autoplayNextVideo ? 'Auto Next: Enabled' : 'Auto Next: Disabled');
-              },
-            ),
-            _buildCircularActionButton(
-              icon: settings.autoSkipIntroOutro ? Icons.fast_forward : Icons.fast_forward_outlined,
-              label: 'Auto Skip',
-              isActive: settings.autoSkipIntroOutro,
-              onTap: () {
-                notifier.updateSettings(settings.copyWith(autoSkipIntroOutro: !settings.autoSkipIntroOutro));
-                _showSkipToast(!settings.autoSkipIntroOutro ? 'Auto Skip: Enabled' : 'Auto Skip: Disabled');
-              },
-            ),
-            _buildCircularActionButton(
-              icon: Icons.picture_in_picture_alt,
-              label: 'Pop-up Play',
-              isActive: false,
-              onTap: () {
-                _showSkipToast('Pop-up Play is handled automatically in background');
-              },
+            AnimatedSize(
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeInOut,
+              child: _quickActionsExpanded
+                  ? Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: remaining,
+                    )
+                  : const SizedBox.shrink(),
             ),
           ],
         ),
@@ -662,42 +716,42 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     );
   }
 
-  Widget _buildCheckboxToggle({
-    required String label,
-    required bool value,
-    required ValueChanged<bool?> onChanged,
-    required Color settingsAccent,
-  }) {
-    return GestureDetector(
-      onTap: () => onChanged(!value),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          SizedBox(
-            width: 20,
-            height: 20,
-            child: Checkbox(
-              value: value,
-              onChanged: onChanged,
-              activeColor: settingsAccent,
-              checkColor: settingsAccent.computeLuminance() > 0.5 ? Colors.black : Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-              side: const BorderSide(color: Colors.white30, width: 1.5),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Text(
-            label,
-            style: const TextStyle(
-              color: Colors.white70,
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  // Widget _buildCheckboxToggle({
+  //   required String label,
+  //   required bool value,
+  //   required ValueChanged<bool?> onChanged,
+  //   required Color settingsAccent,
+  // }) {
+  //   return GestureDetector(
+  //     onTap: () => onChanged(!value),
+  //     child: Row(
+  //       mainAxisSize: MainAxisSize.min,
+  //       children: [
+  //         SizedBox(
+  //           width: 20,
+  //           height: 20,
+  //           child: Checkbox(
+  //             value: value,
+  //             onChanged: onChanged,
+  //             activeColor: settingsAccent,
+  //             checkColor: settingsAccent.computeLuminance() > 0.5 ? Colors.black : Colors.white,
+  //             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+  //             side: const BorderSide(color: Colors.white30, width: 1.5),
+  //           ),
+  //         ),
+  //         const SizedBox(width: 8),
+  //         Text(
+  //           label,
+  //           style: const TextStyle(
+  //             color: Colors.white70,
+  //             fontSize: 12,
+  //             fontWeight: FontWeight.bold,
+  //           ),
+  //         ),
+  //       ],
+  //     ),
+  //   );
+  // }
 
   String _formatDuration(Duration d) {
     final min = d.inMinutes;
@@ -726,7 +780,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     });
     _positionSubscription = widget.player.stream.position.listen((pos) {
       _checkAutoNextTrigger(pos);
-      _checkSkipTimes(pos);
+      // _checkSkipTimes(pos);
       _checkAbRepeat(pos);
     });
     _durationSubscription = widget.player.stream.duration.listen((dur) {
@@ -749,8 +803,8 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
           _outroSkipped = false;
           _showIntroOverlay = false;
           _showOutroOverlay = false;
-          _isSkipButtonExpanded = true;
-          _skipButtonCollapseTimer?.cancel();
+          // _isSkipButtonExpanded = true;
+          // _skipButtonCollapseTimer?.cancel();
           _chaptersLoadAttempts = 0;
         });
       }
@@ -821,9 +875,19 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
 
   void _startAutoNextCountdown() {
     _autoNextTimer?.cancel();
+    _autoNextSlideInTimer?.cancel();
     setState(() {
       _showAutoNextCountdown = true;
       _autoNextSecondsRemaining = 15;
+      _autoNextSlideIn = false;
+    });
+    
+    _autoNextSlideInTimer = Timer(const Duration(seconds: 2), () {
+      if (mounted) {
+        setState(() {
+          _autoNextSlideIn = true;
+        });
+      }
     });
     
     _autoNextTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
@@ -833,7 +897,9 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
             _autoNextSecondsRemaining--;
           } else {
             _autoNextTimer?.cancel();
+            _autoNextSlideInTimer?.cancel();
             _showAutoNextCountdown = false;
+            _autoNextSlideIn = false;
             if (widget.onNextEpisode != null) {
               widget.onNextEpisode!();
             }
@@ -841,14 +907,23 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
         });
       } else {
         _autoNextTimer?.cancel();
+        _autoNextSlideInTimer?.cancel();
       }
     });
   }
 
   void _cancelAutoNextCountdown() {
     _autoNextTimer?.cancel();
+    _autoNextSlideInTimer?.cancel();
     setState(() {
-      _showAutoNextCountdown = false;
+      _autoNextSlideIn = false;
+    });
+    Future.delayed(const Duration(milliseconds: 500), () {
+      if (mounted) {
+        setState(() {
+          _showAutoNextCountdown = false;
+        });
+      }
     });
   }
 
@@ -864,7 +939,8 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
 
   @override
   void dispose() {
-    _skipButtonCollapseTimer?.cancel();
+    _autoNextSlideInTimer?.cancel();
+    // _skipButtonCollapseTimer?.cancel();
     _chaptersRetryTimer?.cancel();
     _bufferingSubscription?.cancel();
     _positionSubscription?.cancel();
@@ -2468,12 +2544,11 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
     final settings = ref.watch(videoSettingsProvider);
-    final notifier = ref.read(videoSettingsProvider.notifier);
     final theme = Theme.of(context);
     final customTheme = theme.extension<AppThemeExtension>();
     final settingsAccent = customTheme?.settingsAccent ?? theme.primaryColor;
 
-    const subtitleConfig = SubtitleViewConfiguration(visible: false);
+    const subtitleConfig = SubtitleViewConfiguration(visible: true);
 
     return GestureDetector(
       onTap: _toggleControls,
@@ -2721,10 +2796,12 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
             ),
 
           // Auto Play Next Countdown Overlay
-          if (_showAutoNextCountdown && !_isLocked)
-            Positioned(
+          if (_showAutoNextCountdown || _autoNextSlideIn)
+            AnimatedPositioned(
+              duration: const Duration(milliseconds: 500),
+              curve: Curves.easeInOutCubic,
               bottom: _showControls ? 130 : 30,
-              right: 30,
+              right: _autoNextSlideIn ? 30 : -350,
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(16),
                 child: BackdropFilter(
@@ -2906,207 +2983,121 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                     chapters: _chapters,
                   ),
                   const SizedBox(height: 10),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.lock_open_outlined, color: Colors.white70),
-                        iconSize: 24,
-                        onPressed: () {
-                          setState(() => _isLocked = true);
-                          _startHideTimer();
-                        },
-                      ),
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            iconSize: 28,
-                            icon: Icon(
-                              Icons.skip_previous,
-                              color: widget.hasPrevEpisode ? Colors.white : Colors.white24,
+                  SizedBox(
+                    height: 48,
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        Positioned(
+                          left: 0,
+                          top: 0,
+                          bottom: 0,
+                          child: Center(
+                            child: IconButton(
+                              icon: const Icon(Icons.lock_open_outlined, color: Colors.white70),
+                              iconSize: 24,
+                              onPressed: () {
+                                setState(() => _isLocked = true);
+                                _startHideTimer();
+                              },
                             ),
-                            onPressed: widget.hasPrevEpisode ? widget.onPrevEpisode : null,
                           ),
-                          const SizedBox(width: 16),
-                          StreamBuilder<bool>(
-                            stream: widget.player.stream.playing,
-                            builder: (context, snapshot) {
-                              final playing = snapshot.data ?? widget.player.state.playing;
-                              return Container(
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  border: Border.all(color: Colors.white, width: 1.5),
+                        ),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              iconSize: 28,
+                              icon: Icon(
+                                Icons.skip_previous,
+                                color: widget.hasPrevEpisode ? Colors.white : Colors.white24,
+                              ),
+                              onPressed: widget.hasPrevEpisode ? widget.onPrevEpisode : null,
+                            ),
+                            const SizedBox(width: 16),
+                            StreamBuilder<bool>(
+                              stream: widget.player.stream.playing,
+                              builder: (context, snapshot) {
+                                final playing = snapshot.data ?? widget.player.state.playing;
+                                return Container(
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    border: Border.all(color: Colors.white, width: 1.5),
+                                  ),
+                                  child: IconButton(
+                                    icon: Icon(playing ? Icons.pause : Icons.play_arrow, color: Colors.white),
+                                    iconSize: 32,
+                                    onPressed: () {
+                                      if (playing) {
+                                        widget.player.pause();
+                                      } else {
+                                        widget.player.play();
+                                      }
+                                    },
+                                  ),
+                                );
+                              },
+                            ),
+                            const SizedBox(width: 16),
+                            IconButton(
+                              iconSize: 28,
+                              icon: Icon(
+                                Icons.skip_next,
+                                color: widget.hasNextEpisode ? Colors.white : Colors.white24,
+                              ),
+                              onPressed: widget.hasNextEpisode ? widget.onNextEpisode : null,
+                            ),
+                            const SizedBox(width: 16),
+                            TextButton(
+                              onPressed: () {
+                                final target = widget.player.state.position + const Duration(seconds: 90);
+                                final safeTarget = _clampSeekTarget(target, showMessage: false);
+                                _performSeek(safeTarget);
+                              },
+                              child: const Text(
+                                '90s+',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
                                 ),
-                                child: IconButton(
-                                  icon: Icon(playing ? Icons.pause : Icons.play_arrow, color: Colors.white),
-                                  iconSize: 32,
-                                  onPressed: () {
-                                    if (playing) {
-                                      widget.player.pause();
-                                    } else {
-                                      widget.player.play();
-                                    }
-                                  },
+                              ),
+                            ),
+                          ],
+                        ),
+                        Positioned(
+                          right: 0,
+                          top: 0,
+                          bottom: 0,
+                          child: Center(
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                TextButton(
+                                  onPressed: _toggleSpeed,
+                                  child: Text(
+                                    'Speed (${_currentSpeed}x)',
+                                    style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
+                                  ),
                                 ),
-                              );
-                            },
-                          ),
-                          const SizedBox(width: 16),
-                          IconButton(
-                            iconSize: 28,
-                            icon: Icon(
-                              Icons.skip_next,
-                              color: widget.hasNextEpisode ? Colors.white : Colors.white24,
-                            ),
-                            onPressed: widget.hasNextEpisode ? widget.onNextEpisode : null,
-                          ),
-                        ],
-                      ),
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          TextButton(
-                            onPressed: _toggleSpeed,
-                            child: Text(
-                              'Speed (${_currentSpeed}x)',
-                              style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
+                                IconButton(
+                                  icon: const Icon(Icons.fit_screen_outlined, color: Colors.white),
+                                  iconSize: 24,
+                                  onPressed: _handleAspectRatioButtonTap,
+                                ),
+                              ],
                             ),
                           ),
-                          IconButton(
-                            icon: const Icon(Icons.fit_screen_outlined, color: Colors.white),
-                            iconSize: 24,
-                            onPressed: _handleAspectRatioButtonTap,
-                          ),
-                        ],
-                      ),
-                    ],
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
             ),
           ],
 
-          // Contextual Skip Intro/Outro Button
-          if ((_showIntroOverlay || (_showOutroOverlay && !_showAutoNextCountdown)) && !_isLocked && !widget.isPip)
-            AnimatedPositioned(
-              duration: const Duration(milliseconds: 400),
-              curve: Curves.easeInOutCubic,
-              bottom: _showControls ? 140 : (_isSkipButtonExpanded ? 40 : 16),
-              right: _isSkipButtonExpanded ? 24 : 16,
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.85),
-                      border: Border.all(color: Colors.orange.withOpacity(0.3), width: 1.5),
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: const [
-                        BoxShadow(
-                          color: Colors.black45,
-                          blurRadius: 10,
-                          offset: Offset(0, 4),
-                        )
-                      ]
-                    ),
-                    child: Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        onTap: () {
-                          if (_showIntroOverlay && _currentActiveOP != null) {
-                            if (_currentActiveOP!.type == 'op_heuristic') {
-                              final target = widget.player.state.position + const Duration(seconds: 90);
-                              final safeTarget = _clampSeekTarget(target, showMessage: false);
-                              _performSeek(safeTarget);
-                            } else {
-                              final target = Duration(seconds: _currentActiveOP!.endTime.toInt());
-                              final safeTarget = _clampSeekTarget(target, showMessage: false);
-                              _performSeek(safeTarget);
-                            }
-                            setState(() {
-                              _showIntroOverlay = false;
-                              _isSkipButtonExpanded = true;
-                              _skipButtonCollapseTimer?.cancel();
-                            });
-                          } else if (_showOutroOverlay && _currentActiveED != null) {
-                            if (widget.hasNextEpisode && widget.onNextEpisode != null) {
-                              widget.onNextEpisode!();
-                              setState(() {
-                                _isSkipButtonExpanded = true;
-                                _skipButtonCollapseTimer?.cancel();
-                              });
-                            } else {
-                              if (_currentActiveED!.type == 'ed_heuristic') {
-                                final target = widget.player.state.duration - const Duration(seconds: 5);
-                                final safeTarget = _clampSeekTarget(target, showMessage: false);
-                                _performSeek(safeTarget);
-                              } else {
-                                final target = Duration(seconds: _currentActiveED!.endTime.toInt());
-                                final safeTarget = _clampSeekTarget(target, showMessage: false);
-                                _performSeek(safeTarget);
-                              }
-                              setState(() {
-                                _showOutroOverlay = false;
-                                _isSkipButtonExpanded = true;
-                                _skipButtonCollapseTimer?.cancel();
-                              });
-                            }
-                          }
-                        },
-                        borderRadius: BorderRadius.circular(12),
-                        child: AnimatedPadding(
-                          duration: const Duration(milliseconds: 400),
-                          curve: Curves.easeInOutCubic,
-                          padding: _isSkipButtonExpanded
-                              ? const EdgeInsets.symmetric(horizontal: 18, vertical: 12)
-                              : const EdgeInsets.all(12),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(
-                                Icons.skip_next_rounded,
-                                color: Colors.orange,
-                                size: 20,
-                              ),
-                              AnimatedContainer(
-                                duration: const Duration(milliseconds: 400),
-                                curve: Curves.easeInOutCubic,
-                                width: _isSkipButtonExpanded ? 95 : 0,
-                                child: AnimatedOpacity(
-                                  duration: const Duration(milliseconds: 300),
-                                  opacity: _isSkipButtonExpanded ? 1.0 : 0.0,
-                                  curve: Curves.easeInOutCubic,
-                                  child: SingleChildScrollView(
-                                    scrollDirection: Axis.horizontal,
-                                    physics: const NeverScrollableScrollPhysics(),
-                                    child: Row(
-                                      children: [
-                                        const SizedBox(width: 8),
-                                        Text(
-                                          _showIntroOverlay ? 'Skip Intro' : 'Skip Outro',
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.bold,
-                                            letterSpacing: 0.5,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
+
 
           // Toast Message for Auto Skip / Actions
           if (_toastShowing)
