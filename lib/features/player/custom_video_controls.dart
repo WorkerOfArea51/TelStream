@@ -120,6 +120,8 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
   bool _outroSkipped = false;
   bool _showIntroOverlay = false;
   bool _showOutroOverlay = false;
+  bool _isSkipButtonExpanded = true;
+  Timer? _skipButtonCollapseTimer;
   SkipInterval? _currentActiveOP;
   SkipInterval? _currentActiveED;
   bool _toastShowing = false;
@@ -312,6 +314,20 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     }
   }
 
+  void _triggerSkipButtonCollapseTimer() {
+    _skipButtonCollapseTimer?.cancel();
+    setState(() {
+      _isSkipButtonExpanded = true;
+    });
+    _skipButtonCollapseTimer = Timer(const Duration(seconds: 2), () {
+      if (mounted) {
+        setState(() {
+          _isSkipButtonExpanded = false;
+        });
+      }
+    });
+  }
+
   void _checkSkipTimes(Duration pos) {
     if (_skipIntervals.isEmpty) return;
     
@@ -346,6 +362,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
         }
       } else {
         if (!_showIntroOverlay) {
+          _triggerSkipButtonCollapseTimer();
           setState(() {
             _showIntroOverlay = true;
           });
@@ -357,6 +374,8 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
       if (_showIntroOverlay) {
         setState(() {
           _showIntroOverlay = false;
+          _isSkipButtonExpanded = true;
+          _skipButtonCollapseTimer?.cancel();
         });
       }
     }
@@ -380,6 +399,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
         }
       } else {
         if (!_showOutroOverlay) {
+          _triggerSkipButtonCollapseTimer();
           setState(() {
             _showOutroOverlay = true;
           });
@@ -391,6 +411,8 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
       if (_showOutroOverlay) {
         setState(() {
           _showOutroOverlay = false;
+          _isSkipButtonExpanded = true;
+          _skipButtonCollapseTimer?.cancel();
         });
       }
     }
@@ -497,6 +519,8 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
           _outroSkipped = false;
           _showIntroOverlay = false;
           _showOutroOverlay = false;
+          _isSkipButtonExpanded = true;
+          _skipButtonCollapseTimer?.cancel();
           _chaptersLoadAttempts = 0;
         });
       }
@@ -610,6 +634,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
 
   @override
   void dispose() {
+    _skipButtonCollapseTimer?.cancel();
     _chaptersRetryTimer?.cancel();
     _bufferingSubscription?.cancel();
     _positionSubscription?.cancel();
@@ -683,7 +708,6 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
       }
     });
     widget.player.setRate(_currentSpeed);
-    widget.player.seek(widget.player.state.position);
   }
 
   void _handleDoubleTap(TapDownDetails details, double screenWidth, int seekDuration) {
@@ -2737,9 +2761,11 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
 
           // Contextual Skip Intro/Outro Button
           if ((_showIntroOverlay || (_showOutroOverlay && !_showAutoNextCountdown)) && !_isLocked && !widget.isPip)
-            Positioned(
-              bottom: _showControls ? 140 : 40,
-              right: 24,
+            AnimatedPositioned(
+              duration: const Duration(milliseconds: 400),
+              curve: Curves.easeInOutCubic,
+              bottom: _showControls ? 140 : (_isSkipButtonExpanded ? 40 : 16),
+              right: _isSkipButtonExpanded ? 24 : 16,
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(12),
                 child: BackdropFilter(
@@ -2773,10 +2799,16 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                             }
                             setState(() {
                               _showIntroOverlay = false;
+                              _isSkipButtonExpanded = true;
+                              _skipButtonCollapseTimer?.cancel();
                             });
                           } else if (_showOutroOverlay && _currentActiveED != null) {
                             if (widget.hasNextEpisode && widget.onNextEpisode != null) {
                               widget.onNextEpisode!();
+                              setState(() {
+                                _isSkipButtonExpanded = true;
+                                _skipButtonCollapseTimer?.cancel();
+                              });
                             } else {
                               if (_currentActiveED!.type == 'ed_heuristic') {
                                 final target = widget.player.state.duration - const Duration(seconds: 5);
@@ -2789,13 +2821,19 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                               }
                               setState(() {
                                 _showOutroOverlay = false;
+                                _isSkipButtonExpanded = true;
+                                _skipButtonCollapseTimer?.cancel();
                               });
                             }
                           }
                         },
                         borderRadius: BorderRadius.circular(12),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                        child: AnimatedPadding(
+                          duration: const Duration(milliseconds: 400),
+                          curve: Curves.easeInOutCubic,
+                          padding: _isSkipButtonExpanded
+                              ? const EdgeInsets.symmetric(horizontal: 18, vertical: 12)
+                              : const EdgeInsets.all(12),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
@@ -2804,14 +2842,32 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                                 color: Colors.orange,
                                 size: 20,
                               ),
-                              const SizedBox(width: 8),
-                              Text(
-                                _showIntroOverlay ? 'Skip Intro' : 'Skip Outro',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.bold,
-                                  letterSpacing: 0.5,
+                              AnimatedContainer(
+                                duration: const Duration(milliseconds: 400),
+                                curve: Curves.easeInOutCubic,
+                                width: _isSkipButtonExpanded ? 95 : 0,
+                                child: AnimatedOpacity(
+                                  duration: const Duration(milliseconds: 300),
+                                  opacity: _isSkipButtonExpanded ? 1.0 : 0.0,
+                                  curve: Curves.easeInOutCubic,
+                                  child: SingleChildScrollView(
+                                    scrollDirection: Axis.horizontal,
+                                    physics: const NeverScrollableScrollPhysics(),
+                                    child: Row(
+                                      children: [
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          _showIntroOverlay ? 'Skip Intro' : 'Skip Outro',
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.bold,
+                                            letterSpacing: 0.5,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
                                 ),
                               ),
                             ],
