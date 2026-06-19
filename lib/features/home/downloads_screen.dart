@@ -6,7 +6,6 @@ import '../../services/download_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../player/pip_manager.dart';
 import '../settings/settings_provider.dart';
-import '../../core/logger.dart';
 
 class DownloadsScreen extends ConsumerStatefulWidget {
   final int initialIndex;

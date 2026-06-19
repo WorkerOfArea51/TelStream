@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:typed_data';
 import 'dart:math' as math;
 import 'dart:ui';
 import 'package:flutter/material.dart';
@@ -117,14 +116,14 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
   // Skip Times variables
   StreamSubscription? _durationSubscription;
   List<SkipInterval> _apiSkipIntervals = [];
-  List<SkipInterval> _chapterSkipIntervals = [];
-  List<SkipInterval> _skipIntervals = [];
+  // List<SkipInterval> _chapterSkipIntervals = [];
+  // List<SkipInterval> _skipIntervals = [];
   bool _skipTimesLoaded = false;
   bool _isLoadingSkipTimes = false;
-  bool _introSkipped = false;
-  bool _outroSkipped = false;
-  bool _showIntroOverlay = false;
-  bool _showOutroOverlay = false;
+  // bool _introSkipped = false;
+  // bool _outroSkipped = false;
+  // bool _showIntroOverlay = false;
+  // bool _showOutroOverlay = false;
   // bool _isSkipButtonExpanded = true;
   // Timer? _skipButtonCollapseTimer;
   // SkipInterval? _currentActiveOP;
@@ -321,8 +320,8 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
 
     if (mounted) {
       setState(() {
-        _chapterSkipIntervals = chapterIntervals;
-        _skipIntervals = [..._apiSkipIntervals, ..._chapterSkipIntervals, ...heuristics];
+        // _chapterSkipIntervals = chapterIntervals;
+        // _skipIntervals = [..._apiSkipIntervals, ..._chapterSkipIntervals, ...heuristics];
       });
     }
   }
@@ -796,13 +795,13 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
           _chapters = [];
           _hasChapters = false;
           _apiSkipIntervals = [];
-          _chapterSkipIntervals = [];
-          _skipIntervals = [];
+          // _chapterSkipIntervals = [];
+          // _skipIntervals = [];
           _skipTimesLoaded = false;
-          _introSkipped = false;
-          _outroSkipped = false;
-          _showIntroOverlay = false;
-          _showOutroOverlay = false;
+          // _introSkipped = false;
+          // _outroSkipped = false;
+          // _showIntroOverlay = false;
+          // _showOutroOverlay = false;
           // _isSkipButtonExpanded = true;
           // _skipButtonCollapseTimer?.cancel();
           _chaptersLoadAttempts = 0;
