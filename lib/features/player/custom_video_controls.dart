@@ -2263,7 +2263,6 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
       onLongPressStart: (details) {
         if (_isLocked || !settings.dynamicSpeedOverlay) return;
         widget.player.setRate(1.5);
-        widget.player.seek(widget.player.state.position);
         setState(() {
           _showSeekIndicator = true;
           _seekDirection = '1.5x Fast Forwarding';
@@ -2272,7 +2271,6 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
       onLongPressEnd: (details) {
         if (!settings.dynamicSpeedOverlay) return;
         widget.player.setRate(_currentSpeed);
-        widget.player.seek(widget.player.state.position);
         setState(() {
           _showSeekIndicator = false;
         });
