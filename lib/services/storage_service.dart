@@ -606,10 +606,18 @@ class StorageService {
 
   String getHardwareDecoderMode() {
     final mode = _data['hardware_decoder_mode'] as String?;
-    if (mode != null) return mode;
+    if (mode != null) {
+      if (mode == 'mediacodec-copy') {
+        // Auto-upgrade to zero-copy mediacodec to prevent 2x playback lag
+        _data['hardware_decoder_mode'] = 'mediacodec';
+        _save();
+        return 'mediacodec';
+      }
+      return mode;
+    }
     // Fallback/migration from old boolean
     final oldAcc = getHardwareAcceleration();
-    return oldAcc ? 'mediacodec-copy' : 'no';
+    return oldAcc ? 'mediacodec' : 'no';
   }
 
   Future<void> setHardwareDecoderMode(String value) async {

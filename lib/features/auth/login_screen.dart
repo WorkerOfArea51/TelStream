@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:country_picker/country_picker.dart' as cp;
@@ -77,9 +76,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       if (matchedCountry != _currentCountry) {
         setState(() {
           _currentCountry = matchedCountry;
-          _selectedCountryName = matchedCountry!.name;
-          _selectedCountryCode = matchedCountry!.countryCode;
-          _selectedCountryFlag = matchedCountry!.flagEmoji;
+          _selectedCountryName = matchedCountry.name;
+          _selectedCountryCode = matchedCountry.countryCode;
+          _selectedCountryFlag = matchedCountry.flagEmoji;
         });
       }
     } else {
@@ -148,8 +147,22 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final authState = ref.watch(authControllerProvider);
     final authController = ref.read(authControllerProvider.notifier);
 
+    final showAppBar = authState.step == AuthStep.waitingForCode || authState.step == AuthStep.waitingForPassword;
+
     return Scaffold(
       backgroundColor: const Color(0xFF0B0F19), // Premium deep dark background
+      appBar: showAppBar
+          ? AppBar(
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              leading: IconButton(
+                icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
+                onPressed: () {
+                  authController.resetAuth();
+                },
+              ),
+            )
+          : null,
       body: SafeArea(
         child: _buildForm(authState, authController),
       ),
@@ -163,351 +176,312 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           child: CircularProgressIndicator(color: Colors.blueAccent),
         );
       case AuthStep.waitingForNumber:
-        return Stack(
-          children: [
-            SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  const SizedBox(height: 40),
-                  const Icon(Icons.stream, size: 80, color: Colors.blueAccent),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'Your phone number',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  const Text(
-                    'Please confirm your country code and enter your phone number.',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.white70,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 48),
-
-                  if (state.errorMessage != null)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 16),
-                      child: Text(
-                        state.errorMessage!,
-                        style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.w500),
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-
-                  // Country Selector
-                  GestureDetector(
-                    onTap: () => _openCountryPicker(context),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.04),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.1),
-                          width: 1.5,
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          Text(
-                            _selectedCountryCode.isNotEmpty
-                                ? '$_selectedCountryFlag   $_selectedCountryName'
-                                : 'Select Country',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          const Spacer(),
-                          const Icon(
-                            Icons.chevron_right_rounded,
-                            color: Colors.white30,
-                            size: 24,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-
-                  // Phone number input field
-                  TextField(
-                    controller: _phoneController,
-                    keyboardType: TextInputType.phone,
-                    style: const TextStyle(color: Colors.white, fontSize: 16),
-                    decoration: InputDecoration(
-                      labelText: 'Phone number',
-                      labelStyle: TextStyle(color: Colors.white.withValues(alpha: 0.6)),
-                      floatingLabelBehavior: FloatingLabelBehavior.always,
-                      filled: true,
-                      fillColor: Colors.white.withValues(alpha: 0.04),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(16),
-                        borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1), width: 1.5),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(16),
-                        borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1), width: 1.5),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(16),
-                        borderSide: const BorderSide(color: Colors.blueAccent, width: 2),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            // Next Floating action-like Button on Bottom-Right
-            Positioned(
-              bottom: 24,
-              right: 24,
-              child: FloatingActionButton(
-                onPressed: () {
-                  final phoneText = _phoneController.text.trim();
-                  if (phoneText.isNotEmpty) {
-                    controller.setPhoneNumber(phoneText);
-                  }
-                },
-                backgroundColor: Colors.blueAccent,
-                shape: const CircleBorder(),
-                child: const Icon(
-                  Icons.arrow_forward_rounded,
+        return SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              const SizedBox(height: 40),
+              const Icon(Icons.stream, size: 80, color: Colors.blueAccent),
+              const SizedBox(height: 16),
+              const Text(
+                'Your phone number',
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
                   color: Colors.white,
-                  size: 28,
                 ),
               ),
-            ),
-          ],
+              const SizedBox(height: 12),
+              const Text(
+                'Please confirm your country code and enter your phone number.',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.white70,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 48),
+
+              if (state.errorMessage != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: Text(
+                    state.errorMessage!,
+                    style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.w500),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+
+              // Country Selector
+              GestureDetector(
+                onTap: () => _openCountryPicker(context),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.04),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.1),
+                      width: 1.5,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Text(
+                        _selectedCountryCode.isNotEmpty
+                            ? '$_selectedCountryFlag   $_selectedCountryName'
+                            : 'Select Country',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const Spacer(),
+                      const Icon(
+                        Icons.chevron_right_rounded,
+                        color: Colors.white30,
+                        size: 24,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              // Phone number input field
+              TextField(
+                controller: _phoneController,
+                keyboardType: TextInputType.phone,
+                style: const TextStyle(color: Colors.white, fontSize: 16),
+                decoration: InputDecoration(
+                  labelText: 'Phone number',
+                  labelStyle: TextStyle(color: Colors.white.withValues(alpha: 0.6)),
+                  floatingLabelBehavior: FloatingLabelBehavior.always,
+                  filled: true,
+                  fillColor: Colors.white.withValues(alpha: 0.04),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1), width: 1.5),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1), width: 1.5),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: const BorderSide(color: Colors.blueAccent, width: 2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 32),
+
+              Align(
+                alignment: Alignment.centerRight,
+                child: FloatingActionButton(
+                  onPressed: () {
+                    final phoneText = _phoneController.text.trim();
+                    if (phoneText.isNotEmpty) {
+                      controller.setPhoneNumber(phoneText);
+                    }
+                  },
+                  backgroundColor: Colors.blueAccent,
+                  shape: const CircleBorder(),
+                  child: const Icon(
+                    Icons.arrow_forward_rounded,
+                    color: Colors.white,
+                    size: 28,
+                  ),
+                ),
+              ),
+            ],
+          ),
         );
       case AuthStep.waitingForCode:
-        return Stack(
-          children: [
-            SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  const SizedBox(height: 40),
-                  const Icon(Icons.sms_rounded, size: 80, color: Colors.blueAccent),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'Enter code',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  const Text(
-                    'We have sent an SMS with an activation code to your phone number.',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.white70,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 48),
-
-                  if (state.errorMessage != null)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 16),
-                      child: Text(
-                        state.errorMessage!,
-                        style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.w500),
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-
-                  TextField(
-                    controller: _codeController,
-                    keyboardType: TextInputType.number,
-                    style: const TextStyle(color: Colors.white, fontSize: 16),
-                    decoration: InputDecoration(
-                      labelText: 'Code',
-                      labelStyle: TextStyle(color: Colors.white.withValues(alpha: 0.6)),
-                      floatingLabelBehavior: FloatingLabelBehavior.always,
-                      hintText: 'Enter activation code',
-                      hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.4)),
-                      filled: true,
-                      fillColor: Colors.white.withValues(alpha: 0.04),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(16),
-                        borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1), width: 1.5),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(16),
-                        borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1), width: 1.5),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(16),
-                        borderSide: const BorderSide(color: Colors.blueAccent, width: 2),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            // Back button
-            Positioned(
-              top: 16,
-              left: 16,
-              child: IconButton(
-                icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
-                onPressed: () {
-                  controller.initializeTdlib();
-                },
-              ),
-            ),
-
-            // Next Floating Action Button
-            Positioned(
-              bottom: 24,
-              right: 24,
-              child: FloatingActionButton(
-                onPressed: () {
-                  final code = _codeController.text.trim();
-                  if (code.isNotEmpty) {
-                    controller.checkCode(code);
-                  }
-                },
-                backgroundColor: Colors.blueAccent,
-                shape: const CircleBorder(),
-                child: const Icon(
-                  Icons.arrow_forward_rounded,
+        return SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              const SizedBox(height: 20),
+              const Icon(Icons.sms_rounded, size: 80, color: Colors.blueAccent),
+              const SizedBox(height: 16),
+              const Text(
+                'Enter code',
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
                   color: Colors.white,
-                  size: 28,
                 ),
               ),
-            ),
-          ],
+              const SizedBox(height: 12),
+              const Text(
+                'We have sent an SMS with an activation code to your phone number.',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.white70,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 48),
+
+              if (state.errorMessage != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: Text(
+                    state.errorMessage!,
+                    style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.w500),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+
+              TextField(
+                controller: _codeController,
+                keyboardType: TextInputType.number,
+                style: const TextStyle(color: Colors.white, fontSize: 16),
+                decoration: InputDecoration(
+                  labelText: 'Code',
+                  labelStyle: TextStyle(color: Colors.white.withValues(alpha: 0.6)),
+                  floatingLabelBehavior: FloatingLabelBehavior.always,
+                  hintText: 'Enter activation code',
+                  hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.4)),
+                  filled: true,
+                  fillColor: Colors.white.withValues(alpha: 0.04),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1), width: 1.5),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1), width: 1.5),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: const BorderSide(color: Colors.blueAccent, width: 2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 32),
+
+              Align(
+                alignment: Alignment.centerRight,
+                child: FloatingActionButton(
+                  onPressed: () {
+                    final code = _codeController.text.trim();
+                    if (code.isNotEmpty) {
+                      controller.checkCode(code);
+                    }
+                  },
+                  backgroundColor: Colors.blueAccent,
+                  shape: const CircleBorder(),
+                  child: const Icon(
+                    Icons.arrow_forward_rounded,
+                    color: Colors.white,
+                    size: 28,
+                  ),
+                ),
+              ),
+            ],
+          ),
         );
       case AuthStep.waitingForPassword:
-        return Stack(
-          children: [
-            SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  const SizedBox(height: 40),
-                  const Icon(Icons.lock_rounded, size: 80, color: Colors.blueAccent),
-                  const SizedBox(height: 16),
-                  const Text(
-                    '2FA Password',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  const Text(
-                    'Your account is protected by a two-step verification password.',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.white70,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 48),
-
-                  if (state.errorMessage != null)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 16),
-                      child: Text(
-                        state.errorMessage!,
-                        style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.w500),
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-
-                  TextField(
-                    controller: _passwordController,
-                    obscureText: !_isPasswordVisible,
-                    style: const TextStyle(color: Colors.white, fontSize: 16),
-                    decoration: InputDecoration(
-                      labelText: 'Password',
-                      labelStyle: TextStyle(color: Colors.white.withValues(alpha: 0.6)),
-                      floatingLabelBehavior: FloatingLabelBehavior.always,
-                      hintText: 'Enter 2FA password',
-                      hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.4)),
-                      filled: true,
-                      fillColor: Colors.white.withValues(alpha: 0.04),
-                      suffixIcon: IconButton(
-                        icon: Icon(
-                          _isPasswordVisible ? Icons.visibility : Icons.visibility_off,
-                          color: Colors.white70,
-                        ),
-                        onPressed: () {
-                          setState(() {
-                            _isPasswordVisible = !_isPasswordVisible;
-                          });
-                        },
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(16),
-                        borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1), width: 1.5),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(16),
-                        borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1), width: 1.5),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(16),
-                        borderSide: const BorderSide(color: Colors.blueAccent, width: 2),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            // Back button
-            Positioned(
-              top: 16,
-              left: 16,
-              child: IconButton(
-                icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
-                onPressed: () {
-                  controller.initializeTdlib();
-                },
-              ),
-            ),
-
-            // Next Floating Action Button
-            Positioned(
-              bottom: 24,
-              right: 24,
-              child: FloatingActionButton(
-                onPressed: () {
-                  final pwd = _passwordController.text.trim();
-                  if (pwd.isNotEmpty) {
-                    controller.checkPassword(pwd);
-                  }
-                },
-                backgroundColor: Colors.blueAccent,
-                shape: const CircleBorder(),
-                child: const Icon(
-                  Icons.arrow_forward_rounded,
+        return SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              const SizedBox(height: 20),
+              const Icon(Icons.lock_rounded, size: 80, color: Colors.blueAccent),
+              const SizedBox(height: 16),
+              const Text(
+                '2FA Password',
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
                   color: Colors.white,
-                  size: 28,
                 ),
               ),
-            ),
-          ],
+              const SizedBox(height: 12),
+              const Text(
+                'Your account is protected by a two-step verification password.',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.white70,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 48),
+
+              if (state.errorMessage != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: Text(
+                    state.errorMessage!,
+                    style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.w500),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+
+              TextField(
+                controller: _passwordController,
+                obscureText: !_isPasswordVisible,
+                style: const TextStyle(color: Colors.white, fontSize: 16),
+                decoration: InputDecoration(
+                  labelText: 'Password',
+                  labelStyle: TextStyle(color: Colors.white.withValues(alpha: 0.6)),
+                  floatingLabelBehavior: FloatingLabelBehavior.always,
+                  hintText: 'Enter 2FA password',
+                  hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.4)),
+                  filled: true,
+                  fillColor: Colors.white.withValues(alpha: 0.04),
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _isPasswordVisible ? Icons.visibility : Icons.visibility_off,
+                      color: Colors.white70,
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        _isPasswordVisible = !_isPasswordVisible;
+                      });
+                    },
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1), width: 1.5),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1), width: 1.5),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: const BorderSide(color: Colors.blueAccent, width: 2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 32),
+
+              Align(
+                alignment: Alignment.centerRight,
+                child: FloatingActionButton(
+                  onPressed: () {
+                    final pwd = _passwordController.text.trim();
+                    if (pwd.isNotEmpty) {
+                      controller.checkPassword(pwd);
+                    }
+                  },
+                  backgroundColor: Colors.blueAccent,
+                  shape: const CircleBorder(),
+                  child: const Icon(
+                    Icons.arrow_forward_rounded,
+                    color: Colors.white,
+                    size: 28,
+                  ),
+                ),
+              ),
+            ],
+          ),
         );
       case AuthStep.authenticated:
         return const Center(

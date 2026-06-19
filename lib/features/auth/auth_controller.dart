@@ -24,6 +24,7 @@ class AuthState {
 
 class AuthController extends Notifier<AuthState> {
   StreamSubscription? _updatesSubscription;
+  bool _isResetting = false;
 
   @override
   AuthState build() {
@@ -44,7 +45,15 @@ class AuthController extends Notifier<AuthState> {
       if (event is td.UpdateAuthorizationState) {
         _handleAuthStateChange(event.authorizationState);
       } else if (event is td.TdError) {
-        state = state.copyWith(step: AuthStep.error, errorMessage: event.message);
+        // Log global TDLib errors, but do not break login state or crash the app.
+        // Specifically ignore harmless request cancellations / client closure aborts.
+        if (event.message != "Request aborted" && !event.message.contains("aborted")) {
+          // Only switch to error step if initialization fails completely.
+          // In-progress errors are handled locally by setPhoneNumber, checkCode, checkPassword.
+          if (state.step == AuthStep.loading) {
+            state = state.copyWith(step: AuthStep.error, errorMessage: event.message);
+          }
+        }
       }
     });
   }
@@ -69,25 +78,34 @@ class AuthController extends Notifier<AuthState> {
     });
   }
 
+  void resetAuth() {
+    _isResetting = true;
+    initializeTdlib();
+  }
+
   void _handleAuthStateChange(td.AuthorizationState authState) {
     if (authState is td.AuthorizationStateWaitPhoneNumber) {
+      _isResetting = false; // Successfully reached phone entry state, reset flag
       state = state.copyWith(step: AuthStep.waitingForNumber, errorMessage: null);
     } else if (authState is td.AuthorizationStateWaitCode) {
       state = state.copyWith(step: AuthStep.waitingForCode, errorMessage: null);
     } else if (authState is td.AuthorizationStateWaitPassword) {
       state = state.copyWith(step: AuthStep.waitingForPassword, errorMessage: null);
     } else if (authState is td.AuthorizationStateReady) {
+      _isResetting = false;
       state = state.copyWith(step: AuthStep.authenticated, errorMessage: null);
       ref.read(tdlibServiceProvider).loadChatsInBackground();
     } else if (authState is td.AuthorizationStateClosed) {
-      // Automatically re-initialize TDLib to allow logging in again immediately
-      Future.microtask(() => initializeTdlib());
+      if (!_isResetting) {
+        // Automatically re-initialize TDLib to allow logging in again immediately
+        Future.microtask(() => initializeTdlib());
+      }
     }
   }
 
-  void setPhoneNumber(String phoneNumber) {
-    state = state.copyWith(step: AuthStep.loading);
-    ref.read(tdlibServiceProvider).send(td.SetAuthenticationPhoneNumber(
+  Future<void> setPhoneNumber(String phoneNumber) async {
+    state = state.copyWith(step: AuthStep.loading, errorMessage: null);
+    final response = await ref.read(tdlibServiceProvider).sendAsync(td.SetAuthenticationPhoneNumber(
       phoneNumber: phoneNumber,
       settings: const td.PhoneNumberAuthenticationSettings(
         allowFlashCall: false,
@@ -97,20 +115,58 @@ class AuthController extends Notifier<AuthState> {
         authenticationTokens: [],
       ),
     ));
+    if (response is td.TdError) {
+      state = state.copyWith(
+        step: AuthStep.waitingForNumber,
+        errorMessage: _mapErrorToFriendlyMessage(response.message),
+      );
+    }
   }
 
-  void checkCode(String code) {
-    state = state.copyWith(step: AuthStep.loading);
-    ref.read(tdlibServiceProvider).send(td.CheckAuthenticationCode(code: code));
+  Future<void> checkCode(String code) async {
+    state = state.copyWith(step: AuthStep.loading, errorMessage: null);
+    final response = await ref.read(tdlibServiceProvider).sendAsync(td.CheckAuthenticationCode(code: code));
+    if (response is td.TdError) {
+      state = state.copyWith(
+        step: AuthStep.waitingForCode,
+        errorMessage: _mapErrorToFriendlyMessage(response.message),
+      );
+    }
   }
 
-  void checkPassword(String password) {
-    state = state.copyWith(step: AuthStep.loading);
-    ref.read(tdlibServiceProvider).send(td.CheckAuthenticationPassword(password: password));
+  Future<void> checkPassword(String password) async {
+    state = state.copyWith(step: AuthStep.loading, errorMessage: null);
+    final response = await ref.read(tdlibServiceProvider).sendAsync(td.CheckAuthenticationPassword(password: password));
+    if (response is td.TdError) {
+      state = state.copyWith(
+        step: AuthStep.waitingForPassword,
+        errorMessage: _mapErrorToFriendlyMessage(response.message),
+      );
+    }
   }
 
   void logout() {
+    state = state.copyWith(step: AuthStep.loading, errorMessage: null);
     ref.read(tdlibServiceProvider).send(td.LogOut());
+  }
+
+  String _mapErrorToFriendlyMessage(String message) {
+    if (message.contains("PHONE_NUMBER_INVALID")) {
+      return "Invalid phone number. Please check the country code and number.";
+    }
+    if (message.contains("PHONE_CODE_INVALID")) {
+      return "Invalid code. Please try again.";
+    }
+    if (message.contains("PASSWORD_HASH_INVALID")) {
+      return "Incorrect 2FA password. Please try again.";
+    }
+    if (message.contains("PHONE_NUMBER_FLOOD")) {
+      return "Too many attempts. Please try again later.";
+    }
+    if (message.contains("PHONE_CODE_EXPIRED")) {
+      return "The code has expired. Please request a new one.";
+    }
+    return message;
   }
 }
 

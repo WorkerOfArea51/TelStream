@@ -19,7 +19,6 @@ class VideoSettings {
   final String streamingProfile;
   final String leftSwipeGesture;
   final String rightSwipeGesture;
-  final String doubleTapAction;
   final bool downloadSchedulerEnabled;
   final int downloadStartHour;
   final int downloadEndHour;
@@ -42,7 +41,6 @@ class VideoSettings {
     this.streamingProfile = 'Balanced',
     this.leftSwipeGesture = 'Brightness',
     this.rightSwipeGesture = 'Volume',
-    this.doubleTapAction = 'Seek',
     this.downloadSchedulerEnabled = false,
     this.downloadStartHour = 2,
     this.downloadEndHour = 6,
@@ -66,7 +64,6 @@ class VideoSettings {
     String? streamingProfile,
     String? leftSwipeGesture,
     String? rightSwipeGesture,
-    String? doubleTapAction,
     bool? downloadSchedulerEnabled,
     int? downloadStartHour,
     int? downloadEndHour,
@@ -89,7 +86,6 @@ class VideoSettings {
       streamingProfile: streamingProfile ?? this.streamingProfile,
       leftSwipeGesture: leftSwipeGesture ?? this.leftSwipeGesture,
       rightSwipeGesture: rightSwipeGesture ?? this.rightSwipeGesture,
-      doubleTapAction: doubleTapAction ?? this.doubleTapAction,
       downloadSchedulerEnabled: downloadSchedulerEnabled ?? this.downloadSchedulerEnabled,
       downloadStartHour: downloadStartHour ?? this.downloadStartHour,
       downloadEndHour: downloadEndHour ?? this.downloadEndHour,
@@ -115,7 +111,6 @@ class VideoSettings {
       'streamingProfile': streamingProfile,
       'leftSwipeGesture': leftSwipeGesture,
       'rightSwipeGesture': rightSwipeGesture,
-      'doubleTapAction': doubleTapAction,
       'downloadSchedulerEnabled': downloadSchedulerEnabled,
       'downloadStartHour': downloadStartHour,
       'downloadEndHour': downloadEndHour,
@@ -141,7 +136,6 @@ class VideoSettings {
       streamingProfile: json['streamingProfile'] ?? 'Balanced',
       leftSwipeGesture: json['leftSwipeGesture'] ?? 'Brightness',
       rightSwipeGesture: json['rightSwipeGesture'] ?? 'Volume',
-      doubleTapAction: json['doubleTapAction'] ?? 'Seek',
       downloadSchedulerEnabled: json['downloadSchedulerEnabled'] ?? false,
       downloadStartHour: json['downloadStartHour'] ?? 2,
       downloadEndHour: json['downloadEndHour'] ?? 6,

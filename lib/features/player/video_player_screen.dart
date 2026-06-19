@@ -60,6 +60,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
   StreamSubscription? _completedSubscription;
   StreamSubscription? _tracksSubscription;
   StreamSubscription? _bufferingSubscription;
+  StreamSubscription? _rateSubscription;
   Timer? _saveTimer;
   bool _nextEpisodePreloaded = false;
   Timer? _preloadCooldownTimer;
@@ -195,7 +196,28 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
     } else {
       _resetOrientationAndUI();
     }
-    
+    // Dynamic rate subscription to apply decode skipping for high speed playback (> 1.0x)
+    _rateSubscription = player.stream.rate.listen((rate) {
+      try {
+        if (player.platform is NativePlayer) {
+          final nativePlayer = player.platform as NativePlayer;
+          if (rate > 1.0) {
+            nativePlayer.setProperty('vd-lavc-skipframe', 'nonref');
+            nativePlayer.setProperty('vd-lavc-skipidct', 'all');
+            nativePlayer.setProperty('vd-lavc-skiploopfilter', 'all');
+            Log.i('Playback rate: $rate. Applied high-performance frame-drop/IDCT optimizations.');
+          } else {
+            nativePlayer.setProperty('vd-lavc-skipframe', 'default');
+            nativePlayer.setProperty('vd-lavc-skipidct', 'default');
+            nativePlayer.setProperty('vd-lavc-skiploopfilter', 'default');
+            Log.i('Playback rate: $rate. Restored standard decoding configurations.');
+          }
+        }
+      } catch (e) {
+        Log.w('Failed to set rate-dependent native player properties: $e');
+      }
+    });
+
     // Auto-Play Next Episode Logic
     _completedSubscription = player.stream.completed.listen((completed) {
       if (completed && _settings.autoplayNextVideo && !_autoNextCancelled && widget.episodeList != null && widget.currentEpisodeIndex != null) {
@@ -739,6 +761,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
     _completedSubscription?.cancel();
     _tracksSubscription?.cancel();
     _bufferingSubscription?.cancel();
+    _rateSubscription?.cancel();
     _saveTimer?.cancel();
     _preloadCooldownTimer?.cancel();
     

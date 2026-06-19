@@ -712,9 +712,13 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
 
   void _handleDoubleTap(TapDownDetails details, double screenWidth, int seekDuration) {
     if (_isLocked) return;
-    final settings = ref.read(videoSettingsProvider);
-    if (settings.doubleTapAction == 'None') return;
-    if (settings.doubleTapAction == 'Play/Pause') {
+
+    final x = details.globalPosition.dx;
+    final isLeft = x < screenWidth / 3;
+    final isRight = x > screenWidth * 2 / 3;
+
+    if (!isLeft && !isRight) {
+      // Middle zone -> Play/Pause
       if (widget.player.state.playing) {
         widget.player.pause();
       } else {
@@ -722,8 +726,6 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
       }
       return;
     }
-
-    final isLeft = details.globalPosition.dx < screenWidth / 2;
 
     _doubleTapOverlayTimer?.cancel();
     _doubleTapSeekTimer?.cancel();

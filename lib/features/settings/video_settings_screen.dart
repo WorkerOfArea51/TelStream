@@ -184,28 +184,6 @@ class VideoSettingsScreen extends ConsumerWidget {
                 ),
                 Divider(color: theme.dividerColor, height: 1, indent: 56, endIndent: 16),
                 ListTile(
-                  title: Text('Double Tap Gesture Action', style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
-                  subtitle: Text(settings.doubleTapAction, style: TextStyle(color: isDark ? Colors.white54 : Colors.black54, fontSize: 12)),
-                  trailing: DropdownButton<String>(
-                    value: settings.doubleTapAction,
-                    dropdownColor: theme.cardColor,
-                    underline: const SizedBox(),
-                    style: TextStyle(color: isDark ? Colors.white : Colors.black87),
-                    icon: Icon(Icons.arrow_drop_down, color: isDark ? Colors.white70 : Colors.black54),
-                    items: const [
-                      DropdownMenuItem(value: 'Seek', child: Text('Fast Forward/Rewind')),
-                      DropdownMenuItem(value: 'Play/Pause', child: Text('Play/Pause')),
-                      DropdownMenuItem(value: 'None', child: Text('None')),
-                    ],
-                    onChanged: (String? value) {
-                      if (value != null) {
-                        notifier.updateSettings(settings.copyWith(doubleTapAction: value));
-                      }
-                    },
-                  ),
-                ),
-                Divider(color: theme.dividerColor, height: 1, indent: 56, endIndent: 16),
-                ListTile(
                   title: Text('Double tap seek duration', style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
                   subtitle: Text('${settings.doubleTapSeekDuration}s', style: TextStyle(color: isDark ? Colors.white54 : Colors.black54, fontSize: 12)),
                   trailing: Icon(Icons.chevron_right, color: isDark ? Colors.white54 : Colors.black54),
