@@ -701,8 +701,6 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
         _currentSpeed = 1.25;
       } else if (_currentSpeed == 1.25) {
         _currentSpeed = 1.5;
-      } else if (_currentSpeed == 1.5) {
-        _currentSpeed = 2.0;
       } else {
         _currentSpeed = 1.0;
       }
@@ -2262,11 +2260,11 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
       onDoubleTapDown: (details) => _handleDoubleTap(details, screenWidth, settings.doubleTapSeekDuration),
       onLongPressStart: (details) {
         if (_isLocked || !settings.dynamicSpeedOverlay) return;
-        widget.player.setRate(2.0);
+        widget.player.setRate(1.5);
         widget.player.seek(widget.player.state.position);
         setState(() {
           _showSeekIndicator = true;
-          _seekDirection = '2.0x Fast Forwarding';
+          _seekDirection = '1.5x Fast Forwarding';
         });
       },
       onLongPressEnd: (details) {
