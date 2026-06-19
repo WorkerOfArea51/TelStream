@@ -73,12 +73,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     }
 
     if (matchedCountry != null) {
-      if (matchedCountry != _currentCountry) {
+      final country = matchedCountry;
+      if (country != _currentCountry) {
         setState(() {
-          _currentCountry = matchedCountry;
-          _selectedCountryName = matchedCountry.name;
-          _selectedCountryCode = matchedCountry.countryCode;
-          _selectedCountryFlag = matchedCountry.flagEmoji;
+          _currentCountry = country;
+          _selectedCountryName = country.name;
+          _selectedCountryCode = country.countryCode;
+          _selectedCountryFlag = country.flagEmoji;
         });
       }
     } else {
