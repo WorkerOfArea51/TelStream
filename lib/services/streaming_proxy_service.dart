@@ -162,94 +162,159 @@ class StreamingProxyService {
     final responseLength = end - start + 1;
     request.response.headers.contentLength = responseLength;
 
+    // OPTIMIZATION 1: If file is fully completed on disk, stream it directly using native piping
+    if (tdFile.local.isDownloadingCompleted) {
+      final file = File(tdFile.local.path);
+      if (await file.exists()) {
+        try {
+          await request.response.addStream(file.openRead(start, end + 1));
+        } catch (e) {
+          Log.w('Proxy direct completed streaming error for file $fileId: $e');
+        } finally {
+          try {
+            await request.response.close();
+          } catch (_) {}
+        }
+        return;
+      }
+    }
+
+    // OPTIMIZATION 2: If the file is still downloading, open a single RandomAccessFile session
+    RandomAccessFile? raf;
     try {
+      final file = File(tdFile.local.path);
+      if (!await file.exists()) {
+        // Wait up to 1 second for the file to be created on disk by TDLib
+        int fileWaitAttempts = 0;
+        while (fileWaitAttempts < 10 && !await file.exists()) {
+          await Future.delayed(const Duration(milliseconds: 100));
+          fileWaitAttempts++;
+        }
+      }
+
+      if (!await file.exists()) {
+        Log.e('Proxy error: local file does not exist after waiting: ${file.path}');
+        request.response.statusCode = HttpStatus.notFound;
+        await request.response.close();
+        return;
+      }
+
+      raf = await file.open(mode: FileMode.read);
       int sentBytes = 0;
       int currentOffset = start;
 
+      // Cache file state to avoid excessive TDLib JSON IPC calls
+      td.File currentFile = tdFile;
+      DateTime lastFetchTime = DateTime.now();
+
       while (sentBytes < responseLength) {
-        // Read in chunks of 512KB to keep buffer flowing smoothly
         final chunkNeeded = (responseLength - sentBytes).clamp(0, 524288);
         if (chunkNeeded <= 0) break;
 
         final targetEndOffset = currentOffset + chunkNeeded;
 
-        // Wait for TDLib to download the needed bytes
-        bool isCached = await _waitForBytes(fileId, targetEndOffset, currentOffset);
-        if (!isCached) {
-          Log.w('Proxy timed out waiting for bytes ($currentOffset to $targetEndOffset) for file $fileId');
-          break;
+        // Check if targetEndOffset is already available in our cached file info
+        bool isAvailable = false;
+        final activeOffset = _activeDownloadOffsets[fileId] ?? 0;
+        final baseDownloaded = _downloadedSizeAtOffsets[fileId] ?? 0;
+
+        if (currentOffset < activeOffset) {
+          if (currentFile.local.downloadedPrefixSize >= targetEndOffset) {
+            isAvailable = true;
+          }
+        } else {
+          final downloadedDelta = currentFile.local.downloadedSize - baseDownloaded;
+          final availableRangeEnd = activeOffset + downloadedDelta;
+          if (targetEndOffset <= availableRangeEnd) {
+            isAvailable = true;
+          }
         }
 
-        final freshRes = await _tdlibService.sendAsync(td.GetFile(fileId: fileId));
-        if (freshRes is! td.File || freshRes.local.path.isEmpty) {
-          Log.w('Proxy error: local file path is empty');
-          break;
+        // OPTIMIZATION 3: Refresh progress from TDLib ONLY if not available in cache OR if cache is >500ms old
+        if (!isAvailable || DateTime.now().difference(lastFetchTime).inMilliseconds > 500) {
+          try {
+            final res = await _tdlibService.sendAsync(td.GetFile(fileId: fileId));
+            if (res is td.File) {
+              currentFile = res;
+              lastFetchTime = DateTime.now();
+
+              // Re-check availability with fresh info
+              if (currentOffset < activeOffset) {
+                if (currentFile.local.downloadedPrefixSize >= targetEndOffset) {
+                  isAvailable = true;
+                }
+              } else {
+                final downloadedDelta = currentFile.local.downloadedSize - baseDownloaded;
+                final availableRangeEnd = activeOffset + downloadedDelta;
+                if (targetEndOffset <= availableRangeEnd) {
+                  isAvailable = true;
+                }
+              }
+            }
+          } catch (e) {
+            Log.w('Proxy failed to refresh file info in loop: $e');
+          }
         }
 
-        final file = File(freshRes.local.path);
-        if (!await file.exists()) {
-          Log.w('Proxy error: local file does not exist: ${file.path}');
-          break;
-        }
+        // If not ready, poll and wait
+        if (!isAvailable) {
+          int waitAttempts = 0;
+          bool waitSuccess = false;
+          while (waitAttempts < 200) { // Max 20 seconds
+            await Future.delayed(const Duration(milliseconds: 100));
+            try {
+              final res = await _tdlibService.sendAsync(td.GetFile(fileId: fileId));
+              if (res is td.File) {
+                currentFile = res;
+                lastFetchTime = DateTime.now();
 
-        final raf = await file.open(mode: FileMode.read);
-        try {
-          await raf.setPosition(currentOffset);
-          final bytes = await raf.read(chunkNeeded);
-          if (bytes.isEmpty) {
+                if (currentOffset < activeOffset) {
+                  if (currentFile.local.downloadedPrefixSize >= targetEndOffset) {
+                    waitSuccess = true;
+                    break;
+                  }
+                } else {
+                  final downloadedDelta = currentFile.local.downloadedSize - baseDownloaded;
+                  final availableRangeEnd = activeOffset + downloadedDelta;
+                  if (targetEndOffset <= availableRangeEnd) {
+                    waitSuccess = true;
+                    break;
+                  }
+                }
+              }
+            } catch (e) {
+              Log.w('Proxy error checking file in wait loop: $e');
+            }
+            waitAttempts++;
+          }
+
+          if (!waitSuccess) {
+            Log.w('Proxy timed out waiting for bytes ($currentOffset to $targetEndOffset) for file $fileId');
             break;
           }
-          request.response.add(bytes);
-          await request.response.flush();
-          sentBytes += bytes.length;
-          currentOffset += bytes.length;
-        } finally {
-          await raf.close();
         }
+
+        // Read and write chunk using persistent RandomAccessFile
+        await raf.setPosition(currentOffset);
+        final bytes = await raf.read(chunkNeeded);
+        if (bytes.isEmpty) break;
+
+        request.response.add(bytes);
+        await request.response.flush();
+        sentBytes += bytes.length;
+        currentOffset += bytes.length;
       }
     } catch (e) {
       Log.w('Proxy streaming connection terminated: $e');
     } finally {
+      if (raf != null) {
+        try {
+          await raf.close();
+        } catch (_) {}
+      }
       try {
         await request.response.close();
       } catch (_) {}
     }
-  }
-
-  Future<bool> _waitForBytes(int fileId, int targetOffset, int startOffset) async {
-    int attempts = 0;
-    while (attempts < 200) { // Max 20 seconds
-      try {
-        final res = await _tdlibService.sendAsync(td.GetFile(fileId: fileId));
-        if (res is td.File) {
-          if (res.local.isDownloadingCompleted) {
-            return true;
-          }
-
-          final activeOffset = _activeDownloadOffsets[fileId] ?? 0;
-          final baseDownloaded = _downloadedSizeAtOffsets[fileId] ?? 0;
-
-          if (startOffset < activeOffset) {
-            // Request is before active download offset. Check contiguous downloaded prefix.
-            if (res.local.downloadedPrefixSize >= targetOffset) {
-              return true;
-            }
-          } else {
-            // Request is within or after active download offset.
-            final downloadedDelta = res.local.downloadedSize - baseDownloaded;
-            final availableRangeEnd = activeOffset + downloadedDelta;
-            if (targetOffset <= availableRangeEnd) {
-              return true;
-            }
-          }
-        }
-      } catch (e) {
-        Log.w('Proxy file checking error: $e');
-      }
-
-      await Future.delayed(const Duration(milliseconds: 100));
-      attempts++;
-    }
-    return false;
   }
 }
