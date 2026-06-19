@@ -15,7 +15,7 @@ import '../player/pip_manager.dart';
 import 'settings_provider.dart';
 import 'video_settings_screen.dart';
 import 'advanced_cache_manager_screen.dart';
-import 'downloads_manager_screen.dart';
+import '../home/downloads_screen.dart';
 import 'tracker_settings_screen.dart';
 import '../../core/widgets/whats_new_dialog.dart';
 import '../../core/theme/app_theme.dart';
@@ -391,7 +391,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   onTap: () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (_) => const DownloadsManagerScreen()),
+                      MaterialPageRoute(builder: (_) => const DownloadsScreen(initialIndex: 0)),
                     );
                   },
                 ),

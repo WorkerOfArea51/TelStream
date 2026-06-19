@@ -198,8 +198,9 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
 
     // Auto-Play Next Episode Logic
     _completedSubscription = player.stream.completed.listen((completed) {
-      if (completed && _settings.autoplayNextVideo && !_autoNextCancelled && widget.episodeList != null && widget.currentEpisodeIndex != null) {
-        if (widget.currentEpisodeIndex! + 1 < widget.episodeList!.length) {
+      if (completed && _settings.autoplayNextVideo && !_autoNextCancelled) {
+        final pipState = ref.read(pipControllerProvider);
+        if (pipState != null && pipState.currentIndex + 1 < pipState.queue.length) {
           _playNextEpisode();
         }
       }
@@ -400,61 +401,16 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
   }
 
   void _playNextEpisode() {
-    final nextIndex = widget.currentEpisodeIndex! + 1;
-    final nextMsg = widget.episodeList![nextIndex];
-    int? nextFileId;
-    String nextTitle = 'Episode ${nextIndex + 1}';
-    
-    if (nextMsg.content is td.MessageVideo) {
-      final v = nextMsg.content as td.MessageVideo;
-      nextFileId = v.video.video.id;
-      nextTitle = v.video.fileName;
-    } else if (nextMsg.content is td.MessageDocument) {
-      final d = nextMsg.content as td.MessageDocument;
-      nextFileId = d.document.document.id;
-      nextTitle = d.document.fileName;
-    }
-
-    if (nextFileId != null) {
-      ref.read(pipControllerProvider.notifier).playVideo(
-        context,
-        messageId: nextMsg.id,
-        videoFileId: nextFileId,
-        videoTitle: '${widget.seriesName} - $nextTitle',
-        episodeList: widget.episodeList,
-        currentEpisodeIndex: nextIndex,
-        seriesName: widget.seriesName,
-      );
+    final pipState = ref.read(pipControllerProvider);
+    if (pipState != null && pipState.currentIndex + 1 < pipState.queue.length) {
+      ref.read(pipControllerProvider.notifier).playQueueIndex(context, pipState.currentIndex + 1);
     }
   }
 
   void _playPreviousEpisode() {
-    if (widget.currentEpisodeIndex == null || widget.currentEpisodeIndex! <= 0 || widget.episodeList == null) return;
-    final prevIndex = widget.currentEpisodeIndex! - 1;
-    final prevMsg = widget.episodeList![prevIndex];
-    int? prevFileId;
-    String prevTitle = 'Episode ${prevIndex + 1}';
-    
-    if (prevMsg.content is td.MessageVideo) {
-      final v = prevMsg.content as td.MessageVideo;
-      prevFileId = v.video.video.id;
-      prevTitle = v.video.fileName;
-    } else if (prevMsg.content is td.MessageDocument) {
-      final d = prevMsg.content as td.MessageDocument;
-      prevFileId = d.document.document.id;
-      prevTitle = d.document.fileName;
-    }
-
-    if (prevFileId != null) {
-      ref.read(pipControllerProvider.notifier).playVideo(
-        context,
-        messageId: prevMsg.id,
-        videoFileId: prevFileId,
-        videoTitle: '${widget.seriesName} - $prevTitle',
-        episodeList: widget.episodeList,
-        currentEpisodeIndex: prevIndex,
-        seriesName: widget.seriesName,
-      );
+    final pipState = ref.read(pipControllerProvider);
+    if (pipState != null && pipState.currentIndex > 0) {
+      ref.read(pipControllerProvider.notifier).playQueueIndex(context, pipState.currentIndex - 1);
     }
   }
 
@@ -797,20 +753,15 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
   }
 
   void _preloadNextEpisode() {
-    if (widget.episodeList == null || widget.currentEpisodeIndex == null) return;
-    final nextIndex = widget.currentEpisodeIndex! + 1;
-    if (nextIndex >= widget.episodeList!.length) return;
+    final pipState = ref.read(pipControllerProvider);
+    if (pipState == null) return;
+    final nextIndex = pipState.currentIndex + 1;
+    if (nextIndex >= pipState.queue.length) return;
 
-    final nextMsg = widget.episodeList![nextIndex];
-    int? nextFileId;
-    
-    if (nextMsg.content is td.MessageVideo) {
-      nextFileId = (nextMsg.content as td.MessageVideo).video.video.id;
-    } else if (nextMsg.content is td.MessageDocument) {
-      nextFileId = (nextMsg.content as td.MessageDocument).document.document.id;
-    }
+    final nextItem = pipState.queue[nextIndex];
+    final nextFileId = nextItem.videoFileId;
 
-    if (nextFileId != null) {
+    if (nextFileId != 0) {
       Log.i('Preloading next episode (ID: $nextFileId) - downloading first 15MB');
       _tdlibService.send(td.DownloadFile(
         fileId: nextFileId,
@@ -823,20 +774,15 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
   }
 
   void _cancelPreloadOfNextEpisode() {
-    if (widget.episodeList == null || widget.currentEpisodeIndex == null) return;
-    final nextIndex = widget.currentEpisodeIndex! + 1;
-    if (nextIndex >= widget.episodeList!.length) return;
+    final pipState = ref.read(pipControllerProvider);
+    if (pipState == null) return;
+    final nextIndex = pipState.currentIndex + 1;
+    if (nextIndex >= pipState.queue.length) return;
 
-    final nextMsg = widget.episodeList![nextIndex];
-    int? nextFileId;
-    
-    if (nextMsg.content is td.MessageVideo) {
-      nextFileId = (nextMsg.content as td.MessageVideo).video.video.id;
-    } else if (nextMsg.content is td.MessageDocument) {
-      nextFileId = (nextMsg.content as td.MessageDocument).document.document.id;
-    }
+    final nextItem = pipState.queue[nextIndex];
+    final nextFileId = nextItem.videoFileId;
 
-    if (nextFileId != null) {
+    if (nextFileId != 0) {
       Log.i('Playback buffered: Cancelling next episode background preload (ID: $nextFileId)');
       _tdlibService.send(td.CancelDownloadFile(
         fileId: nextFileId,
@@ -856,6 +802,8 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
 
   @override
   Widget build(BuildContext context) {
+    final pipState = ref.watch(pipControllerProvider);
+
     return PopScope(
       canPop: true,
       onPopInvokedWithResult: (didPop, result) {},
@@ -866,13 +814,13 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
             ? CustomVideoControls(
                 player: player,
                 controller: controller,
-                videoTitle: widget.videoTitle,
+                videoTitle: pipState?.queue[pipState.currentIndex].videoTitle ?? widget.videoTitle,
                 isPip: false,
                 downloadedPrefixSize: _downloadedPrefixSize,
                 expectedSize: _expectedSize,
                 onBack: () => Navigator.of(context).pop(),
-                hasPrevEpisode: widget.episodeList != null && widget.currentEpisodeIndex != null && widget.currentEpisodeIndex! > 0,
-                hasNextEpisode: widget.episodeList != null && widget.currentEpisodeIndex != null && widget.currentEpisodeIndex! + 1 < widget.episodeList!.length,
+                hasPrevEpisode: pipState != null && pipState.currentIndex > 0,
+                hasNextEpisode: pipState != null && pipState.currentIndex + 1 < pipState.queue.length,
                 onPrevEpisode: _playPreviousEpisode,
                 onNextEpisode: _playNextEpisode,
                 onAutoNextCancelled: () {
@@ -882,8 +830,8 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
                 },
                 onSeek: _handleCustomSeek,
                 customBuffering: _isBuffering,
-                seriesName: widget.seriesName,
-                currentEpisodeIndex: widget.currentEpisodeIndex ?? 0,
+                seriesName: pipState?.queue[pipState.currentIndex].seriesName ?? widget.seriesName,
+                currentEpisodeIndex: pipState?.currentIndex ?? widget.currentEpisodeIndex ?? 0,
               )
             : _isInitializing
                 ? Column(
