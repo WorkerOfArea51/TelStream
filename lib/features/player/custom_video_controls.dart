@@ -2617,7 +2617,6 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                       child: AspectRatio(
                         aspectRatio: _customAspectRatio!,
                         child: Video(
-                          key: ValueKey(_isBlendingSubtitles),
                           controller: widget.controller,
                           controls: NoVideoControls,
                           fit: BoxFit.fill,
@@ -2626,7 +2625,6 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                       ),
                     )
                   : Video(
-                      key: ValueKey(_isBlendingSubtitles),
                       controller: widget.controller,
                       controls: NoVideoControls,
                       fit: _fit,
