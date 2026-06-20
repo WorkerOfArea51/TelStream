@@ -207,7 +207,7 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
           if (task.isCompleted) return; // Already finished and saved
 
           final expectedSize = event.file.expectedSize;
-          final downloadedSize = event.file.local.downloadedPrefixSize;
+          final downloadedSize = event.file.local.downloadedSize;
           
           double progress = 0.0;
           if (expectedSize > 0) {

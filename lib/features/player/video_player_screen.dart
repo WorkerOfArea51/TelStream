@@ -224,7 +224,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
 
     // Auto-apply saved preferred tracks with smart sub/dub tracking
     _tracksSubscription = player.stream.tracks.listen((tracks) {
-      if (tracks.audio.isEmpty) return;
+      if (tracks.audio.isEmpty && tracks.subtitle.isEmpty) return;
       if (_initialTrackSelectionDone) return;
       _initialTrackSelectionDone = true;
 

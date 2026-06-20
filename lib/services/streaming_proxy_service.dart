@@ -9,6 +9,9 @@ final streamingProxyServiceProvider = Provider<StreamingProxyService>((ref) {
   final tdlibService = ref.watch(tdlibServiceProvider);
   final proxy = StreamingProxyService(tdlibService);
   proxy.start();
+  ref.onDispose(() {
+    proxy.stop();
+  });
   return proxy;
 });
 
@@ -183,9 +186,12 @@ class StreamingProxyService {
             return now.difference(lastActive).inMilliseconds < 800;
           });
 
+          final isTailQuery = res.expectedSize > 20 * 1024 * 1024 &&
+              start >= res.expectedSize - 15 * 1024 * 1024;
+
           if (!isCompleted &&
               start >= prefixSize &&
-              (isOutBefore || (isOutAfter && !hasEarlierRequest))) {
+              (isOutBefore || (isOutAfter && (!hasEarlierRequest || isTailQuery)))) {
             final shiftOffset = (start - graceBuffer).clamp(0, res.expectedSize);
             
             Log.i('Proxy auto-shifting TDLib download offset for file $fileId to $shiftOffset (requested range: $start-$end, prefixSize: $prefixSize, activeOffset: $activeOffset, activeRangeEnd: $activeRangeEnd)');
@@ -324,12 +330,15 @@ class StreamingProxyService {
                 return now.difference(lastActive).inMilliseconds < 800;
               });
 
+              final isTailQuery = currentFile.expectedSize > 20 * 1024 * 1024 &&
+                  currentOffset >= currentFile.expectedSize - 15 * 1024 * 1024;
+
               final isOutBefore = currentOffset < activeOffset;
               final downloadedDelta = (currentFile.local.downloadedSize - baseDownloaded).clamp(0, currentFile.expectedSize);
               final activeRangeEnd = activeOffset + downloadedDelta;
               final isOutAfter = currentOffset > activeRangeEnd + 3 * 1024 * 1024;
 
-              if (isOutBefore || (isOutAfter && !hasEarlierRequest)) {
+              if (isOutBefore || (isOutAfter && (!hasEarlierRequest || isTailQuery))) {
                 final shiftOffset = (currentOffset - 5 * 1024 * 1024).clamp(0, currentFile.expectedSize);
                 Log.i('Proxy loop auto-shifting TDLib download for file $fileId to $shiftOffset (currentOffset: $currentOffset, activeOffset: $activeOffset, activeRangeEnd: $activeRangeEnd)');
                 
