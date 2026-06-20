@@ -310,6 +310,60 @@ class VideoSettingsScreen extends ConsumerWidget {
                   currentValue: settings.subtitleRendererMode == 'flutter' ? 'Flutter Text Overlay' : 'Native Blending',
                   onChanged: (val) => notifier.updateSettings(settings.copyWith(subtitleRendererMode: val == 'Flutter Text Overlay' ? 'flutter' : 'native')),
                 ),
+                Divider(color: theme.dividerColor, height: 1, indent: 16, endIndent: 16),
+                _buildRadioGroup(
+                  context: context,
+                  title: 'Preferred Provider',
+                  options: const ['OpenSubtitles v2', 'SubDL'],
+                  currentValue: settings.preferredSubtitleProvider == 'subdl' ? 'SubDL' : 'OpenSubtitles v2',
+                  onChanged: (val) => notifier.updateSettings(settings.copyWith(
+                    preferredSubtitleProvider: val == 'SubDL' ? 'subdl' : 'opensubtitles',
+                  )),
+                ),
+                Divider(color: theme.dividerColor, height: 1, indent: 16, endIndent: 16),
+                ListTile(
+                  title: Text('OpenSubtitles API Key', style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
+                  subtitle: Text(
+                    settings.openSubtitlesApiKey.isEmpty
+                        ? 'Not configured (Search will be public/limited)'
+                        : '••••••••${settings.openSubtitlesApiKey.length > 4 ? settings.openSubtitlesApiKey.substring(settings.openSubtitlesApiKey.length - 4) : ""}',
+                    style: TextStyle(color: isDark ? Colors.white54 : Colors.black54, fontSize: 12),
+                  ),
+                  trailing: const Icon(Icons.edit, size: 20),
+                  onTap: () async {
+                    final newKey = await _showTextFieldDialog(
+                      context,
+                      'OpenSubtitles API Key',
+                      'Enter your OpenSubtitles REST API key:',
+                      settings.openSubtitlesApiKey,
+                    );
+                    if (newKey != null) {
+                      notifier.updateSettings(settings.copyWith(openSubtitlesApiKey: newKey));
+                    }
+                  },
+                ),
+                Divider(color: theme.dividerColor, height: 1, indent: 16, endIndent: 16),
+                ListTile(
+                  title: Text('SubDL API Key', style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
+                  subtitle: Text(
+                    settings.subdlApiKey.isEmpty
+                        ? 'Not configured (Required for SubDL search)'
+                        : '••••••••${settings.subdlApiKey.length > 4 ? settings.subdlApiKey.substring(settings.subdlApiKey.length - 4) : ""}',
+                    style: TextStyle(color: isDark ? Colors.white54 : Colors.black54, fontSize: 12),
+                  ),
+                  trailing: const Icon(Icons.edit, size: 20),
+                  onTap: () async {
+                    final newKey = await _showTextFieldDialog(
+                      context,
+                      'SubDL API Key',
+                      'Enter your SubDL API key:',
+                      settings.subdlApiKey,
+                    );
+                    if (newKey != null) {
+                      notifier.updateSettings(settings.copyWith(subdlApiKey: newKey));
+                    }
+                  },
+                ),
               ],
             ),
           ),
@@ -481,6 +535,57 @@ class VideoSettingsScreen extends ConsumerWidget {
           ),
         ),
       ],
+    );
+  }
+
+  Future<String?> _showTextFieldDialog(
+    BuildContext context,
+    String title,
+    String labelText,
+    String initialValue,
+  ) async {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final controller = TextEditingController(text: initialValue);
+
+    return showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: theme.cardColor,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: theme.colorScheme.onSurface.withValues(alpha: 0.08), width: 1),
+        ),
+        title: Text(title, style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(labelText, style: TextStyle(fontSize: 13, color: theme.colorScheme.onSurface.withValues(alpha: 0.7))),
+            const SizedBox(height: 12),
+            TextField(
+              controller: controller,
+              autofocus: true,
+              style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+              decoration: InputDecoration(
+                hintText: 'Paste key here...',
+                hintStyle: TextStyle(color: isDark ? Colors.white24 : Colors.black26),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Cancel', style: TextStyle(color: isDark ? Colors.white54 : Colors.black54)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, controller.text.trim()),
+            child: Text('Save', style: TextStyle(color: theme.primaryColor)),
+          ),
+        ],
+      ),
     );
   }
 }

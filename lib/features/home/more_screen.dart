@@ -11,6 +11,7 @@ import 'history_screen.dart';
 import 'network_stream_screen.dart';
 import 'downloads_screen.dart';
 import 'global_search_screen.dart';
+import 'airing_calendar_screen.dart';
 
 class MoreScreen extends ConsumerStatefulWidget {
   const MoreScreen({super.key});
@@ -167,6 +168,17 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
                       Navigator.push(
                         context,
                         MaterialPageRoute(builder: (context) => const GlobalSearchScreen()),
+                      );
+                    },
+                  ),
+                  Divider(color: theme.dividerColor, height: 1, indent: 56, endIndent: 16),
+                  _buildMenuTile(
+                    icon: Icons.calendar_month_rounded,
+                    title: 'Airing Calendar',
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const AiringCalendarScreen()),
                       );
                     },
                   ),

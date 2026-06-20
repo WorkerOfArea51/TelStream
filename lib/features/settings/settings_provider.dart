@@ -29,6 +29,9 @@ class VideoSettings {
   final double longPressSpeed;
   final String gestureSensitivity;
   final String libraryLayout;
+  final String openSubtitlesApiKey;
+  final String subdlApiKey;
+  final String preferredSubtitleProvider;
 
   const VideoSettings({
     this.doubleTapSeekDuration = 10,
@@ -58,6 +61,9 @@ class VideoSettings {
     this.longPressSpeed = 1.5,
     this.gestureSensitivity = 'Normal',
     this.libraryLayout = 'Grid',
+    this.openSubtitlesApiKey = '',
+    this.subdlApiKey = '',
+    this.preferredSubtitleProvider = 'opensubtitles',
   });
 
   VideoSettings copyWith({
@@ -88,6 +94,9 @@ class VideoSettings {
     double? longPressSpeed,
     String? gestureSensitivity,
     String? libraryLayout,
+    String? openSubtitlesApiKey,
+    String? subdlApiKey,
+    String? preferredSubtitleProvider,
   }) {
     return VideoSettings(
       doubleTapSeekDuration: doubleTapSeekDuration ?? this.doubleTapSeekDuration,
@@ -117,6 +126,9 @@ class VideoSettings {
       longPressSpeed: longPressSpeed ?? this.longPressSpeed,
       gestureSensitivity: gestureSensitivity ?? this.gestureSensitivity,
       libraryLayout: libraryLayout ?? this.libraryLayout,
+      openSubtitlesApiKey: openSubtitlesApiKey ?? this.openSubtitlesApiKey,
+      subdlApiKey: subdlApiKey ?? this.subdlApiKey,
+      preferredSubtitleProvider: preferredSubtitleProvider ?? this.preferredSubtitleProvider,
     );
   }
 
@@ -149,6 +161,9 @@ class VideoSettings {
       'longPressSpeed': longPressSpeed,
       'gestureSensitivity': gestureSensitivity,
       'libraryLayout': libraryLayout,
+      'openSubtitlesApiKey': openSubtitlesApiKey,
+      'subdlApiKey': subdlApiKey,
+      'preferredSubtitleProvider': preferredSubtitleProvider,
     };
   }
 
@@ -181,6 +196,9 @@ class VideoSettings {
       longPressSpeed: (json['longPressSpeed'] as num?)?.toDouble() ?? 1.5,
       gestureSensitivity: json['gestureSensitivity'] ?? 'Normal',
       libraryLayout: json['libraryLayout'] ?? 'Grid',
+      openSubtitlesApiKey: json['openSubtitlesApiKey'] ?? '',
+      subdlApiKey: json['subdlApiKey'] ?? '',
+      preferredSubtitleProvider: json['preferredSubtitleProvider'] ?? 'opensubtitles',
     );
   }
 }

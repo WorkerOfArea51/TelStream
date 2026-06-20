@@ -3,10 +3,12 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:archive/archive.dart';
 import '../core/logger.dart';
+import '../features/settings/settings_provider.dart';
 
 final subtitleDownloaderServiceProvider = Provider<SubtitleDownloaderService>((ref) {
-  return SubtitleDownloaderService();
+  return SubtitleDownloaderService(ref);
 });
 
 class SubtitleMatch {
@@ -24,82 +26,244 @@ class SubtitleMatch {
 }
 
 class SubtitleDownloaderService {
+  final Ref _ref;
+  SubtitleDownloaderService(this._ref);
+
   Future<List<SubtitleMatch>> searchSubtitles(String query, {String lang = 'eng'}) async {
+    final settings = _ref.read(videoSettingsProvider);
+    final provider = settings.preferredSubtitleProvider;
+
+    if (provider == 'subdl') {
+      return _searchSubDL(query, lang: lang, apiKey: settings.subdlApiKey);
+    } else {
+      return _searchOpenSubtitles(query, lang: lang, apiKey: settings.openSubtitlesApiKey);
+    }
+  }
+
+  Future<List<SubtitleMatch>> _searchOpenSubtitles(String query, {required String lang, required String apiKey}) async {
     try {
-      final url = Uri.parse(
-        'https://rest.opensubtitles.org/subtitles/search/query-${Uri.encodeComponent(query)}/sublanguageid-$lang'
-      );
+      final Map<String, String> langMap = {
+        'eng': 'en',
+        'spa': 'es',
+        'fre': 'fr',
+        'ger': 'de',
+        'ind': 'id',
+        'ara': 'ar',
+      };
+      final lang2 = langMap[lang] ?? lang;
+
+      final url = Uri.parse('https://api.opensubtitles.com/api/v1/subtitles?query=${Uri.encodeComponent(query)}&languages=$lang2');
       
-      final response = await http.get(
-        url,
-        headers: {
-          'User-Agent': 'TemporaryUserAgent',
-          'Accept': 'application/json',
-        },
-      ).timeout(const Duration(seconds: 8));
+      final headers = {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        'User-Agent': 'TelStream v2.7.0',
+      };
+      if (apiKey.isNotEmpty) {
+        headers['Api-Key'] = apiKey;
+      }
+
+      final response = await http.get(url, headers: headers).timeout(const Duration(seconds: 8));
 
       if (response.statusCode == 200) {
-        final List? data = json.decode(response.body);
-        if (data != null) {
+        final Map<String, dynamic> data = json.decode(response.body);
+        final List? dataList = data['data'];
+        if (dataList != null) {
           final List<SubtitleMatch> results = [];
-          for (final item in data) {
-            final fileName = item['SubFileName'] as String?;
-            final downloadUrl = item['SubDownloadLink'] as String?;
-            final id = item['IDSubtitleFile'] as String?;
-            final language = item['LanguageName'] as String? ?? 'English';
+          for (final item in dataList) {
+            final attrs = item['attributes'] as Map<String, dynamic>?;
+            if (attrs == null) continue;
+            final files = attrs['files'] as List?;
+            if (files == null || files.isEmpty) continue;
             
-            if (fileName != null && downloadUrl != null) {
+            final fileItem = files[0] as Map<String, dynamic>;
+            final fileId = fileItem['file_id']?.toString();
+            final fileName = fileItem['file_name'] as String? ?? attrs['release'] as String? ?? 'Subtitle.srt';
+            final language = attrs['language'] as String? ?? 'English';
+
+            if (fileId != null) {
               results.add(SubtitleMatch(
-                id: id ?? downloadUrl,
+                id: fileId,
                 fileName: fileName,
-                downloadUrl: downloadUrl,
+                downloadUrl: fileId, // Use fileId directly as downloadUrl for OpenSubtitles
                 language: language,
               ));
             }
           }
           return results;
         }
+      } else if (response.statusCode == 401 || response.statusCode == 403) {
+        throw const HttpException('Invalid/Missing OpenSubtitles API Key. Please configure it in Player Settings.');
       } else if (response.statusCode == 429) {
         throw const HttpException('Too many requests. OpenSubtitles rate limit exceeded. Please try again later.');
-      } else if (response.statusCode == 403) {
-        throw const HttpException('Access denied. OpenSubtitles has blocked public queries. Please load a local subtitle file or try again later.');
       } else {
         throw HttpException('OpenSubtitles server returned error code ${response.statusCode}');
       }
     } catch (e) {
-      Log.e('Failed to search subtitles for query=$query', e);
+      Log.e('Failed to search OpenSubtitles for query=$query', e);
       rethrow;
     }
     return [];
   }
 
-  Future<String?> downloadSubtitle(String downloadUrl, String fileName) async {
+  Future<List<SubtitleMatch>> _searchSubDL(String query, {required String lang, required String apiKey}) async {
+    if (apiKey.isEmpty) {
+      throw const HttpException('SubDL API Key is required. Please configure it in Player Settings.');
+    }
+
     try {
+      final Map<String, String> langMap = {
+        'eng': 'en',
+        'spa': 'es',
+        'fre': 'fr',
+        'ger': 'de',
+        'ind': 'id',
+        'ara': 'ar',
+      };
+      final lang2 = langMap[lang] ?? lang;
+
+      final url = Uri.parse('https://api.subdl.com/api/v1/subtitles?api_key=$apiKey&film_name=${Uri.encodeComponent(query)}&languages=$lang2');
+      
       final response = await http.get(
-        Uri.parse(downloadUrl),
+        url,
         headers: {
-          'User-Agent': 'TemporaryUserAgent',
+          'Accept': 'application/json',
+          'User-Agent': 'TelStream v2.7.0',
         },
-      ).timeout(const Duration(seconds: 10));
+      ).timeout(const Duration(seconds: 8));
 
       if (response.statusCode == 200) {
-        final bytes = response.bodyBytes;
+        final Map<String, dynamic> data = json.decode(response.body);
+        final bool status = data['status'] as bool? ?? false;
+        final List? subtitlesList = data['subtitles'];
         
-        // OpenSubtitles links return gzipped data (GZIP header: 0x1f 0x8b)
-        List<int> decodedBytes = bytes;
-        if (downloadUrl.endsWith('.gz') || (bytes.length > 2 && bytes[0] == 0x1f && bytes[1] == 0x8b)) {
-          decodedBytes = gzip.decode(bytes);
+        if (status && subtitlesList != null) {
+          final List<SubtitleMatch> results = [];
+          for (final item in subtitlesList) {
+            final fileName = item['name'] as String? ?? item['release_name'] as String? ?? 'Subtitle.srt';
+            final downloadLink = item['download_link'] as String?;
+            final language = item['lang'] as String? ?? 'English';
+            
+            if (downloadLink != null) {
+              results.add(SubtitleMatch(
+                id: downloadLink,
+                fileName: fileName,
+                downloadUrl: downloadLink,
+                language: language,
+              ));
+            }
+          }
+          return results;
+        }
+      } else if (response.statusCode == 401 || response.statusCode == 403) {
+        throw const HttpException('Invalid SubDL API Key. Please configure it in Player Settings.');
+      } else if (response.statusCode == 429) {
+        throw const HttpException('Too many requests. SubDL rate limit exceeded.');
+      } else {
+        throw HttpException('SubDL server returned error code ${response.statusCode}');
+      }
+    } catch (e) {
+      Log.e('Failed to search SubDL for query=$query', e);
+      rethrow;
+    }
+    return [];
+  }
+
+  Future<String?> downloadSubtitle(String downloadUrl, String fileName, {String? subtitleId}) async {
+    try {
+      final settings = _ref.read(videoSettingsProvider);
+      final provider = settings.preferredSubtitleProvider;
+      
+      List<int> bytes;
+
+      if (provider == 'opensubtitles') {
+        final fileIdStr = subtitleId ?? downloadUrl;
+        final fileId = int.tryParse(fileIdStr);
+        if (fileId == null) {
+          throw const HttpException('Invalid OpenSubtitles file ID for download.');
         }
 
-        final tempDir = await getTemporaryDirectory();
-        final safeName = fileName.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_');
-        final file = File('${tempDir.path}/$safeName');
-        await file.writeAsBytes(decodedBytes);
-        Log.i('Downloaded and saved subtitle to: ${file.path}');
-        return file.path;
+        final headers = {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          'User-Agent': 'TelStream v2.7.0',
+        };
+        if (settings.openSubtitlesApiKey.isNotEmpty) {
+          headers['Api-Key'] = settings.openSubtitlesApiKey;
+        }
+
+        final downloadLinkResponse = await http.post(
+          Uri.parse('https://api.opensubtitles.com/api/v1/download'),
+          headers: headers,
+          body: json.encode({'file_id': fileId}),
+        ).timeout(const Duration(seconds: 10));
+
+        if (downloadLinkResponse.statusCode == 200) {
+          final Map<String, dynamic> linkData = json.decode(downloadLinkResponse.body);
+          final link = linkData['link'] as String?;
+          if (link == null) {
+            throw const HttpException('OpenSubtitles returned an empty download link.');
+          }
+
+          final fileResponse = await http.get(Uri.parse(link), headers: {
+            'User-Agent': 'TelStream v2.7.0',
+          }).timeout(const Duration(seconds: 10));
+
+          if (fileResponse.statusCode == 200) {
+            bytes = fileResponse.bodyBytes;
+          } else {
+            throw HttpException('Failed to download subtitle file. Code: ${fileResponse.statusCode}');
+          }
+        } else if (downloadLinkResponse.statusCode == 401 || downloadLinkResponse.statusCode == 403) {
+          throw const HttpException('Access Denied. Ensure your OpenSubtitles API key is configured and valid.');
+        } else if (downloadLinkResponse.statusCode == 406) {
+          throw const HttpException('OpenSubtitles download limit reached or not allowed without login.');
+        } else {
+          throw HttpException('OpenSubtitles download endpoint returned error code ${downloadLinkResponse.statusCode}');
+        }
       } else {
-        throw HttpException('Failed to download subtitle. Server returned code ${response.statusCode}');
+        final response = await http.get(
+          Uri.parse(downloadUrl),
+          headers: {
+            'User-Agent': 'TelStream v2.7.0',
+          },
+        ).timeout(const Duration(seconds: 10));
+
+        if (response.statusCode == 200) {
+          bytes = response.bodyBytes;
+        } else {
+          throw HttpException('Failed to download SubDL subtitle. Code: ${response.statusCode}');
+        }
       }
+
+      List<int> decodedBytes = bytes;
+      if (downloadUrl.endsWith('.gz') || (bytes.length > 2 && bytes[0] == 0x1f && bytes[1] == 0x8b)) {
+        decodedBytes = gzip.decode(bytes);
+      }
+
+      if (downloadUrl.endsWith('.zip') || (bytes.length > 4 && bytes[0] == 0x50 && bytes[1] == 0x4B && bytes[2] == 0x03 && bytes[3] == 0x04)) {
+        final archive = ZipDecoder().decodeBytes(bytes);
+        bool found = false;
+        for (final file in archive) {
+          if (file.isFile && (file.name.endsWith('.srt') || file.name.endsWith('.vtt') || file.name.endsWith('.ass'))) {
+            decodedBytes = file.content as List<int>;
+            fileName = file.name;
+            found = true;
+            break;
+          }
+        }
+        if (!found) {
+          throw const HttpException('No compatible subtitle files (.srt, .vtt, .ass) found inside the downloaded ZIP package.');
+        }
+      }
+
+      final tempDir = await getTemporaryDirectory();
+      final safeName = fileName.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_');
+      final file = File('${tempDir.path}/$safeName');
+      await file.writeAsBytes(decodedBytes);
+      Log.i('Downloaded and saved subtitle to: ${file.path}');
+      return file.path;
+      
     } catch (e) {
       Log.e('Failed to download subtitle from $downloadUrl', e);
       rethrow;

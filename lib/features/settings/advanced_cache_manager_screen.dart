@@ -6,6 +6,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:tdlib/td_api.dart' as td;
 import '../../services/tdlib_service.dart';
 import '../../services/storage_service.dart';
+import '../../services/download_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/logger.dart';
 
@@ -274,6 +275,121 @@ class _AdvancedCacheManagerScreenState extends ConsumerState<AdvancedCacheManage
     }
   }
 
+  Future<void> _pruneFullyWatchedVideos() async {
+    final theme = Theme.of(context);
+    final storage = ref.read(storageServiceProvider);
+    final historyLogs = storage.getHistoryLog();
+    
+    // Find all files that are watched >90%
+    final List<Map<String, dynamic>> watchedLogsToPrune = [];
+    final Set<int> fileIdsToPrune = {};
+
+    for (final log in historyLogs) {
+      final messageId = log['messageId'] as int?;
+      final fileId = log['videoFileId'] as int?;
+      if (messageId != null && fileId != null) {
+        final duration = storage.getVideoDuration(messageId);
+        final position = storage.getWatchPosition(messageId);
+        if (duration > 0 && (position / duration) >= 0.90) {
+          watchedLogsToPrune.add(log);
+          fileIdsToPrune.add(fileId);
+        }
+      }
+    }
+
+    if (watchedLogsToPrune.isEmpty) {
+      showDialog(
+        context: context,
+        builder: (context) {
+          return AlertDialog(
+            backgroundColor: theme.cardColor,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: BorderSide(color: theme.colorScheme.onSurface.withValues(alpha: 0.08)),
+            ),
+            title: const Text('Prune Watched Videos'),
+            content: const Text('No fully watched episodes (>90% progress) were found to prune.'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('OK'),
+              ),
+            ],
+          );
+        },
+      );
+      return;
+    }
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: theme.cardColor,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: BorderSide(color: theme.colorScheme.onSurface.withValues(alpha: 0.08)),
+          ),
+          title: const Text('Prune Watched Videos'),
+          content: Text(
+            'Are you sure you want to delete local downloads and streaming cache files for the ${watchedLogsToPrune.length} fully watched episodes (>90% progress)?\n\n'
+            'This will delete files for:\n'
+            '${watchedLogsToPrune.map((l) => '• ${l['seriesName']} - ${l['episodeTitle'] ?? 'Ep ${l['episodeIndex'] + 1}'}').join('\n')}'
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: Text('Cancel', style: TextStyle(color: theme.brightness == Brightness.dark ? Colors.white54 : Colors.black54)),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.orangeAccent),
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Prune', style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        );
+      }
+    );
+
+    if (confirmed == true) {
+      if (mounted) {
+        setState(() => _isLoading = true);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Pruning watched videos...'), duration: Duration(seconds: 2)),
+        );
+      }
+
+      final tdlib = ref.read(tdlibServiceProvider);
+      final downloadController = ref.read(downloadControllerProvider.notifier);
+      final downloadedFiles = storage.getDownloadedFiles();
+
+      int prunedCount = 0;
+      for (final fileId in fileIdsToPrune) {
+        try {
+          if (downloadedFiles.containsKey(fileId)) {
+            await downloadController.deleteDownloadedFile(fileId);
+          }
+          await tdlib.sendAsync(td.DeleteFile(fileId: fileId));
+          await storage.removeSeriesFile(fileId);
+          prunedCount++;
+        } catch (e) {
+          Log.e('Failed to prune fileId $fileId: $e');
+        }
+      }
+
+      await _loadAllCacheData();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Successfully pruned $prunedCount fully watched files.'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    }
+  }
+
   Future<void> _clearMetadataCacheAction() async {
     final theme = Theme.of(context);
     final confirmed = await showDialog<bool>(
@@ -341,12 +457,19 @@ class _AdvancedCacheManagerScreenState extends ConsumerState<AdvancedCacheManage
         elevation: 0,
         iconTheme: IconThemeData(color: isDark ? Colors.white : Colors.black87),
         actions: [
-          if (!_isLoading && _totalCacheSize > 0)
+          if (!_isLoading) ...[
             IconButton(
-              icon: const Icon(Icons.delete_sweep, color: Colors.redAccent),
-              tooltip: 'Clear All Cache',
-              onPressed: _clearAllTemporaryCache,
+              icon: const Icon(Icons.auto_delete_outlined, color: Colors.orangeAccent),
+              tooltip: 'Prune Watched Videos',
+              onPressed: _pruneFullyWatchedVideos,
             ),
+            if (_totalCacheSize > 0)
+              IconButton(
+                icon: const Icon(Icons.delete_sweep, color: Colors.redAccent),
+                tooltip: 'Clear All Cache',
+                onPressed: _clearAllTemporaryCache,
+              ),
+          ],
         ],
       ),
       body: _isLoading

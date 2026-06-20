@@ -123,9 +123,20 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> with SingleTi
     final settings = ref.watch(videoSettingsProvider);
 
     // Filter tasks
-    final activeDownloads = downloadTasks.entries
+    final activeDownloadsRaw = downloadTasks.entries
         .where((entry) => !entry.value.isCompleted)
         .toList();
+
+    final activeDownloadsOrder = ref.read(storageServiceProvider).getActiveDownloadsOrder();
+    final List<MapEntry<int, DownloadTask>> activeDownloads = activeDownloadsRaw.toList()
+      ..sort((a, b) {
+        final indexA = activeDownloadsOrder.indexOf(a.key);
+        final indexB = activeDownloadsOrder.indexOf(b.key);
+        if (indexA == -1 && indexB == -1) return 0;
+        if (indexA == -1) return 1;
+        if (indexB == -1) return -1;
+        return indexA.compareTo(indexB);
+      });
     
     final completedDownloads = downloadTasks.entries
         .where((entry) => entry.value.isCompleted && entry.value.localPath != null)
@@ -362,15 +373,23 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> with SingleTi
                           ],
                         ),
                       )
-                    : ListView.builder(
+                    : ReorderableListView.builder(
                         padding: const EdgeInsets.symmetric(horizontal: 16),
                         itemCount: activeDownloads.length,
+                        // ignore: deprecated_member_use
+                        onReorder: (oldIndex, newIndex) {
+                          if (newIndex > oldIndex) {
+                            newIndex -= 1;
+                          }
+                          ref.read(downloadControllerProvider.notifier).reorderActiveDownloads(oldIndex, newIndex);
+                        },
                         itemBuilder: (context, index) {
                           final entry = activeDownloads[index];
                           final fileId = entry.key;
                           final task = entry.value;
 
                           return Container(
+                            key: ValueKey(fileId),
                             margin: const EdgeInsets.only(bottom: 12),
                             padding: const EdgeInsets.all(16),
                             decoration: BoxDecoration(

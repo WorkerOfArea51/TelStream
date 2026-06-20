@@ -563,6 +563,65 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
     }
     _pausedForStreamingFileIds.clear();
   }
+
+  Future<void> deleteDownloadedFile(int fileId) async {
+    final storage = ref.read(storageServiceProvider);
+    final downloadedFiles = storage.getDownloadedFiles();
+    final path = downloadedFiles[fileId];
+    if (path != null) {
+      try {
+        final file = File(path);
+        if (await file.exists()) {
+          await file.delete();
+          Log.i('Deleted downloaded file: $path');
+        }
+      } catch (e, stack) {
+        Log.e('Error deleting downloaded file: $path', e, stack);
+      }
+      await storage.removeDownloadedFile(fileId);
+      state = {...state}..remove(fileId);
+    }
+  }
+
+  Future<void> reorderActiveDownloads(int oldIndex, int newIndex) async {
+    final storage = ref.read(storageServiceProvider);
+    final activeDownloads = state.entries.where((entry) => !entry.value.isCompleted).toList();
+    final activeDownloadsOrder = storage.getActiveDownloadsOrder();
+
+    final List<int> currentOrder = [];
+    for (final fid in activeDownloadsOrder) {
+      if (state.containsKey(fid) && !state[fid]!.isCompleted) {
+        currentOrder.add(fid);
+      }
+    }
+    for (final entry in activeDownloads) {
+      if (!currentOrder.contains(entry.key)) {
+        currentOrder.add(entry.key);
+      }
+    }
+
+    if (oldIndex < currentOrder.length && newIndex < currentOrder.length) {
+      final item = currentOrder.removeAt(oldIndex);
+      currentOrder.insert(newIndex, item);
+      await storage.setActiveDownloadsOrder(currentOrder);
+      
+      final tdlib = ref.read(tdlibServiceProvider);
+      for (int i = 0; i < currentOrder.length; i++) {
+        final fileId = currentOrder[i];
+        final priority = (32 - i).clamp(1, 32);
+        tdlib.send(td.DownloadFile(
+          fileId: fileId,
+          priority: priority,
+          offset: 0,
+          limit: 0,
+          synchronous: false,
+        ));
+        Log.i('Adjusted TDLib download priority for fileId $fileId to $priority');
+      }
+      
+      state = {...state};
+    }
+  }
 }
 
 final downloadControllerProvider = NotifierProvider<DownloadController, Map<int, DownloadTask>>(DownloadController.new);

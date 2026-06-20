@@ -349,17 +349,42 @@ class StorageService {
     return rawMap.map((key, value) => MapEntry(int.parse(key), value as String));
   }
 
+  List<int> getActiveDownloadsOrder() {
+    if (_data['active_downloads_order'] == null) return [];
+    return List<int>.from(_data['active_downloads_order']);
+  }
+
+  Future<void> setActiveDownloadsOrder(List<int> order) async {
+    _data['active_downloads_order'] = order;
+    await _save();
+  }
+
   Future<void> addActiveDownload(int fileId, String title) async {
     _data['active_downloads'] ??= <String, dynamic>{};
     _data['active_downloads'][fileId.toString()] = title;
+    
+    _data['active_downloads_order'] ??= <dynamic>[];
+    final order = List<int>.from(_data['active_downloads_order']);
+    if (!order.contains(fileId)) {
+      order.add(fileId);
+      _data['active_downloads_order'] = order;
+    }
+    
     await _save();
   }
 
   Future<void> removeActiveDownload(int fileId) async {
     if (_data['active_downloads'] != null) {
       _data['active_downloads'].remove(fileId.toString());
-      await _save();
     }
+    
+    if (_data['active_downloads_order'] != null) {
+      final order = List<int>.from(_data['active_downloads_order']);
+      order.remove(fileId);
+      _data['active_downloads_order'] = order;
+    }
+    
+    await _save();
   }
 
   // --- Theme Selection ---
@@ -677,6 +702,13 @@ class StorageService {
     _data['series_files'] ??= <String, dynamic>{};
     _data['series_files'][fileId.toString()] = seriesName;
     await _save();
+  }
+
+  Future<void> removeSeriesFile(int fileId) async {
+    if (_data['series_files'] != null) {
+      _data['series_files'].remove(fileId.toString());
+      await _save();
+    }
   }
 
   Future<void> clearMetadataCache() async {
