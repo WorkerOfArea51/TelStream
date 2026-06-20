@@ -78,6 +78,8 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
   
   StreamSubscription<bool>? _bufferingSubscription;
   bool _isBuffering = false;
+  bool _isBlendingSubtitles = false;
+  StreamSubscription<Track>? _trackSubscription;
   
   bool _showTrackSelectorPanel = false;
   String _trackSelectorTitle = '';
@@ -789,6 +791,12 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
         _refreshSkipIntervals();
       }
     });
+    _trackSubscription = widget.player.stream.track.listen((track) {
+      _updateBlendSubtitlesForTrack(widget.player, track.subtitle);
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _updateBlendSubtitlesForTrack(widget.player, widget.player.state.track.subtitle);
+    });
     _playlistSubscription = widget.player.stream.playlist.listen((_) {
       if (mounted) {
         setState(() {
@@ -952,6 +960,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     _autoNextTimer?.cancel();
     _sleepTimer?.cancel();
     _osdTimer?.cancel();
+    _trackSubscription?.cancel();
     _playlistSubscription?.cancel();
     try {
       FlutterVolumeController.removeListener();
@@ -2548,7 +2557,9 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     final customTheme = theme.extension<AppThemeExtension>();
     final settingsAccent = customTheme?.settingsAccent ?? theme.primaryColor;
 
-    const subtitleConfig = SubtitleViewConfiguration(visible: true);
+    final subtitleConfig = SubtitleViewConfiguration(
+      visible: !_isBlendingSubtitles,
+    );
 
     return GestureDetector(
       onTap: _toggleControls,
@@ -3874,6 +3885,11 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
         final nativePlayer = player.platform as NativePlayer;
         if (track.id == 'no' || track.id == 'auto') {
           nativePlayer.setProperty('blend-subtitles', 'no');
+          if (mounted && _isBlendingSubtitles) {
+            setState(() {
+              _isBlendingSubtitles = false;
+            });
+          }
           return;
         }
         
@@ -3887,23 +3903,30 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
               final codec = (await nativePlayer.getProperty('track-list/$i/codec')).toLowerCase();
               Log.i('Selected subtitle track ID ${track.id} has codec: $codec');
               
-              final isGraphical = codec.contains('pgs') || 
-                                  codec.contains('hdmv') || 
-                                  codec.contains('dvd') || 
-                                  codec.contains('vob') || 
-                                  codec.contains('dvb') ||
-                                  codec == 'xsub';
-                                  
-              if (isGraphical) {
+              final isGraphicalOrAss = codec.contains('pgs') || 
+                                       codec.contains('hdmv') || 
+                                       codec.contains('dvd') || 
+                                       codec.contains('vob') || 
+                                       codec.contains('dvb') ||
+                                       codec.contains('ass') ||
+                                       codec.contains('ssa') ||
+                                       codec == 'xsub';
+                                       
+              if (isGraphicalOrAss) {
                 nativePlayer.setProperty('blend-subtitles', 'yes');
-                Log.i('Graphical subtitle detected. Set blend-subtitles to yes.');
+                Log.i('Native blending subtitle detected (PGS/ASS). Set blend-subtitles to yes.');
+                if (mounted && !_isBlendingSubtitles) {
+                  setState(() {
+                    _isBlendingSubtitles = true;
+                  });
+                }
                 
                 // Show SnackBar if on Android with direct hardware decoding
                 final hwdec = ref.read(storageServiceProvider).getHardwareDecoderMode();
                 if (Platform.isAndroid && hwdec == 'mediacodec' && mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                      content: Text('PGS subtitles require HW+ (Compatible) or SW decoder to render on Android.'),
+                      content: Text('PGS/ASS subtitles require HW+ (Compatible) or SW decoder to render on Android.'),
                       backgroundColor: Colors.orange,
                       duration: Duration(seconds: 4),
                     ),
@@ -3912,6 +3935,11 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
               } else {
                 nativePlayer.setProperty('blend-subtitles', 'no');
                 Log.i('Text subtitle detected. Set blend-subtitles to no.');
+                if (mounted && _isBlendingSubtitles) {
+                  setState(() {
+                    _isBlendingSubtitles = false;
+                  });
+                }
               }
               return;
             }

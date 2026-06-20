@@ -978,16 +978,18 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
               final codec = (await nativePlayer.getProperty('track-list/$i/codec')).toLowerCase();
               Log.i('Selected subtitle track ID ${track.id} has codec: $codec');
               
-              final isGraphical = codec.contains('pgs') || 
-                                  codec.contains('hdmv') || 
-                                  codec.contains('dvd') || 
-                                  codec.contains('vob') || 
-                                  codec.contains('dvb') ||
-                                  codec == 'xsub';
-                                  
-              if (isGraphical) {
+              final isGraphicalOrAss = codec.contains('pgs') || 
+                                       codec.contains('hdmv') || 
+                                       codec.contains('dvd') || 
+                                       codec.contains('vob') || 
+                                       codec.contains('dvb') ||
+                                       codec.contains('ass') ||
+                                       codec.contains('ssa') ||
+                                       codec == 'xsub';
+                                       
+              if (isGraphicalOrAss) {
                 nativePlayer.setProperty('blend-subtitles', 'yes');
-                Log.i('Graphical subtitle detected. Set blend-subtitles to yes.');
+                Log.i('Native blending subtitle detected (PGS/ASS). Set blend-subtitles to yes.');
               } else {
                 nativePlayer.setProperty('blend-subtitles', 'no');
                 Log.i('Text subtitle detected. Set blend-subtitles to no.');
