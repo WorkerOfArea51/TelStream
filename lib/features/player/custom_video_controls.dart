@@ -3982,79 +3982,69 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
           return;
         }
         
-        final countStr = await nativePlayer.getProperty('track-list/count');
-        final count = int.tryParse(countStr) ?? 0;
+        final hwdec = ref.read(storageServiceProvider).getHardwareDecoderMode();
+        final isDirectHw = Platform.isAndroid && hwdec == 'mediacodec';
         
-        final futures = <Future<List<String?>>>[];
-        for (int i = 0; i < count; i++) {
-          futures.add(Future.wait([
-            nativePlayer.getProperty('track-list/$i/type'),
-            nativePlayer.getProperty('track-list/$i/id'),
-            nativePlayer.getProperty('track-list/$i/codec'),
-          ]));
-        }
+        final useNativeBlending = !isDirectHw;
         
-        final results = await Future.wait(futures);
-        
-        for (int i = 0; i < count; i++) {
-          final type = results[i][0];
-          final id = results[i][1];
-          if (type == 'sub' && id == targetId) {
-            final codec = (results[i][2] ?? '').toLowerCase();
-            Log.i('Selected subtitle track ID $targetId has codec: $codec');
-            
-            final isGraphical = codec.contains('pgs') || 
-                                codec.contains('hdmv') || 
-                                codec.contains('dvd') || 
-                                codec.contains('vob') || 
-                                codec.contains('dvb') ||
-                                codec == 'xsub';
-            final isAss = codec.contains('ass') || codec.contains('ssa');
-                                     
-            final hwdec = ref.read(storageServiceProvider).getHardwareDecoderMode();
-            final isDirectHw = Platform.isAndroid && hwdec == 'mediacodec';
-            
-            final useNativeBlending = (isGraphical || isAss) && !isDirectHw;
-            
-            if (useNativeBlending) {
-              nativePlayer.setProperty('blend-subtitles', 'yes');
-              Log.i('Native blending subtitle enabled. Set blend-subtitles to yes.');
-              if (mounted && !_isBlendingSubtitles) {
-                setState(() {
-                  _isBlendingSubtitles = true;
-                });
+        if (useNativeBlending) {
+          nativePlayer.setProperty('blend-subtitles', 'yes');
+          Log.i('Native blending subtitle enabled. Set blend-subtitles to yes.');
+          if (mounted && !_isBlendingSubtitles) {
+            setState(() {
+              _isBlendingSubtitles = true;
+            });
+          }
+        } else {
+          nativePlayer.setProperty('blend-subtitles', 'no');
+          Log.i('Native blending subtitle disabled (Direct HW). Set blend-subtitles to no.');
+          if (mounted && _isBlendingSubtitles) {
+            setState(() {
+              _isBlendingSubtitles = false;
+            });
+          }
+          
+          // Show SnackBar warning if on Android and using direct hardware decoding with a graphical/ASS track
+          if (Platform.isAndroid && mounted) {
+            try {
+              final countStr = await nativePlayer.getProperty('track-list/count');
+              final count = int.tryParse(countStr) ?? 0;
+              
+              for (int i = 0; i < count; i++) {
+                final type = await nativePlayer.getProperty('track-list/$i/type');
+                final id = await nativePlayer.getProperty('track-list/$i/id');
+                if (type == 'sub' && id == targetId) {
+                  final codec = (await nativePlayer.getProperty('track-list/$i/codec')).toLowerCase();
+                  final isGraphical = codec.contains('pgs') || 
+                                      codec.contains('hdmv') || 
+                                      codec.contains('dvd') || 
+                                      codec.contains('vob') || 
+                                      codec.contains('dvb') ||
+                                      codec == 'xsub';
+                  final isAss = codec.contains('ass') || codec.contains('ssa');
+                  if (mounted) {
+                    if (isGraphical) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('PGS/graphical subtitles require HW+ (Compatible) or SW decoder to render on Android.'),
+                          backgroundColor: Colors.orange,
+                          duration: Duration(seconds: 4),
+                        ),
+                      );
+                    } else if (isAss) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('ASS/SSA subtitles rendered in text mode. Switch to HW+ or SW for full native styling.'),
+                          backgroundColor: Colors.blueGrey,
+                          duration: Duration(seconds: 4),
+                        ),
+                      );
+                    }
+                  }
+                  break;
+                }
               }
-            } else {
-              nativePlayer.setProperty('blend-subtitles', 'no');
-              Log.i('Native blending subtitle disabled (Direct HW or Text-only fallback). Set blend-subtitles to no.');
-              if (mounted && _isBlendingSubtitles) {
-                setState(() {
-                  _isBlendingSubtitles = false;
-                });
-              }
-            }
-            
-            // Show SnackBar warning if on Android and using direct hardware decoding
-            if (Platform.isAndroid && isDirectHw && mounted) {
-              if (isGraphical) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('PGS/graphical subtitles require HW+ (Compatible) or SW decoder to render on Android.'),
-                    backgroundColor: Colors.orange,
-                    duration: Duration(seconds: 4),
-                  ),
-                );
-              } else if (isAss) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('ASS/SSA subtitles rendered in text mode. Switch to HW+ or SW for full native styling.'),
-                    backgroundColor: Colors.blueGrey,
-                    duration: Duration(seconds: 4),
-                  ),
-                );
-              }
-            }
-            return;
+            } catch (_) {}
           }
         }
       }
