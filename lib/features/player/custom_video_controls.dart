@@ -108,6 +108,15 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
   int _doubleTapSeekAccumulated = 0;
   Timer? _doubleTapOverlayTimer;
   Timer? _doubleTapSeekTimer;
+
+  int _autoNextSecondsRemaining = 15;
+  Timer? _autoNextTimer;
+  bool _autoNextCancelled = false;
+  bool _autoNextTriggered = false;
+  bool _autoNextSlideIn = false;
+  bool _showAutoNextCountdown = false;
+  bool _blendSubtitlesChecked = false;
+  Timer? _autoNextSlideInTimer;
   Duration? _doubleTapStartPosition;
 
   StreamSubscription<Duration>? _positionSubscription;
@@ -784,14 +793,20 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
       }
     });
     _positionSubscription = widget.player.stream.position.listen((pos) {
+      _checkAutoNextTrigger(pos);
       // _checkSkipTimes(pos);
       _checkAbRepeat(pos);
+      if (!_blendSubtitlesChecked && pos.inSeconds > 0) {
+        _blendSubtitlesChecked = true;
+        _updateBlendSubtitlesForTrack(widget.player, widget.player.state.track.subtitle);
+      }
     });
     _durationSubscription = widget.player.stream.duration.listen((dur) {
       if (dur.inSeconds > 0) {
         _loadSkipTimes(dur.inSeconds.toDouble());
         _loadChapters();
         _refreshSkipIntervals();
+        _updateBlendSubtitlesForTrack(widget.player, widget.player.state.track.subtitle);
       }
     });
     _trackSubscription = widget.player.stream.track.listen((track) {
@@ -819,6 +834,10 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
           // _isSkipButtonExpanded = true;
           // _skipButtonCollapseTimer?.cancel();
           _chaptersLoadAttempts = 0;
+          _autoNextCancelled = false;
+          _autoNextTriggered = false;
+          _showAutoNextCountdown = false;
+          _autoNextSlideIn = false;
         });
       }
       Future.delayed(const Duration(milliseconds: 500), _loadChapters);
@@ -869,6 +888,8 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
 
   @override
   void dispose() {
+    _autoNextSlideInTimer?.cancel();
+    _autoNextTimer?.cancel();
     // _skipButtonCollapseTimer?.cancel();
     _chaptersRetryTimer?.cancel();
     _bufferingSubscription?.cancel();
@@ -894,6 +915,122 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
       ScreenBrightness().resetApplicationScreenBrightness();
     } catch (_) {}
     super.dispose();
+  }
+
+  void _checkAutoNextTrigger(Duration pos) {
+    final settings = ref.read(videoSettingsProvider);
+    if (!settings.autoplayNextVideo) return;
+    if (widget.isPip || !widget.hasNextEpisode || widget.onNextEpisode == null) return;
+    
+    final dur = widget.player.state.duration;
+    if (dur.inSeconds <= 0) return;
+
+    // Safeguard: Only trigger autoplay next countdown if we are past the first 50% of the video.
+    // This prevents premature trigger if the video is very short.
+    if (pos.inSeconds < dur.inSeconds * 0.5) return;
+
+    final remaining = dur.inSeconds - pos.inSeconds;
+    
+    final bool isOutro = _isCurrentPositionInOutro(pos);
+    final outroThreshold = ref.read(storageServiceProvider).getVideoSettings()['outro_threshold_seconds'] as int? ?? 45;
+    final bool shouldTrigger = isOutro || (remaining <= outroThreshold && remaining > 0);
+
+    if (shouldTrigger && !_autoNextCancelled && !_autoNextTriggered) {
+      _autoNextTriggered = true;
+      _startAutoNextCountdown();
+    } else if (!shouldTrigger) {
+      if (_autoNextTriggered) {
+        _cancelAutoNextCountdown();
+        _autoNextTriggered = false;
+      }
+      _autoNextCancelled = false; // Reset cancelled state since we are back in normal play region
+    }
+  }
+
+  void _startAutoNextCountdown() {
+    _autoNextTimer?.cancel();
+    _autoNextSlideInTimer?.cancel();
+    
+    final outroThreshold = ref.read(storageServiceProvider).getVideoSettings()['outro_threshold_seconds'] as int? ?? 45;
+    final dur = widget.player.state.duration;
+    final pos = widget.player.state.position;
+    final remaining = (dur.inSeconds - pos.inSeconds).clamp(1, outroThreshold);
+
+    setState(() {
+      _showAutoNextCountdown = true;
+      _autoNextSecondsRemaining = remaining;
+      _autoNextSlideIn = false;
+    });
+    
+    _autoNextSlideInTimer = Timer(const Duration(milliseconds: 200), () {
+      if (mounted) {
+        setState(() {
+          _autoNextSlideIn = true;
+        });
+      }
+    });
+    
+    _autoNextTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (mounted) {
+        if (!widget.player.state.playing) return; // Pause countdown if video is paused!
+        setState(() {
+          if (_autoNextSecondsRemaining > 1) {
+            _autoNextSecondsRemaining--;
+          } else {
+            _autoNextTimer?.cancel();
+            _autoNextSlideInTimer?.cancel();
+            _showAutoNextCountdown = false;
+            _autoNextSlideIn = false;
+            if (widget.onNextEpisode != null) {
+              widget.onNextEpisode!();
+            }
+          }
+        });
+      } else {
+        _autoNextTimer?.cancel();
+        _autoNextSlideInTimer?.cancel();
+      }
+    });
+  }
+
+  void _cancelAutoNextCountdown() {
+    _autoNextTimer?.cancel();
+    _autoNextSlideInTimer?.cancel();
+    setState(() {
+      _autoNextSlideIn = false;
+    });
+    Future.delayed(const Duration(milliseconds: 500), () {
+      if (mounted) {
+        setState(() {
+          _showAutoNextCountdown = false;
+        });
+      }
+    });
+  }
+
+  void _onCancelAutoNext() {
+    _cancelAutoNextCountdown();
+    setState(() {
+      _autoNextCancelled = true;
+    });
+  }
+
+  bool _isCurrentPositionInOutro(Duration position) {
+    if (!_hasChapters || _chapters.isEmpty) return false;
+    final totalDuration = widget.player.state.duration.inSeconds.toDouble();
+    for (int i = 0; i < _chapters.length; i++) {
+      final ch = _chapters[i];
+      final start = ch.position.inSeconds.toDouble();
+      final end = (i + 1 < _chapters.length)
+          ? _chapters[i + 1].position.inSeconds.toDouble()
+          : (totalDuration > 0 ? totalDuration : start + 90.0);
+      if (_isChapterOutro(ch, start, end, totalDuration)) {
+        if (position >= ch.position) {
+          return true;
+        }
+      }
+    }
+    return false;
   }
 
   void _startHideTimer() {
@@ -2994,7 +3131,73 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
             ),
           ],
 
-
+          // Auto Play Next Countdown Overlay
+          if (_showAutoNextCountdown || _autoNextSlideIn)
+            AnimatedPositioned(
+              duration: const Duration(milliseconds: 500),
+              curve: Curves.easeInOutCubic,
+              bottom: _showControls ? 130 : 30,
+              right: _autoNextSlideIn ? 30 : -350,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    width: 320,
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.7),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.white10),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'Next episode starts in $_autoNextSecondsRemaining seconds...',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            TextButton(
+                              onPressed: _onCancelAutoNext,
+                              child: const Text(
+                                'Cancel',
+                                style: TextStyle(color: Colors.white70),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: settingsAccent,
+                                foregroundColor: settingsAccent.computeLuminance() > 0.5 ? Colors.black : Colors.white,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                              ),
+                              onPressed: () {
+                                _cancelAutoNextCountdown();
+                                if (widget.onNextEpisode != null) {
+                                  widget.onNextEpisode!();
+                                }
+                              },
+                              child: const Text('Play Now'),
+                            ),
+                          ],
+                        )
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
 
           // Toast Message for Auto Skip / Actions
           if (_toastShowing)
@@ -3756,7 +3959,20 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     try {
       if (player.platform is NativePlayer) {
         final nativePlayer = player.platform as NativePlayer;
-        if (track.id == 'no' || track.id == 'auto') {
+        String targetId = track.id;
+        if (targetId == 'auto') {
+          final sid = await nativePlayer.getProperty('sid');
+          if (sid == 'no' || sid == 'auto') {
+            nativePlayer.setProperty('blend-subtitles', 'no');
+            if (mounted && _isBlendingSubtitles) {
+              setState(() {
+                _isBlendingSubtitles = false;
+              });
+            }
+            return;
+          }
+          targetId = sid;
+        } else if (targetId == 'no') {
           nativePlayer.setProperty('blend-subtitles', 'no');
           if (mounted && _isBlendingSubtitles) {
             setState(() {
@@ -3783,9 +3999,9 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
         for (int i = 0; i < count; i++) {
           final type = results[i][0];
           final id = results[i][1];
-          if (type == 'sub' && id == track.id) {
+          if (type == 'sub' && id == targetId) {
             final codec = (results[i][2] ?? '').toLowerCase();
-            Log.i('Selected subtitle track ID ${track.id} has codec: $codec');
+            Log.i('Selected subtitle track ID $targetId has codec: $codec');
             
             final isGraphical = codec.contains('pgs') || 
                                 codec.contains('hdmv') || 

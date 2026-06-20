@@ -77,6 +77,14 @@ class VideoSettingsScreen extends ConsumerWidget {
                   value: settings.savePositionOnQuit,
                   onChanged: (val) => notifier.updateSettings(settings.copyWith(savePositionOnQuit: val)),
                 ),
+                Divider(color: theme.dividerColor, height: 1, indent: 16, endIndent: 16),
+                _buildSwitch(
+                  context: context,
+                  title: 'Autoplay next video',
+                  subtitle: 'Automatically play next video when current ends',
+                  value: settings.autoplayNextVideo,
+                  onChanged: (val) => notifier.updateSettings(settings.copyWith(autoplayNextVideo: val)),
+                ),
               ],
             ),
           ),
@@ -239,6 +247,66 @@ class VideoSettingsScreen extends ConsumerWidget {
             clipBehavior: Clip.antiAlias,
             child: Column(
               children: [
+                ListTile(
+                  title: Text('Smart Outro Trigger Threshold', style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
+                  subtitle: Text(
+                    '${ref.watch(storageServiceProvider).getVideoSettings()["outro_threshold_seconds"] as int? ?? 45} seconds before end',
+                    style: TextStyle(color: isDark ? Colors.white54 : Colors.black54, fontSize: 12),
+                  ),
+                  trailing: Icon(Icons.chevron_right, color: isDark ? Colors.white54 : Colors.black54),
+                  onTap: () async {
+                    final current = ref.read(storageServiceProvider).getVideoSettings()["outro_threshold_seconds"] as int? ?? 45;
+                    final newValue = await showDialog<int>(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        backgroundColor: theme.cardColor,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          side: BorderSide(color: theme.colorScheme.onSurface.withValues(alpha: 0.08), width: 1),
+                        ),
+                        title: Text('Smart Outro Threshold', style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
+                        content: StatefulBuilder(
+                          builder: (context, setDialogState) {
+                            return Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text('Show the next episode autoplay prompt at:', style: TextStyle(fontSize: 13, color: theme.colorScheme.onSurface.withValues(alpha: 0.7))),
+                                const SizedBox(height: 12),
+                                DropdownButton<int>(
+                                  value: current,
+                                  dropdownColor: theme.cardColor,
+                                  style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+                                  isExpanded: true,
+                                  items: const [
+                                    DropdownMenuItem(value: 5, child: Text('5 Seconds before end')),
+                                    DropdownMenuItem(value: 10, child: Text('10 Seconds before end')),
+                                    DropdownMenuItem(value: 15, child: Text('15 Seconds before end')),
+                                    DropdownMenuItem(value: 30, child: Text('30 Seconds before end')),
+                                    DropdownMenuItem(value: 45, child: Text('45 Seconds before end')),
+                                    DropdownMenuItem(value: 60, child: Text('60 Seconds before end')),
+                                    DropdownMenuItem(value: 90, child: Text('90 Seconds before end')),
+                                  ],
+                                  onChanged: (val) {
+                                    if (val != null) {
+                                      Navigator.pop(context, val);
+                                    }
+                                  },
+                                ),
+                              ],
+                            );
+                          }
+                        ),
+                      ),
+                    );
+                    if (newValue != null) {
+                      final newMap = Map<String, dynamic>.from(ref.read(storageServiceProvider).getVideoSettings());
+                      newMap["outro_threshold_seconds"] = newValue;
+                      await ref.read(storageServiceProvider).updateVideoSettings(newMap);
+                      (context as Element).markNeedsBuild();
+                    }
+                  },
+                ),
+                Divider(color: theme.dividerColor, height: 1, indent: 16, endIndent: 16),
                 ListTile(
                   title: Text('Adaptive Streaming Profile', style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
                   subtitle: Text(

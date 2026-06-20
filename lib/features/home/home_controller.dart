@@ -732,6 +732,10 @@ class SeasonSortKey implements Comparable<SeasonSortKey> {
       final match = RegExp(r'(?:season|s)\s*(\d+)').firstMatch(lower);
       if (match != null) {
         sNum = int.tryParse(match.group(1)!) ?? 1;
+      } else if (fullTitleLower.contains('arc') || fullTitleLower.contains('saga') ||
+                 lower.contains('arc') || lower.contains('saga')) {
+        // Default to season 1 for all arcs/sagas unless they have an explicit season X tag
+        sNum = 1;
       } else {
         // Look for a number at the start of the string (e.g. "1.Agent..." or "14.Lost...")
         final matchStart = RegExp(r'^\s*(\d+)').firstMatch(lower);

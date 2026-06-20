@@ -90,7 +90,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
       configuration: PlayerConfiguration(
         pitch: _settings.pitchCorrection,
         libass: true, // Always enable libass to allow subtitle parsing for both native and flutter modes
-        libassAndroidFont: _storageService.localFontPath ?? 'assets/fonts/Roboto-Regular.ttf',
+        libassAndroidFont: 'assets/fonts/Roboto-Regular.ttf',
         libassAndroidFontName: 'Roboto',
       ),
     );
@@ -1031,7 +1031,15 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
     try {
       if (player.platform is NativePlayer) {
         final nativePlayer = player.platform as NativePlayer;
-        if (track.id == 'no' || track.id == 'auto') {
+        String targetId = track.id;
+        if (targetId == 'auto') {
+          final sid = await nativePlayer.getProperty('sid');
+          if (sid == 'no' || sid == 'auto') {
+            nativePlayer.setProperty('blend-subtitles', 'no');
+            return;
+          }
+          targetId = sid;
+        } else if (targetId == 'no') {
           nativePlayer.setProperty('blend-subtitles', 'no');
           return;
         }
@@ -1053,9 +1061,9 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         for (int i = 0; i < count; i++) {
           final type = results[i][0];
           final id = results[i][1];
-          if (type == 'sub' && id == track.id) {
+          if (type == 'sub' && id == targetId) {
             final codec = (results[i][2] ?? '').toLowerCase();
-            Log.i('Selected subtitle track ID ${track.id} has codec: $codec');
+            Log.i('Selected subtitle track ID $targetId has codec: $codec');
             
             final isGraphical = codec.contains('pgs') || 
                                 codec.contains('hdmv') || 
