@@ -2466,9 +2466,17 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                                       String formatSuffix = '';
                                       if (codec != null && codec.isNotEmpty) {
                                         var cleanCodec = codec.toUpperCase();
-                                        if (cleanCodec == 'SUBRIP') cleanCodec = 'SRT';
-                                        if (cleanCodec.contains('PGS')) cleanCodec = 'PGS';
-                                        if (cleanCodec.contains('ASS') || cleanCodec.contains('SSA')) cleanCodec = 'ASS';
+                                        if (cleanCodec == 'SUBRIP' || cleanCodec.contains('S_TEXT') || cleanCodec.contains('UTF8') || cleanCodec.contains('UTF-8')) {
+                                          cleanCodec = 'SRT';
+                                        } else if (cleanCodec.contains('PGS') || cleanCodec.contains('HDMV')) {
+                                          cleanCodec = 'PGS';
+                                        } else if (cleanCodec.contains('ASS') || cleanCodec.contains('SSA') || cleanCodec.contains('SUBSTATION')) {
+                                          cleanCodec = 'ASS';
+                                        } else if (cleanCodec.contains('VOB') || cleanCodec.contains('DVD')) {
+                                          cleanCodec = 'SUB';
+                                        } else if (cleanCodec.contains('VTT')) {
+                                          cleanCodec = 'VTT';
+                                        }
                                         formatSuffix = ' ($cleanCodec)';
                                       }
                                       final displayTitle = '$tTitle$formatSuffix';
