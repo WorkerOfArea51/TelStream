@@ -167,7 +167,7 @@ class StreamingProxyService {
           final activeRangeEnd = activeOffset + downloadedDelta;
 
           const graceBuffer = 5 * 1024 * 1024;
-          const forwardThreshold = 12 * 1024 * 1024;
+          const forwardThreshold = 3 * 1024 * 1024;
 
           final isOutBefore = start < activeOffset;
           final isOutAfter = start > activeRangeEnd + forwardThreshold;
@@ -186,11 +186,6 @@ class StreamingProxyService {
             final shiftOffset = (start - graceBuffer).clamp(0, res.expectedSize);
             
             Log.i('Proxy auto-shifting TDLib download offset for file $fileId to $shiftOffset (requested range: $start-$end, prefixSize: $prefixSize, activeOffset: $activeOffset, activeRangeEnd: $activeRangeEnd)');
-            
-            _tdlibService.send(td.CancelDownloadFile(
-              fileId: fileId,
-              onlyIfPending: false,
-            ));
             
             setDownloadOffset(fileId, shiftOffset, res.local.downloadedSize);
             
@@ -308,16 +303,11 @@ class StreamingProxyService {
               final isOutBefore = currentOffset < activeOffset;
               final downloadedDelta = (currentFile.local.downloadedSize - baseDownloaded).clamp(0, currentFile.expectedSize);
               final activeRangeEnd = activeOffset + downloadedDelta;
-              final isOutAfter = currentOffset > activeRangeEnd + 12 * 1024 * 1024;
+              final isOutAfter = currentOffset > activeRangeEnd + 3 * 1024 * 1024;
 
               if (isOutBefore || (isOutAfter && !hasEarlierRequest)) {
                 final shiftOffset = (currentOffset - 5 * 1024 * 1024).clamp(0, currentFile.expectedSize);
                 Log.i('Proxy loop auto-shifting TDLib download for file $fileId to $shiftOffset (currentOffset: $currentOffset, activeOffset: $activeOffset, activeRangeEnd: $activeRangeEnd)');
-                
-                _tdlibService.send(td.CancelDownloadFile(
-                  fileId: fileId,
-                  onlyIfPending: false,
-                ));
                 
                 final currentDownloaded = currentFile.local.downloadedSize;
                 setDownloadOffset(fileId, shiftOffset, currentDownloaded);

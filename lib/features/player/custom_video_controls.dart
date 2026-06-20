@@ -34,7 +34,6 @@ class CustomVideoControls extends ConsumerStatefulWidget {
   final bool hasNextEpisode;
   final VoidCallback? onPrevEpisode;
   final VoidCallback? onNextEpisode;
-  final VoidCallback? onAutoNextCancelled;
   final ValueChanged<Duration>? onSeek;
   final bool customBuffering;
   final String seriesName;
@@ -55,7 +54,6 @@ class CustomVideoControls extends ConsumerStatefulWidget {
     this.hasNextEpisode = false,
     this.onPrevEpisode,
     this.onNextEpisode,
-    this.onAutoNextCancelled,
     this.onSeek,
     this.customBuffering = false,
     this.seriesName = '',
@@ -112,13 +110,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
   Timer? _doubleTapSeekTimer;
   Duration? _doubleTapStartPosition;
 
-  // Auto next episode countdown
-  bool _showAutoNextCountdown = false;
-  int _autoNextSecondsRemaining = 15;
-  Timer? _autoNextTimer;
-  bool _autoNextCancelled = false;
   StreamSubscription<Duration>? _positionSubscription;
-  bool _autoNextTriggered = false;
 
   // Skip Times variables
   StreamSubscription? _durationSubscription;
@@ -144,8 +136,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
   Duration? _abRepeatA;
   Duration? _abRepeatB;
   bool _quickActionsExpanded = false;
-  bool _autoNextSlideIn = false;
-  Timer? _autoNextSlideInTimer;
+
 
   // Sleep timer variables
   Timer? _sleepTimer;
@@ -793,7 +784,6 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
       }
     });
     _positionSubscription = widget.player.stream.position.listen((pos) {
-      _checkAutoNextTrigger(pos);
       // _checkSkipTimes(pos);
       _checkAbRepeat(pos);
     });
@@ -875,94 +865,10 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     }
   }
 
-  void _checkAutoNextTrigger(Duration pos) {
-    if (widget.isPip || _autoNextCancelled || !widget.hasNextEpisode || widget.onNextEpisode == null) return;
-    
-    final dur = widget.player.state.duration;
-    if (dur.inSeconds <= 0) return;
 
-    final remaining = dur.inSeconds - pos.inSeconds;
-    
-    final bool isOutro = _isCurrentPositionInOutro(pos);
-    final outroThreshold = ref.read(storageServiceProvider).getVideoSettings()['outro_threshold_seconds'] as int? ?? 45;
-    final bool shouldTrigger = isOutro || (remaining <= outroThreshold && remaining > 0);
-
-    if (shouldTrigger && !_autoNextTriggered) {
-      _autoNextTriggered = true;
-      _startAutoNextCountdown();
-    } else if (!shouldTrigger && _autoNextTriggered) {
-      _cancelAutoNextCountdown();
-      _autoNextTriggered = false;
-    }
-  }
-
-  void _startAutoNextCountdown() {
-    _autoNextTimer?.cancel();
-    _autoNextSlideInTimer?.cancel();
-    setState(() {
-      _showAutoNextCountdown = true;
-      _autoNextSecondsRemaining = 15;
-      _autoNextSlideIn = false;
-    });
-    
-    _autoNextSlideInTimer = Timer(const Duration(seconds: 2), () {
-      if (mounted) {
-        setState(() {
-          _autoNextSlideIn = true;
-        });
-      }
-    });
-    
-    _autoNextTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (mounted) {
-        setState(() {
-          if (_autoNextSecondsRemaining > 1) {
-            _autoNextSecondsRemaining--;
-          } else {
-            _autoNextTimer?.cancel();
-            _autoNextSlideInTimer?.cancel();
-            _showAutoNextCountdown = false;
-            _autoNextSlideIn = false;
-            if (widget.onNextEpisode != null) {
-              widget.onNextEpisode!();
-            }
-          }
-        });
-      } else {
-        _autoNextTimer?.cancel();
-        _autoNextSlideInTimer?.cancel();
-      }
-    });
-  }
-
-  void _cancelAutoNextCountdown() {
-    _autoNextTimer?.cancel();
-    _autoNextSlideInTimer?.cancel();
-    setState(() {
-      _autoNextSlideIn = false;
-    });
-    Future.delayed(const Duration(milliseconds: 500), () {
-      if (mounted) {
-        setState(() {
-          _showAutoNextCountdown = false;
-        });
-      }
-    });
-  }
-
-  void _onCancelAutoNext() {
-    _cancelAutoNextCountdown();
-    setState(() {
-      _autoNextCancelled = true;
-    });
-    if (widget.onAutoNextCancelled != null) {
-      widget.onAutoNextCancelled!();
-    }
-  }
 
   @override
   void dispose() {
-    _autoNextSlideInTimer?.cancel();
     // _skipButtonCollapseTimer?.cancel();
     _chaptersRetryTimer?.cancel();
     _bufferingSubscription?.cancel();
@@ -973,7 +879,6 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     _hideTimer?.cancel();
     _doubleTapOverlayTimer?.cancel();
     _doubleTapSeekTimer?.cancel();
-    _autoNextTimer?.cancel();
     _sleepTimer?.cancel();
     _osdTimer?.cancel();
     _trackSubscription?.cancel();
@@ -2835,73 +2740,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
               }),
             ),
 
-          // Auto Play Next Countdown Overlay
-          if (_showAutoNextCountdown || _autoNextSlideIn)
-            AnimatedPositioned(
-              duration: const Duration(milliseconds: 500),
-              curve: Curves.easeInOutCubic,
-              bottom: _showControls ? 130 : 30,
-              right: _autoNextSlideIn ? 30 : -350,
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(16),
-                child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                  child: Container(
-                    padding: const EdgeInsets.all(16),
-                    width: 320,
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.7),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: Colors.white10),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          'Next episode starts in $_autoNextSecondsRemaining seconds...',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          children: [
-                            TextButton(
-                              onPressed: _onCancelAutoNext,
-                              child: const Text(
-                                'Cancel',
-                                style: TextStyle(color: Colors.white70),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            ElevatedButton(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: settingsAccent,
-                                foregroundColor: settingsAccent.computeLuminance() > 0.5 ? Colors.black : Colors.white,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                              ),
-                              onPressed: () {
-                                _cancelAutoNextCountdown();
-                                if (widget.onNextEpisode != null) {
-                                  widget.onNextEpisode!();
-                                }
-                              },
-                              child: const Text('Play Now'),
-                            ),
-                          ],
-                        )
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
+
 
 
 
@@ -3959,14 +3798,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
             final hwdec = ref.read(storageServiceProvider).getHardwareDecoderMode();
             final isDirectHw = Platform.isAndroid && hwdec == 'mediacodec';
             
-            bool useNativeBlending = false;
-            if (Platform.isAndroid) {
-              // On Android, native blending for ASS/SSA via libass is unstable and causes invisible subtitles.
-              // We fallback to Flutter's text-based SubtitleView for all text formats.
-              useNativeBlending = isGraphical && !isDirectHw;
-            } else {
-              useNativeBlending = (isGraphical || isAss) && !isDirectHw;
-            }
+            final useNativeBlending = (isGraphical || isAss) && !isDirectHw;
             
             if (useNativeBlending) {
               nativePlayer.setProperty('blend-subtitles', 'yes');
@@ -3978,7 +3810,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
               }
             } else {
               nativePlayer.setProperty('blend-subtitles', 'no');
-              Log.i('Native blending subtitle disabled (Direct HW, Text-only or Android ASS/SSA fallback). Set blend-subtitles to no.');
+              Log.i('Native blending subtitle disabled (Direct HW or Text-only fallback). Set blend-subtitles to no.');
               if (mounted && _isBlendingSubtitles) {
                 setState(() {
                   _isBlendingSubtitles = false;
@@ -4079,23 +3911,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     setState(() {});
   }
 
-  bool _isCurrentPositionInOutro(Duration position) {
-    if (!_hasChapters || _chapters.isEmpty) return false;
-    final totalDuration = widget.player.state.duration.inSeconds.toDouble();
-    for (int i = 0; i < _chapters.length; i++) {
-      final ch = _chapters[i];
-      final start = ch.position.inSeconds.toDouble();
-      final end = (i + 1 < _chapters.length)
-          ? _chapters[i + 1].position.inSeconds.toDouble()
-          : (totalDuration > 0 ? totalDuration : start + 90.0);
-      if (_isChapterOutro(ch, start, end, totalDuration)) {
-        if (position >= ch.position) {
-          return true;
-        }
-      }
-    }
-    return false;
-  }
+
 }
 
 class PlayerSeekBar extends StatefulWidget {

@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tdlib/td_api.dart' as td;
 import '../../core/constants.dart';
@@ -33,6 +35,8 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
   bool get showFavoritesOnly => _showFavoritesOnly;
 
   StreamSubscription? _updateSubscription;
+  bool _isFetchingReleaseYears = false;
+  Timer? _releaseYearsTimer;
 
   @override
   FutureOr<List<AnimeSeries>> build() async {
@@ -55,6 +59,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
             if (state.value != null) {
               state = AsyncValue.data(_applySearchAndSort(_allSeries));
             }
+            _triggerReleaseYearsSync();
           }
         }
       }
@@ -62,7 +67,10 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
 
     ref.onDispose(() {
       _updateSubscription?.cancel();
+      _releaseYearsTimer?.cancel();
     });
+
+    _triggerReleaseYearsSync();
 
     return _fetchInitial();
   }
@@ -113,6 +121,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
         _rawMessages.sort((a, b) => b.id.compareTo(a.id));
         _allSeries = _parseMessages(_rawMessages);
         state = AsyncValue.data(_applySearchAndSort(_allSeries));
+        _triggerReleaseYearsSync();
       }
     } finally {
       _isLoadingMore = false;
@@ -242,6 +251,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
           _rawMessages.sort((a, b) => b.id.compareTo(a.id));
           _allSeries = _parseMessages(_rawMessages);
           state = AsyncValue.data(_applySearchAndSort(_allSeries));
+          _triggerReleaseYearsSync();
           changed = false; // Reset changed flag
         }
         
@@ -474,9 +484,10 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
     }
 
     // 4. Sort seasons within each series chronologically (using hybrid parsed rules + message post date order)
+    final storage = ref.read(storageServiceProvider);
     for (var series in sorted) {
       series.seasons.sort((a, b) {
-        return SeasonSortKey.fromSeason(a).compareTo(SeasonSortKey.fromSeason(b));
+        return SeasonSortKey.fromSeason(a, storage).compareTo(SeasonSortKey.fromSeason(b, storage));
       });
     }
     
@@ -499,6 +510,165 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
       }
     }
     return v1[b.length];
+  }
+
+  void _triggerReleaseYearsSync() {
+    _releaseYearsTimer?.cancel();
+    _releaseYearsTimer = Timer(const Duration(seconds: 2), () {
+      if (!_isFetchingReleaseYears) {
+        _fetchReleaseYearsInBackground();
+      }
+    });
+  }
+
+  Future<void> _fetchReleaseYearsInBackground() async {
+    if (_isFetchingReleaseYears) return;
+    _isFetchingReleaseYears = true;
+
+    try {
+      final storage = ref.read(storageServiceProvider);
+      final List<AnimeSeason> seasonsToFetch = [];
+      final List<AnimeSeries> seriesCopy = List.from(_allSeries);
+      
+      for (final series in seriesCopy) {
+        for (final season in series.seasons) {
+          final title = season.fullTitle;
+          final lowerTitle = title.toLowerCase();
+          
+          if (lowerTitle.contains('arc') || lowerTitle.contains('saga')) {
+            continue;
+          }
+          
+          final cachedYear = storage.getSeasonReleaseYear(title);
+          if (cachedYear != null) {
+            continue;
+          }
+          
+          seasonsToFetch.add(season);
+        }
+      }
+
+      if (seasonsToFetch.isEmpty) {
+        _isFetchingReleaseYears = false;
+        return;
+      }
+
+      Log.i('Starting background release year fetch for ${seasonsToFetch.length} seasons in category ${category.title}');
+
+      for (final season in seasonsToFetch) {
+        while (ref.read(pipControllerProvider) != null) {
+          await Future.delayed(const Duration(seconds: 3));
+        }
+
+        final title = season.fullTitle;
+        int? fetchedYear;
+        
+        try {
+          if (category.title == 'Anime') {
+            fetchedYear = await _fetchAnimeReleaseYearFromMal(title);
+          } else {
+            fetchedYear = await _fetchMediaReleaseYearFromTrakt(title);
+          }
+        } catch (e, stack) {
+          Log.e('Failed to fetch release year for: $title', e, stack);
+        }
+
+        if (fetchedYear != null) {
+          await storage.setSeasonReleaseYear(title, fetchedYear);
+          Log.i('Cached release year for "$title": $fetchedYear');
+          
+          if (state.value != null) {
+            state = AsyncValue.data(_applySearchAndSort(_allSeries));
+          }
+        }
+
+        await Future.delayed(const Duration(milliseconds: 1500));
+      }
+    } catch (e, stack) {
+      Log.e('Error in background release year fetch loop', e, stack);
+    } finally {
+      _isFetchingReleaseYears = false;
+    }
+  }
+
+  Future<int?> _fetchAnimeReleaseYearFromMal(String title) async {
+    try {
+      final query = Uri.encodeComponent(title);
+      final url = 'https://api.jikan.moe/v4/anime?q=$query&limit=1';
+      final response = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 10));
+      
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['data'] != null && (data['data'] as List).isNotEmpty) {
+          final anime = data['data'][0];
+          int? year;
+          if (anime['year'] != null) {
+            year = anime['year'] as int?;
+          }
+          if (year == null && anime['aired'] != null) {
+            final prop = anime['aired']['prop'];
+            if (prop != null && prop['from'] != null) {
+              year = prop['from']['year'] as int?;
+            }
+            if (year == null && anime['aired']['from'] != null) {
+              final fromStr = anime['aired']['from'] as String;
+              year = DateTime.tryParse(fromStr)?.year;
+            }
+          }
+          if (year != null) {
+            return year;
+          }
+        }
+        return 0; // No results found, cache 0
+      } else if (response.statusCode == 404) {
+        return 0; // Not found, cache 0
+      } else {
+        Log.w('Jikan API returned status code ${response.statusCode} for query "$title"');
+        return null; // HTTP error, retry later
+      }
+    } catch (e, stack) {
+      Log.e('Error calling Jikan API for query "$title"', e, stack);
+      return null;
+    }
+  }
+
+  Future<int?> _fetchMediaReleaseYearFromTrakt(String title) async {
+    try {
+      final query = Uri.encodeComponent(title);
+      final type = category.title == 'Movies' ? 'movie' : 'show';
+      final url = 'https://api.trakt.tv/search/$type?query=$query&limit=1';
+      
+      final headers = {
+        'Content-Type': 'application/json',
+        'trakt-api-version': '2',
+        'trakt-api-key': '05553e1be851c22a76f7df2b8a7c29be60cb5038ecbe6e80b2a7587dfb38ea47',
+      };
+
+      final response = await http.get(Uri.parse(url), headers: headers).timeout(const Duration(seconds: 10));
+      
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(response.body);
+        if (data.isNotEmpty) {
+          final first = data[0];
+          if (first['type'] != null && first[first['type']] != null) {
+            final media = first[first['type']];
+            final year = media['year'] as int?;
+            if (year != null) {
+              return year;
+            }
+          }
+        }
+        return 0; // No results found, cache 0
+      } else if (response.statusCode == 404) {
+        return 0; // Not found, cache 0
+      } else {
+        Log.w('Trakt API returned status code ${response.statusCode} for query "$title"');
+        return null; // HTTP error, retry later
+      }
+    } catch (e, stack) {
+      Log.e('Error calling Trakt API for query "$title"', e, stack);
+      return null;
+    }
   }
 }
 
@@ -526,19 +696,31 @@ class SeasonSortKey implements Comparable<SeasonSortKey> {
   final double partNum;
   final int messageId;
   final String original;
+  final int releaseYear;
 
   SeasonSortKey({
     required this.seasonNum,
     required this.partNum,
     required this.messageId,
     required this.original,
+    required this.releaseYear,
   });
 
-  static SeasonSortKey fromSeason(AnimeSeason season) {
+  static SeasonSortKey fromSeason(AnimeSeason season, StorageService storage) {
     final name = season.seasonName;
     final lower = name.toLowerCase();
+    final fullTitleLower = season.fullTitle.toLowerCase();
     int sNum = 1; // Default to 1 (base Season 1) if no numbers detected, so it sorts before Season 2+
     double pNum = 0.0;
+    int year = 0;
+
+    // Check if season fullTitle or name contains "arc" or "saga"
+    if (fullTitleLower.contains('arc') || fullTitleLower.contains('saga') ||
+        lower.contains('arc') || lower.contains('saga')) {
+      year = 0; // Bypasses release year lookup
+    } else {
+      year = storage.getSeasonReleaseYear(season.fullTitle) ?? 0;
+    }
 
     // Check for special keywords first
     if (lower.contains('final season') || lower.contains('final_season')) {
@@ -578,27 +760,33 @@ class SeasonSortKey implements Comparable<SeasonSortKey> {
       partNum: pNum,
       messageId: season.posterMessage.id,
       original: name,
+      releaseYear: year,
     );
   }
 
   @override
   int compareTo(SeasonSortKey other) {
-    // 1. Compare season number
+    // 1. Compare release year if both are > 0 and not equal
+    if (releaseYear > 0 && other.releaseYear > 0 && releaseYear != other.releaseYear) {
+      return releaseYear.compareTo(other.releaseYear);
+    }
+
+    // 2. Compare season number
     if (seasonNum != other.seasonNum) {
       return seasonNum.compareTo(other.seasonNum);
     }
     
-    // 2. Compare part numbers
+    // 3. Compare part numbers
     if (partNum != other.partNum) {
       return partNum.compareTo(other.partNum);
     }
     
-    // 3. Fallback: Sort by Telegram message ID ascending (older/earlier posts first)
+    // 4. Fallback: Sort by Telegram message ID ascending (older/earlier posts first)
     if (messageId != other.messageId) {
       return messageId.compareTo(other.messageId);
     }
     
-    // 4. Ultimate fallback to alphabetical name
+    // 5. Ultimate fallback to alphabetical name
     return original.compareTo(other.original);
   }
 }

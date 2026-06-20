@@ -496,6 +496,19 @@ class StorageService {
     await _save();
   }
 
+  // --- Season Release Year Cache ---
+
+  int? getSeasonReleaseYear(String fullTitle) {
+    _data['season_release_years'] ??= <String, dynamic>{};
+    return _data['season_release_years'][fullTitle] as int?;
+  }
+
+  Future<void> setSeasonReleaseYear(String fullTitle, int year) async {
+    _data['season_release_years'] ??= <String, dynamic>{};
+    _data['season_release_years'][fullTitle] = year;
+    await _save();
+  }
+
   // --- AniList Cache & Token ---
 
   int? getAnilistIdForSeries(String seriesName) {

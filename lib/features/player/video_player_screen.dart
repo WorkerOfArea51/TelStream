@@ -53,7 +53,6 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
   int _activeDownloadOffset = 0;
   int _activeDownloadedSize = 0;
   int _initialOffset = 0;
-  bool _autoNextCancelled = false;
   int? _initialDownloadedSize;
   Duration? _pendingSeekTarget;
   bool _isBuffering = false;
@@ -61,7 +60,6 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
   bool _isInitializing = true;
   bool _initialTrackSelectionDone = false;
 
-  StreamSubscription? _completedSubscription;
   StreamSubscription? _tracksSubscription;
   StreamSubscription? _bufferingSubscription;
   Timer? _saveTimer;
@@ -202,15 +200,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
       _resetOrientationAndUI();
     }
 
-    // Auto-Play Next Episode Logic
-    _completedSubscription = player.stream.completed.listen((completed) {
-      if (completed && _settings.autoplayNextVideo && !_autoNextCancelled) {
-        final pipState = ref.read(pipControllerProvider);
-        if (pipState != null && pipState.currentIndex + 1 < pipState.queue.length) {
-          _playNextEpisode();
-        }
-      }
-    });
+
 
     // Auto-apply saved preferred tracks with smart sub/dub tracking
     _tracksSubscription = player.stream.tracks.listen((tracks) {
@@ -564,6 +554,26 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
     // Start listening to updates immediately to catch progress and local path updates
     _listenToUpdates();
 
+    td.File? initialFileState;
+    // Check if the file is already cached locally (fully or partially)
+    if (_resolvedVideoFileId != null && _resolvedVideoFileId != 0) {
+      try {
+        final res = await _tdlibService.sendAsync(td.GetFile(fileId: _resolvedVideoFileId!))
+            .timeout(const Duration(seconds: 3));
+        if (res is td.File) {
+          initialFileState = res;
+          if (mounted) {
+            setState(() {
+              _downloadedPrefixSize = res.local.downloadedPrefixSize;
+              _expectedSize = res.expectedSize;
+            });
+          }
+        }
+      } catch (e) {
+        Log.w('Failed fast local GetFile check: $e');
+      }
+    }
+
     // Trigger download with highest priority immediately. This ensures TDLib pre-allocates
     // the local file path so that subsequent GetFile queries retrieve it instantly.
     if (_resolvedVideoFileId != null && _resolvedVideoFileId != 0) {
@@ -571,8 +581,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
       final savedPos = _storageService.getWatchPosition(widget.messageId);
       if (savedPos > 0) {
         final totalDuration = _storageService.getVideoDuration(widget.messageId);
-        final cachedFile = _proxyService.getCachedFile(_resolvedVideoFileId!);
-        final expectedSize = cachedFile?.expectedSize ?? 0;
+        final expectedSize = initialFileState?.expectedSize ?? 0;
         if (totalDuration > 0 && expectedSize > 0) {
           final fraction = savedPos / totalDuration;
           initialOffset = (fraction * expectedSize).round();
@@ -584,8 +593,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
       _initialOffset = initialOffset;
 
       if (initialOffset > 0) {
-        final cachedFile = _proxyService.getCachedFile(_resolvedVideoFileId!);
-        _proxyService.setDownloadOffset(_resolvedVideoFileId!, initialOffset, cachedFile?.local.downloadedSize ?? 0);
+        _proxyService.setDownloadOffset(_resolvedVideoFileId!, initialOffset, initialFileState?.local.downloadedSize ?? 0);
       }
 
       _tdlibService.send(td.DownloadFile(
@@ -597,31 +605,17 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
       ));
     }
 
-    // Check if the file is already cached locally (fully or partially)
-    if (_resolvedVideoFileId != null && _resolvedVideoFileId != 0) {
-      try {
-        final res = await _tdlibService.sendAsync(td.GetFile(fileId: _resolvedVideoFileId!))
-            .timeout(const Duration(seconds: 3));
-        if (res is td.File && res.local.path.isNotEmpty) {
-          final localPath = res.local.path;
-          if (mounted) {
-            setState(() {
-              _downloadedPrefixSize = res.local.downloadedPrefixSize;
-              _expectedSize = res.expectedSize;
-            });
-          }
-          if (res.local.isDownloadingCompleted) {
-            Log.i('Instant playback: playing cached completed file path: $localPath');
-            _startPlayback(localPath);
-          } else {
-            Log.i('Instant playback: streaming active download via proxy: $localPath');
-            _proxyService.setDownloadOffset(_resolvedVideoFileId!, _initialOffset, res.local.downloadedSize);
-            final proxyUrl = _proxyService.getProxyUrl(_resolvedVideoFileId!);
-            _startPlayback(proxyUrl);
-          }
-        }
-      } catch (e) {
-        Log.w('Failed fast local GetFile check: $e');
+    // Play now if path is already resolved by TDLib
+    if (initialFileState != null && initialFileState.local.path.isNotEmpty) {
+      final localPath = initialFileState.local.path;
+      if (initialFileState.local.isDownloadingCompleted) {
+        Log.i('Instant playback: playing cached completed file path: $localPath');
+        _startPlayback(localPath);
+      } else {
+        Log.i('Instant playback: streaming active download via proxy: $localPath');
+        _proxyService.setDownloadOffset(_resolvedVideoFileId!, _initialOffset, initialFileState.local.downloadedSize);
+        final proxyUrl = _proxyService.getProxyUrl(_resolvedVideoFileId!);
+        _startPlayback(proxyUrl);
       }
     }
 
@@ -711,7 +705,12 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
       final fileId = _resolvedVideoFileId ?? widget.videoFileId;
       final isWithinDownloadedRange = _proxyService.isRangeDownloaded(fileId, byteOffset, byteOffset + 2 * 1024 * 1024);
 
-      if (isCompleted || isWithinDownloadedRange) {
+      // If the target byteOffset is already close to the active download pointer (e.g. within 8MB),
+      // we don't need to restart the download or shift offsets.
+      final activeOffset = _proxyService.getActiveDownloadOffset(fileId);
+      final isNearActiveOffset = byteOffset >= activeOffset && byteOffset <= activeOffset + 8 * 1024 * 1024;
+
+      if (isCompleted || isWithinDownloadedRange || isNearActiveOffset) {
         player.seek(position);
         return;
       }
@@ -732,12 +731,6 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
 
       const graceBuffer = 5 * 1024 * 1024; // 5 MB lookbehind buffer to align with proxy and keyframe seek queries
       final shiftOffset = (byteOffset - graceBuffer).clamp(0, expectedSize);
-
-      // Cancel previous TDLib download tasks to clear the old offset queue before requesting a new offset
-      _tdlibService.send(td.CancelDownloadFile(
-        fileId: fileId,
-        onlyIfPending: false,
-      ));
 
       // Update download offset in TDLib and Proxy synchronously to avoid race conditions
       final cachedFile = _proxyService.getCachedFile(fileId);
@@ -771,7 +764,6 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
     // Redundant pause/stop removed to prevent race conditions during player disposal
 
     _updatesSubscription?.cancel();
-    _completedSubscription?.cancel();
     _tracksSubscription?.cancel();
     _bufferingSubscription?.cancel();
     _saveTimer?.cancel();
@@ -910,11 +902,6 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
                  hasNextEpisode: pipState != null && pipState.currentIndex + 1 < pipState.queue.length,
                  onPrevEpisode: _playPreviousEpisode,
                  onNextEpisode: _playNextEpisode,
-                 onAutoNextCancelled: () {
-                   setState(() {
-                     _autoNextCancelled = true;
-                   });
-                 },
                  onSeek: _handleCustomSeek,
                  customBuffering: _isBuffering,
                  seriesName: pipState?.queue[pipState.currentIndex].seriesName ?? widget.seriesName,
@@ -1081,21 +1068,14 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
             final hwdec = _storageService.getHardwareDecoderMode();
             final isDirectHw = Platform.isAndroid && hwdec == 'mediacodec';
             
-            bool useNativeBlending = false;
-            if (Platform.isAndroid) {
-              // On Android, native blending for ASS/SSA via libass is unstable and causes invisible subtitles.
-              // We fallback to Flutter's text-based SubtitleView for all text formats.
-              useNativeBlending = isGraphical && !isDirectHw;
-            } else {
-              useNativeBlending = (isGraphical || isAss) && !isDirectHw;
-            }
+            final useNativeBlending = (isGraphical || isAss) && !isDirectHw;
             
             if (useNativeBlending) {
               nativePlayer.setProperty('blend-subtitles', 'yes');
-              Log.i('Native blending subtitle enabled (PGS). Set blend-subtitles to yes.');
+              Log.i('Native blending subtitle enabled. Set blend-subtitles to yes.');
             } else {
               nativePlayer.setProperty('blend-subtitles', 'no');
-              Log.i('Native blending subtitle disabled (Direct HW, Text-only or Android ASS/SSA fallback). Set blend-subtitles to no.');
+              Log.i('Native blending subtitle disabled (Direct HW or Text-only fallback). Set blend-subtitles to no.');
             }
             return;
           }

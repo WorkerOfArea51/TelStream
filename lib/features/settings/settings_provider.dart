@@ -4,8 +4,6 @@ import '../../services/storage_service.dart';
 class VideoSettings {
   final int doubleTapSeekDuration;
   final bool savePositionOnQuit;
-  final bool autoplayNextVideo;
-  final bool autoSkipIntroOutro;
   final bool volumeNormalization;
   final bool pitchCorrection;
   final String seekbarStyle;
@@ -26,8 +24,6 @@ class VideoSettings {
   const VideoSettings({
     this.doubleTapSeekDuration = 10,
     this.savePositionOnQuit = true,
-    this.autoplayNextVideo = true,
-    this.autoSkipIntroOutro = false,
     this.volumeNormalization = false,
     this.pitchCorrection = true,
     this.seekbarStyle = 'Standard',
@@ -49,8 +45,6 @@ class VideoSettings {
   VideoSettings copyWith({
     int? doubleTapSeekDuration,
     bool? savePositionOnQuit,
-    bool? autoplayNextVideo,
-    bool? autoSkipIntroOutro,
     bool? volumeNormalization,
     bool? pitchCorrection,
     String? seekbarStyle,
@@ -71,8 +65,6 @@ class VideoSettings {
     return VideoSettings(
       doubleTapSeekDuration: doubleTapSeekDuration ?? this.doubleTapSeekDuration,
       savePositionOnQuit: savePositionOnQuit ?? this.savePositionOnQuit,
-      autoplayNextVideo: autoplayNextVideo ?? this.autoplayNextVideo,
-      autoSkipIntroOutro: autoSkipIntroOutro ?? this.autoSkipIntroOutro,
       volumeNormalization: volumeNormalization ?? this.volumeNormalization,
       pitchCorrection: pitchCorrection ?? this.pitchCorrection,
       seekbarStyle: seekbarStyle ?? this.seekbarStyle,
@@ -96,8 +88,6 @@ class VideoSettings {
     return {
       'doubleTapSeekDuration': doubleTapSeekDuration,
       'savePositionOnQuit': savePositionOnQuit,
-      'autoplayNextVideo': autoplayNextVideo,
-      'autoSkipIntroOutro': autoSkipIntroOutro,
       'volumeNormalization': volumeNormalization,
       'pitchCorrection': pitchCorrection,
       'seekbarStyle': seekbarStyle,
@@ -121,8 +111,6 @@ class VideoSettings {
     return VideoSettings(
       doubleTapSeekDuration: json['doubleTapSeekDuration'] ?? 10,
       savePositionOnQuit: json['savePositionOnQuit'] ?? true,
-      autoplayNextVideo: json['autoplayNextVideo'] ?? true,
-      autoSkipIntroOutro: json['autoSkipIntroOutro'] ?? false,
       volumeNormalization: json['volumeNormalization'] ?? false,
       pitchCorrection: json['pitchCorrection'] ?? true,
       seekbarStyle: json['seekbarStyle'] ?? 'Standard',
