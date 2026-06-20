@@ -53,6 +53,8 @@ class StreamingProxyService {
     return 'http://127.0.0.1:$_port/stream?fileId=$fileId';
   }
 
+  td.File? getCachedFile(int fileId) => _fileStates[fileId];
+
   Future<void> stop() async {
     await _server?.close(force: true);
     _server = null;

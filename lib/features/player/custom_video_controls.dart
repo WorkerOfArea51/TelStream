@@ -2432,71 +2432,32 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                                             storage.setPreferredAudioTrack(audioPrefVal);
                                             Log.i('Saved audio preference ($audioPrefVal)');
 
-                                            // Classify the newly selected audio track to dynamically auto-apply matching subtitle preferences
-                                            final lower = (track.language ?? track.title ?? '').toLowerCase();
-                                            String newAudioLangCategory = 'other';
-                                            if (lower.contains('jpn') || lower.contains('ja') || lower.contains('japanese')) {
-                                              newAudioLangCategory = 'jpn';
-                                            } else if (lower.contains('eng') || lower.contains('en') || lower.contains('english')) {
-                                              newAudioLangCategory = 'eng';
-                                            }
-
-                                            final prefSub = storage.getPreferredSubtitleTrackForAudioLanguage(newAudioLangCategory);
-                                            final tracks = widget.player.state.tracks;
-                                            SubtitleTrack targetSub = activeSub;
-
-                                            if (prefSub != null) {
-                                              if (prefSub == 'no') {
-                                                targetSub = SubtitleTrack.no();
-                                              } else {
-                                                for (final t in tracks.subtitle) {
-                                                  final identifier = (t.language ?? t.title ?? t.id).toLowerCase();
-                                                  if (identifier == prefSub.toLowerCase() ||
-                                                      (t.title != null && t.title!.toLowerCase().contains(prefSub.toLowerCase())) ||
-                                                      (t.language != null && t.language!.toLowerCase().contains(prefSub.toLowerCase()))) {
-                                                    targetSub = t;
-                                                    break;
-                                                  }
-                                                }
-                                              }
-                                            } else {
-                                              // Apply smart default fallbacks on audio track change if no user preference exists yet
-                                              if (newAudioLangCategory == 'eng') {
-                                                SubtitleTrack? forcedTrack;
-                                                for (final t in tracks.subtitle) {
-                                                  final titleLower = (t.title ?? '').toLowerCase();
-                                                  if (titleLower.contains('forced') || 
-                                                      titleLower.contains('sign') || 
-                                                      titleLower.contains('song') || 
-                                                      titleLower.contains('translation')) {
-                                                    forcedTrack = t;
-                                                    break;
-                                                  }
-                                                }
-                                                targetSub = forcedTrack ?? SubtitleTrack.no();
-                                              } else if (tracks.subtitle.isNotEmpty) {
-                                                SubtitleTrack? targetSubTrack;
-                                                for (final t in tracks.subtitle) {
-                                                  final l = (t.language ?? t.title ?? '').toLowerCase();
-                                                  if (l.contains('eng') || l.contains('en') || l.contains('english')) {
-                                                    targetSubTrack = t;
-                                                    break;
-                                                  }
-                                                }
-                                                targetSubTrack ??= tracks.subtitle.firstWhere(
-                                                  (t) => t.id != 'no' && t.id != 'auto',
-                                                  orElse: () => tracks.subtitle.first,
-                                                );
-                                                targetSub = targetSubTrack;
-                                              }
-                                            }
-
                                             // Delay applying subtitle to let the demuxer load the new audio track first
                                             Future.delayed(const Duration(milliseconds: 300), () {
                                               if (mounted) {
-                                                widget.player.setSubtitleTrack(targetSub);
-                                                _updateBlendSubtitlesForTrack(widget.player, targetSub);
-                                                Log.i('Applied subtitle track after audio track change: ${targetSub.id}');
+                                                final newTracks = widget.player.state.tracks.subtitle;
+                                                SubtitleTrack matchedSub = activeSub;
+                                                
+                                                for (final t in newTracks) {
+                                                  if (t.id == activeSub.id) {
+                                                    matchedSub = t;
+                                                    break;
+                                                  }
+                                                }
+                                                
+                                                if (matchedSub.id != activeSub.id) {
+                                                  for (final t in newTracks) {
+                                                    if ((t.title != null && t.title == activeSub.title) ||
+                                                        (t.language != null && t.language == activeSub.language)) {
+                                                      matchedSub = t;
+                                                      break;
+                                                    }
+                                                  }
+                                                }
+
+                                                widget.player.setSubtitleTrack(matchedSub);
+                                                _updateBlendSubtitlesForTrack(widget.player, matchedSub);
+                                                Log.i('Re-applied subtitle track after audio track change: ${matchedSub.id} (originally: ${activeSub.id})');
                                               }
                                             });
                                           }

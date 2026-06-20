@@ -561,10 +561,30 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
     // Trigger download with highest priority immediately. This ensures TDLib pre-allocates
     // the local file path so that subsequent GetFile queries retrieve it instantly.
     if (_resolvedVideoFileId != null && _resolvedVideoFileId != 0) {
+      int initialOffset = 0;
+      final savedPos = _storageService.getWatchPosition(widget.messageId);
+      if (savedPos > 0) {
+        final totalDuration = _storageService.getVideoDuration(widget.messageId);
+        final cachedFile = _proxyService.getCachedFile(_resolvedVideoFileId!);
+        final expectedSize = cachedFile?.expectedSize ?? 0;
+        if (totalDuration > 0 && expectedSize > 0) {
+          final fraction = savedPos / totalDuration;
+          initialOffset = (fraction * expectedSize).round();
+          // Apply a 5MB lookbehind grace buffer for the initial seek offset
+          const graceBuffer = 5 * 1024 * 1024;
+          initialOffset = (initialOffset - graceBuffer).clamp(0, expectedSize);
+        }
+      }
+
+      if (initialOffset > 0) {
+        final cachedFile = _proxyService.getCachedFile(_resolvedVideoFileId!);
+        _proxyService.setDownloadOffset(_resolvedVideoFileId!, initialOffset, cachedFile?.local.downloadedSize ?? 0);
+      }
+
       _tdlibService.send(td.DownloadFile(
         fileId: _resolvedVideoFileId!,
         priority: 32,
-        offset: 0,
+        offset: initialOffset,
         limit: 0,
         synchronous: false,
       ));
@@ -631,10 +651,29 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
 
       // Trigger download for newly resolved file ID
       if (_resolvedVideoFileId != null && _resolvedVideoFileId != 0) {
+        int initialOffset = 0;
+        final savedPos = _storageService.getWatchPosition(widget.messageId);
+        if (savedPos > 0) {
+          final totalDuration = _storageService.getVideoDuration(widget.messageId);
+          final cachedFile = _proxyService.getCachedFile(_resolvedVideoFileId!);
+          final expectedSize = cachedFile?.expectedSize ?? 0;
+          if (totalDuration > 0 && expectedSize > 0) {
+            final fraction = savedPos / totalDuration;
+            initialOffset = (fraction * expectedSize).round();
+            const graceBuffer = 5 * 1024 * 1024;
+            initialOffset = (initialOffset - graceBuffer).clamp(0, expectedSize);
+          }
+        }
+
+        if (initialOffset > 0) {
+          final cachedFile = _proxyService.getCachedFile(_resolvedVideoFileId!);
+          _proxyService.setDownloadOffset(_resolvedVideoFileId!, initialOffset, cachedFile?.local.downloadedSize ?? 0);
+        }
+
         _tdlibService.send(td.DownloadFile(
           fileId: _resolvedVideoFileId!,
           priority: 32,
-          offset: 0,
+          offset: initialOffset,
           limit: 0,
           synchronous: false,
         ));
@@ -691,13 +730,10 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         onlyIfPending: false,
       ));
 
-      // Update download offset in TDLib and Proxy
+      // Update download offset in TDLib and Proxy synchronously to avoid race conditions
       final fileId = _resolvedVideoFileId ?? widget.videoFileId;
-      _tdlibService.sendAsync(td.GetFile(fileId: fileId)).then((res) {
-        if (res is td.File) {
-          _proxyService.setDownloadOffset(fileId, shiftOffset, res.local.downloadedSize);
-        }
-      });
+      final cachedFile = _proxyService.getCachedFile(fileId);
+      _proxyService.setDownloadOffset(fileId, shiftOffset, cachedFile?.local.downloadedSize ?? 0);
 
       _tdlibService.send(td.DownloadFile(
         fileId: fileId,
