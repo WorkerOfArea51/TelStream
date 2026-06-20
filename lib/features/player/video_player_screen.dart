@@ -1041,43 +1041,53 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         
         final countStr = await nativePlayer.getProperty('track-list/count');
         final count = int.tryParse(countStr) ?? 0;
+        
+        final futures = <Future<List<String?>>>[];
         for (int i = 0; i < count; i++) {
-          final type = await nativePlayer.getProperty('track-list/$i/type');
-          if (type == 'sub') {
-            final id = await nativePlayer.getProperty('track-list/$i/id');
-            if (id == track.id) {
-              final codec = (await nativePlayer.getProperty('track-list/$i/codec')).toLowerCase();
-              Log.i('Selected subtitle track ID ${track.id} has codec: $codec');
-              
-              final isGraphical = codec.contains('pgs') || 
-                                  codec.contains('hdmv') || 
-                                  codec.contains('dvd') || 
-                                  codec.contains('vob') || 
-                                  codec.contains('dvb') ||
-                                  codec == 'xsub';
-              final isAss = codec.contains('ass') || codec.contains('ssa');
-                                       
-              final hwdec = _storageService.getHardwareDecoderMode();
-              final isDirectHw = Platform.isAndroid && hwdec == 'mediacodec';
-              
-              bool useNativeBlending = false;
-              if (Platform.isAndroid) {
-                // On Android, native blending for ASS/SSA via libass is unstable and causes invisible subtitles.
-                // We fallback to Flutter's text-based SubtitleView for all text formats.
-                useNativeBlending = isGraphical && !isDirectHw;
-              } else {
-                useNativeBlending = (isGraphical || isAss) && !isDirectHw;
-              }
-              
-              if (useNativeBlending) {
-                nativePlayer.setProperty('blend-subtitles', 'yes');
-                Log.i('Native blending subtitle enabled (PGS). Set blend-subtitles to yes.');
-              } else {
-                nativePlayer.setProperty('blend-subtitles', 'no');
-                Log.i('Native blending subtitle disabled (Direct HW, Text-only or Android ASS/SSA fallback). Set blend-subtitles to no.');
-              }
-              return;
+          futures.add(Future.wait([
+            nativePlayer.getProperty('track-list/$i/type'),
+            nativePlayer.getProperty('track-list/$i/id'),
+            nativePlayer.getProperty('track-list/$i/codec'),
+          ]));
+        }
+        
+        final results = await Future.wait(futures);
+        
+        for (int i = 0; i < count; i++) {
+          final type = results[i][0];
+          final id = results[i][1];
+          if (type == 'sub' && id == track.id) {
+            final codec = (results[i][2] ?? '').toLowerCase();
+            Log.i('Selected subtitle track ID ${track.id} has codec: $codec');
+            
+            final isGraphical = codec.contains('pgs') || 
+                                codec.contains('hdmv') || 
+                                codec.contains('dvd') || 
+                                codec.contains('vob') || 
+                                codec.contains('dvb') ||
+                                codec == 'xsub';
+            final isAss = codec.contains('ass') || codec.contains('ssa');
+                                     
+            final hwdec = _storageService.getHardwareDecoderMode();
+            final isDirectHw = Platform.isAndroid && hwdec == 'mediacodec';
+            
+            bool useNativeBlending = false;
+            if (Platform.isAndroid) {
+              // On Android, native blending for ASS/SSA via libass is unstable and causes invisible subtitles.
+              // We fallback to Flutter's text-based SubtitleView for all text formats.
+              useNativeBlending = isGraphical && !isDirectHw;
+            } else {
+              useNativeBlending = (isGraphical || isAss) && !isDirectHw;
             }
+            
+            if (useNativeBlending) {
+              nativePlayer.setProperty('blend-subtitles', 'yes');
+              Log.i('Native blending subtitle enabled (PGS). Set blend-subtitles to yes.');
+            } else {
+              nativePlayer.setProperty('blend-subtitles', 'no');
+              Log.i('Native blending subtitle disabled (Direct HW, Text-only or Android ASS/SSA fallback). Set blend-subtitles to no.');
+            }
+            return;
           }
         }
       }
