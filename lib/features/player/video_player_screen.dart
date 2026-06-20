@@ -656,6 +656,9 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         });
       }
 
+      const graceBuffer = 5 * 1024 * 1024; // 5 MB lookbehind buffer to align with proxy and keyframe seek queries
+      final shiftOffset = (byteOffset - graceBuffer).clamp(0, expectedSize);
+
       // Cancel previous TDLib download tasks to clear the old offset queue before requesting a new offset
       _tdlibService.send(td.CancelDownloadFile(
         fileId: _resolvedVideoFileId ?? widget.videoFileId,
@@ -666,18 +669,18 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
       final fileId = _resolvedVideoFileId ?? widget.videoFileId;
       _tdlibService.sendAsync(td.GetFile(fileId: fileId)).then((res) {
         if (res is td.File) {
-          _proxyService.setDownloadOffset(fileId, byteOffset, res.local.downloadedSize);
+          _proxyService.setDownloadOffset(fileId, shiftOffset, res.local.downloadedSize);
         }
       });
 
       _tdlibService.send(td.DownloadFile(
         fileId: fileId,
         priority: 32,
-        offset: byteOffset,
+        offset: shiftOffset,
         limit: 0,
         synchronous: false,
       ));
-      Log.i('Seeking TDLib download to offset: $byteOffset bytes (targeting $position)');
+      Log.i('Seeking TDLib download to offset: $shiftOffset bytes (original target: $byteOffset bytes, position: $position)');
     } else {
       player.seek(position);
     }

@@ -130,22 +130,27 @@ class StreamingProxyService {
         final downloadedDelta = (res.local.downloadedSize - baseDownloaded).clamp(0, res.expectedSize);
         final activeRangeEnd = activeOffset + downloadedDelta;
 
+        const graceBuffer = 5 * 1024 * 1024; // 5 MB lookbehind buffer to prevent seek/track-switch thrashing
+        const forwardThreshold = 12 * 1024 * 1024; // 12 MB forward lookahead gap
+
         if (!isCompleted &&
             start > prefixSize &&
-            (start < activeOffset || start > activeRangeEnd + 1048576)) {
-          Log.i('Proxy auto-shifting TDLib download offset for file $fileId to $start (requested range: $start-$end, prefixSize: $prefixSize, activeOffset: $activeOffset, activeRangeEnd: $activeRangeEnd)');
+            (start < activeOffset || start > activeRangeEnd + forwardThreshold)) {
+          final shiftOffset = (start - graceBuffer).clamp(0, res.expectedSize);
+          
+          Log.i('Proxy auto-shifting TDLib download offset for file $fileId to $shiftOffset (requested range: $start-$end, prefixSize: $prefixSize, activeOffset: $activeOffset, activeRangeEnd: $activeRangeEnd)');
           
           _tdlibService.send(td.CancelDownloadFile(
             fileId: fileId,
             onlyIfPending: false,
           ));
           
-          setDownloadOffset(fileId, start, res.local.downloadedSize);
+          setDownloadOffset(fileId, shiftOffset, res.local.downloadedSize);
           
           _tdlibService.send(td.DownloadFile(
             fileId: fileId,
             priority: 32,
-            offset: start,
+            offset: shiftOffset,
             limit: 0,
             synchronous: false,
           ));
