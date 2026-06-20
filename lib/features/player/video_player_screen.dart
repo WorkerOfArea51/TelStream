@@ -136,7 +136,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         nativePlayer.setProperty('embeddedfonts', 'yes'); // Enable embedded fonts inside media containers (MKV, etc.)
         nativePlayer.setProperty('blend-subtitles', 'no'); // Set to 'no' so subtitles render independently and sync perfectly with the master audio clock
         nativePlayer.setProperty('demuxer-mkv-subtitle-preroll', 'yes');
-        nativePlayer.setProperty('sub-ass-override', 'yes');
+        nativePlayer.setProperty('sub-ass-override', 'scale');
 
         // Load subtitle customizations
         final subSize = _storageService.getSubtitleFontSize();
