@@ -167,6 +167,15 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
           nativePlayer.setProperty('volume-max', '200');
         }
 
+        // Apply dynamic range compression (DRC)
+        final drcEnabled = _settings.dynamicRangeCompression;
+        if (drcEnabled) {
+          nativePlayer.setProperty('af', 'lavfi=[dynaudnorm]');
+          Log.i('Dynamic Range Compression (DRC) enabled on init.');
+        } else {
+          nativePlayer.setProperty('af', '');
+        }
+
         // Apply adaptive streaming profile
         _applyStreamingProfile();
       }
@@ -1047,14 +1056,17 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         final hwdec = _storageService.getHardwareDecoderMode();
         final isDirectHw = Platform.isAndroid && hwdec == 'mediacodec';
         
-        final useNativeBlending = !isDirectHw;
+        final settings = ref.read(videoSettingsProvider);
+        final isFlutterOverlay = settings.subtitleRendererMode == 'flutter';
+        
+        final useNativeBlending = !isDirectHw && !isFlutterOverlay;
         
         if (useNativeBlending) {
           nativePlayer.setProperty('blend-subtitles', 'yes');
           Log.i('Native blending subtitle enabled. Set blend-subtitles to yes.');
         } else {
           nativePlayer.setProperty('blend-subtitles', 'no');
-          Log.i('Native blending subtitle disabled (Direct HW). Set blend-subtitles to no.');
+          Log.i('Native blending subtitle disabled (Direct HW / Flutter Overlay). Set blend-subtitles to no.');
         }
       }
     } catch (e) {

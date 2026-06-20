@@ -274,6 +274,54 @@ class _AdvancedCacheManagerScreenState extends ConsumerState<AdvancedCacheManage
     }
   }
 
+  Future<void> _clearMetadataCacheAction() async {
+    final theme = Theme.of(context);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: theme.cardColor,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: BorderSide(color: theme.colorScheme.onSurface.withValues(alpha: 0.08)),
+          ),
+          title: const Text('Clear Metadata Cache'),
+          content: const Text('Are you sure you want to clear the cached search IDs and release years? This will force the app to fetch metadata from trackers again next time the catalog is sorted.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: Text('Cancel', style: TextStyle(color: theme.brightness == Brightness.dark ? Colors.white54 : Colors.black54)),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Clear Cache', style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        );
+      }
+    );
+
+    if (confirmed == true) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Clearing metadata cache...'), duration: Duration(seconds: 1)),
+        );
+      }
+
+      await ref.read(storageServiceProvider).clearMetadataCache();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Metadata cache cleared successfully!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -379,6 +427,39 @@ class _AdvancedCacheManagerScreenState extends ConsumerState<AdvancedCacheManage
                         const SizedBox(height: 10),
                         _buildBreakdownRow('Temporary Cache Buffers', _tempSize, Colors.redAccent),
                       ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 24),
+                  Text(
+                    'Metadata & Index Cache',
+                    style: TextStyle(color: settingsAccent, fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: theme.cardColor,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: theme.colorScheme.onSurface.withValues(alpha: 0.08)),
+                    ),
+                    child: ListTile(
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                      leading: CircleAvatar(
+                        backgroundColor: settingsAccent.withValues(alpha: 0.12),
+                        child: Icon(Icons.cloud_sync, color: settingsAccent),
+                      ),
+                      title: const Text(
+                        'Clear Metadata Cache',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                      ),
+                      subtitle: const Text(
+                        'Clears cached MAL/AniList/Trakt IDs and anime release years, forcing catalog sorting to resync.',
+                        style: TextStyle(fontSize: 12),
+                      ),
+                      trailing: IconButton(
+                        icon: const Icon(Icons.delete_sweep, color: Colors.redAccent),
+                        onPressed: _clearMetadataCacheAction,
+                      ),
                     ),
                   ),
 

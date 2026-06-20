@@ -21,6 +21,8 @@ class VideoSettings {
   final bool downloadSchedulerEnabled;
   final int downloadStartHour;
   final int downloadEndHour;
+  final String subtitleRendererMode;
+  final bool dynamicRangeCompression;
 
   const VideoSettings({
     this.doubleTapSeekDuration = 10,
@@ -42,6 +44,8 @@ class VideoSettings {
     this.downloadSchedulerEnabled = false,
     this.downloadStartHour = 2,
     this.downloadEndHour = 6,
+    this.subtitleRendererMode = 'native',
+    this.dynamicRangeCompression = false,
   });
 
   VideoSettings copyWith({
@@ -64,6 +68,8 @@ class VideoSettings {
     bool? downloadSchedulerEnabled,
     int? downloadStartHour,
     int? downloadEndHour,
+    String? subtitleRendererMode,
+    bool? dynamicRangeCompression,
   }) {
     return VideoSettings(
       doubleTapSeekDuration: doubleTapSeekDuration ?? this.doubleTapSeekDuration,
@@ -85,6 +91,8 @@ class VideoSettings {
       downloadSchedulerEnabled: downloadSchedulerEnabled ?? this.downloadSchedulerEnabled,
       downloadStartHour: downloadStartHour ?? this.downloadStartHour,
       downloadEndHour: downloadEndHour ?? this.downloadEndHour,
+      subtitleRendererMode: subtitleRendererMode ?? this.subtitleRendererMode,
+      dynamicRangeCompression: dynamicRangeCompression ?? this.dynamicRangeCompression,
     );
   }
 
@@ -109,6 +117,8 @@ class VideoSettings {
       'downloadSchedulerEnabled': downloadSchedulerEnabled,
       'downloadStartHour': downloadStartHour,
       'downloadEndHour': downloadEndHour,
+      'subtitleRendererMode': subtitleRendererMode,
+      'dynamicRangeCompression': dynamicRangeCompression,
     };
   }
 
@@ -133,6 +143,8 @@ class VideoSettings {
       downloadSchedulerEnabled: json['downloadSchedulerEnabled'] ?? false,
       downloadStartHour: json['downloadStartHour'] ?? 2,
       downloadEndHour: json['downloadEndHour'] ?? 6,
+      subtitleRendererMode: json['subtitleRendererMode'] ?? 'native',
+      dynamicRangeCompression: json['dynamicRangeCompression'] ?? false,
     );
   }
 }

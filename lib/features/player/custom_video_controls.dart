@@ -87,6 +87,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
   bool _showTrackSelectorPanel = false;
   String _trackSelectorTitle = '';
   bool _trackSelectorIsSubtitle = false;
+  Map<String, String> _trackCodecs = {};
   
   // Gestures
   double _currentVolume = 100.0;
@@ -781,6 +782,8 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
   @override
   void initState() {
     super.initState();
+    final settings = ref.read(videoSettingsProvider);
+    _nightModeActive = settings.dynamicRangeCompression;
     _startHideTimer();
     _currentVolume = widget.player.state.volume;
     _initSystemVolumeAndBrightness();
@@ -814,6 +817,9 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     });
     _tracksListSubscription = widget.player.stream.tracks.listen((_) {
       _updateBlendSubtitlesForTrack(widget.player, widget.player.state.track.subtitle);
+      if (_showTrackSelectorPanel) {
+        _loadTrackCodecs();
+      }
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _updateBlendSubtitlesForTrack(widget.player, widget.player.state.track.subtitle);
@@ -1870,7 +1876,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
           filters.add('volume=volume=6dB:precision=fixed');
         }
         if (_nightModeActive) {
-          filters.add('lavfi=[acompressor]');
+          filters.add('lavfi=[dynaudnorm]');
         }
         
         if (filters.isNotEmpty) {
@@ -1879,6 +1885,13 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
         } else {
           nativePlayer.setProperty('af', '');
           Log.i('Cleared all audio filters');
+        }
+
+        final settings = ref.read(videoSettingsProvider);
+        if (settings.dynamicRangeCompression != _nightModeActive) {
+          ref.read(videoSettingsProvider.notifier).updateSettings(
+            settings.copyWith(dynamicRangeCompression: _nightModeActive),
+          );
         }
       }
     } catch (e) {
@@ -2236,7 +2249,32 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     );
   }
 
+  Future<void> _loadTrackCodecs() async {
+    try {
+      if (widget.player.platform is NativePlayer) {
+        final nativePlayer = widget.player.platform as NativePlayer;
+        final countStr = await nativePlayer.getProperty('track-list/count');
+        final count = int.tryParse(countStr) ?? 0;
+        final Map<String, String> codecs = {};
+        for (int i = 0; i < count; i++) {
+          final type = await nativePlayer.getProperty('track-list/$i/type');
+          final id = await nativePlayer.getProperty('track-list/$i/id');
+          final codec = await nativePlayer.getProperty('track-list/$i/codec');
+          codecs['$type/$id'] = codec.toString();
+        }
+        if (mounted) {
+          setState(() {
+            _trackCodecs = codecs;
+          });
+        }
+      }
+    } catch (e) {
+      Log.w('Failed to load track codecs: $e');
+    }
+  }
+
   void _showTrackSelector({required String title, required bool isSubtitle}) {
+    _loadTrackCodecs();
     setState(() {
       _showTrackSelectorPanel = true;
       _trackSelectorTitle = title;
@@ -2423,6 +2461,18 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                                       final lang = (track.language ?? '').toUpperCase();
                                       final tTitle = track.title ?? 'Track ${track.id}';
                                       
+                                      final typeKey = _trackSelectorIsSubtitle ? 'sub' : 'audio';
+                                      final codec = _trackCodecs['$typeKey/${track.id}'];
+                                      String formatSuffix = '';
+                                      if (codec != null && codec.isNotEmpty) {
+                                        var cleanCodec = codec.toUpperCase();
+                                        if (cleanCodec == 'SUBRIP') cleanCodec = 'SRT';
+                                        if (cleanCodec.contains('PGS')) cleanCodec = 'PGS';
+                                        if (cleanCodec.contains('ASS') || cleanCodec.contains('SSA')) cleanCodec = 'ASS';
+                                        formatSuffix = ' ($cleanCodec)';
+                                      }
+                                      final displayTitle = '$tTitle$formatSuffix';
+                                      
                                       if (lang.isNotEmpty) {
                                         leadingWidget = Container(
                                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -2445,7 +2495,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                                       }
                                       
                                       titleWidget = Text(
-                                        tTitle,
+                                        displayTitle,
                                         style: const TextStyle(fontSize: 15),
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
@@ -3985,7 +4035,10 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
         final hwdec = ref.read(storageServiceProvider).getHardwareDecoderMode();
         final isDirectHw = Platform.isAndroid && hwdec == 'mediacodec';
         
-        final useNativeBlending = !isDirectHw;
+        final settings = ref.read(videoSettingsProvider);
+        final isFlutterOverlay = settings.subtitleRendererMode == 'flutter';
+        
+        final useNativeBlending = !isDirectHw && !isFlutterOverlay;
         
         if (useNativeBlending) {
           nativePlayer.setProperty('blend-subtitles', 'yes');
@@ -3997,7 +4050,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
           }
         } else {
           nativePlayer.setProperty('blend-subtitles', 'no');
-          Log.i('Native blending subtitle disabled (Direct HW). Set blend-subtitles to no.');
+          Log.i('Native blending subtitle disabled (Direct HW / Flutter Overlay). Set blend-subtitles to no.');
           if (mounted && _isBlendingSubtitles) {
             setState(() {
               _isBlendingSubtitles = false;
@@ -4005,7 +4058,8 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
           }
           
           // Show SnackBar warning if on Android and using direct hardware decoding with a graphical/ASS track
-          if (Platform.isAndroid && mounted) {
+          // ONLY if not in Flutter overlay mode (which handles rendering anyway)
+          if (Platform.isAndroid && mounted && !isFlutterOverlay) {
             try {
               final countStr = await nativePlayer.getProperty('track-list/count');
               final count = int.tryParse(countStr) ?? 0;

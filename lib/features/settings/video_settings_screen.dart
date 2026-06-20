@@ -231,11 +231,42 @@ class VideoSettingsScreen extends ConsumerWidget {
                     (context as Element).markNeedsBuild();
                   },
                 ),
+                Divider(color: theme.dividerColor, height: 1, indent: 16, endIndent: 16),
+                _buildSwitch(
+                  context: context,
+                  title: 'Dynamic Range Compression (DRC)',
+                  subtitle: 'Balance music and dialogue levels to prevent sudden volume spikes',
+                  value: settings.dynamicRangeCompression,
+                  onChanged: (val) => notifier.updateSettings(settings.copyWith(dynamicRangeCompression: val)),
+                ),
               ],
             ),
           ),
 
+          const SizedBox(height: 20),
+          _buildSectionHeader(context, 'Subtitles'),
+          Card(
+            elevation: 0,
+            color: theme.cardColor,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+              side: BorderSide(color: theme.colorScheme.onSurface.withValues(alpha: 0.08), width: 1),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: Column(
+              children: [
+                _buildRadioGroup(
+                  context: context,
+                  title: 'Subtitle Renderer Mode',
+                  options: const ['Native Blending', 'Flutter Text Overlay'],
+                  currentValue: settings.subtitleRendererMode == 'flutter' ? 'Flutter Text Overlay' : 'Native Blending',
+                  onChanged: (val) => notifier.updateSettings(settings.copyWith(subtitleRendererMode: val == 'Flutter Text Overlay' ? 'flutter' : 'native')),
+                ),
+              ],
+            ),
+          ),
 
+          const SizedBox(height: 20),
           _buildSectionHeader(context, 'Smart Playback & Streaming'),
           Card(
             elevation: 0,

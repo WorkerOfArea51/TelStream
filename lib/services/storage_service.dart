@@ -612,7 +612,7 @@ class StorageService {
   }
 
   String getSubtitleRenderer() {
-    return _data['subtitle_renderer'] as String? ?? 'native';
+    return getVideoSettings()['subtitleRendererMode'] as String? ?? _data['subtitle_renderer'] as String? ?? 'native';
   }
 
   Future<void> setSubtitleRenderer(String value) async {
@@ -676,6 +676,14 @@ class StorageService {
   Future<void> associateFileWithSeries(String seriesName, int fileId) async {
     _data['series_files'] ??= <String, dynamic>{};
     _data['series_files'][fileId.toString()] = seriesName;
+    await _save();
+  }
+
+  Future<void> clearMetadataCache() async {
+    _data['mal_id_cache'] = <String, dynamic>{};
+    _data['season_release_years'] = <String, dynamic>{};
+    _data['anilist_id_cache'] = <String, dynamic>{};
+    _data['trakt_id_cache'] = <String, dynamic>{};
     await _save();
   }
 }
