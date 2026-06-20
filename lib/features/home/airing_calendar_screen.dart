@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -5,19 +6,45 @@ import 'package:http/http.dart' as http;
 import '../../core/theme/app_theme.dart';
 import '../../core/logger.dart';
 
+Future<void>? _jikanQueue;
+DateTime? _lastJikanRequestTime;
+
 final airingScheduleProvider = FutureProvider.family<List<dynamic>, String>((ref, day) async {
-  final url = 'https://api.jikan.moe/v4/schedules?filter=$day';
-  Log.i('Fetching Jikan airing schedule for: $day');
-  final response = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 10));
-  
-  if (response.statusCode == 200) {
-    final decoded = json.decode(response.body);
-    final data = decoded['data'] as List<dynamic>? ?? [];
-    return data;
-  } else if (response.statusCode == 429) {
-    throw Exception('Rate limit exceeded. Please wait a moment and try again.');
-  } else {
-    throw Exception('Failed to load airing calendar (Status: ${response.statusCode})');
+  // Wait for previous requests in the queue to finish to avoid concurrent request bursts
+  final completer = Completer<void>();
+  final previous = _jikanQueue;
+  _jikanQueue = completer.future;
+  if (previous != null) {
+    try {
+      await previous;
+    } catch (_) {}
+  }
+
+  try {
+    // Ensure at least a 1.5-second gap between requests to respect Jikan's rate limits
+    if (_lastJikanRequestTime != null) {
+      final diff = DateTime.now().difference(_lastJikanRequestTime!);
+      if (diff.inMilliseconds < 1500) {
+        await Future.delayed(Duration(milliseconds: 1500 - diff.inMilliseconds));
+      }
+    }
+    _lastJikanRequestTime = DateTime.now();
+
+    final url = 'https://api.jikan.moe/v4/schedules?filter=$day';
+    Log.i('Fetching Jikan airing schedule for: $day');
+    final response = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 10));
+    
+    if (response.statusCode == 200) {
+      final decoded = json.decode(response.body);
+      final data = decoded['data'] as List<dynamic>? ?? [];
+      return data;
+    } else if (response.statusCode == 429) {
+      throw Exception('Rate limit exceeded. Please wait a moment and try again.');
+    } else {
+      throw Exception('Failed to load airing calendar (Status: ${response.statusCode})');
+    }
+  } finally {
+    completer.complete();
   }
 });
 

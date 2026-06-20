@@ -55,34 +55,7 @@ class _AdvancedCacheManagerScreenState extends ConsumerState<AdvancedCacheManage
       final docDir = await getApplicationDocumentsDirectory();
       
       // Calculate directory sizes in the background to avoid locking UI
-      final dirSizes = await compute((String docPath) async {
-        int vSize = 0;
-        int dSize = 0;
-        int pSize = 0;
-        int tSize = 0;
-
-        int getDirSize(String path) {
-          int size = 0;
-          try {
-            final dir = Directory(path);
-            if (dir.existsSync()) {
-              for (final f in dir.listSync(recursive: true, followLinks: false)) {
-                if (f is File) {
-                  size += f.lengthSync();
-                }
-              }
-            }
-          } catch (_) {}
-          return size;
-        }
-
-        vSize = getDirSize('$docPath/videos');
-        dSize = getDirSize('$docPath/documents');
-        pSize = getDirSize('$docPath/photos');
-        tSize = getDirSize('$docPath/temp');
-
-        return [vSize, dSize, pSize, tSize];
-      }, docDir.path);
+      final dirSizes = await compute(_getDirSizesIsolate, docDir.path);
 
       if (mounted) {
         setState(() {
@@ -682,5 +655,34 @@ class _AdvancedCacheManagerScreenState extends ConsumerState<AdvancedCacheManage
         ),
       ],
     );
+  }
+
+  static List<int> _getDirSizesIsolate(String docPath) {
+    int vSize = 0;
+    int dSize = 0;
+    int pSize = 0;
+    int tSize = 0;
+
+    int getDirSize(String path) {
+      int size = 0;
+      try {
+        final dir = Directory(path);
+        if (dir.existsSync()) {
+          for (final f in dir.listSync(recursive: true, followLinks: false)) {
+            if (f is File) {
+              size += f.lengthSync();
+            }
+          }
+        }
+      } catch (_) {}
+      return size;
+    }
+
+    vSize = getDirSize('$docPath/videos');
+    dSize = getDirSize('$docPath/documents');
+    pSize = getDirSize('$docPath/photos');
+    tSize = getDirSize('$docPath/temp');
+
+    return [vSize, dSize, pSize, tSize];
   }
 }

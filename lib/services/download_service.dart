@@ -503,6 +503,13 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
           throw Exception("Copied file size ($permSize bytes) does not match original size ($tempSize bytes)");
         }
         
+        try {
+          await tempFile.delete();
+          Log.i('Cleaned up TDLib temp download cache file: $tempPath');
+        } catch (e) {
+          Log.w('Failed to delete temp cache file: $tempPath. Error: $e');
+        }
+        
         Log.i('FILE SAVED PERMANENTLY: $permanentPath');
         
         // Remove from active queue database and save persistent mapping in JSON storage

@@ -251,7 +251,7 @@ class StreamingProxyService {
         final file = File(tdFile.local.path);
         if (await file.exists()) {
           try {
-            await request.response.addStream(file.openRead(start, end + 1));
+            await request.response.addStream(file.openRead(start, end));
           } catch (e) {
             Log.w('Proxy direct completed streaming error for file $fileId: $e');
           } finally {

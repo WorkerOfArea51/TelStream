@@ -146,6 +146,7 @@ class StorageService {
             await backupFile.delete();
           }
           await _file!.copy(backupFile.path);
+          await _file!.delete(); // Delete target file first to support Windows rename behavior
         }
         
         await tmpFile.rename(_file!.path);

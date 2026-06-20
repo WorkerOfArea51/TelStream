@@ -41,6 +41,7 @@ class _SubtitleDownloaderDialogState extends ConsumerState<SubtitleDownloaderDia
   bool _isSearching = false;
   String? _downloadingId;
   String? _errorMessage;
+  bool _searchAttempted = false;
 
   @override
   void initState() {
@@ -140,6 +141,7 @@ class _SubtitleDownloaderDialogState extends ConsumerState<SubtitleDownloaderDia
                           _isSearching = true;
                           _searchResults = [];
                           _errorMessage = null;
+                          _searchAttempted = false;
                         });
                         try {
                           final res = await downloader.searchSubtitles(
@@ -149,6 +151,7 @@ class _SubtitleDownloaderDialogState extends ConsumerState<SubtitleDownloaderDia
                           setState(() {
                             _isSearching = false;
                             _searchResults = res;
+                            _searchAttempted = true;
                           });
                         } catch (e) {
                           setState(() {
@@ -200,10 +203,12 @@ class _SubtitleDownloaderDialogState extends ConsumerState<SubtitleDownloaderDia
                         ),
                       )
                     : _searchResults.isEmpty
-                        ? const Center(
+                        ? Center(
                             child: Text(
-                              'Search for subtitles to display results',
-                              style: TextStyle(color: Colors.white38, fontSize: 13),
+                              _searchAttempted
+                                  ? 'No subtitles found for your query'
+                                  : 'Search for subtitles to display results',
+                              style: const TextStyle(color: Colors.white38, fontSize: 13),
                             ),
                           )
                         : ListView.builder(
