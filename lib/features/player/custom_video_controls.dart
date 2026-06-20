@@ -2426,6 +2426,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                                               }
                                             });
                                           } else {
+                                            final activeSub = widget.player.state.track.subtitle;
                                             widget.player.setAudioTrack(track);
                                             final audioPrefVal = track.id == 'auto' ? 'auto' : (track.language ?? track.title ?? track.id);
                                             storage.setPreferredAudioTrack(audioPrefVal);
@@ -2442,21 +2443,18 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
 
                                             final prefSub = storage.getPreferredSubtitleTrackForAudioLanguage(newAudioLangCategory);
                                             final tracks = widget.player.state.tracks;
+                                            SubtitleTrack targetSub = activeSub;
 
                                             if (prefSub != null) {
                                               if (prefSub == 'no') {
-                                                if (widget.player.state.track.subtitle != SubtitleTrack.no()) {
-                                                  widget.player.setSubtitleTrack(SubtitleTrack.no());
-                                                }
+                                                targetSub = SubtitleTrack.no();
                                               } else {
                                                 for (final t in tracks.subtitle) {
                                                   final identifier = (t.language ?? t.title ?? t.id).toLowerCase();
                                                   if (identifier == prefSub.toLowerCase() ||
                                                       (t.title != null && t.title!.toLowerCase().contains(prefSub.toLowerCase())) ||
                                                       (t.language != null && t.language!.toLowerCase().contains(prefSub.toLowerCase()))) {
-                                                    if (widget.player.state.track.subtitle != t) {
-                                                      widget.player.setSubtitleTrack(t);
-                                                    }
+                                                    targetSub = t;
                                                     break;
                                                   }
                                                 }
@@ -2464,9 +2462,18 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                                             } else {
                                               // Apply smart default fallbacks on audio track change if no user preference exists yet
                                               if (newAudioLangCategory == 'eng') {
-                                                if (widget.player.state.track.subtitle != SubtitleTrack.no()) {
-                                                  widget.player.setSubtitleTrack(SubtitleTrack.no());
+                                                SubtitleTrack? forcedTrack;
+                                                for (final t in tracks.subtitle) {
+                                                  final titleLower = (t.title ?? '').toLowerCase();
+                                                  if (titleLower.contains('forced') || 
+                                                      titleLower.contains('sign') || 
+                                                      titleLower.contains('song') || 
+                                                      titleLower.contains('translation')) {
+                                                    forcedTrack = t;
+                                                    break;
+                                                  }
                                                 }
+                                                targetSub = forcedTrack ?? SubtitleTrack.no();
                                               } else if (tracks.subtitle.isNotEmpty) {
                                                 SubtitleTrack? targetSubTrack;
                                                 for (final t in tracks.subtitle) {
@@ -2480,11 +2487,18 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                                                   (t) => t.id != 'no' && t.id != 'auto',
                                                   orElse: () => tracks.subtitle.first,
                                                 );
-                                                if (widget.player.state.track.subtitle != targetSubTrack) {
-                                                  widget.player.setSubtitleTrack(targetSubTrack);
-                                                }
+                                                targetSub = targetSubTrack;
                                               }
                                             }
+
+                                            // Delay applying subtitle to let the demuxer load the new audio track first
+                                            Future.delayed(const Duration(milliseconds: 300), () {
+                                              if (mounted) {
+                                                widget.player.setSubtitleTrack(targetSub);
+                                                _updateBlendSubtitlesForTrack(widget.player, targetSub);
+                                                Log.i('Applied subtitle track after audio track change: ${targetSub.id}');
+                                              }
+                                            });
                                           }
                                           setState(() {
                                             _showTrackSelectorPanel = false;
@@ -2562,8 +2576,37 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     final customTheme = theme.extension<AppThemeExtension>();
     final settingsAccent = customTheme?.settingsAccent ?? theme.primaryColor;
 
+    final storage = ref.read(storageServiceProvider);
+    final subSize = storage.getSubtitleFontSize();
+
     final subtitleConfig = SubtitleViewConfiguration(
       visible: !_isBlendingSubtitles,
+      style: TextStyle(
+        fontSize: subSize,
+        color: Colors.white,
+        shadows: const [
+          Shadow(
+            offset: Offset(-1.5, -1.5),
+            color: Colors.black,
+            blurRadius: 1.0,
+          ),
+          Shadow(
+            offset: Offset(1.5, -1.5),
+            color: Colors.black,
+            blurRadius: 1.0,
+          ),
+          Shadow(
+            offset: Offset(1.5, 1.5),
+            color: Colors.black,
+            blurRadius: 1.0,
+          ),
+          Shadow(
+            offset: Offset(-1.5, 1.5),
+            color: Colors.black,
+            blurRadius: 1.0,
+          ),
+        ],
+      ),
     );
 
     return GestureDetector(
@@ -3920,12 +3963,20 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                                   codec.contains('dvb') ||
                                   codec == 'xsub';
               final isAss = codec.contains('ass') || codec.contains('ssa');
-              final isGraphicalOrAss = isGraphical || isAss;
                                        
               final hwdec = ref.read(storageServiceProvider).getHardwareDecoderMode();
               final isDirectHw = Platform.isAndroid && hwdec == 'mediacodec';
               
-              if (isGraphicalOrAss && !isDirectHw) {
+              bool useNativeBlending = false;
+              if (Platform.isAndroid) {
+                // On Android, native blending for ASS/SSA via libass is unstable and causes invisible subtitles.
+                // We fallback to Flutter's text-based SubtitleView for all text formats.
+                useNativeBlending = isGraphical && !isDirectHw;
+              } else {
+                useNativeBlending = (isGraphical || isAss) && !isDirectHw;
+              }
+              
+              if (useNativeBlending) {
                 nativePlayer.setProperty('blend-subtitles', 'yes');
                 Log.i('Native blending subtitle enabled. Set blend-subtitles to yes.');
                 if (mounted && !_isBlendingSubtitles) {
@@ -3935,7 +3986,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                 }
               } else {
                 nativePlayer.setProperty('blend-subtitles', 'no');
-                Log.i('Native blending subtitle disabled (Direct HW or Text-only). Set blend-subtitles to no.');
+                Log.i('Native blending subtitle disabled (Direct HW, Text-only or Android ASS/SSA fallback). Set blend-subtitles to no.');
                 if (mounted && _isBlendingSubtitles) {
                   setState(() {
                     _isBlendingSubtitles = false;

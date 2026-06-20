@@ -134,6 +134,8 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         nativePlayer.setProperty('sub-auto', 'all');
         nativePlayer.setProperty('embeddedfonts', 'yes'); // Enable embedded fonts inside media containers (MKV, etc.)
         nativePlayer.setProperty('blend-subtitles', 'no'); // Set to 'no' so subtitles render independently and sync perfectly with the master audio clock
+        nativePlayer.setProperty('demuxer-mkv-subtitle-preroll', 'yes');
+        nativePlayer.setProperty('sub-ass-override', 'yes');
 
         // Load subtitle customizations
         final subSize = _storageService.getSubtitleFontSize();
@@ -279,10 +281,22 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         final currentSub = player.state.track.subtitle;
         if (currentSub.id == 'no' || currentSub.id == 'auto') {
           if (audioLangCategory == 'eng') {
-            // English audio (Dub) -> Default to no subtitles
-            if (player.state.track.subtitle != SubtitleTrack.no()) {
-              player.setSubtitleTrack(SubtitleTrack.no());
-              Log.i('Smart Sub/Dub default: English audio -> Subtitles disabled');
+            // English audio (Dub) -> Default to forced/signs/songs subtitles if available, otherwise disabled
+            SubtitleTrack? forcedTrack;
+            for (final track in tracks.subtitle) {
+              final titleLower = (track.title ?? '').toLowerCase();
+              if (titleLower.contains('forced') || 
+                  titleLower.contains('sign') || 
+                  titleLower.contains('song') || 
+                  titleLower.contains('translation')) {
+                forcedTrack = track;
+                break;
+              }
+            }
+            final targetTrack = forcedTrack ?? SubtitleTrack.no();
+            if (player.state.track.subtitle != targetTrack) {
+              player.setSubtitleTrack(targetTrack);
+              Log.i('Smart Sub/Dub default: English audio -> Target subtitle track: ${targetTrack.title ?? targetTrack.id}');
             }
           } else {
             // Japanese / other audio (Sub) -> Default to English subtitle if available
@@ -544,6 +558,18 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
     // Start listening to updates immediately to catch progress and local path updates
     _listenToUpdates();
 
+    // Trigger download with highest priority immediately. This ensures TDLib pre-allocates
+    // the local file path so that subsequent GetFile queries retrieve it instantly.
+    if (_resolvedVideoFileId != null && _resolvedVideoFileId != 0) {
+      _tdlibService.send(td.DownloadFile(
+        fileId: _resolvedVideoFileId!,
+        priority: 32,
+        offset: 0,
+        limit: 0,
+        synchronous: false,
+      ));
+    }
+
     // Check if the file is already cached locally (fully or partially)
     if (_resolvedVideoFileId != null && _resolvedVideoFileId != 0) {
       try {
@@ -602,17 +628,17 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         _storageService.associateFileWithSeries(widget.seriesName, _resolvedVideoFileId!);
       }
       _listenToUpdates();
-    }
 
-    // Trigger download with highest priority sequentially. If already completed, this will be a no-op in TDLib.
-    if (_resolvedVideoFileId != null && _resolvedVideoFileId != 0) {
-      _tdlibService.send(td.DownloadFile(
-        fileId: _resolvedVideoFileId!,
-        priority: 32,
-        offset: 0,
-        limit: 0,
-        synchronous: false,
-      ));
+      // Trigger download for newly resolved file ID
+      if (_resolvedVideoFileId != null && _resolvedVideoFileId != 0) {
+        _tdlibService.send(td.DownloadFile(
+          fileId: _resolvedVideoFileId!,
+          priority: 32,
+          offset: 0,
+          limit: 0,
+          synchronous: false,
+        ));
+      }
     }
   }
 
@@ -752,8 +778,14 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
       if (widget.networkUrl == null && fileId != 0) {
         final activeDownloads = ref.read(downloadControllerProvider);
         final isDownloadingPermanently = activeDownloads.containsKey(fileId);
-        if (!isDownloadingPermanently) {
+        final pipState = ref.read(pipControllerProvider);
+        final isCurrentlyPlaying = pipState != null && pipState.videoFileId == fileId;
+        
+        if (!isDownloadingPermanently && !isCurrentlyPlaying) {
           _tdlibService.send(td.CancelDownloadFile(fileId: fileId, onlyIfPending: false));
+          Log.i('Cancelled background download for inactive file $fileId on dispose');
+        } else {
+          Log.i('Skipped CancelDownloadFile on dispose: file $fileId is still active (downloading permanently: $isDownloadingPermanently, playing: $isCurrentlyPlaying)');
         }
       }
     } catch (_) {}
@@ -981,24 +1013,32 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
               final codec = (await nativePlayer.getProperty('track-list/$i/codec')).toLowerCase();
               Log.i('Selected subtitle track ID ${track.id} has codec: $codec');
               
-              final isGraphicalOrAss = codec.contains('pgs') || 
-                                       codec.contains('hdmv') || 
-                                       codec.contains('dvd') || 
-                                       codec.contains('vob') || 
-                                       codec.contains('dvb') ||
-                                       codec.contains('ass') ||
-                                       codec.contains('ssa') ||
-                                       codec == 'xsub';
+              final isGraphical = codec.contains('pgs') || 
+                                  codec.contains('hdmv') || 
+                                  codec.contains('dvd') || 
+                                  codec.contains('vob') || 
+                                  codec.contains('dvb') ||
+                                  codec == 'xsub';
+              final isAss = codec.contains('ass') || codec.contains('ssa');
                                        
               final hwdec = _storageService.getHardwareDecoderMode();
               final isDirectHw = Platform.isAndroid && hwdec == 'mediacodec';
               
-              if (isGraphicalOrAss && !isDirectHw) {
+              bool useNativeBlending = false;
+              if (Platform.isAndroid) {
+                // On Android, native blending for ASS/SSA via libass is unstable and causes invisible subtitles.
+                // We fallback to Flutter's text-based SubtitleView for all text formats.
+                useNativeBlending = isGraphical && !isDirectHw;
+              } else {
+                useNativeBlending = (isGraphical || isAss) && !isDirectHw;
+              }
+              
+              if (useNativeBlending) {
                 nativePlayer.setProperty('blend-subtitles', 'yes');
-                Log.i('Native blending subtitle enabled (PGS/ASS). Set blend-subtitles to yes.');
+                Log.i('Native blending subtitle enabled (PGS). Set blend-subtitles to yes.');
               } else {
                 nativePlayer.setProperty('blend-subtitles', 'no');
-                Log.i('Native blending subtitle disabled (Direct HW or Text-only). Set blend-subtitles to no.');
+                Log.i('Native blending subtitle disabled (Direct HW, Text-only or Android ASS/SSA fallback). Set blend-subtitles to no.');
               }
               return;
             }

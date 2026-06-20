@@ -250,6 +250,15 @@ class StreamingProxyService {
         if (!isAvailable) {
           final completer = Completer<void>();
           bool waitSuccess = false;
+          bool clientDisconnected = false;
+
+          // Listen to client disconnect to abort waiting instantly and release resources
+          request.response.done.then((_) {
+            clientDisconnected = true;
+            if (!completer.isCompleted) {
+              completer.complete();
+            }
+          });
 
           final sub = _tdlibService.updates.listen((event) {
             if (event is td.UpdateFile && event.file.id == fileId) {
@@ -282,6 +291,11 @@ class StreamingProxyService {
             // Timeout
           } finally {
             await sub.cancel();
+          }
+
+          if (clientDisconnected) {
+            Log.i('Proxy: client disconnected while waiting for bytes for file $fileId.');
+            break;
           }
 
           if (!waitSuccess) {
