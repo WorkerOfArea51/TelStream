@@ -80,6 +80,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
   bool _isBuffering = false;
   bool _isBlendingSubtitles = false;
   StreamSubscription<Track>? _trackSubscription;
+  StreamSubscription? _tracksListSubscription;
   
   bool _showTrackSelectorPanel = false;
   String _trackSelectorTitle = '';
@@ -794,6 +795,9 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     _trackSubscription = widget.player.stream.track.listen((track) {
       _updateBlendSubtitlesForTrack(widget.player, track.subtitle);
     });
+    _tracksListSubscription = widget.player.stream.tracks.listen((_) {
+      _updateBlendSubtitlesForTrack(widget.player, widget.player.state.track.subtitle);
+    });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _updateBlendSubtitlesForTrack(widget.player, widget.player.state.track.subtitle);
     });
@@ -961,6 +965,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     _sleepTimer?.cancel();
     _osdTimer?.cancel();
     _trackSubscription?.cancel();
+    _tracksListSubscription?.cancel();
     _playlistSubscription?.cancel();
     try {
       FlutterVolumeController.removeListener();
@@ -2608,6 +2613,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                       child: AspectRatio(
                         aspectRatio: _customAspectRatio!,
                         child: Video(
+                          key: ValueKey(_isBlendingSubtitles),
                           controller: widget.controller,
                           controls: NoVideoControls,
                           fit: BoxFit.fill,
@@ -2616,6 +2622,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                       ),
                     )
                   : Video(
+                      key: ValueKey(_isBlendingSubtitles),
                       controller: widget.controller,
                       controls: NoVideoControls,
                       fit: _fit,
