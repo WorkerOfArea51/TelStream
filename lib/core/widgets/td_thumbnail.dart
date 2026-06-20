@@ -19,7 +19,7 @@ class TdThumbnail extends ConsumerStatefulWidget {
   final BorderRadius? borderRadius;
   
   const TdThumbnail({
-    Key? key, 
+    super.key, 
     required this.file, 
     this.minithumbnail,
     this.autoDownload = true,
@@ -28,7 +28,7 @@ class TdThumbnail extends ConsumerStatefulWidget {
     this.fit = BoxFit.cover,
     this.alignment = Alignment.center,
     this.borderRadius,
-  }) : super(key: key);
+  });
 
   @override
   ConsumerState<TdThumbnail> createState() => _TdThumbnailState();

@@ -131,7 +131,7 @@ class UpdateService {
 class UpdateDialogContent extends StatefulWidget {
   final AppUpdateInfo updateInfo;
 
-  const UpdateDialogContent({Key? key, required this.updateInfo}) : super(key: key);
+  const UpdateDialogContent({super.key, required this.updateInfo});
 
   @override
   State<UpdateDialogContent> createState() => _UpdateDialogContentState();
@@ -282,7 +282,7 @@ class _UpdateDialogContentState extends State<UpdateDialogContent> {
                   Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: primaryColor.withOpacity(0.15),
+                      color: primaryColor.withValues(alpha: 0.15),
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
@@ -377,7 +377,7 @@ class _UpdateDialogContentState extends State<UpdateDialogContent> {
                     constraints: const BoxConstraints(maxHeight: 80),
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: Colors.redAccent.withOpacity(0.05),
+                      color: Colors.redAccent.withValues(alpha: 0.05),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: SingleChildScrollView(
@@ -433,9 +433,9 @@ class _UpdateDialogContentState extends State<UpdateDialogContent> {
                   Container(
                     constraints: const BoxConstraints(maxHeight: 180),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.03),
+                      color: Colors.white.withValues(alpha: 0.03),
                       borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: Colors.white.withOpacity(0.05)),
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
                     ),
                     padding: const EdgeInsets.all(12),
                     child: SingleChildScrollView(

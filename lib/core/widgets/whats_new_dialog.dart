@@ -5,7 +5,7 @@ import 'changelog_parser.dart';
 class WhatsNewDialog extends StatelessWidget {
   final String content;
 
-  const WhatsNewDialog({Key? key, required this.content}) : super(key: key);
+  const WhatsNewDialog({super.key, required this.content});
 
   static void show(BuildContext context, [String? content]) {
     showDialog(
@@ -23,7 +23,7 @@ class WhatsNewDialog extends StatelessWidget {
       backgroundColor: theme.cardColor,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(24),
-        side: BorderSide(color: theme.colorScheme.onSurface.withOpacity(0.08), width: 1.5),
+        side: BorderSide(color: theme.colorScheme.onSurface.withValues(alpha: 0.08), width: 1.5),
       ),
       contentPadding: const EdgeInsets.all(24),
       content: SizedBox(
@@ -35,31 +35,31 @@ class WhatsNewDialog extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.orange.withOpacity(0.15),
+                color: theme.primaryColor.withValues(alpha: 0.15),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.rocket_launch_rounded,
-                color: Colors.orange,
+                color: theme.primaryColor,
                 size: 40,
               ),
             ),
             const SizedBox(height: 16),
             
             // Title
-            const Text(
+            Text(
               "What's New in TelStream",
               style: TextStyle(
-                color: Colors.white,
+                color: theme.colorScheme.onSurface,
                 fontSize: 22,
                 fontWeight: FontWeight.bold,
               ),
               textAlign: TextAlign.center,
             ),
-            const Text(
+            Text(
               "v${Constants.currentVersion}",
               style: TextStyle(
-                color: Colors.orange,
+                color: theme.primaryColor,
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
                 letterSpacing: 0.5,
@@ -81,8 +81,8 @@ class WhatsNewDialog extends StatelessWidget {
               height: 48,
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.orange,
-                  foregroundColor: Colors.black,
+                  backgroundColor: theme.primaryColor,
+                  foregroundColor: theme.primaryColor.computeLuminance() > 0.5 ? Colors.black : Colors.white,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16),
                   ),

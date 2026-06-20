@@ -9,7 +9,7 @@ import '../settings/settings_provider.dart';
 
 class DownloadsScreen extends ConsumerStatefulWidget {
   final int initialIndex;
-  const DownloadsScreen({Key? key, this.initialIndex = 0}) : super(key: key);
+  const DownloadsScreen({super.key, this.initialIndex = 0});
 
   @override
   ConsumerState<DownloadsScreen> createState() => _DownloadsScreenState();
@@ -63,7 +63,7 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> with SingleTi
         backgroundColor: theme.cardColor,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
-          side: BorderSide(color: theme.colorScheme.onSurface.withOpacity(0.08), width: 1),
+          side: BorderSide(color: theme.colorScheme.onSurface.withValues(alpha: 0.08), width: 1),
         ),
         title: const Text('Delete Download'),
         content: Text('Are you sure you want to delete "$title" from your device? This cannot be undone.'),
@@ -189,7 +189,7 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> with SingleTi
                   color: theme.cardColor,
                   borderRadius: BorderRadius.circular(24),
                   border: Border.all(
-                    color: theme.colorScheme.onSurface.withOpacity(0.08),
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.08),
                     width: 1,
                   ),
                 ),
@@ -234,13 +234,13 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> with SingleTi
                             );
                             ref.read(downloadControllerProvider.notifier).checkScheduler();
                           },
-                          activeColor: settingsAccent,
+                          activeThumbColor: settingsAccent,
                         ),
                       ],
                     ),
                     if (settings.downloadSchedulerEnabled) ...[
                       const SizedBox(height: 16),
-                      Divider(color: theme.colorScheme.onSurface.withOpacity(0.08), height: 1),
+                      Divider(color: theme.colorScheme.onSurface.withValues(alpha: 0.08), height: 1),
                       const SizedBox(height: 16),
                       Row(
                         children: [
@@ -258,7 +258,7 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> with SingleTi
                                 ),
                                 const SizedBox(height: 8),
                                 DropdownButtonFormField<int>(
-                                  value: settings.downloadStartHour,
+                                  initialValue: settings.downloadStartHour,
                                   dropdownColor: theme.cardColor,
                                   decoration: InputDecoration(
                                     contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -299,7 +299,7 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> with SingleTi
                                 ),
                                 const SizedBox(height: 8),
                                 DropdownButtonFormField<int>(
-                                  value: settings.downloadEndHour,
+                                  initialValue: settings.downloadEndHour,
                                   dropdownColor: theme.cardColor,
                                   decoration: InputDecoration(
                                     contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -340,7 +340,7 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> with SingleTi
                             Icon(
                               Icons.downloading_rounded,
                               size: 72,
-                              color: settingsAccent.withOpacity(0.24),
+                              color: settingsAccent.withValues(alpha: 0.24),
                             ),
                             const SizedBox(height: 16),
                             Text(
@@ -377,7 +377,7 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> with SingleTi
                               color: theme.cardColor,
                               borderRadius: BorderRadius.circular(24),
                               border: Border.all(
-                                color: theme.colorScheme.onSurface.withOpacity(0.08),
+                                color: theme.colorScheme.onSurface.withValues(alpha: 0.08),
                                 width: 1,
                               ),
                             ),
@@ -435,7 +435,7 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> with SingleTi
                                           Container(
                                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                                             decoration: BoxDecoration(
-                                              color: theme.disabledColor.withOpacity(0.12),
+                                              color: theme.disabledColor.withValues(alpha: 0.12),
                                               borderRadius: BorderRadius.circular(12),
                                             ),
                                             child: Text(
@@ -499,7 +499,7 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> with SingleTi
                   decoration: BoxDecoration(
                     color: theme.cardColor,
                     borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: theme.colorScheme.onSurface.withOpacity(0.08), width: 1),
+                    border: Border.all(color: theme.colorScheme.onSurface.withValues(alpha: 0.08), width: 1),
                   ),
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: TextField(
@@ -523,7 +523,7 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> with SingleTi
               if (completedDownloads.isNotEmpty)
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                  color: theme.cardColor.withOpacity(0.5),
+                  color: theme.cardColor.withValues(alpha: 0.5),
                   child: Row(
                     children: [
                       Icon(Icons.storage_rounded, size: 16, color: settingsAccent),
@@ -604,7 +604,7 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> with SingleTi
                                 decoration: BoxDecoration(
                                   color: theme.cardColor,
                                   borderRadius: BorderRadius.circular(20),
-                                  border: Border.all(color: theme.colorScheme.onSurface.withOpacity(0.08), width: 1),
+                                  border: Border.all(color: theme.colorScheme.onSurface.withValues(alpha: 0.08), width: 1),
                                 ),
                                 clipBehavior: Clip.antiAlias,
                                 child: Column(
@@ -616,7 +616,7 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> with SingleTi
                                         width: 44,
                                         height: 44,
                                         decoration: BoxDecoration(
-                                          color: settingsAccent.withOpacity(0.12),
+                                          color: settingsAccent.withValues(alpha: 0.12),
                                           shape: BoxShape.circle,
                                         ),
                                         child: Icon(Icons.play_arrow_rounded, color: settingsAccent, size: 28),

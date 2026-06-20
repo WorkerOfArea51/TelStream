@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 class ChangelogParser extends StatelessWidget {
   final String content;
 
-  const ChangelogParser({Key? key, required this.content}) : super(key: key);
+  const ChangelogParser({super.key, required this.content});
 
   @override
   Widget build(BuildContext context) {
@@ -30,7 +30,9 @@ class ChangelogParser extends StatelessWidget {
     final trimmed = line.trim();
     if (trimmed.isEmpty) return const SizedBox(height: 6);
 
-    const primaryColor = Colors.orange;
+    final theme = Theme.of(context);
+    final primaryColor = theme.primaryColor;
+    final onSurface = theme.colorScheme.onSurface;
 
     // 1. Headers Check
     int hashCount = 0;
@@ -42,7 +44,7 @@ class ChangelogParser extends StatelessWidget {
       final headerText = trimmed.substring(hashCount + 1).trim();
       double fontSize = 13.5;
       FontWeight fontWeight = FontWeight.bold;
-      Color color = Colors.white;
+      Color color = onSurface;
       double topPadding = 12.0;
       double bottomPadding = 6.0;
 
@@ -61,13 +63,13 @@ class ChangelogParser extends StatelessWidget {
       } else if (hashCount == 3) {
         fontSize = 14.5;
         fontWeight = FontWeight.w800;
-        color = primaryColor.withOpacity(0.95);
+        color = primaryColor.withValues(alpha: 0.95);
         topPadding = 12.0;
         bottomPadding = 6.0;
       } else if (hashCount == 4) {
         fontSize = 13.0;
         fontWeight = FontWeight.bold;
-        color = Colors.white;
+        color = onSurface;
         topPadding = 10.0;
         bottomPadding = 4.0;
       }
@@ -100,7 +102,7 @@ class ChangelogParser extends StatelessWidget {
     }
 
     final baseStyle = TextStyle(
-      color: isBullet ? Colors.white.withOpacity(0.85) : Colors.white.withOpacity(0.65),
+      color: isBullet ? onSurface.withValues(alpha: 0.85) : onSurface.withValues(alpha: 0.65),
       fontSize: 12.5,
       height: 1.4,
     );
@@ -131,7 +133,7 @@ class ChangelogParser extends StatelessWidget {
           Expanded(
             child: RichText(
               text: TextSpan(
-                children: _parseFormattedText(displayLine, baseStyle),
+                children: _parseFormattedText(context, displayLine, baseStyle),
               ),
             ),
           ),
@@ -140,8 +142,9 @@ class ChangelogParser extends StatelessWidget {
     );
   }
 
-  List<TextSpan> _parseFormattedText(String text, TextStyle baseStyle) {
+  List<TextSpan> _parseFormattedText(BuildContext context, String text, TextStyle baseStyle) {
     final spans = <TextSpan>[];
+    final onSurface = Theme.of(context).colorScheme.onSurface;
     final regex = RegExp(r'\*\*(.*?)\*\*');
     int start = 0;
     for (final match in regex.allMatches(text)) {
@@ -150,7 +153,7 @@ class ChangelogParser extends StatelessWidget {
       }
       spans.add(TextSpan(
         text: match.group(1),
-        style: baseStyle.copyWith(fontWeight: FontWeight.bold, color: Colors.white),
+        style: baseStyle.copyWith(fontWeight: FontWeight.bold, color: onSurface),
       ));
       start = match.end;
     }

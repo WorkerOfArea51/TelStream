@@ -102,7 +102,7 @@ class _LibraryViewState extends ConsumerState<LibraryView> with SingleTickerProv
                                   color: theme.scaffoldBackgroundColor,
                                   borderRadius: BorderRadius.circular(22),
                                   border: Border.all(
-                                    color: theme.colorScheme.onSurface.withOpacity(0.12),
+                                    color: theme.colorScheme.onSurface.withValues(alpha: 0.12),
                                     width: 1,
                                   ),
                                 ),
@@ -338,7 +338,7 @@ class _LibraryViewState extends ConsumerState<LibraryView> with SingleTickerProv
           const SizedBox(height: 16),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: theme.primaryColor.withOpacity(0.1),
+              backgroundColor: theme.primaryColor.withValues(alpha: 0.1),
               foregroundColor: theme.primaryColor,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(20),
@@ -356,9 +356,34 @@ class _LibraryViewState extends ConsumerState<LibraryView> with SingleTickerProv
   }
 
   Widget _buildGridItem(BuildContext context, AnimeSeries series) {
+    return _LibraryGridItem(
+      series: series,
+      categoryTitle: widget.category.title,
+    );
+  }
+}
+
+class _LibraryGridItem extends StatefulWidget {
+  final AnimeSeries series;
+  final String categoryTitle;
+
+  const _LibraryGridItem({
+    required this.series,
+    required this.categoryTitle,
+  });
+
+  @override
+  State<_LibraryGridItem> createState() => _LibraryGridItemState();
+}
+
+class _LibraryGridItemState extends State<_LibraryGridItem> {
+  bool _isTapped = false;
+
+  @override
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final totalEpisodes = series.seasons.fold(0, (sum, s) => sum + s.episodes.length);
-    final latestPoster = series.seasons.isNotEmpty ? series.seasons.first.posterMessage : null;
+    final totalEpisodes = widget.series.seasons.fold(0, (sum, s) => sum + s.episodes.length);
+    final latestPoster = widget.series.seasons.isNotEmpty ? widget.series.seasons.first.posterMessage : null;
     
     td.File? posterFile;
     td.Minithumbnail? minithumbnail;
@@ -371,108 +396,119 @@ class _LibraryViewState extends ConsumerState<LibraryView> with SingleTickerProv
     }
 
     return GestureDetector(
+      onTapDown: (_) => setState(() => _isTapped = true),
+      onTapUp: (_) => setState(() => _isTapped = false),
+      onTapCancel: () => setState(() => _isTapped = false),
       onTap: () {
         Navigator.push(
           context,
           PremiumPageRoute(
             child: EpisodeListScreen(
-              season: series.seasons.first,
-              series: series,
-              heroTag: 'hero_library_${widget.category.title}_${series.coreName}',
+              season: widget.series.seasons.first,
+              series: widget.series,
+              heroTag: 'hero_library_${widget.categoryTitle}_${widget.series.coreName}',
             ),
           ),
         );
       },
-      child: Container(
-        decoration: BoxDecoration(
-          color: theme.cardColor,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: theme.colorScheme.onSurface.withOpacity(0.08), width: 1),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.4),
-              blurRadius: 8,
-              offset: const Offset(0, 4),
-            )
-          ],
-        ),
-        clipBehavior: Clip.hardEdge,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            Hero(
-              tag: 'hero_library_${widget.category.title}_${series.coreName}',
-              child: TdThumbnail(
-                file: posterFile,
-                minithumbnail: minithumbnail,
-                autoDownload: true,
-                width: double.infinity,
-                height: double.infinity,
-                borderRadius: BorderRadius.zero,
-              ),
+      child: AnimatedScale(
+        scale: _isTapped ? 0.96 : 1.0,
+        duration: const Duration(milliseconds: 100),
+        curve: Curves.easeOut,
+        child: Container(
+          decoration: BoxDecoration(
+            color: theme.cardColor,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: theme.colorScheme.onSurface.withValues(alpha: _isTapped ? 0.16 : 0.08),
+              width: _isTapped ? 1.5 : 1,
             ),
-              
-            Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.transparent,
-                    Colors.black.withOpacity(0.1),
-                    Colors.black.withOpacity(0.95),
-                  ],
-                  stops: const [0.4, 0.7, 1.0],
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.3),
+                blurRadius: _isTapped ? 4 : 8,
+                offset: Offset(0, _isTapped ? 2 : 4),
+              )
+            ],
+          ),
+          clipBehavior: Clip.hardEdge,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              Hero(
+                tag: 'hero_library_${widget.categoryTitle}_${widget.series.coreName}',
+                child: TdThumbnail(
+                  file: posterFile,
+                  minithumbnail: minithumbnail,
+                  autoDownload: true,
+                  width: double.infinity,
+                  height: double.infinity,
+                  borderRadius: BorderRadius.zero,
                 ),
               ),
-            ),
-            
-            Positioned(
-              left: 10,
-              right: 10,
-              bottom: 10,
-              child: AlignedNameText(
-                text: series.coreName,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 13.5,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 0.2,
-                ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            
-            // Glassmorphic pill badge for total episodes available
-            Positioned(
-              top: 8,
-              left: 8,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                
+              Container(
                 decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.65),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.white24, width: 0.8),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.play_circle_fill, color: theme.primaryColor, size: 10),
-                    const SizedBox(width: 4),
-                    Text(
-                      totalEpisodes.toString(),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.transparent,
+                      Colors.black.withValues(alpha: 0.1),
+                      Colors.black.withValues(alpha: 0.95),
+                    ],
+                    stops: const [0.4, 0.7, 1.0],
+                  ),
                 ),
               ),
-            ),
-          ],
+              
+              Positioned(
+                left: 10,
+                right: 10,
+                bottom: 10,
+                child: AlignedNameText(
+                  text: widget.series.coreName,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 0.2,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              
+              // Glassmorphic pill badge for total episodes available
+              Positioned(
+                top: 8,
+                left: 8,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.65),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.white24, width: 0.8),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.play_circle_fill, color: theme.primaryColor, size: 10),
+                      const SizedBox(width: 4),
+                      Text(
+                        totalEpisodes.toString(),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -484,10 +520,10 @@ class FeaturedCarousel extends StatefulWidget {
   final String categoryTitle;
 
   const FeaturedCarousel({
-    Key? key,
+    super.key,
     required this.seriesList,
     required this.categoryTitle,
-  }) : super(key: key);
+  });
 
   @override
   State<FeaturedCarousel> createState() => _FeaturedCarouselState();
@@ -708,11 +744,11 @@ class ContinueWatchingShelf extends StatelessWidget {
   final WidgetRef ref;
 
   const ContinueWatchingShelf({
-    Key? key,
+    super.key,
     required this.items,
     required this.seriesList,
     required this.ref,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -787,7 +823,7 @@ class ContinueWatchingShelf extends StatelessWidget {
                   color: theme.cardColor,
                   borderRadius: BorderRadius.circular(20), // Premium M3 Expressive card style
                   border: Border.all(
-                    color: theme.colorScheme.onSurface.withOpacity(0.08),
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.08),
                     width: 1,
                   ),
                 ),
@@ -859,7 +895,7 @@ class ContinueWatchingShelf extends StatelessWidget {
                               end: Alignment.bottomCenter,
                               colors: [
                                 Colors.transparent,
-                                Colors.black.withOpacity(0.5),
+                                Colors.black.withValues(alpha: 0.5),
                               ],
                             ),
                           ),

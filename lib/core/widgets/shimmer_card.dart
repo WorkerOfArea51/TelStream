@@ -5,10 +5,10 @@ class ShimmerEffect extends StatefulWidget {
   final bool enabled;
 
   const ShimmerEffect({
-    Key? key,
+    super.key,
     required this.child,
     this.enabled = true,
-  }) : super(key: key);
+  });
 
   @override
   State<ShimmerEffect> createState() => _ShimmerEffectState();
@@ -53,8 +53,8 @@ class _ShimmerEffectState extends State<ShimmerEffect> with SingleTickerProvider
     final isDark = theme.brightness == Brightness.dark;
     
     // Smooth grey tones matching Google Pixel M3 design
-    final baseColor = isDark ? Colors.white.withOpacity(0.06) : Colors.black.withOpacity(0.06);
-    final highlightColor = isDark ? Colors.white.withOpacity(0.15) : Colors.black.withOpacity(0.12);
+    final baseColor = isDark ? Colors.white.withValues(alpha: 0.06) : Colors.black.withValues(alpha: 0.06);
+    final highlightColor = isDark ? Colors.white.withValues(alpha: 0.15) : Colors.black.withValues(alpha: 0.12);
 
     return AnimatedBuilder(
       animation: _controller,
@@ -99,7 +99,7 @@ class _SlidingGradientTransform extends GradientTransform {
 
 class ShimmerCard extends StatelessWidget {
   final double aspectRatio;
-  const ShimmerCard({Key? key, this.aspectRatio = 0.65}) : super(key: key);
+  const ShimmerCard({super.key, this.aspectRatio = 0.65});
 
   @override
   Widget build(BuildContext context) {
@@ -116,7 +116,7 @@ class ShimmerCard extends StatelessWidget {
 }
 
 class ShimmerEpisodeCard extends StatelessWidget {
-  const ShimmerEpisodeCard({Key? key}) : super(key: key);
+  const ShimmerEpisodeCard({super.key});
 
   @override
   Widget build(BuildContext context) {

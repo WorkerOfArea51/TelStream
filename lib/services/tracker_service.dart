@@ -216,7 +216,7 @@ class TrackerService {
       ).timeout(const Duration(seconds: 5));
 
       if (response.statusCode == 201 || response.statusCode == 200) {
-        Log.i('Trakt updated scrobble successfully for $showSlug S${season}E${episode} to $progressPercent%');
+        Log.i('Trakt updated scrobble successfully for $showSlug S${season}E$episode to $progressPercent%');
         return true;
       }
     } catch (e) {

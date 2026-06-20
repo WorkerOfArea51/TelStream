@@ -9,7 +9,7 @@ import 'home_controller.dart';
 import 'episode_list_screen.dart';
 
 class GlobalSearchScreen extends ConsumerStatefulWidget {
-  const GlobalSearchScreen({Key? key}) : super(key: key);
+  const GlobalSearchScreen({super.key});
 
   @override
   ConsumerState<GlobalSearchScreen> createState() => _GlobalSearchScreenState();
@@ -262,7 +262,7 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
                     child: Container(
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: theme.colorScheme.onSurface.withOpacity(0.08), width: 1),
+                        border: Border.all(color: theme.colorScheme.onSurface.withValues(alpha: 0.08), width: 1),
                       ),
                       clipBehavior: Clip.antiAlias,
                       child: Hero(

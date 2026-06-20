@@ -5,7 +5,7 @@ import '../../core/theme/app_theme.dart';
 import '../../services/storage_service.dart';
 
 class VideoSettingsScreen extends ConsumerWidget {
-  const VideoSettingsScreen({Key? key}) : super(key: key);
+  const VideoSettingsScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -270,7 +270,7 @@ class VideoSettingsScreen extends ConsumerWidget {
                         backgroundColor: theme.cardColor,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(16),
-                          side: BorderSide(color: theme.colorScheme.onSurface.withOpacity(0.08), width: 1),
+                          side: BorderSide(color: theme.colorScheme.onSurface.withValues(alpha: 0.08), width: 1),
                         ),
                         title: Text('Smart Outro Threshold', style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
                         content: StatefulBuilder(
@@ -278,7 +278,7 @@ class VideoSettingsScreen extends ConsumerWidget {
                             return Column(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                const Text('Show the next episode autoplay prompt at:', style: TextStyle(fontSize: 13, color: Colors.white70)),
+                                Text('Show the next episode autoplay prompt at:', style: TextStyle(fontSize: 13, color: theme.colorScheme.onSurface.withValues(alpha: 0.7))),
                                 const SizedBox(height: 12),
                                 DropdownButton<int>(
                                   value: current,
@@ -395,14 +395,18 @@ class VideoSettingsScreen extends ConsumerWidget {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           child: Text(title, style: TextStyle(color: isDark ? Colors.white54 : Colors.black54, fontSize: 13)),
         ),
-        ...options.map((option) => RadioListTile<String>(
-          title: Text(option, style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
-          value: option,
+        RadioGroup<String>(
           groupValue: currentValue,
           onChanged: (val) {
             if (val != null) onChanged(val);
           },
-        )),
+          child: Column(
+            children: options.map((option) => RadioListTile<String>(
+              title: Text(option, style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
+              value: option,
+            )).toList(),
+          ),
+        ),
       ],
     );
   }

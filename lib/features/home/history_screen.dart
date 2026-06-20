@@ -59,7 +59,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
         backgroundColor: theme.cardColor,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(24),
-          side: BorderSide(color: theme.colorScheme.onSurface.withOpacity(0.08), width: 1),
+          side: BorderSide(color: theme.colorScheme.onSurface.withValues(alpha: 0.08), width: 1),
         ),
         title: Text('Clear History', style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontWeight: FontWeight.bold)),
         content: Text(
@@ -157,7 +157,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
               decoration: BoxDecoration(
                 color: theme.cardColor,
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: theme.colorScheme.onSurface.withOpacity(0.08), width: 1),
+                border: Border.all(color: theme.colorScheme.onSurface.withValues(alpha: 0.08), width: 1),
               ),
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: TextField(
@@ -229,7 +229,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                       decoration: BoxDecoration(
                         color: theme.cardColor,
                         borderRadius: BorderRadius.circular(24), // M3 design
-                        border: Border.all(color: theme.colorScheme.onSurface.withOpacity(0.08), width: 1),
+                        border: Border.all(color: theme.colorScheme.onSurface.withValues(alpha: 0.08), width: 1),
                       ),
                       clipBehavior: Clip.antiAlias,
                       child: Column(
@@ -244,7 +244,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                                 child: posterFile != null
                                     ? TdThumbnail(file: posterFile, minithumbnail: minithumbnail)
                                     : Container(
-                                        color: settingsAccent.withOpacity(0.1),
+                                        color: settingsAccent.withValues(alpha: 0.1),
                                         child: Icon(Icons.movie_rounded, color: settingsAccent, size: 24),
                                       ),
                               ),
@@ -349,7 +349,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                                 return Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                                   color: epIndex % 2 == 0 
-                                      ? (isDark ? Colors.white.withOpacity(0.01) : Colors.black.withOpacity(0.01))
+                                      ? (isDark ? Colors.white.withValues(alpha: 0.01) : Colors.black.withValues(alpha: 0.01))
                                       : Colors.transparent,
                                   child: Row(
                                     children: [

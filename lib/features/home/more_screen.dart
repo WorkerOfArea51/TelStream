@@ -262,7 +262,7 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
             backgroundColor: theme.cardColor,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
-              side: BorderSide(color: theme.colorScheme.onSurface.withOpacity(0.08), width: 1),
+              side: BorderSide(color: theme.colorScheme.onSurface.withValues(alpha: 0.08), width: 1),
             ),
             title: Row(
               children: [
@@ -273,7 +273,7 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
             ),
             content: Text(
               'You are running the latest version of TelStream.',
-              style: TextStyle(color: theme.colorScheme.onSurface.withOpacity(0.7)),
+              style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.7)),
             ),
             actions: [
               TextButton(
@@ -323,7 +323,7 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
                       height: 4,
                       margin: const EdgeInsets.only(bottom: 24),
                       decoration: BoxDecoration(
-                        color: theme.colorScheme.onSurface.withOpacity(0.2),
+                        color: theme.colorScheme.onSurface.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(2),
                       ),
                     ),

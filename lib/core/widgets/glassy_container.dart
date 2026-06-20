@@ -13,7 +13,7 @@ class GlassyContainer extends StatelessWidget {
   final double? height;
 
   const GlassyContainer({
-    Key? key,
+    super.key,
     required this.child,
     this.padding,
     this.margin,
@@ -23,7 +23,7 @@ class GlassyContainer extends StatelessWidget {
     this.borderColor = const Color(0x33FFFFFF), // 20% white
     this.width,
     this.height,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

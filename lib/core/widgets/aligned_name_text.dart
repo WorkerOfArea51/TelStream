@@ -8,13 +8,13 @@ class AlignedNameText extends StatelessWidget {
   final TextAlign textAlign;
 
   const AlignedNameText({
-    Key? key,
+    super.key,
     required this.text,
     required this.style,
     this.maxLines = 1,
     this.overflow = TextOverflow.ellipsis,
     this.textAlign = TextAlign.start,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

@@ -5,7 +5,7 @@ import '../../services/storage_service.dart';
 import '../../core/theme/app_theme.dart';
 
 class TrackerSettingsScreen extends ConsumerStatefulWidget {
-  const TrackerSettingsScreen({Key? key}) : super(key: key);
+  const TrackerSettingsScreen({super.key});
 
   @override
   ConsumerState<TrackerSettingsScreen> createState() => _TrackerSettingsScreenState();
@@ -93,7 +93,7 @@ class _TrackerSettingsScreenState extends ConsumerState<TrackerSettingsScreen> {
             decoration: BoxDecoration(
               color: theme.cardColor,
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: theme.colorScheme.onSurface.withOpacity(0.08)),
+              border: Border.all(color: theme.colorScheme.onSurface.withValues(alpha: 0.08)),
             ),
             child: Row(
               children: [
@@ -193,7 +193,7 @@ class _TrackerSettingsScreenState extends ConsumerState<TrackerSettingsScreen> {
       decoration: BoxDecoration(
         color: theme.cardColor,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: theme.colorScheme.onSurface.withOpacity(0.08)),
+        border: Border.all(color: theme.colorScheme.onSurface.withValues(alpha: 0.08)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -231,7 +231,7 @@ class _TrackerSettingsScreenState extends ConsumerState<TrackerSettingsScreen> {
               prefixIcon: Icon(Icons.key, color: isDark ? Colors.white30 : Colors.black38, size: 18),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: theme.colorScheme.onSurface.withOpacity(0.12)),
+                borderSide: BorderSide(color: theme.colorScheme.onSurface.withValues(alpha: 0.12)),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),

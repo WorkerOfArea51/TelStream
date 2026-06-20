@@ -24,7 +24,7 @@ class SeriesCacheInfo {
 }
 
 class AdvancedCacheManagerScreen extends ConsumerStatefulWidget {
-  const AdvancedCacheManagerScreen({Key? key}) : super(key: key);
+  const AdvancedCacheManagerScreen({super.key});
 
   @override
   ConsumerState<AdvancedCacheManagerScreen> createState() => _AdvancedCacheManagerScreenState();
@@ -174,7 +174,7 @@ class _AdvancedCacheManagerScreenState extends ConsumerState<AdvancedCacheManage
           backgroundColor: theme.cardColor,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
-            side: BorderSide(color: theme.colorScheme.onSurface.withOpacity(0.08)),
+            side: BorderSide(color: theme.colorScheme.onSurface.withValues(alpha: 0.08)),
           ),
           title: const Text('Clear Series Cache'),
           content: Text('Are you sure you want to clear all cached episodes for "${info.seriesName}"? This will free up ${_formatSize(info.totalSize)}.'),
@@ -230,7 +230,7 @@ class _AdvancedCacheManagerScreenState extends ConsumerState<AdvancedCacheManage
           backgroundColor: theme.cardColor,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
-            side: BorderSide(color: theme.colorScheme.onSurface.withOpacity(0.08)),
+            side: BorderSide(color: theme.colorScheme.onSurface.withValues(alpha: 0.08)),
           ),
           title: const Text('Clear All Cache'),
           content: Text('Are you sure you want to clear the entire streaming cache? This will delete all cached videos, temp files, and images, freeing up ${_formatSize(_totalCacheSize)}.'),
@@ -314,7 +314,7 @@ class _AdvancedCacheManagerScreenState extends ConsumerState<AdvancedCacheManage
                     decoration: BoxDecoration(
                       color: theme.cardColor,
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: theme.colorScheme.onSurface.withOpacity(0.08)),
+                      border: Border.all(color: theme.colorScheme.onSurface.withValues(alpha: 0.08)),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -393,9 +393,9 @@ class _AdvancedCacheManagerScreenState extends ConsumerState<AdvancedCacheManage
                     Container(
                       padding: const EdgeInsets.symmetric(vertical: 32),
                       decoration: BoxDecoration(
-                        color: theme.cardColor.withOpacity(0.3),
+                        color: theme.cardColor.withValues(alpha: 0.3),
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: theme.colorScheme.onSurface.withOpacity(0.05)),
+                        border: Border.all(color: theme.colorScheme.onSurface.withValues(alpha: 0.05)),
                       ),
                       child: Center(
                         child: Column(
@@ -422,12 +422,12 @@ class _AdvancedCacheManagerScreenState extends ConsumerState<AdvancedCacheManage
                           decoration: BoxDecoration(
                             color: theme.cardColor,
                             borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: theme.colorScheme.onSurface.withOpacity(0.08)),
+                            border: Border.all(color: theme.colorScheme.onSurface.withValues(alpha: 0.08)),
                           ),
                           child: ListTile(
                             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                             leading: CircleAvatar(
-                              backgroundColor: settingsAccent.withOpacity(0.12),
+                              backgroundColor: settingsAccent.withValues(alpha: 0.12),
                               child: Icon(Icons.video_library_rounded, color: settingsAccent),
                             ),
                             title: Text(

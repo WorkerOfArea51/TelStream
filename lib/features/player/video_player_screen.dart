@@ -28,7 +28,7 @@ class VideoPlayerScreen extends ConsumerStatefulWidget {
   final String? networkUrl;
   
   const VideoPlayerScreen({
-    Key? key, 
+    super.key, 
     required this.messageId, 
     required this.videoFileId, 
     this.videoTitle = '',
@@ -37,7 +37,7 @@ class VideoPlayerScreen extends ConsumerStatefulWidget {
     this.seriesName = '',
     this.isPip = false,
     this.networkUrl,
-  }) : super(key: key);
+  });
 
   @override
   ConsumerState<VideoPlayerScreen> createState() => _VideoPlayerScreenState();

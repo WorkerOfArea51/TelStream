@@ -3,21 +3,21 @@ import 'package:flutter/material.dart';
 
 class WavyCircularProgressIndicator extends StatefulWidget {
   final double value; // 0.0 to 1.0
-  final Color color;
+  final Color? color;
   final Color backgroundColor;
   final double strokeWidth;
   final double waveAmplitude;
   final int waveCount;
 
   const WavyCircularProgressIndicator({
-    Key? key,
+    super.key,
     required this.value,
-    this.color = Colors.orange,
+    this.color,
     this.backgroundColor = Colors.white12,
     this.strokeWidth = 2.5,
     this.waveAmplitude = 1.5,
     this.waveCount = 8,
-  }) : super(key: key);
+  });
 
   @override
   State<WavyCircularProgressIndicator> createState() => _WavyCircularProgressIndicatorState();
@@ -43,6 +43,8 @@ class _WavyCircularProgressIndicatorState extends State<WavyCircularProgressIndi
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final indicatorColor = widget.color ?? theme.primaryColor;
     return AnimatedBuilder(
       animation: _controller,
       builder: (context, child) {
@@ -51,7 +53,7 @@ class _WavyCircularProgressIndicatorState extends State<WavyCircularProgressIndi
           painter: _WavyCirclePainter(
             value: widget.value,
             phase: _controller.value * 2 * math.pi,
-            color: widget.color,
+            color: indicatorColor,
             backgroundColor: widget.backgroundColor,
             strokeWidth: widget.strokeWidth,
             waveAmplitude: widget.waveAmplitude,
@@ -153,21 +155,21 @@ class _WavyCirclePainter extends CustomPainter {
 
 class WavyLinearProgressIndicator extends StatefulWidget {
   final double? value; // null for indeterminate, or 0.0 to 1.0
-  final Color color;
+  final Color? color;
   final Color backgroundColor;
   final double strokeWidth;
   final double waveHeight;
   final double waveLength;
 
   const WavyLinearProgressIndicator({
-    Key? key,
+    super.key,
     this.value,
-    this.color = Colors.orange,
+    this.color,
     this.backgroundColor = Colors.white10,
     this.strokeWidth = 3.5,
     this.waveHeight = 3.5,
     this.waveLength = 35.0,
-  }) : super(key: key);
+  });
 
   @override
   State<WavyLinearProgressIndicator> createState() => _WavyLinearProgressIndicatorState();
@@ -193,6 +195,8 @@ class _WavyLinearProgressIndicatorState extends State<WavyLinearProgressIndicato
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final indicatorColor = widget.color ?? theme.primaryColor;
     return AnimatedBuilder(
       animation: _controller,
       builder: (context, child) {
@@ -201,7 +205,7 @@ class _WavyLinearProgressIndicatorState extends State<WavyLinearProgressIndicato
           painter: _WavyProgressPainter(
             value: widget.value,
             phase: _controller.value * 2 * math.pi,
-            color: widget.color,
+            color: indicatorColor,
             backgroundColor: widget.backgroundColor,
             strokeWidth: widget.strokeWidth,
             waveHeight: widget.waveHeight,

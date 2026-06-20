@@ -22,11 +22,11 @@ class EpisodeListScreen extends ConsumerStatefulWidget {
   final String? heroTag;
 
   const EpisodeListScreen({
-    Key? key,
+    super.key,
     required this.season,
     required this.series,
     this.heroTag,
-  }) : super(key: key);
+  });
 
   @override
   ConsumerState<EpisodeListScreen> createState() => _EpisodeListScreenState();
@@ -290,7 +290,7 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
                   _buildLocalBackdrop(posterFile, minithumbnail),
                   BackdropFilter(
                     filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-                    child: Container(color: Colors.black.withOpacity(0.4)),
+                    child: Container(color: Colors.black.withValues(alpha: 0.4)),
                   ),
                   Container(
                     decoration: BoxDecoration(
@@ -299,7 +299,7 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
                         end: Alignment.bottomCenter,
                         colors: [
                           Colors.transparent,
-                          theme.scaffoldBackgroundColor.withOpacity(0.8),
+                          theme.scaffoldBackgroundColor.withValues(alpha: 0.8),
                           theme.scaffoldBackgroundColor
                         ],
                         stops: const [0.4, 0.8, 1.0],
@@ -326,7 +326,7 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
                           borderRadius: BorderRadius.circular(12),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.4),
+                              color: Colors.black.withValues(alpha: 0.4),
                               blurRadius: 10,
                               offset: const Offset(0, 5),
                             ),
@@ -578,7 +578,7 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
       decoration: BoxDecoration(
         color: theme.cardColor,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: theme.colorScheme.onSurface.withOpacity(0.08), width: 1),
+        border: Border.all(color: theme.colorScheme.onSurface.withValues(alpha: 0.08), width: 1),
       ),
       clipBehavior: Clip.antiAlias,
       child: InkWell(

@@ -39,7 +39,7 @@ class CustomVideoControls extends ConsumerStatefulWidget {
   final int currentEpisodeIndex;
 
   const CustomVideoControls({
-    Key? key,
+    super.key,
     required this.player,
     required this.controller,
     required this.videoTitle,
@@ -56,7 +56,7 @@ class CustomVideoControls extends ConsumerStatefulWidget {
     this.customBuffering = false,
     this.seriesName = '',
     this.currentEpisodeIndex = 0,
-  }) : super(key: key);
+  });
 
   @override
   ConsumerState<CustomVideoControls> createState() => _CustomVideoControlsState();
@@ -1232,9 +1232,9 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                             decoration: BoxDecoration(
-                              color: settingsAccent.withOpacity(0.12),
+                              color: settingsAccent.withValues(alpha: 0.12),
                               borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: settingsAccent.withOpacity(0.3)),
+                              border: Border.all(color: settingsAccent.withValues(alpha: 0.3)),
                             ),
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1286,7 +1286,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                                 width: 100,
                                 padding: const EdgeInsets.symmetric(vertical: 16),
                                 decoration: BoxDecoration(
-                                  color: isSelected ? settingsAccent : Colors.white.withOpacity(0.05),
+                                  color: isSelected ? settingsAccent : Colors.white.withValues(alpha: 0.05),
                                   borderRadius: BorderRadius.circular(16),
                                   border: Border.all(
                                     color: isSelected ? settingsAccent : Colors.white10,
@@ -1329,7 +1329,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                             },
                             child: Text(
                               'Test with 10s',
-                              style: TextStyle(color: settingsAccent.withOpacity(0.6), fontSize: 12),
+                              style: TextStyle(color: settingsAccent.withValues(alpha: 0.6), fontSize: 12),
                             ),
                           ),
                         ),
@@ -1437,7 +1437,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                 border: Border.all(color: Colors.white10),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.5),
+                    color: Colors.black.withValues(alpha: 0.5),
                     blurRadius: 25,
                     spreadRadius: 5,
                   ),
@@ -1542,13 +1542,13 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                                       decoration: BoxDecoration(
                                         color: isSelected 
-                                            ? settingsAccent.withOpacity(0.12) 
-                                            : Colors.white.withOpacity(0.04),
+                                            ? settingsAccent.withValues(alpha: 0.12) 
+                                            : Colors.white.withValues(alpha: 0.04),
                                         borderRadius: BorderRadius.circular(12),
                                         border: Border.all(
                                           color: isSelected 
-                                              ? settingsAccent.withOpacity(0.4) 
-                                              : Colors.white.withOpacity(0.05),
+                                              ? settingsAccent.withValues(alpha: 0.4) 
+                                              : Colors.white.withValues(alpha: 0.05),
                                           width: 1,
                                         ),
                                       ),
@@ -1557,7 +1557,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                                           Container(
                                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                             decoration: BoxDecoration(
-                                              color: isSelected ? settingsAccent.withOpacity(0.2) : Colors.white10,
+                                              color: isSelected ? settingsAccent.withValues(alpha: 0.2) : Colors.white10,
                                               borderRadius: BorderRadius.circular(8),
                                             ),
                                             child: Text(
@@ -2050,8 +2050,8 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
           Switch(
             value: value,
             onChanged: onChanged,
-            activeColor: Colors.green,
-            activeTrackColor: Colors.green.withOpacity(0.3),
+            activeThumbColor: Colors.green,
+            activeTrackColor: Colors.green.withValues(alpha: 0.3),
             inactiveThumbColor: Colors.grey,
             inactiveTrackColor: Colors.white12,
           ),
@@ -2067,7 +2067,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
         maxHeight: screenHeight * 0.85,
       ),
       decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.92),
+        color: Colors.black.withValues(alpha: 0.92),
         borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         border: Border.all(color: Colors.white10, width: 0.5),
       ),
@@ -2232,7 +2232,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                     border: Border.all(color: Colors.white10),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.5),
+                        color: Colors.black.withValues(alpha: 0.5),
                         blurRadius: 25,
                         spreadRadius: 5,
                       ),
@@ -2327,7 +2327,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                                       leadingWidget = Container(
                                         padding: const EdgeInsets.all(8),
                                         decoration: BoxDecoration(
-                                          color: isSelected ? settingsAccent.withOpacity(0.2) : Colors.white10,
+                                          color: isSelected ? settingsAccent.withValues(alpha: 0.2) : Colors.white10,
                                           shape: BoxShape.circle,
                                         ),
                                         child: Icon(
@@ -2344,7 +2344,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                                       leadingWidget = Container(
                                         padding: const EdgeInsets.all(8),
                                         decoration: BoxDecoration(
-                                          color: isSelected ? Colors.redAccent.withOpacity(0.2) : Colors.white10,
+                                          color: isSelected ? Colors.redAccent.withValues(alpha: 0.2) : Colors.white10,
                                           shape: BoxShape.circle,
                                         ),
                                         child: Icon(
@@ -2365,10 +2365,10 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                                         leadingWidget = Container(
                                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                           decoration: BoxDecoration(
-                                            color: isSelected ? settingsAccent.withOpacity(0.2) : Colors.white10,
+                                            color: isSelected ? settingsAccent.withValues(alpha: 0.2) : Colors.white10,
                                             borderRadius: BorderRadius.circular(8),
                                             border: Border.all(
-                                              color: isSelected ? settingsAccent.withOpacity(0.4) : Colors.white24,
+                                              color: isSelected ? settingsAccent.withValues(alpha: 0.4) : Colors.white24,
                                             ),
                                           ),
                                           child: Text(
@@ -2503,13 +2503,13 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                                           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                                           decoration: BoxDecoration(
                                             color: isSelected 
-                                                ? settingsAccent.withOpacity(0.12) 
-                                                : Colors.white.withOpacity(0.04),
+                                                ? settingsAccent.withValues(alpha: 0.12) 
+                                                : Colors.white.withValues(alpha: 0.04),
                                             borderRadius: BorderRadius.circular(12),
                                             border: Border.all(
                                               color: isSelected 
-                                                  ? settingsAccent.withOpacity(0.4) 
-                                                  : Colors.white.withOpacity(0.05),
+                                                  ? settingsAccent.withValues(alpha: 0.4) 
+                                                  : Colors.white.withValues(alpha: 0.05),
                                               width: 1,
                                             ),
                                           ),
@@ -2634,7 +2634,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
           // Simulated Brightness
           if (!_isPhysicalBrightnessSupported && _currentBrightness < 1.0)
             IgnorePointer(
-              child: Container(color: Colors.black.withOpacity(1.0 - _currentBrightness)),
+              child: Container(color: Colors.black.withValues(alpha: 1.0 - _currentBrightness)),
             ),
 
           // Double Tap Seek Overlays
@@ -2660,8 +2660,8 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         colors: [
-                          Colors.black.withOpacity(0.55),
-                          Colors.black.withOpacity(0.0),
+                          Colors.black.withValues(alpha: 0.55),
+                          Colors.black.withValues(alpha: 0.0),
                         ],
                         begin: Alignment.centerLeft,
                         end: Alignment.centerRight,
@@ -2721,8 +2721,8 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         colors: [
-                          Colors.black.withOpacity(0.0),
-                          Colors.black.withOpacity(0.55),
+                          Colors.black.withValues(alpha: 0.0),
+                          Colors.black.withValues(alpha: 0.55),
                         ],
                         begin: Alignment.centerLeft,
                         end: Alignment.centerRight,
@@ -2828,7 +2828,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                     padding: const EdgeInsets.all(16),
                     width: 320,
                     decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.7),
+                      color: Colors.black.withValues(alpha: 0.7),
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(color: Colors.white10),
                     ),
@@ -3310,7 +3310,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
 
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.black.withOpacity(0.95),
+      backgroundColor: Colors.black.withValues(alpha: 0.95),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -3422,7 +3422,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                                   return Container(
                                     margin: const EdgeInsets.only(bottom: 8),
                                     decoration: BoxDecoration(
-                                      color: Colors.white.withOpacity(0.04),
+                                      color: Colors.white.withValues(alpha: 0.04),
                                       borderRadius: BorderRadius.circular(10),
                                       border: Border.all(color: Colors.white10),
                                     ),
@@ -3459,7 +3459,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                                               
                                               if (localPath != null) {
                                                 widget.player.setSubtitleTrack(SubtitleTrack.uri(localPath));
-                                                if (mounted) {
+                                                if (context.mounted) {
                                                   Navigator.pop(context);
                                                   ScaffoldMessenger.of(context).showSnackBar(
                                                     SnackBar(
@@ -3469,7 +3469,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                                                   );
                                                 }
                                               } else {
-                                                if (mounted) {
+                                                if (context.mounted) {
                                                   ScaffoldMessenger.of(context).showSnackBar(
                                                     const SnackBar(
                                                       content: Text('Failed to download subtitle file'),
@@ -3501,7 +3501,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
 
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.black.withOpacity(0.95),
+      backgroundColor: Colors.black.withValues(alpha: 0.95),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -3563,8 +3563,11 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                         ? const Center(child: Text('Queue is empty', style: TextStyle(color: Colors.white30)))
                         : ReorderableListView.builder(
                             itemCount: queue.length,
-                            onReorder: (oldIndex, newIndex) {
-                              ref.read(pipControllerProvider.notifier).reorderQueue(oldIndex, newIndex);
+                            onReorderItem: (oldIndex, newIndex) {
+                              // onReorderItem provides the adjusted newIndex (as if the item is already removed).
+                              // Since pipControllerProvider.reorderQueue expects the raw onReorder index, we adjust it back.
+                              final rawNewIndex = oldIndex < newIndex ? newIndex + 1 : newIndex;
+                              ref.read(pipControllerProvider.notifier).reorderQueue(oldIndex, rawNewIndex);
                               setModalState(() {});
                             },
                             itemBuilder: (context, index) {
@@ -3592,7 +3595,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                                     ? Text(
                                         item.seriesName,
                                         style: TextStyle(
-                                          color: isCurrent ? settingsAccent.withOpacity(0.7) : Colors.white54,
+                                          color: isCurrent ? settingsAccent.withValues(alpha: 0.7) : Colors.white54,
                                           fontSize: 11,
                                         ),
                                       )
@@ -3601,7 +3604,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                                     ? Container(
                                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                                         decoration: BoxDecoration(
-                                          color: settingsAccent.withOpacity(0.12),
+                                          color: settingsAccent.withValues(alpha: 0.12),
                                           borderRadius: BorderRadius.circular(12),
                                         ),
                                         child: Text(
@@ -3649,7 +3652,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
 
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.black.withOpacity(0.95),
+      backgroundColor: Colors.black.withValues(alpha: 0.95),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -3739,7 +3742,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
 
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.black.withOpacity(0.95),
+      backgroundColor: Colors.black.withValues(alpha: 0.95),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -3816,7 +3819,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
 
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.black.withOpacity(0.95),
+      backgroundColor: Colors.black.withValues(alpha: 0.95),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -3848,7 +3851,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                     title: const Text('Audio Boost', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                     subtitle: const Text('Amplifies low dialog volume by adding dynamic software gain up to +6dB', style: TextStyle(color: Colors.white70, fontSize: 12)),
                     value: _audioBoostActive,
-                    activeColor: settingsAccent,
+                    activeThumbColor: settingsAccent,
                     onChanged: (val) {
                       setModalState(() {
                         _audioBoostActive = val;
@@ -3863,7 +3866,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                     title: const Text('Night Mode (DRC)', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                     subtitle: const Text('Dynamic Range Compression levels volume spikes - quiet dialogs get louder, action blasts get quieter', style: TextStyle(color: Colors.white70, fontSize: 12)),
                     value: _nightModeActive,
-                    activeColor: settingsAccent,
+                    activeThumbColor: settingsAccent,
                     onChanged: (val) {
                       setModalState(() {
                         _nightModeActive = val;
@@ -4068,7 +4071,7 @@ class PlayerSeekBar extends StatefulWidget {
   final List<VideoChapter> chapters;
 
   const PlayerSeekBar({
-    Key? key,
+    super.key,
     required this.player,
     required this.downloadedPrefixSize,
     required this.expectedSize,
@@ -4081,7 +4084,7 @@ class PlayerSeekBar extends StatefulWidget {
     required this.startHideTimer,
     required this.clampSeekTarget,
     required this.chapters,
-  }) : super(key: key);
+  });
 
   @override
   State<PlayerSeekBar> createState() => _PlayerSeekBarState();
@@ -4151,7 +4154,7 @@ class _PlayerSeekBarState extends State<PlayerSeekBar> {
                       thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6.0),
                       overlayShape: const RoundSliderOverlayShape(overlayRadius: 14.0),
                       activeTrackColor: widget.settingsAccent,
-                      secondaryActiveTrackColor: widget.settingsAccent.withOpacity(0.35),
+                      secondaryActiveTrackColor: widget.settingsAccent.withValues(alpha: 0.35),
                       inactiveTrackColor: Colors.white24,
                       thumbColor: widget.settingsAccent,
                     ),
@@ -4234,7 +4237,7 @@ class WavySliderTrackShape extends RectangularSliderTrackShape {
       ..strokeWidth = 3.0;
 
     final Paint secondaryPaint = Paint()
-      ..color = sliderTheme.secondaryActiveTrackColor ?? (sliderTheme.activeTrackColor?.withOpacity(0.35) ?? Colors.blueAccent.withOpacity(0.35))
+      ..color = sliderTheme.secondaryActiveTrackColor ?? (sliderTheme.activeTrackColor?.withValues(alpha: 0.35) ?? Colors.blueAccent.withValues(alpha: 0.35))
       ..style = PaintingStyle.stroke
       ..strokeWidth = 3.0;
 
@@ -4437,7 +4440,7 @@ class ChapterSliderTrackShape extends SliderTrackShape {
 
     final Canvas canvas = context.canvas;
     final Paint tickPaint = Paint()
-      ..color = Colors.black.withOpacity(0.8)
+      ..color = Colors.black.withValues(alpha: 0.8)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2.0;
 
