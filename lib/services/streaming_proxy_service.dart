@@ -20,8 +20,15 @@ class StreamingProxyService {
   // Track active download offset state per fileId
   final Map<int, int> _activeDownloadOffsets = {};
   final Map<int, int> _downloadedSizeAtOffsets = {};
+  final Map<int, td.File> _fileStates = {};
 
-  StreamingProxyService(this._tdlibService);
+  StreamingProxyService(this._tdlibService) {
+    _tdlibService.updates.listen((event) {
+      if (event is td.UpdateFile) {
+        _fileStates[event.file.id] = event.file;
+      }
+    });
+  }
 
   Future<void> start() async {
     try {
@@ -204,8 +211,7 @@ class StreamingProxyService {
       int currentOffset = start;
 
       // Cache file state to avoid excessive TDLib JSON IPC calls
-      td.File currentFile = tdFile;
-      DateTime lastFetchTime = DateTime.now();
+      td.File currentFile = _fileStates[fileId] ?? tdFile;
 
       while (sentBytes < responseLength) {
         final chunkNeeded = (responseLength - sentBytes).clamp(0, 524288);
@@ -217,6 +223,11 @@ class StreamingProxyService {
         bool isAvailable = false;
         final activeOffset = _activeDownloadOffsets[fileId] ?? 0;
         final baseDownloaded = _downloadedSizeAtOffsets[fileId] ?? 0;
+
+        // Update currentFile from memory cache if available
+        if (_fileStates[fileId] != null) {
+          currentFile = _fileStates[fileId]!;
+        }
 
         if (currentOffset < activeOffset) {
           if (currentFile.local.downloadedPrefixSize >= targetEndOffset) {
@@ -230,62 +241,42 @@ class StreamingProxyService {
           }
         }
 
-        // OPTIMIZATION 3: Refresh progress from TDLib ONLY if not available in cache OR if cache is >500ms old
-        if (!isAvailable || DateTime.now().difference(lastFetchTime).inMilliseconds > 500) {
-          try {
-            final res = await _tdlibService.sendAsync(td.GetFile(fileId: fileId));
-            if (res is td.File) {
-              currentFile = res;
-              lastFetchTime = DateTime.now();
+        // If not ready, wait event-driven without polling TDLib
+        if (!isAvailable) {
+          final completer = Completer<void>();
+          bool waitSuccess = false;
 
-              // Re-check availability with fresh info
+          final sub = _tdlibService.updates.listen((event) {
+            if (event is td.UpdateFile && event.file.id == fileId) {
+              currentFile = event.file;
+              _fileStates[fileId] = event.file; // Update cache
+
+              bool available = false;
               if (currentOffset < activeOffset) {
-                if (currentFile.local.downloadedPrefixSize >= targetEndOffset) {
-                  isAvailable = true;
+                if (event.file.local.downloadedPrefixSize >= targetEndOffset) {
+                  available = true;
                 }
               } else {
-                final downloadedDelta = currentFile.local.downloadedSize - baseDownloaded;
+                final downloadedDelta = event.file.local.downloadedSize - baseDownloaded;
                 final availableRangeEnd = activeOffset + downloadedDelta;
                 if (targetEndOffset <= availableRangeEnd) {
-                  isAvailable = true;
+                  available = true;
                 }
               }
-            }
-          } catch (e) {
-            Log.w('Proxy failed to refresh file info in loop: $e');
-          }
-        }
 
-        // If not ready, poll and wait
-        if (!isAvailable) {
-          int waitAttempts = 0;
-          bool waitSuccess = false;
-          while (waitAttempts < 200) { // Max 20 seconds
-            await Future.delayed(const Duration(milliseconds: 100));
-            try {
-              final res = await _tdlibService.sendAsync(td.GetFile(fileId: fileId));
-              if (res is td.File) {
-                currentFile = res;
-                lastFetchTime = DateTime.now();
-
-                if (currentOffset < activeOffset) {
-                  if (currentFile.local.downloadedPrefixSize >= targetEndOffset) {
-                    waitSuccess = true;
-                    break;
-                  }
-                } else {
-                  final downloadedDelta = currentFile.local.downloadedSize - baseDownloaded;
-                  final availableRangeEnd = activeOffset + downloadedDelta;
-                  if (targetEndOffset <= availableRangeEnd) {
-                    waitSuccess = true;
-                    break;
-                  }
-                }
+              if (available && !completer.isCompleted) {
+                waitSuccess = true;
+                completer.complete();
               }
-            } catch (e) {
-              Log.w('Proxy error checking file in wait loop: $e');
             }
-            waitAttempts++;
+          });
+
+          try {
+            await completer.future.timeout(const Duration(seconds: 20));
+          } catch (_) {
+            // Timeout
+          } finally {
+            await sub.cancel();
           }
 
           if (!waitSuccess) {

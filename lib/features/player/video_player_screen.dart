@@ -548,7 +548,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
     if (_resolvedVideoFileId != null && _resolvedVideoFileId != 0) {
       try {
         final res = await _tdlibService.sendAsync(td.GetFile(fileId: _resolvedVideoFileId!))
-            .timeout(const Duration(milliseconds: 300));
+            .timeout(const Duration(seconds: 3));
         if (res is td.File && res.local.path.isNotEmpty) {
           final localPath = res.local.path;
           if (mounted) {
@@ -987,12 +987,15 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
                                        codec.contains('ssa') ||
                                        codec == 'xsub';
                                        
-              if (isGraphicalOrAss) {
+              final hwdec = _storageService.getHardwareDecoderMode();
+              final isDirectHw = Platform.isAndroid && hwdec == 'mediacodec';
+              
+              if (isGraphicalOrAss && !isDirectHw) {
                 nativePlayer.setProperty('blend-subtitles', 'yes');
-                Log.i('Native blending subtitle detected (PGS/ASS). Set blend-subtitles to yes.');
+                Log.i('Native blending subtitle enabled (PGS/ASS). Set blend-subtitles to yes.');
               } else {
                 nativePlayer.setProperty('blend-subtitles', 'no');
-                Log.i('Text subtitle detected. Set blend-subtitles to no.');
+                Log.i('Native blending subtitle disabled (Direct HW or Text-only). Set blend-subtitles to no.');
               }
               return;
             }

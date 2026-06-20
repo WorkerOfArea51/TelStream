@@ -3910,42 +3910,54 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
               final codec = (await nativePlayer.getProperty('track-list/$i/codec')).toLowerCase();
               Log.i('Selected subtitle track ID ${track.id} has codec: $codec');
               
-              final isGraphicalOrAss = codec.contains('pgs') || 
-                                       codec.contains('hdmv') || 
-                                       codec.contains('dvd') || 
-                                       codec.contains('vob') || 
-                                       codec.contains('dvb') ||
-                                       codec.contains('ass') ||
-                                       codec.contains('ssa') ||
-                                       codec == 'xsub';
+              final isGraphical = codec.contains('pgs') || 
+                                  codec.contains('hdmv') || 
+                                  codec.contains('dvd') || 
+                                  codec.contains('vob') || 
+                                  codec.contains('dvb') ||
+                                  codec == 'xsub';
+              final isAss = codec.contains('ass') || codec.contains('ssa');
+              final isGraphicalOrAss = isGraphical || isAss;
                                        
-              if (isGraphicalOrAss) {
+              final hwdec = ref.read(storageServiceProvider).getHardwareDecoderMode();
+              final isDirectHw = Platform.isAndroid && hwdec == 'mediacodec';
+              
+              if (isGraphicalOrAss && !isDirectHw) {
                 nativePlayer.setProperty('blend-subtitles', 'yes');
-                Log.i('Native blending subtitle detected (PGS/ASS). Set blend-subtitles to yes.');
+                Log.i('Native blending subtitle enabled. Set blend-subtitles to yes.');
                 if (mounted && !_isBlendingSubtitles) {
                   setState(() {
                     _isBlendingSubtitles = true;
                   });
                 }
-                
-                // Show SnackBar if on Android with direct hardware decoding
-                final hwdec = ref.read(storageServiceProvider).getHardwareDecoderMode();
-                if (Platform.isAndroid && hwdec == 'mediacodec' && mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('PGS/ASS subtitles require HW+ (Compatible) or SW decoder to render on Android.'),
-                      backgroundColor: Colors.orange,
-                      duration: Duration(seconds: 4),
-                    ),
-                  );
-                }
               } else {
                 nativePlayer.setProperty('blend-subtitles', 'no');
-                Log.i('Text subtitle detected. Set blend-subtitles to no.');
+                Log.i('Native blending subtitle disabled (Direct HW or Text-only). Set blend-subtitles to no.');
                 if (mounted && _isBlendingSubtitles) {
                   setState(() {
                     _isBlendingSubtitles = false;
                   });
+                }
+              }
+              
+              // Show SnackBar warning if on Android and using direct hardware decoding
+              if (Platform.isAndroid && isDirectHw && mounted) {
+                if (isGraphical) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('PGS/graphical subtitles require HW+ (Compatible) or SW decoder to render on Android.'),
+                      backgroundColor: Colors.orange,
+                      duration: Duration(seconds: 4),
+                    ),
+                  );
+                } else if (isAss) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('ASS/SSA subtitles rendered in text mode. Switch to HW+ or SW for full native styling.'),
+                      backgroundColor: Colors.blueGrey,
+                      duration: Duration(seconds: 4),
+                    ),
+                  );
                 }
               }
               return;
