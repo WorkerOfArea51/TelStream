@@ -25,6 +25,30 @@ class StreamingProxyService {
   // Track active HTTP request offsets per fileId to prevent prefetch thrashing
   final Map<int, List<int>> _activeRequestOffsets = {};
 
+  // Track last active timestamp of read/write per fileId and request offset to classify idle connections
+  final Map<int, Map<int, DateTime>> _requestLastActive = {};
+
+  int getActiveDownloadOffset(int fileId) => _activeDownloadOffsets[fileId] ?? 0;
+  int getDownloadedSizeAtOffset(int fileId) => _downloadedSizeAtOffsets[fileId] ?? 0;
+
+  bool isRangeDownloaded(int fileId, int start, int end) {
+    final tdFile = _fileStates[fileId];
+    if (tdFile == null) return false;
+    if (tdFile.local.isDownloadingCompleted) return true;
+
+    final prefixSize = tdFile.local.downloadedPrefixSize;
+    if (end <= prefixSize) return true;
+
+    final activeOffset = _activeDownloadOffsets[fileId] ?? 0;
+    final baseDownloaded = _downloadedSizeAtOffsets[fileId] ?? 0;
+    final downloadedDelta = tdFile.local.downloadedSize - baseDownloaded;
+    final activeRangeEnd = activeOffset + downloadedDelta;
+
+    if (start >= activeOffset && end <= activeRangeEnd) return true;
+
+    return false;
+  }
+
   StreamingProxyService(this._tdlibService) {
     _tdlibService.updates.listen((event) {
       if (event is td.UpdateFile) {
@@ -127,6 +151,9 @@ class StreamingProxyService {
     final activeRequestList = _activeRequestOffsets.putIfAbsent(fileId, () => []);
     activeRequestList.add(start);
 
+    final lastActiveMap = _requestLastActive.putIfAbsent(fileId, () => {});
+    lastActiveMap[start] = DateTime.now();
+
     try {
       // Auto-detect and shift TDLib download offset if the requested range is outside our current download buffer
       try {
@@ -144,7 +171,14 @@ class StreamingProxyService {
 
           final isOutBefore = start < activeOffset;
           final isOutAfter = start > activeRangeEnd + forwardThreshold;
-          final hasEarlierRequest = activeRequestList.any((offset) => offset < start);
+
+          final now = DateTime.now();
+          final hasEarlierRequest = activeRequestList.any((offset) {
+            if (offset >= start) return false;
+            final lastActive = lastActiveMap[offset];
+            if (lastActive == null) return true;
+            return now.difference(lastActive).inMilliseconds < 800;
+          });
 
           if (!isCompleted &&
               start >= prefixSize &&
@@ -263,7 +297,14 @@ class StreamingProxyService {
           if (!isAvailable) {
             // Check if we need to shift the active download because currentOffset is out of bounds
             if (!currentFile.local.isDownloadingCompleted) {
-              final hasEarlierRequest = activeRequestList.any((offset) => offset < currentOffset);
+              final now = DateTime.now();
+              final hasEarlierRequest = activeRequestList.any((offset) {
+                if (offset >= currentOffset) return false;
+                final lastActive = lastActiveMap[offset];
+                if (lastActive == null) return true;
+                return now.difference(lastActive).inMilliseconds < 800;
+              });
+
               final isOutBefore = currentOffset < activeOffset;
               final downloadedDelta = (currentFile.local.downloadedSize - baseDownloaded).clamp(0, currentFile.expectedSize);
               final activeRangeEnd = activeOffset + downloadedDelta;
@@ -357,6 +398,9 @@ class StreamingProxyService {
 
           request.response.add(bytes);
           await request.response.flush();
+          
+          lastActiveMap[start] = DateTime.now();
+
           sentBytes += bytes.length;
           currentOffset += bytes.length;
         }
@@ -376,6 +420,14 @@ class StreamingProxyService {
       activeRequestList.remove(start);
       if (activeRequestList.isEmpty) {
         _activeRequestOffsets.remove(fileId);
+      }
+      
+      final lastActiveMap = _requestLastActive[fileId];
+      if (lastActiveMap != null) {
+        lastActiveMap.remove(start);
+        if (lastActiveMap.isEmpty) {
+          _requestLastActive.remove(fileId);
+        }
       }
     }
   }

@@ -27,6 +27,8 @@ class CustomVideoControls extends ConsumerStatefulWidget {
   final bool isPip;
   final int downloadedPrefixSize;
   final int expectedSize;
+  final int activeDownloadOffset;
+  final int activeDownloadedSize;
   final VoidCallback onBack;
   final bool hasPrevEpisode;
   final bool hasNextEpisode;
@@ -46,6 +48,8 @@ class CustomVideoControls extends ConsumerStatefulWidget {
     required this.isPip,
     required this.downloadedPrefixSize,
     required this.expectedSize,
+    required this.activeDownloadOffset,
+    required this.activeDownloadedSize,
     required this.onBack,
     this.hasPrevEpisode = false,
     this.hasNextEpisode = false,
@@ -187,7 +191,15 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     
     final fraction = position.inSeconds / totalDuration.inSeconds;
     final byteOffset = fraction * widget.expectedSize;
-    return byteOffset < widget.downloadedPrefixSize;
+    
+    if (byteOffset < widget.downloadedPrefixSize) return true;
+    
+    final activeEnd = widget.activeDownloadOffset + widget.activeDownloadedSize;
+    if (byteOffset >= widget.activeDownloadOffset && byteOffset < activeEnd) {
+      return true;
+    }
+    
+    return false;
   }
 
   void _throttledSeek(Duration target) {
@@ -3000,6 +3012,8 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                     player: widget.player,
                     downloadedPrefixSize: widget.downloadedPrefixSize,
                     expectedSize: widget.expectedSize,
+                    activeDownloadOffset: widget.activeDownloadOffset,
+                    activeDownloadedSize: widget.activeDownloadedSize,
                     seekbarStyle: settings.seekbarStyle,
                     settingsAccent: settingsAccent,
                     isPositionDownloaded: _isPositionDownloaded,
@@ -4088,6 +4102,8 @@ class PlayerSeekBar extends StatefulWidget {
   final Player player;
   final int downloadedPrefixSize;
   final int expectedSize;
+  final int activeDownloadOffset;
+  final int activeDownloadedSize;
   final String seekbarStyle;
   final Color settingsAccent;
   final ValueChanged<Duration> onSeekPerformed;
@@ -4103,6 +4119,8 @@ class PlayerSeekBar extends StatefulWidget {
     required this.player,
     required this.downloadedPrefixSize,
     required this.expectedSize,
+    required this.activeDownloadOffset,
+    required this.activeDownloadedSize,
     required this.seekbarStyle,
     required this.settingsAccent,
     required this.onSeekPerformed,
@@ -4134,8 +4152,9 @@ class _PlayerSeekBarState extends State<PlayerSeekBar> {
 
   @override
   Widget build(BuildContext context) {
+    final bufferedBytes = math.max(widget.downloadedPrefixSize, widget.activeDownloadOffset + widget.activeDownloadedSize);
     double downloadedRatio = widget.expectedSize > 0
-        ? (widget.downloadedPrefixSize / widget.expectedSize).clamp(0.0, 1.0)
+        ? (bufferedBytes / widget.expectedSize).clamp(0.0, 1.0)
         : 0.0;
 
     return Row(

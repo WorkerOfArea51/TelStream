@@ -50,6 +50,9 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
   bool _isPlaying = false;
   int _downloadedPrefixSize = 0;
   int _expectedSize = 0;
+  int _activeDownloadOffset = 0;
+  int _activeDownloadedSize = 0;
+  int _initialOffset = 0;
   bool _autoNextCancelled = false;
   int? _initialDownloadedSize;
   Duration? _pendingSeekTarget;
@@ -474,6 +477,9 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
             setState(() {
               _downloadedPrefixSize = event.file.local.downloadedPrefixSize;
               _expectedSize = event.file.expectedSize;
+              _activeDownloadOffset = _proxyService.getActiveDownloadOffset(_resolvedVideoFileId!);
+              final baseDownloaded = _proxyService.getDownloadedSizeAtOffset(_resolvedVideoFileId!);
+              _activeDownloadedSize = (event.file.local.downloadedSize - baseDownloaded).clamp(0, event.file.expectedSize);
             });
           }
         }
@@ -501,7 +507,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
             _startPlayback(localPath);
           } else {
             Log.i('Proxy playback active: routing streaming through loopback server');
-            _proxyService.setDownloadOffset(_resolvedVideoFileId!, 0, event.file.local.downloadedSize);
+            _proxyService.setDownloadOffset(_resolvedVideoFileId!, _initialOffset, event.file.local.downloadedSize);
             final proxyUrl = _proxyService.getProxyUrl(_resolvedVideoFileId!);
             _startPlayback(proxyUrl);
           }
@@ -575,6 +581,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
           initialOffset = (initialOffset - graceBuffer).clamp(0, expectedSize);
         }
       }
+      _initialOffset = initialOffset;
 
       if (initialOffset > 0) {
         final cachedFile = _proxyService.getCachedFile(_resolvedVideoFileId!);
@@ -608,7 +615,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
             _startPlayback(localPath);
           } else {
             Log.i('Instant playback: streaming active download via proxy: $localPath');
-            _proxyService.setDownloadOffset(_resolvedVideoFileId!, 0, res.local.downloadedSize);
+            _proxyService.setDownloadOffset(_resolvedVideoFileId!, _initialOffset, res.local.downloadedSize);
             final proxyUrl = _proxyService.getProxyUrl(_resolvedVideoFileId!);
             _startPlayback(proxyUrl);
           }
@@ -664,6 +671,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
             initialOffset = (initialOffset - graceBuffer).clamp(0, expectedSize);
           }
         }
+        _initialOffset = initialOffset;
 
         if (initialOffset > 0) {
           final cachedFile = _proxyService.getCachedFile(_resolvedVideoFileId!);
@@ -700,7 +708,8 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
 
       // Check if file is fully downloaded or if target offset is within already-downloaded prefix
       final isCompleted = _downloadedPrefixSize >= expectedSize;
-      final isWithinDownloadedRange = byteOffset < _downloadedPrefixSize;
+      final fileId = _resolvedVideoFileId ?? widget.videoFileId;
+      final isWithinDownloadedRange = _proxyService.isRangeDownloaded(fileId, byteOffset, byteOffset + 2 * 1024 * 1024);
 
       if (isCompleted || isWithinDownloadedRange) {
         player.seek(position);
@@ -726,12 +735,11 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
 
       // Cancel previous TDLib download tasks to clear the old offset queue before requesting a new offset
       _tdlibService.send(td.CancelDownloadFile(
-        fileId: _resolvedVideoFileId ?? widget.videoFileId,
+        fileId: fileId,
         onlyIfPending: false,
       ));
 
       // Update download offset in TDLib and Proxy synchronously to avoid race conditions
-      final fileId = _resolvedVideoFileId ?? widget.videoFileId;
       final cachedFile = _proxyService.getCachedFile(fileId);
       _proxyService.setDownloadOffset(fileId, shiftOffset, cachedFile?.local.downloadedSize ?? 0);
 
@@ -888,28 +896,30 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         backgroundColor: Colors.black,
         body: Center(
           child: _isPlaying 
-            ? CustomVideoControls(
-                player: player,
-                controller: controller,
-                videoTitle: pipState?.queue[pipState.currentIndex].videoTitle ?? widget.videoTitle,
-                isPip: false,
-                downloadedPrefixSize: _downloadedPrefixSize,
-                expectedSize: _expectedSize,
-                onBack: () => Navigator.of(context).pop(),
-                hasPrevEpisode: pipState != null && pipState.currentIndex > 0,
-                hasNextEpisode: pipState != null && pipState.currentIndex + 1 < pipState.queue.length,
-                onPrevEpisode: _playPreviousEpisode,
-                onNextEpisode: _playNextEpisode,
-                onAutoNextCancelled: () {
-                  setState(() {
-                    _autoNextCancelled = true;
-                  });
-                },
-                onSeek: _handleCustomSeek,
-                customBuffering: _isBuffering,
-                seriesName: pipState?.queue[pipState.currentIndex].seriesName ?? widget.seriesName,
-                currentEpisodeIndex: pipState?.currentIndex ?? widget.currentEpisodeIndex ?? 0,
-              )
+             ? CustomVideoControls(
+                 player: player,
+                 controller: controller,
+                 videoTitle: pipState?.queue[pipState.currentIndex].videoTitle ?? widget.videoTitle,
+                 isPip: false,
+                 downloadedPrefixSize: _downloadedPrefixSize,
+                 expectedSize: _expectedSize,
+                 activeDownloadOffset: _activeDownloadOffset,
+                 activeDownloadedSize: _activeDownloadedSize,
+                 onBack: () => Navigator.of(context).pop(),
+                 hasPrevEpisode: pipState != null && pipState.currentIndex > 0,
+                 hasNextEpisode: pipState != null && pipState.currentIndex + 1 < pipState.queue.length,
+                 onPrevEpisode: _playPreviousEpisode,
+                 onNextEpisode: _playNextEpisode,
+                 onAutoNextCancelled: () {
+                   setState(() {
+                     _autoNextCancelled = true;
+                   });
+                 },
+                 onSeek: _handleCustomSeek,
+                 customBuffering: _isBuffering,
+                 seriesName: pipState?.queue[pipState.currentIndex].seriesName ?? widget.seriesName,
+                 currentEpisodeIndex: pipState?.currentIndex ?? widget.currentEpisodeIndex ?? 0,
+               )
             : _isInitializing
                 ? Column(
                     mainAxisAlignment: MainAxisAlignment.center,
