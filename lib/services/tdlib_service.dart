@@ -343,6 +343,16 @@ class TdlibService {
     final completer = Completer<td.TdObject>();
     _pendingRequests[id] = completer;
     
+    // Automatically clean up after 30 seconds to prevent memory leaks if TDLib never responds
+    Future.delayed(const Duration(seconds: 30), () {
+      if (_pendingRequests.containsKey(id)) {
+        _pendingRequests.remove(id);
+        if (!completer.isCompleted) {
+          completer.completeError(TimeoutException('TDLib response timeout', const Duration(seconds: 30)));
+        }
+      }
+    });
+
     send(request, extra: id);
     return completer.future;
   }

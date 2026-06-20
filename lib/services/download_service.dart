@@ -512,15 +512,17 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
         throw Exception("Temp file does not exist at $tempPath");
       }
 
-      state = {
-        ...state,
-        fileId: state[fileId]!.copyWith(
-          progress: 1.0,
-          isCompleted: true,
-          localPath: permanentPath,
-          isScheduled: false,
-        ),
-      };
+      if (state.containsKey(fileId)) {
+        state = {
+          ...state,
+          fileId: state[fileId]!.copyWith(
+            progress: 1.0,
+            isCompleted: true,
+            localPath: permanentPath,
+            isScheduled: false,
+          ),
+        };
+      }
 
       // Notify native background download service of success
       _updateNativeNotification(fileId, title, 1.0, isCompleted: true);
