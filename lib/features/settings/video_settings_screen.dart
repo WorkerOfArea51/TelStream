@@ -176,6 +176,54 @@ class VideoSettingsScreen extends ConsumerWidget {
                 ),
                 Divider(color: theme.dividerColor, height: 1, indent: 56, endIndent: 16),
                 ListTile(
+                  title: Text('Gesture Sensitivity', style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
+                  subtitle: Text(settings.gestureSensitivity, style: TextStyle(color: isDark ? Colors.white54 : Colors.black54, fontSize: 12)),
+                  trailing: DropdownButton<String>(
+                    value: settings.gestureSensitivity,
+                    dropdownColor: theme.cardColor,
+                    underline: const SizedBox(),
+                    style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+                    icon: Icon(Icons.arrow_drop_down, color: isDark ? Colors.white70 : Colors.black54),
+                    items: const [
+                      DropdownMenuItem(value: 'Low', child: Text('Low (0.5x)')),
+                      DropdownMenuItem(value: 'Normal', child: Text('Normal (1.0x)')),
+                      DropdownMenuItem(value: 'High', child: Text('High (1.5x)')),
+                    ],
+                    onChanged: (String? value) {
+                      if (value != null) {
+                        notifier.updateSettings(settings.copyWith(gestureSensitivity: value));
+                      }
+                    },
+                  ),
+                ),
+                Divider(color: theme.dividerColor, height: 1, indent: 56, endIndent: 16),
+                ListTile(
+                  title: Text('Long Press Playback Speed', style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
+                  subtitle: Text('${settings.longPressSpeed}x', style: TextStyle(color: isDark ? Colors.white54 : Colors.black54, fontSize: 12)),
+                  trailing: DropdownButton<double>(
+                    value: settings.longPressSpeed,
+                    dropdownColor: theme.cardColor,
+                    underline: const SizedBox(),
+                    style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+                    icon: Icon(Icons.arrow_drop_down, color: isDark ? Colors.white70 : Colors.black54),
+                    items: const [
+                      DropdownMenuItem(value: 1.0, child: Text('1.0x (Disabled)')),
+                      DropdownMenuItem(value: 1.25, child: Text('1.25x')),
+                      DropdownMenuItem(value: 1.5, child: Text('1.5x (Recommended)')),
+                      DropdownMenuItem(value: 1.75, child: Text('1.75x')),
+                      DropdownMenuItem(value: 2.0, child: Text('2.0x')),
+                      DropdownMenuItem(value: 2.5, child: Text('2.5x')),
+                      DropdownMenuItem(value: 3.0, child: Text('3.0x')),
+                    ],
+                    onChanged: (double? value) {
+                      if (value != null) {
+                        notifier.updateSettings(settings.copyWith(longPressSpeed: value));
+                      }
+                    },
+                  ),
+                ),
+                Divider(color: theme.dividerColor, height: 1, indent: 56, endIndent: 16),
+                ListTile(
                   title: Text('Double tap seek duration', style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
                   subtitle: Text('${settings.doubleTapSeekDuration}s', style: TextStyle(color: isDark ? Colors.white54 : Colors.black54, fontSize: 12)),
                   trailing: Icon(Icons.chevron_right, color: isDark ? Colors.white54 : Colors.black54),

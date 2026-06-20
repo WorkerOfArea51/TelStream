@@ -9,6 +9,7 @@ import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:screen_brightness/screen_brightness.dart';
 import 'package:flutter_volume_controller/flutter_volume_controller.dart';
+import 'package:file_picker/file_picker.dart';
 import '../settings/settings_provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../../services/storage_service.dart';
@@ -1074,17 +1075,120 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     }
   }
 
-  void _toggleSpeed() {
-    setState(() {
-      if (_currentSpeed == 1.0) {
-        _currentSpeed = 1.25;
-      } else if (_currentSpeed == 1.25) {
-        _currentSpeed = 1.5;
-      } else {
-        _currentSpeed = 1.0;
-      }
-    });
-    widget.player.setRate(_currentSpeed);
+  void _showSpeedSelectorDialog() {
+    final theme = Theme.of(context);
+    final customTheme = theme.extension<AppThemeExtension>();
+    final settingsAccent = customTheme?.settingsAccent ?? theme.primaryColor;
+
+    final presetRates = [0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0, 4.0];
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.black.withValues(alpha: 0.95),
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 12.0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.speed, color: settingsAccent),
+                          const SizedBox(width: 8),
+                          const Text(
+                            'Playback Speed',
+                            style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close, color: Colors.white60),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                    ],
+                  ),
+                  const Divider(color: Colors.white24, height: 8),
+                  const SizedBox(height: 8),
+                  
+                  // Grid of speed chips
+                  Wrap(
+                    spacing: 8.0,
+                    runSpacing: 8.0,
+                    alignment: WrapAlignment.center,
+                    children: presetRates.map((rate) {
+                      final isSelected = _currentSpeed == rate;
+                      return ChoiceChip(
+                        label: Text('${rate}x'),
+                        selected: isSelected,
+                        selectedColor: settingsAccent,
+                        backgroundColor: Colors.white.withValues(alpha: 0.05),
+                        labelStyle: TextStyle(
+                          color: isSelected ? Colors.black : Colors.white,
+                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                          fontSize: 12,
+                        ),
+                        onSelected: (selected) {
+                          if (selected) {
+                            setState(() {
+                              _currentSpeed = rate;
+                            });
+                            setModalState(() {});
+                            widget.player.setRate(rate);
+                          }
+                        },
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 16),
+                  
+                  // Slider for fine-tuning
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Fine Tuning',
+                        style: TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.bold),
+                      ),
+                      Text(
+                        '${_currentSpeed.toStringAsFixed(2)}x',
+                        style: TextStyle(color: settingsAccent, fontSize: 15, fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                  Slider(
+                    value: _currentSpeed,
+                    min: 0.25,
+                    max: 4.0,
+                    divisions: 75, // 0.05 step
+                    activeColor: settingsAccent,
+                    inactiveColor: Colors.white24,
+                    onChanged: (val) {
+                      final roundedVal = double.parse(val.toStringAsFixed(2));
+                      setState(() {
+                        _currentSpeed = roundedVal;
+                      });
+                      setModalState(() {});
+                      widget.player.setRate(roundedVal);
+                    },
+                  ),
+                  const SizedBox(height: 8),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 
   void _handleDoubleTap(TapDownDetails details, double screenWidth, int seekDuration) {
@@ -1774,7 +1878,14 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
       if (duration.inSeconds == 0) return;
 
       final double totalDeltaX = details.focalPoint.dx - _dragStartFocalPoint!.dx;
-      final secondsOffset = ((totalDeltaX / (screenWidth / 2)) * 60).toInt();
+      final settings = ref.read(videoSettingsProvider);
+      double sensitivityMultiplier = 1.0;
+      if (settings.gestureSensitivity == 'Low') {
+        sensitivityMultiplier = 0.5;
+      } else if (settings.gestureSensitivity == 'High') {
+        sensitivityMultiplier = 1.5;
+      }
+      final secondsOffset = ((totalDeltaX / (screenWidth / 2)) * 60 * sensitivityMultiplier).toInt();
       
       setState(() {
         final newSeconds = (_swipeStartPosition.inSeconds + secondsOffset)
@@ -1831,11 +1942,19 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
   }
 
   void _performVerticalSwipeAction(String actionType, double deltaY) {
+    final settings = ref.read(videoSettingsProvider);
+    double sensitivityMultiplier = 1.0;
+    if (settings.gestureSensitivity == 'Low') {
+      sensitivityMultiplier = 0.5;
+    } else if (settings.gestureSensitivity == 'High') {
+      sensitivityMultiplier = 1.5;
+    }
+
     if (actionType == 'Volume') {
       final bool volumeBoost = ref.read(storageServiceProvider).getVolumeBoostEnabled();
       final maxVol = volumeBoost ? 200.0 : 100.0;
       setState(() {
-        _currentVolume -= deltaY * 0.2;
+        _currentVolume -= deltaY * 0.2 * sensitivityMultiplier;
         _currentVolume = _currentVolume.clamp(0.0, maxVol);
         try {
           FlutterVolumeController.setVolume((_currentVolume / 100.0).clamp(0.0, 1.0));
@@ -1845,7 +1964,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
       });
     } else if (actionType == 'Brightness') {
       setState(() {
-        _currentBrightness -= deltaY / 300;
+        _currentBrightness -= (deltaY / 300) * sensitivityMultiplier;
         _currentBrightness = _currentBrightness.clamp(0.0, 1.0);
         try {
           ScreenBrightness().setApplicationScreenBrightness(_currentBrightness);
@@ -1858,7 +1977,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
       _saveBrightnessDebounced(_currentBrightness);
     } else if (actionType == 'Speed') {
       setState(() {
-        _currentSpeed -= deltaY * 0.005;
+        _currentSpeed -= deltaY * 0.005 * sensitivityMultiplier;
         _currentSpeed = _currentSpeed.clamp(0.25, 4.0);
         _currentSpeed = double.parse(_currentSpeed.toStringAsFixed(2));
         widget.player.setRate(_currentSpeed);
@@ -1879,6 +1998,16 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
           filters.add('lavfi=[dynaudnorm]');
         }
         
+        final settings = ref.read(videoSettingsProvider);
+        if (settings.equalizerEnabled) {
+          final bands = settings.equalizerBands;
+          filters.add('equalizer=f=100:width_type=o:w=2.0:g=${bands[0]}');
+          filters.add('equalizer=f=300:width_type=o:w=2.0:g=${bands[1]}');
+          filters.add('equalizer=f=1000:width_type=o:w=2.0:g=${bands[2]}');
+          filters.add('equalizer=f=3000:width_type=o:w=2.0:g=${bands[3]}');
+          filters.add('equalizer=f=10000:width_type=o:w=2.0:g=${bands[4]}');
+        }
+
         if (filters.isNotEmpty) {
           nativePlayer.setProperty('af', filters.join(','));
           Log.i('Applied audio filters: ${filters.join(',')}');
@@ -1887,7 +2016,6 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
           Log.i('Cleared all audio filters');
         }
 
-        final settings = ref.read(videoSettingsProvider);
         if (settings.dynamicRangeCompression != _nightModeActive) {
           ref.read(videoSettingsProvider.notifier).updateSettings(
             settings.copyWith(dynamicRangeCompression: _nightModeActive),
@@ -2381,6 +2509,11 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                                   onPressed: _showSubtitleDownloaderDialog,
                                 ),
                                 IconButton(
+                                  icon: const Icon(Icons.folder_open, color: Colors.white),
+                                  tooltip: 'Load Local Subtitle File',
+                                  onPressed: _pickLocalSubtitleFile,
+                                ),
+                                IconButton(
                                   icon: const Icon(Icons.tune, color: Colors.white),
                                   onPressed: _showSubtitleCustomizerDialog,
                                 ),
@@ -2705,10 +2838,11 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
       onDoubleTapDown: (details) => _handleDoubleTap(details, screenWidth, settings.doubleTapSeekDuration),
       onLongPressStart: (details) {
         if (_isLocked || !settings.dynamicSpeedOverlay) return;
-        widget.player.setRate(1.5);
+        final speed = settings.longPressSpeed;
+        widget.player.setRate(speed);
         setState(() {
           _showSeekIndicator = true;
-          _seekDirection = '1.5x Fast Forwarding';
+          _seekDirection = '${speed}x Fast Forwarding';
         });
       },
       onLongPressEnd: (details) {
@@ -3166,7 +3300,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 TextButton(
-                                  onPressed: _toggleSpeed,
+                                  onPressed: _showSpeedSelectorDialog,
                                   child: Text(
                                     'Speed (${_currentSpeed}x)',
                                     style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
@@ -3407,6 +3541,52 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     );
   }
 
+  Future<void> _pickLocalSubtitleFile() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['srt', 'vtt', 'ass', 'ssa', 'sub'],
+      );
+
+      if (result != null && result.files.single.path != null) {
+        final pickedFile = File(result.files.single.path!);
+        final fileName = result.files.single.name;
+        
+        final tempDir = await getTemporaryDirectory();
+        final safeName = fileName.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_');
+        final targetFile = File('${tempDir.path}/local_$safeName');
+        
+        await pickedFile.copy(targetFile.path);
+        Log.i('Local subtitle picked and copied to: ${targetFile.path}');
+        
+        widget.player.setSubtitleTrack(SubtitleTrack.uri(targetFile.path));
+        
+        if (mounted) {
+          setState(() {
+            _showTrackSelectorPanel = false;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Local subtitle loaded successfully: $fileName'),
+              backgroundColor: Colors.green,
+              duration: const Duration(seconds: 3),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      Log.e('Error picking local subtitle file', e);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to load local subtitle: $e'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+    }
+  }
+
   void _showSubtitleDownloaderDialog() {
     final theme = Theme.of(context);
     final customTheme = theme.extension<AppThemeExtension>();
@@ -3431,6 +3611,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     List<SubtitleMatch> searchResults = [];
     bool isSearching = false;
     String? downloadingId;
+    String? errorMessage;
 
     showModalBottomSheet(
       context: context,
@@ -3510,15 +3691,23 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                                 setModalState(() {
                                   isSearching = true;
                                   searchResults = [];
+                                  errorMessage = null;
                                 });
-                                final res = await downloader.searchSubtitles(
-                                  queryController.text.trim(),
-                                  lang: selectedLangCode,
-                                );
-                                setModalState(() {
-                                  isSearching = false;
-                                  searchResults = res;
-                                });
+                                try {
+                                  final res = await downloader.searchSubtitles(
+                                    queryController.text.trim(),
+                                    lang: selectedLangCode,
+                                  );
+                                  setModalState(() {
+                                    isSearching = false;
+                                    searchResults = res;
+                                  });
+                                } catch (e) {
+                                  setModalState(() {
+                                    isSearching = false;
+                                    errorMessage = e.toString().replaceAll('HttpException:', '').replaceAll('Exception:', '').trim();
+                                  });
+                                }
                               },
                         child: const Icon(Icons.search, color: Colors.black),
                       ),
@@ -3530,83 +3719,118 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                   Expanded(
                     child: isSearching
                         ? const Center(child: CircularProgressIndicator(color: Colors.orange))
-                        : searchResults.isEmpty
-                            ? const Center(
-                                child: Text(
-                                  'Search for subtitles to display results',
-                                  style: TextStyle(color: Colors.white38, fontSize: 13),
+                        : errorMessage != null
+                            ? Center(
+                                child: Padding(
+                                  padding: const EdgeInsets.all(16.0),
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      const Icon(Icons.error_outline, color: Colors.redAccent, size: 42),
+                                      const SizedBox(height: 12),
+                                      Text(
+                                        errorMessage!,
+                                        textAlign: TextAlign.center,
+                                        style: const TextStyle(color: Colors.white70, fontSize: 13),
+                                      ),
+                                      const SizedBox(height: 16),
+                                      ElevatedButton.icon(
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: Colors.white24,
+                                          foregroundColor: Colors.white,
+                                        ),
+                                        onPressed: () {
+                                          setModalState(() {
+                                            errorMessage = null;
+                                          });
+                                        },
+                                        icon: const Icon(Icons.refresh, size: 16),
+                                        label: const Text('Retry Search', style: TextStyle(fontSize: 12)),
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               )
-                            : ListView.builder(
-                                itemCount: searchResults.length,
-                                itemBuilder: (context, index) {
-                                  final sub = searchResults[index];
-                                  final isDownloading = downloadingId == sub.id;
-                                  
-                                  return Container(
-                                    margin: const EdgeInsets.only(bottom: 8),
-                                    decoration: BoxDecoration(
-                                      color: Colors.white.withValues(alpha: 0.04),
-                                      borderRadius: BorderRadius.circular(10),
-                                      border: Border.all(color: Colors.white10),
+                            : searchResults.isEmpty
+                                ? const Center(
+                                    child: Text(
+                                      'Search for subtitles to display results',
+                                      style: TextStyle(color: Colors.white38, fontSize: 13),
                                     ),
-                                    child: ListTile(
-                                      title: Text(
-                                        sub.fileName,
-                                        style: const TextStyle(color: Colors.white, fontSize: 13),
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                      subtitle: Text(
-                                        sub.language,
-                                        style: TextStyle(color: settingsAccent, fontSize: 11),
-                                      ),
-                                      trailing: isDownloading
-                                          ? const SizedBox(
-                                              width: 20,
-                                              height: 20,
-                                              child: CircularProgressIndicator(
-                                                color: Colors.orange,
-                                                strokeWidth: 2,
-                                              ),
-                                            )
-                                          : const Icon(Icons.download_rounded, color: Colors.white70),
-                                      onTap: isDownloading
-                                          ? null
-                                          : () async {
-                                              setModalState(() => downloadingId = sub.id);
-                                              final localPath = await downloader.downloadSubtitle(
-                                                sub.downloadUrl,
-                                                sub.fileName,
-                                              );
-                                              setModalState(() => downloadingId = null);
-                                              
-                                              if (localPath != null) {
-                                                widget.player.setSubtitleTrack(SubtitleTrack.uri(localPath));
-                                                if (context.mounted) {
-                                                  Navigator.pop(context);
-                                                  ScaffoldMessenger.of(context).showSnackBar(
-                                                    SnackBar(
-                                                      content: Text('Subtitle loaded: ${sub.fileName}'),
-                                                      backgroundColor: Colors.green,
-                                                    ),
-                                                  );
-                                                }
-                                              } else {
-                                                if (context.mounted) {
-                                                  ScaffoldMessenger.of(context).showSnackBar(
-                                                    const SnackBar(
-                                                      content: Text('Failed to download subtitle file'),
-                                                      backgroundColor: Colors.redAccent,
-                                                    ),
-                                                  );
-                                                }
-                                              }
-                                            },
-                                    ),
-                                  );
-                                },
-                              ),
+                                  )
+                                : ListView.builder(
+                                    itemCount: searchResults.length,
+                                    itemBuilder: (context, index) {
+                                      final sub = searchResults[index];
+                                      final isDownloading = downloadingId == sub.id;
+                                      
+                                      return Container(
+                                        margin: const EdgeInsets.only(bottom: 8),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white.withValues(alpha: 0.04),
+                                          borderRadius: BorderRadius.circular(10),
+                                          border: Border.all(color: Colors.white10),
+                                        ),
+                                        child: ListTile(
+                                          title: Text(
+                                            sub.fileName,
+                                            style: const TextStyle(color: Colors.white, fontSize: 13),
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                          subtitle: Text(
+                                            sub.language,
+                                            style: TextStyle(color: settingsAccent, fontSize: 11),
+                                          ),
+                                          trailing: isDownloading
+                                              ? const SizedBox(
+                                                  width: 20,
+                                                  height: 20,
+                                                  child: CircularProgressIndicator(
+                                                    color: Colors.orange,
+                                                    strokeWidth: 2,
+                                                  ),
+                                                )
+                                              : const Icon(Icons.download_rounded, color: Colors.white70),
+                                          onTap: isDownloading
+                                              ? null
+                                              : () async {
+                                                  setModalState(() {
+                                                    downloadingId = sub.id;
+                                                    errorMessage = null;
+                                                  });
+                                                  try {
+                                                    final localPath = await downloader.downloadSubtitle(
+                                                      sub.downloadUrl,
+                                                      sub.fileName,
+                                                    );
+                                                    setModalState(() => downloadingId = null);
+                                                    
+                                                    if (localPath != null) {
+                                                      widget.player.setSubtitleTrack(SubtitleTrack.uri(localPath));
+                                                      if (context.mounted) {
+                                                        Navigator.pop(context);
+                                                        ScaffoldMessenger.of(context).showSnackBar(
+                                                          SnackBar(
+                                                            content: Text('Subtitle loaded: ${sub.fileName}'),
+                                                            backgroundColor: Colors.green,
+                                                          ),
+                                                        );
+                                                      }
+                                                    } else {
+                                                      throw Exception('File path returned was null');
+                                                    }
+                                                  } catch (e) {
+                                                    setModalState(() {
+                                                      downloadingId = null;
+                                                      errorMessage = 'Download failed: ${e.toString().replaceAll('Exception:', '').replaceAll('HttpException:', '').trim()}';
+                                                    });
+                                                  }
+                                                },
+                                        ),
+                                      );
+                                    },
+                                  ),
                   ),
                 ],
               ),
@@ -4001,7 +4225,220 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                       _updateAudioFilters();
                     },
                   ),
+                  ListTile(
+                    leading: Icon(Icons.equalizer, color: settingsAccent),
+                    title: const Text('Audio Equalizer', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                    subtitle: const Text('Configure multi-band frequency controls and presets', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                    trailing: const Icon(Icons.chevron_right, color: Colors.white54),
+                    onTap: () {
+                      Navigator.pop(context);
+                      _showEqualizerDialog();
+                    },
+                  ),
                   const SizedBox(height: 20),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _showEqualizerDialog() {
+    final theme = Theme.of(context);
+    final customTheme = theme.extension<AppThemeExtension>();
+    final settingsAccent = customTheme?.settingsAccent ?? theme.primaryColor;
+
+    final presets = {
+      'Flat': [0.0, 0.0, 0.0, 0.0, 0.0],
+      'Bass Boost': [5.0, 3.0, 0.0, 0.0, 0.0],
+      'Vocal Booster': [-2.0, 0.0, 4.0, 3.0, -1.0],
+      'Treble Booster': [0.0, 0.0, 0.0, 3.0, 5.0],
+      'Classical': [3.0, 2.0, 0.0, -2.0, -4.0],
+      'Rock': [4.0, 2.0, -1.0, 2.0, 4.0],
+      'Pop': [-1.0, 2.0, 3.0, 2.0, -2.0],
+    };
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.black.withValues(alpha: 0.95),
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            final settings = ref.watch(videoSettingsProvider);
+            final isEnabled = settings.equalizerEnabled;
+            final activePreset = settings.equalizerPreset;
+            final bands = settings.equalizerBands;
+
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 12.0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.equalizer, color: settingsAccent),
+                          const SizedBox(width: 8),
+                          const Text(
+                            'Audio Equalizer',
+                            style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ),
+                      Row(
+                        children: [
+                          Switch(
+                            value: isEnabled,
+                            activeThumbColor: settingsAccent,
+                            onChanged: (val) {
+                              ref.read(videoSettingsProvider.notifier).updateSettings(
+                                settings.copyWith(equalizerEnabled: val),
+                              );
+                              setModalState(() {});
+                              _updateAudioFilters();
+                            },
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.close, color: Colors.white60),
+                            onPressed: () => Navigator.pop(context),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const Divider(color: Colors.white24, height: 8),
+                  
+                  // Presets horizontal list
+                  Opacity(
+                    opacity: isEnabled ? 1.0 : 0.5,
+                    child: IgnorePointer(
+                      ignoring: !isEnabled,
+                      child: SizedBox(
+                        height: 40,
+                        child: ListView(
+                          scrollDirection: Axis.horizontal,
+                          physics: const BouncingScrollPhysics(),
+                          children: [
+                            ...presets.keys.map((presetName) {
+                              final isSelected = activePreset == presetName;
+                              return Padding(
+                                padding: const EdgeInsets.only(right: 8.0),
+                                child: ChoiceChip(
+                                  label: Text(presetName),
+                                  selected: isSelected,
+                                  selectedColor: settingsAccent,
+                                  backgroundColor: Colors.white.withValues(alpha: 0.05),
+                                  labelStyle: TextStyle(
+                                    color: isSelected ? Colors.black : Colors.white,
+                                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                    fontSize: 12,
+                                  ),
+                                  onSelected: (selected) {
+                                    if (selected) {
+                                      ref.read(videoSettingsProvider.notifier).updateSettings(
+                                        settings.copyWith(
+                                          equalizerPreset: presetName,
+                                          equalizerBands: presets[presetName]!,
+                                        ),
+                                      );
+                                      setModalState(() {});
+                                      _updateAudioFilters();
+                                    }
+                                  },
+                                ),
+                              );
+                            }),
+                            Padding(
+                              padding: const EdgeInsets.only(right: 8.0),
+                              child: ChoiceChip(
+                                label: const Text('Custom'),
+                                selected: activePreset == 'Custom',
+                                selectedColor: settingsAccent,
+                                backgroundColor: Colors.white.withValues(alpha: 0.05),
+                                labelStyle: TextStyle(
+                                  color: activePreset == 'Custom' ? Colors.black : Colors.white,
+                                  fontWeight: activePreset == 'Custom' ? FontWeight.bold : FontWeight.normal,
+                                  fontSize: 12,
+                                ),
+                                onSelected: (_) {},
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+
+                  // 5 Sliders row
+                  Opacity(
+                    opacity: isEnabled ? 1.0 : 0.5,
+                    child: IgnorePointer(
+                      ignoring: !isEnabled,
+                      child: Container(
+                        height: 180,
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          children: List.generate(5, (index) {
+                            final frequencyLabels = ['100Hz', '300Hz', '1kHz', '3kHz', '10kHz'];
+                            final label = frequencyLabels[index];
+                            final val = bands[index];
+
+                            return Column(
+                              children: [
+                                Text(
+                                  label,
+                                  style: const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold),
+                                ),
+                                const SizedBox(height: 8),
+                                Expanded(
+                                  child: RotatedBox(
+                                    quarterTurns: 3,
+                                    child: Slider(
+                                      value: val,
+                                      min: -12.0,
+                                      max: 12.0,
+                                      divisions: 48, // 0.5 dB precision
+                                      activeColor: settingsAccent,
+                                      inactiveColor: Colors.white12,
+                                      onChanged: (newVal) {
+                                        final newBands = List<double>.from(bands);
+                                        newBands[index] = double.parse(newVal.toStringAsFixed(1));
+                                        ref.read(videoSettingsProvider.notifier).updateSettings(
+                                          settings.copyWith(
+                                            equalizerPreset: 'Custom',
+                                            equalizerBands: newBands,
+                                          ),
+                                        );
+                                        setModalState(() {});
+                                        _updateAudioFilters();
+                                      },
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  '${val >= 0 ? '+' : ''}${val.toStringAsFixed(1)}',
+                                  style: TextStyle(color: settingsAccent, fontSize: 10, fontWeight: FontWeight.bold),
+                                ),
+                              ],
+                            );
+                          }),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
                 ],
               ),
             );

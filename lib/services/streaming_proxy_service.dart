@@ -76,7 +76,10 @@ class StreamingProxyService {
     Log.i('Proxy updated offset for file $fileId: offset=$offset, baseDownloadedSize=$currentDownloadedSize');
   }
 
-  String getProxyUrl(int fileId) {
+  String getProxyUrl(int fileId, {String? fileName}) {
+    if (fileName != null && fileName.isNotEmpty) {
+      return 'http://127.0.0.1:$_port/stream?fileId=$fileId&name=${Uri.encodeComponent(fileName)}';
+    }
     return 'http://127.0.0.1:$_port/stream?fileId=$fileId';
   }
 
@@ -204,7 +207,28 @@ class StreamingProxyService {
 
       // Set response headers
       request.response.headers.set(HttpHeaders.acceptRangesHeader, 'bytes');
-      request.response.headers.contentType = ContentType('video', 'mp4'); // Default fallback mime
+      
+      final queryName = request.uri.queryParameters['name'];
+      ContentType contentType = ContentType('video', 'mp4'); // Default fallback mime
+      final localPath = tdFile.local.path.toLowerCase();
+      final targetName = (queryName ?? '').toLowerCase();
+      
+      if (localPath.endsWith('.mkv') || targetName.endsWith('.mkv')) {
+        contentType = ContentType('video', 'x-matroska');
+      } else if (localPath.endsWith('.webm') || targetName.endsWith('.webm')) {
+        contentType = ContentType('video', 'webm');
+      } else if (localPath.endsWith('.avi') || targetName.endsWith('.avi')) {
+        contentType = ContentType('video', 'x-msvideo');
+      } else if (localPath.endsWith('.mov') || targetName.endsWith('.mov')) {
+        contentType = ContentType('video', 'quicktime');
+      } else if (localPath.endsWith('.flv') || targetName.endsWith('.flv')) {
+        contentType = ContentType('video', 'x-flv');
+      } else if (localPath.endsWith('.m4v') || targetName.endsWith('.m4v')) {
+        contentType = ContentType('video', 'x-m4v');
+      } else if (localPath.endsWith('.3gp') || targetName.endsWith('.3gp')) {
+        contentType = ContentType('video', '3gpp');
+      }
+      request.response.headers.contentType = contentType;
 
       if (rangeHeader != null) {
         request.response.statusCode = HttpStatus.partialContent;

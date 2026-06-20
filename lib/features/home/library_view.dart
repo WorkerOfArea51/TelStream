@@ -11,6 +11,7 @@ import '../../core/widgets/shimmer_card.dart';
 import 'home_controller.dart';
 import 'episode_list_screen.dart';
 import '../player/pip_manager.dart';
+import '../settings/settings_provider.dart';
 
 class LibraryView extends ConsumerStatefulWidget {
   final ChannelCategory category;
@@ -78,6 +79,8 @@ class _LibraryViewState extends ConsumerState<LibraryView> with SingleTickerProv
     final state = ref.watch(provider);
     final favorites = ref.watch(favoritesProvider);
     final isDownloadedOnly = ref.watch(downloadedOnlyProvider);
+    final settings = ref.watch(videoSettingsProvider);
+    final layout = settings.libraryLayout;
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -147,6 +150,54 @@ class _LibraryViewState extends ConsumerState<LibraryView> with SingleTickerProv
                             });
                           },
                         ),
+                      PopupMenuButton<String>(
+                        icon: Icon(
+                          layout == 'Grid'
+                              ? Icons.grid_view
+                              : layout == 'Compact'
+                                  ? Icons.apps
+                                  : Icons.view_list,
+                          color: subTextColor,
+                        ),
+                        color: theme.cardColor,
+                        onSelected: (String selectedLayout) {
+                          ref.read(videoSettingsProvider.notifier).updateSettings(
+                            settings.copyWith(libraryLayout: selectedLayout),
+                          );
+                        },
+                        itemBuilder: (context) => [
+                          PopupMenuItem(
+                            value: 'Grid',
+                            child: Row(
+                              children: [
+                                Icon(Icons.grid_view, color: layout == 'Grid' ? theme.primaryColor : subTextColor),
+                                const SizedBox(width: 12),
+                                Text('Grid View', style: TextStyle(color: textColor)),
+                              ],
+                            ),
+                          ),
+                          PopupMenuItem(
+                            value: 'Compact',
+                            child: Row(
+                              children: [
+                                Icon(Icons.apps, color: layout == 'Compact' ? theme.primaryColor : subTextColor),
+                                const SizedBox(width: 12),
+                                Text('Compact Grid', style: TextStyle(color: textColor)),
+                              ],
+                            ),
+                          ),
+                          PopupMenuItem(
+                            value: 'List',
+                            child: Row(
+                              children: [
+                                Icon(Icons.view_list, color: layout == 'List' ? theme.primaryColor : subTextColor),
+                                const SizedBox(width: 12),
+                                Text('List View', style: TextStyle(color: textColor)),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
                       PopupMenuButton<SortOrder>(
                         icon: Icon(Icons.sort, color: subTextColor),
                         color: theme.cardColor,
@@ -225,46 +276,86 @@ class _LibraryViewState extends ConsumerState<LibraryView> with SingleTickerProv
                   _buildContinueWatchingSliver(context, filteredList),
                 SliverPadding(
                   padding: const EdgeInsets.only(left: 12, right: 12, top: 12, bottom: 96),
-                  sliver: SliverGrid(
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      childAspectRatio: 0.72,
-                      crossAxisSpacing: 12,
-                      mainAxisSpacing: 12,
-                    ),
-                    delegate: SliverChildBuilderDelegate(
-                      (context, index) {
-                        if (index == filteredList.length) {
-                          return Center(
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 16.0),
-                              child: CircularProgressIndicator(color: theme.primaryColor),
-                            ),
-                          );
-                        }
-                        
-                        final series = filteredList[index];
-                        return _buildGridItem(context, series);
-                      },
-                      childCount: filteredList.length + (ref.watch(provider.notifier).hasMore ? 1 : 0),
-                    ),
-                  ),
+                  sliver: layout == 'List'
+                      ? SliverList(
+                          delegate: SliverChildBuilderDelegate(
+                            (context, index) {
+                              if (index == filteredList.length) {
+                                return Center(
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(vertical: 16.0),
+                                    child: CircularProgressIndicator(color: theme.primaryColor),
+                                  ),
+                                );
+                              }
+                              
+                              final series = filteredList[index];
+                              return _LibraryListItem(
+                                series: series,
+                                categoryTitle: widget.category.title,
+                              );
+                            },
+                            childCount: filteredList.length + (ref.watch(provider.notifier).hasMore ? 1 : 0),
+                          ),
+                        )
+                      : SliverGrid(
+                          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: layout == 'Compact' ? 3 : 2,
+                            childAspectRatio: layout == 'Compact' ? 0.7 : 0.72,
+                            crossAxisSpacing: 12,
+                            mainAxisSpacing: 12,
+                          ),
+                          delegate: SliverChildBuilderDelegate(
+                            (context, index) {
+                              if (index == filteredList.length) {
+                                return Center(
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(vertical: 16.0),
+                                    child: CircularProgressIndicator(color: theme.primaryColor),
+                                  ),
+                                );
+                              }
+                              
+                              final series = filteredList[index];
+                              if (layout == 'Compact') {
+                                return _LibraryCompactItem(
+                                  series: series,
+                                  categoryTitle: widget.category.title,
+                                );
+                              }
+                              return _buildGridItem(context, series);
+                            },
+                            childCount: filteredList.length + (ref.watch(provider.notifier).hasMore ? 1 : 0),
+                          ),
+                        ),
                 ),
               ],
             ),
           );
         },
-        loading: () => GridView.builder(
-          padding: const EdgeInsets.only(left: 12, right: 12, top: 12, bottom: 96),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            childAspectRatio: 0.72,
-            crossAxisSpacing: 12,
-            mainAxisSpacing: 12,
-          ),
-          itemCount: 6,
-          itemBuilder: (context, index) => const ShimmerCard(),
-        ),
+        loading: () {
+          final settings = ref.watch(videoSettingsProvider);
+          final layout = settings.libraryLayout;
+          if (layout == 'List') {
+            return ListView.builder(
+              padding: const EdgeInsets.only(left: 12, right: 12, top: 12, bottom: 96),
+              itemCount: 6,
+              itemBuilder: (context, index) => const _LibraryListShimmerItem(),
+            );
+          }
+          final isCompact = layout == 'Compact';
+          return GridView.builder(
+            padding: const EdgeInsets.only(left: 12, right: 12, top: 12, bottom: 96),
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: isCompact ? 3 : 2,
+              childAspectRatio: isCompact ? 0.7 : 0.72,
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 12,
+            ),
+            itemCount: 6,
+            itemBuilder: (context, index) => const ShimmerCard(),
+          );
+        },
         error: (err, stack) => Center(child: Text('Error: $err', style: TextStyle(color: theme.colorScheme.error))),
       ),
     );
@@ -976,6 +1067,370 @@ class ContinueWatchingShelf extends StatelessWidget {
         ),
         const SizedBox(height: 8),
       ],
+    );
+  }
+}
+
+class _LibraryCompactItem extends StatefulWidget {
+  final AnimeSeries series;
+  final String categoryTitle;
+
+  const _LibraryCompactItem({
+    required this.series,
+    required this.categoryTitle,
+  });
+
+  @override
+  State<_LibraryCompactItem> createState() => _LibraryCompactItemState();
+}
+
+class _LibraryCompactItemState extends State<_LibraryCompactItem> {
+  bool _isTapped = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final totalEpisodes = widget.series.seasons.fold(0, (sum, s) => sum + s.episodes.length);
+    final latestPoster = widget.series.seasons.isNotEmpty ? widget.series.seasons.first.posterMessage : null;
+    
+    td.File? posterFile;
+    td.Minithumbnail? minithumbnail;
+    if (latestPoster != null && latestPoster.content is td.MessagePhoto) {
+      final photo = latestPoster.content as td.MessagePhoto;
+      if (photo.photo.sizes.isNotEmpty) {
+        posterFile = photo.photo.sizes.last.photo;
+      }
+      minithumbnail = photo.photo.minithumbnail;
+    }
+
+    return GestureDetector(
+      onTapDown: (_) => setState(() => _isTapped = true),
+      onTapUp: (_) => setState(() => _isTapped = false),
+      onTapCancel: () => setState(() => _isTapped = false),
+      onTap: () {
+        Navigator.push(
+          context,
+          PremiumPageRoute(
+            child: EpisodeListScreen(
+              season: widget.series.seasons.first,
+              series: widget.series,
+              heroTag: 'hero_library_${widget.categoryTitle}_${widget.series.coreName}',
+            ),
+          ),
+        );
+      },
+      child: AnimatedScale(
+        scale: _isTapped ? 0.96 : 1.0,
+        duration: const Duration(milliseconds: 100),
+        curve: Curves.easeOut,
+        child: Container(
+          decoration: BoxDecoration(
+            color: theme.cardColor,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: theme.colorScheme.onSurface.withValues(alpha: _isTapped ? 0.16 : 0.08),
+              width: _isTapped ? 1.5 : 1,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.3),
+                blurRadius: _isTapped ? 4 : 8,
+                offset: Offset(0, _isTapped ? 2 : 4),
+              )
+            ],
+          ),
+          clipBehavior: Clip.hardEdge,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              Hero(
+                tag: 'hero_library_${widget.categoryTitle}_${widget.series.coreName}',
+                child: TdThumbnail(
+                  file: posterFile,
+                  minithumbnail: minithumbnail,
+                  autoDownload: true,
+                  width: double.infinity,
+                  height: double.infinity,
+                  borderRadius: BorderRadius.zero,
+                ),
+              ),
+              
+              Positioned(
+                top: 6,
+                left: 6,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.75),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: Colors.white24, width: 0.8),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.play_circle_fill, color: theme.primaryColor, size: 9),
+                      const SizedBox(width: 3),
+                      Text(
+                        totalEpisodes.toString(),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 9,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _LibraryListItem extends ConsumerStatefulWidget {
+  final AnimeSeries series;
+  final String categoryTitle;
+
+  const _LibraryListItem({
+    required this.series,
+    required this.categoryTitle,
+  });
+
+  @override
+  ConsumerState<_LibraryListItem> createState() => _LibraryListItemState();
+}
+
+class _LibraryListItemState extends ConsumerState<_LibraryListItem> {
+  bool _isTapped = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final textColor = isDark ? Colors.white : Colors.black87;
+    final subTextColor = isDark ? Colors.white60 : Colors.black54;
+
+    final storage = ref.read(storageServiceProvider);
+
+    final totalEpisodes = widget.series.seasons.fold(0, (sum, s) => sum + s.episodes.length);
+    final seasonCount = widget.series.seasons.length;
+
+    final years = widget.series.seasons
+        .map((s) => storage.getSeasonReleaseYear(s.fullTitle))
+        .where((y) => y != null && y > 0)
+        .toSet()
+        .toList();
+    years.sort();
+    
+    final String yearsText;
+    if (years.isEmpty) {
+      yearsText = '';
+    } else if (years.length == 1) {
+      yearsText = years.first.toString();
+    } else {
+      yearsText = '${years.first}–${years.last}';
+    }
+
+    final latestPoster = widget.series.seasons.isNotEmpty ? widget.series.seasons.first.posterMessage : null;
+    
+    td.File? posterFile;
+    td.Minithumbnail? minithumbnail;
+    if (latestPoster != null && latestPoster.content is td.MessagePhoto) {
+      final photo = latestPoster.content as td.MessagePhoto;
+      if (photo.photo.sizes.isNotEmpty) {
+        posterFile = photo.photo.sizes.last.photo;
+      }
+      minithumbnail = photo.photo.minithumbnail;
+    }
+
+    return GestureDetector(
+      onTapDown: (_) => setState(() => _isTapped = true),
+      onTapUp: (_) => setState(() => _isTapped = false),
+      onTapCancel: () => setState(() => _isTapped = false),
+      onTap: () {
+        Navigator.push(
+          context,
+          PremiumPageRoute(
+            child: EpisodeListScreen(
+              season: widget.series.seasons.first,
+              series: widget.series,
+              heroTag: 'hero_library_${widget.categoryTitle}_${widget.series.coreName}',
+            ),
+          ),
+        );
+      },
+      child: AnimatedScale(
+        scale: _isTapped ? 0.98 : 1.0,
+        duration: const Duration(milliseconds: 100),
+        curve: Curves.easeOut,
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          height: 100,
+          decoration: BoxDecoration(
+            color: theme.cardColor,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: theme.colorScheme.onSurface.withValues(alpha: _isTapped ? 0.16 : 0.08),
+              width: _isTapped ? 1.5 : 1,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.15),
+                blurRadius: _isTapped ? 2 : 4,
+                offset: Offset(0, _isTapped ? 1 : 2),
+              )
+            ],
+          ),
+          padding: const EdgeInsets.all(8),
+          child: Row(
+            children: [
+              Container(
+                width: 60,
+                height: 84,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                clipBehavior: Clip.hardEdge,
+                child: Hero(
+                  tag: 'hero_library_${widget.categoryTitle}_${widget.series.coreName}',
+                  child: TdThumbnail(
+                    file: posterFile,
+                    minithumbnail: minithumbnail,
+                    autoDownload: true,
+                    width: double.infinity,
+                    height: double.infinity,
+                    borderRadius: BorderRadius.zero,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    AlignedNameText(
+                      text: widget.series.coreName,
+                      style: TextStyle(
+                        color: textColor,
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        Icon(Icons.video_library, size: 12, color: subTextColor),
+                        const SizedBox(width: 4),
+                        Text(
+                          '$seasonCount Season${seasonCount > 1 ? "s" : ""}',
+                          style: TextStyle(color: subTextColor, fontSize: 12),
+                        ),
+                        const SizedBox(width: 12),
+                        Icon(Icons.play_circle_outline, size: 12, color: subTextColor),
+                        const SizedBox(width: 4),
+                        Text(
+                          '$totalEpisodes Episode${totalEpisodes > 1 ? "s" : ""}',
+                          style: TextStyle(color: subTextColor, fontSize: 12),
+                        ),
+                      ],
+                    ),
+                    if (yearsText.isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          Icon(Icons.calendar_today, size: 12, color: subTextColor),
+                          const SizedBox(width: 4),
+                          Text(
+                            yearsText,
+                            style: TextStyle(color: subTextColor, fontSize: 12),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right, color: subTextColor, size: 20),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _LibraryListShimmerItem extends StatelessWidget {
+  const _LibraryListShimmerItem();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final baseColor = isDark ? Colors.grey[900]! : Colors.grey[300]!;
+
+    return ShimmerEffect(
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        height: 100,
+        decoration: BoxDecoration(
+          color: theme.cardColor,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        padding: const EdgeInsets.all(8),
+        child: Row(
+          children: [
+            Container(
+              width: 60,
+              height: 84,
+              decoration: BoxDecoration(
+                color: baseColor,
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    width: 150,
+                    height: 16,
+                    decoration: BoxDecoration(
+                      color: baseColor,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    width: 100,
+                    height: 12,
+                    decoration: BoxDecoration(
+                      color: baseColor,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Container(
+                    width: 60,
+                    height: 12,
+                    decoration: BoxDecoration(
+                      color: baseColor,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

@@ -14,8 +14,18 @@ class ChannelCategory {
 }
 
 class Constants {
-  static const String currentVersion = '2.6.4';
+  static const String currentVersion = '2.7.0';
   static const String changelog = '''
+### 🚀 What's New in v2.7.0
+
+* **Layout Views & Custom Aesthetics**: Added persistent layout options to switch the catalog library view between Grid (2-column), Compact Grid (3-column visual layout), and List View (detailed poster + vertical rows).
+* **Release Year Search Indexing**: Optimized search engine functionality to match catalog items by release years of the active seasons.
+* **Audio Equalizer Enhancements**: Implemented an audio equalizer with Flat, Bass Boost, Vocal Booster, Treble Booster, Classical, Rock, and Pop presets and a 5-band manual fine-tuning control.
+* **Tuned Player Speeds & Gestures**: Added custom fine-tuning playback speed selectors, adjustable gesture sensitivity configuration (Low, Normal, High), and support for user-defined long press playback speed (defaulting to 1.5x to prevent sync lag).
+* **Local & External Subtitles Picker**: Integrated a file picker for external subtitles (`.srt`, `.vtt`, `.ass`, `.ssa`, `.sub`) with secure sandbox copying and improved error propagation for subtitle downloading.
+* **Manual Tracker Matcher UI**: Added direct AniList, MyAnimeList, and Trakt.tv search integration and progress sync indicator toasts within the media player interface.
+* **Subtitle Streaming Fixes**: Resolved HTTP loopback range and Matroska content-type headers matching inside the proxy service to load embedded subtitles seamlessly.
+
 ### 🚀 What's New in v2.6.4
 
 * **Forced Subtitles & Selection Retention**: Prevented automatic track stream updates from overriding manual audio and subtitle track selections during playback.

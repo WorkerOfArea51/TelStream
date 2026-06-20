@@ -59,9 +59,16 @@ class SubtitleDownloaderService {
           }
           return results;
         }
+      } else if (response.statusCode == 429) {
+        throw const HttpException('Too many requests. OpenSubtitles rate limit exceeded. Please try again later.');
+      } else if (response.statusCode == 403) {
+        throw const HttpException('Access denied. OpenSubtitles has blocked public queries. Please load a local subtitle file or try again later.');
+      } else {
+        throw HttpException('OpenSubtitles server returned error code ${response.statusCode}');
       }
     } catch (e) {
       Log.e('Failed to search subtitles for query=$query', e);
+      rethrow;
     }
     return [];
   }
@@ -90,10 +97,12 @@ class SubtitleDownloaderService {
         await file.writeAsBytes(decodedBytes);
         Log.i('Downloaded and saved subtitle to: ${file.path}');
         return file.path;
+      } else {
+        throw HttpException('Failed to download subtitle. Server returned code ${response.statusCode}');
       }
     } catch (e) {
       Log.e('Failed to download subtitle from $downloadUrl', e);
+      rethrow;
     }
-    return null;
   }
 }

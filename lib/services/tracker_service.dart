@@ -224,4 +224,112 @@ class TrackerService {
     }
     return false;
   }
+
+  Future<List<Map<String, dynamic>>> searchAnilistList(String name) async {
+    try {
+      const url = 'https://graphql.anilist.co';
+      const query = r'''
+        query ($search: String) {
+          Page (page: 1, perPage: 10) {
+            media (search: $search, type: ANIME) {
+              id
+              title {
+                english
+                romaji
+                userPreferred
+              }
+            }
+          }
+        }
+      ''';
+      final response = await http.post(
+        Uri.parse(url),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'query': query,
+          'variables': {'search': name},
+        }),
+      ).timeout(const Duration(seconds: 5));
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final list = data['data']?['Page']?['media'] as List?;
+        if (list != null) {
+          return list.map((item) {
+            final titleObj = item['title'];
+            final displayTitle = titleObj['english'] ?? titleObj['userPreferred'] ?? titleObj['romaji'] ?? 'Unknown';
+            return {
+              'id': item['id'],
+              'title': displayTitle,
+            };
+          }).toList().cast<Map<String, dynamic>>();
+        }
+      }
+    } catch (e) {
+      Log.w('AniList list search failed for $name: $e');
+    }
+    return [];
+  }
+
+  Future<List<Map<String, dynamic>>> searchMalList(String name) async {
+    try {
+      final url = Uri.parse('https://api.myanimelist.net/v2/anime?q=${Uri.encodeComponent(name)}&limit=10');
+      final token = _storage.getMalToken();
+      final headers = <String, String>{};
+      if (token != null && token.isNotEmpty) {
+        headers['Authorization'] = 'Bearer $token';
+      } else {
+        headers['X-MAL-CLIENT-ID'] = '829f046ef3294326127b407137f62c0a';
+      }
+
+      final response = await http.get(url, headers: headers).timeout(const Duration(seconds: 5));
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final list = data['data'] as List?;
+        if (list != null) {
+          return list.map((item) {
+            final node = item['node'];
+            return {
+              'id': node['id'],
+              'title': node['title'] ?? 'Unknown',
+            };
+          }).toList().cast<Map<String, dynamic>>();
+        }
+      }
+    } catch (e) {
+      Log.w('MAL list search failed for $name: $e');
+    }
+    return [];
+  }
+
+  Future<List<Map<String, dynamic>>> searchTraktList(String name) async {
+    try {
+      final url = Uri.parse('https://api.trakt.tv/search/show?query=${Uri.encodeComponent(name)}&limit=10');
+      final response = await http.get(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'trakt-api-version': '2',
+          'trakt-api-key': '05553e1be851c22a76f7df2b8a7c29be60cb5038ecbe6e80b2a7587dfb38ea47',
+        },
+      ).timeout(const Duration(seconds: 5));
+
+      if (response.statusCode == 200) {
+        final List list = json.decode(response.body);
+        return list.map((item) {
+          final show = item['show'];
+          final ids = show?['ids'] ?? {};
+          final displayTitle = show?['title'] ?? 'Unknown';
+          final year = show?['year']?.toString() ?? '';
+          return {
+            'id': ids['slug'] ?? ids['trakt']?.toString() ?? '',
+            'title': year.isNotEmpty ? '$displayTitle ($year)' : displayTitle,
+          };
+        }).toList().cast<Map<String, dynamic>>();
+      }
+    } catch (e) {
+      Log.w('Trakt list search failed for $name: $e');
+    }
+    return [];
+  }
 }

@@ -23,6 +23,12 @@ class VideoSettings {
   final int downloadEndHour;
   final String subtitleRendererMode;
   final bool dynamicRangeCompression;
+  final bool equalizerEnabled;
+  final List<double> equalizerBands;
+  final String equalizerPreset;
+  final double longPressSpeed;
+  final String gestureSensitivity;
+  final String libraryLayout;
 
   const VideoSettings({
     this.doubleTapSeekDuration = 10,
@@ -46,6 +52,12 @@ class VideoSettings {
     this.downloadEndHour = 6,
     this.subtitleRendererMode = 'native',
     this.dynamicRangeCompression = false,
+    this.equalizerEnabled = false,
+    this.equalizerBands = const [0.0, 0.0, 0.0, 0.0, 0.0],
+    this.equalizerPreset = 'Flat',
+    this.longPressSpeed = 1.5,
+    this.gestureSensitivity = 'Normal',
+    this.libraryLayout = 'Grid',
   });
 
   VideoSettings copyWith({
@@ -70,6 +82,12 @@ class VideoSettings {
     int? downloadEndHour,
     String? subtitleRendererMode,
     bool? dynamicRangeCompression,
+    bool? equalizerEnabled,
+    List<double>? equalizerBands,
+    String? equalizerPreset,
+    double? longPressSpeed,
+    String? gestureSensitivity,
+    String? libraryLayout,
   }) {
     return VideoSettings(
       doubleTapSeekDuration: doubleTapSeekDuration ?? this.doubleTapSeekDuration,
@@ -93,6 +111,12 @@ class VideoSettings {
       downloadEndHour: downloadEndHour ?? this.downloadEndHour,
       subtitleRendererMode: subtitleRendererMode ?? this.subtitleRendererMode,
       dynamicRangeCompression: dynamicRangeCompression ?? this.dynamicRangeCompression,
+      equalizerEnabled: equalizerEnabled ?? this.equalizerEnabled,
+      equalizerBands: equalizerBands ?? this.equalizerBands,
+      equalizerPreset: equalizerPreset ?? this.equalizerPreset,
+      longPressSpeed: longPressSpeed ?? this.longPressSpeed,
+      gestureSensitivity: gestureSensitivity ?? this.gestureSensitivity,
+      libraryLayout: libraryLayout ?? this.libraryLayout,
     );
   }
 
@@ -119,6 +143,12 @@ class VideoSettings {
       'downloadEndHour': downloadEndHour,
       'subtitleRendererMode': subtitleRendererMode,
       'dynamicRangeCompression': dynamicRangeCompression,
+      'equalizerEnabled': equalizerEnabled,
+      'equalizerBands': equalizerBands,
+      'equalizerPreset': equalizerPreset,
+      'longPressSpeed': longPressSpeed,
+      'gestureSensitivity': gestureSensitivity,
+      'libraryLayout': libraryLayout,
     };
   }
 
@@ -145,6 +175,12 @@ class VideoSettings {
       downloadEndHour: json['downloadEndHour'] ?? 6,
       subtitleRendererMode: json['subtitleRendererMode'] ?? 'native',
       dynamicRangeCompression: json['dynamicRangeCompression'] ?? false,
+      equalizerEnabled: json['equalizerEnabled'] ?? false,
+      equalizerBands: (json['equalizerBands'] as List?)?.map((e) => (e as num).toDouble()).toList() ?? const [0.0, 0.0, 0.0, 0.0, 0.0],
+      equalizerPreset: json['equalizerPreset'] ?? 'Flat',
+      longPressSpeed: (json['longPressSpeed'] as num?)?.toDouble() ?? 1.5,
+      gestureSensitivity: json['gestureSensitivity'] ?? 'Normal',
+      libraryLayout: json['libraryLayout'] ?? 'Grid',
     );
   }
 }

@@ -15,6 +15,7 @@ import '../../services/download_service.dart';
 import '../../services/tdlib_service.dart';
 
 import '../../core/widgets/shimmer_card.dart';
+import 'tracker_match_dialog.dart';
 
 class EpisodeListScreen extends ConsumerStatefulWidget {
   final AnimeSeason season;
@@ -283,6 +284,22 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
             expandedHeight: 250,
             pinned: true,
             backgroundColor: theme.scaffoldBackgroundColor,
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.link, color: Colors.white),
+                tooltip: 'Tracker Matcher',
+                onPressed: () {
+                  showModalBottomSheet(
+                    context: context,
+                    isScrollControlled: true,
+                    backgroundColor: Colors.transparent,
+                    builder: (context) => TrackerMatchDialog(
+                      seriesName: widget.series.coreName,
+                    ),
+                  );
+                },
+              ),
+            ],
             flexibleSpace: FlexibleSpaceBar(
               background: Stack(
                 fit: StackFit.expand,

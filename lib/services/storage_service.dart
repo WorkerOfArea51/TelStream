@@ -686,6 +686,18 @@ class StorageService {
     _data['trakt_id_cache'] = <String, dynamic>{};
     await _save();
   }
+
+  Future<void> unlinkTrackerForSeries(String seriesName, String trackerType) async {
+    final cacheKey = trackerType == 'anilist'
+        ? 'anilist_id_cache'
+        : trackerType == 'mal'
+            ? 'mal_id_cache'
+            : 'trakt_id_cache';
+    if (_data[cacheKey] != null) {
+      (_data[cacheKey] as Map).remove(seriesName);
+      await _save();
+    }
+  }
 }
 
 class FavoritesNotifier extends Notifier<List<String>> {

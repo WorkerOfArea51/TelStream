@@ -167,11 +167,22 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
           nativePlayer.setProperty('volume-max', '200');
         }
 
-        // Apply dynamic range compression (DRC)
-        final drcEnabled = _settings.dynamicRangeCompression;
-        if (drcEnabled) {
-          nativePlayer.setProperty('af', 'lavfi=[dynaudnorm]');
-          Log.i('Dynamic Range Compression (DRC) enabled on init.');
+        // Apply audio filters (DRC & Equalizer)
+        final filters = <String>[];
+        if (_settings.dynamicRangeCompression) {
+          filters.add('lavfi=[dynaudnorm]');
+        }
+        if (_settings.equalizerEnabled) {
+          final bands = _settings.equalizerBands;
+          filters.add('equalizer=f=100:width_type=o:w=2.0:g=${bands[0]}');
+          filters.add('equalizer=f=300:width_type=o:w=2.0:g=${bands[1]}');
+          filters.add('equalizer=f=1000:width_type=o:w=2.0:g=${bands[2]}');
+          filters.add('equalizer=f=3000:width_type=o:w=2.0:g=${bands[3]}');
+          filters.add('equalizer=f=10000:width_type=o:w=2.0:g=${bands[4]}');
+        }
+        if (filters.isNotEmpty) {
+          nativePlayer.setProperty('af', filters.join(','));
+          Log.i('Applied audio filters on init: ${filters.join(',')}');
         } else {
           nativePlayer.setProperty('af', '');
         }
@@ -507,7 +518,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
           } else {
             Log.i('Proxy playback active: routing streaming through loopback server');
             _proxyService.setDownloadOffset(_resolvedVideoFileId!, _initialOffset, event.file.local.downloadedSize);
-            final proxyUrl = _proxyService.getProxyUrl(_resolvedVideoFileId!);
+            final proxyUrl = _proxyService.getProxyUrl(_resolvedVideoFileId!, fileName: widget.videoTitle);
             _startPlayback(proxyUrl);
           }
         }
@@ -623,7 +634,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
       } else {
         Log.i('Instant playback: streaming active download via proxy: $localPath');
         _proxyService.setDownloadOffset(_resolvedVideoFileId!, _initialOffset, initialFileState.local.downloadedSize);
-        final proxyUrl = _proxyService.getProxyUrl(_resolvedVideoFileId!);
+        final proxyUrl = _proxyService.getProxyUrl(_resolvedVideoFileId!, fileName: widget.videoTitle);
         _startPlayback(proxyUrl);
       }
     }
@@ -985,11 +996,20 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         final mediaId = await trackerService.searchAnilistId(widget.seriesName);
         if (mediaId != null) {
           final isCompleted = widget.episodeList != null && episodeNumber == widget.episodeList!.length;
-          await trackerService.updateAnilistProgress(
+          final success = await trackerService.updateAnilistProgress(
             mediaId,
             episodeNumber,
             status: isCompleted ? 'COMPLETED' : 'CURRENT',
           );
+          if (success && mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('[AniList] Progress synced successfully (Ep $episodeNumber)'),
+                backgroundColor: Colors.blueAccent,
+                duration: const Duration(seconds: 2),
+              ),
+            );
+          }
         }
       } catch (e) {
         Log.w('AniList background progress sync failed: $e');
@@ -1002,11 +1022,20 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         final animeId = await trackerService.searchMalId(widget.seriesName);
         if (animeId != null) {
           final isCompleted = widget.episodeList != null && episodeNumber == widget.episodeList!.length;
-          await trackerService.updateMalProgress(
+          final success = await trackerService.updateMalProgress(
             animeId,
             episodeNumber,
             status: isCompleted ? 'completed' : 'watching',
           );
+          if (success && mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('[MAL] Progress synced successfully (Ep $episodeNumber)'),
+                backgroundColor: Colors.teal,
+                duration: const Duration(seconds: 2),
+              ),
+            );
+          }
         }
       } catch (e) {
         Log.w('MAL background progress sync failed: $e');
@@ -1023,12 +1052,21 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
           if (match != null) {
             seasonNum = int.tryParse(match.group(1)!) ?? 1;
           }
-          await trackerService.updateTraktProgress(
+          final success = await trackerService.updateTraktProgress(
             showSlug,
             seasonNum,
             episodeNumber,
             80.0,
           );
+          if (success && mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('[Trakt] Scrobble stop synced successfully (S${seasonNum}E$episodeNumber)'),
+                backgroundColor: Colors.redAccent,
+                duration: const Duration(seconds: 2),
+              ),
+            );
+          }
         }
       } catch (e) {
         Log.w('Trakt background scrobble failed: $e');

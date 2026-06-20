@@ -420,10 +420,11 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
   }
 
   List<AnimeSeries> _applySearchAndSort(List<AnimeSeries> list) {
+    final storage = ref.read(storageServiceProvider);
+    
     // 0. Apply Favorites Filter
     List<AnimeSeries> favoritesFiltered = list;
     if (_showFavoritesOnly) {
-      final storage = ref.read(storageServiceProvider);
       final favs = storage.getFavorites();
       favoritesFiltered = list.where((s) => favs.contains(s.coreName)).toList();
     }
@@ -436,7 +437,11 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
       filtered = favoritesFiltered.where((series) {
         final seriesName = series.coreName.toLowerCase();
         final seasonNames = series.seasons.map((s) => s.fullTitle.toLowerCase()).join(' ');
-        final fullText = '$seriesName $seasonNames';
+        final releaseYears = series.seasons
+            .map((s) => storage.getSeasonReleaseYear(s.fullTitle))
+            .where((y) => y != null && y > 0)
+            .join(' ');
+        final fullText = '$seriesName $seasonNames $releaseYears';
         
         final textWords = fullText.split(RegExp(r'[^a-z0-9]+')).where((w) => w.isNotEmpty).toList();
         
@@ -484,7 +489,6 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
     }
 
     // 4. Sort seasons within each series chronologically (using hybrid parsed rules + message post date order)
-    final storage = ref.read(storageServiceProvider);
     for (var series in sorted) {
       series.seasons.sort((a, b) {
         return SeasonSortKey.fromSeason(a, storage).compareTo(SeasonSortKey.fromSeason(b, storage));
