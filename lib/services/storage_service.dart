@@ -638,7 +638,7 @@ class StorageService {
   }
 
   String getSubtitleRenderer() {
-    return getVideoSettings()['subtitleRendererMode'] as String? ?? _data['subtitle_renderer'] as String? ?? 'native';
+    return getVideoSettings()['subtitleRendererMode'] as String? ?? _data['subtitle_renderer'] as String? ?? 'flutter';
   }
 
   Future<void> setSubtitleRenderer(String value) async {

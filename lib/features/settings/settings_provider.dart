@@ -56,7 +56,7 @@ class VideoSettings {
     this.downloadSchedulerEnabled = false,
     this.downloadStartHour = 2,
     this.downloadEndHour = 6,
-    this.subtitleRendererMode = 'native',
+    this.subtitleRendererMode = 'flutter',
     this.dynamicRangeCompression = false,
     this.equalizerEnabled = false,
     this.equalizerBands = const [0.0, 0.0, 0.0, 0.0, 0.0],
