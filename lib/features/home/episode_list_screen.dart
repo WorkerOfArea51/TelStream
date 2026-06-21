@@ -21,12 +21,14 @@ class EpisodeListScreen extends ConsumerStatefulWidget {
   final AnimeSeason season;
   final AnimeSeries series;
   final String? heroTag;
+  final String? categoryTitle;
 
   const EpisodeListScreen({
     super.key,
     required this.season,
     required this.series,
     this.heroTag,
+    this.categoryTitle,
   });
 
   @override
@@ -380,7 +382,9 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
                             ),
                             const SizedBox(height: 8),
                             Text(
-                              '${_selectedSeason.episodes.length} Episodes',
+                              widget.categoryTitle == 'Movies'
+                                  ? 'Movie'
+                                  : '${_selectedSeason.episodes.length} Episode${_selectedSeason.episodes.length > 1 ? "s" : ""}',
                               style: TextStyle(
                                 color: isDark ? Colors.white70 : Colors.black87,
                                 fontWeight: FontWeight.bold,

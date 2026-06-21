@@ -42,11 +42,11 @@ class FavoritesScreen extends ConsumerWidget {
       ),
       body: isLoading && favoriteSeries.isEmpty
           ? const Center(child: CircularProgressIndicator(color: Colors.blueAccent))
-          : _buildFavoritesBody(context, favoriteSeries),
+          : _buildFavoritesBody(context, ref, favoriteSeries),
     );
   }
 
-  Widget _buildFavoritesBody(BuildContext context, List<AnimeSeries> favoriteSeries) {
+  Widget _buildFavoritesBody(BuildContext context, WidgetRef ref, List<AnimeSeries> favoriteSeries) {
     if (favoriteSeries.isEmpty) {
       return const Center(
         child: Column(
@@ -62,6 +62,9 @@ class FavoritesScreen extends ConsumerWidget {
       );
     }
 
+    final moviesList = ref.read(moviesControllerProvider).value ?? [];
+    final webSeriesList = ref.read(webSeriesControllerProvider).value ?? [];
+
     return GridView.builder(
       padding: const EdgeInsets.all(16),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -73,6 +76,9 @@ class FavoritesScreen extends ConsumerWidget {
       itemCount: favoriteSeries.length,
       itemBuilder: (context, index) {
         final series = favoriteSeries[index];
+        final isMovie = moviesList.any((s) => s.coreName == series.coreName);
+        final isWebSeries = webSeriesList.any((s) => s.coreName == series.coreName);
+        final categoryTitle = isMovie ? 'Movies' : (isWebSeries ? 'Web Series' : 'Anime');
         final totalEpisodes = series.seasons.fold(0, (sum, s) => sum + s.episodes.length);
         final latestPoster = series.seasons.isNotEmpty ? series.seasons.first.posterMessage : null;
         
@@ -95,6 +101,7 @@ class FavoritesScreen extends ConsumerWidget {
                   season: series.seasons.first,
                   series: series,
                   heroTag: 'hero_poster_fav_${series.coreName}',
+                  categoryTitle: categoryTitle,
                 ),
               ),
             );
@@ -150,11 +157,10 @@ class FavoritesScreen extends ConsumerWidget {
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      const SizedBox(height: 4),
                       Text(
-                        '$totalEpisodes Episodes',
-                        style: const TextStyle(
-                          color: Colors.blue,
+                        isMovie ? 'Movie' : '$totalEpisodes Episode${totalEpisodes > 1 ? "s" : ""}',
+                        style: TextStyle(
+                          color: isMovie ? Colors.amber : Colors.blue,
                           fontSize: 12,
                         ),
                       ),

@@ -498,6 +498,7 @@ class _LibraryGridItemState extends State<_LibraryGridItem> {
               season: widget.series.seasons.first,
               series: widget.series,
               heroTag: 'hero_library_${widget.categoryTitle}_${widget.series.coreName}',
+              categoryTitle: widget.categoryTitle,
             ),
           ),
         );
@@ -710,6 +711,7 @@ class _FeaturedCarouselState extends State<FeaturedCarousel> {
                           season: series.seasons.first,
                           series: series,
                           heroTag: 'hero_featured_${widget.categoryTitle}_${series.coreName}',
+                          categoryTitle: widget.categoryTitle,
                         ),
                       ),
                     );
@@ -1115,6 +1117,7 @@ class _LibraryCompactItemState extends State<_LibraryCompactItem> {
               season: widget.series.seasons.first,
               series: widget.series,
               heroTag: 'hero_library_${widget.categoryTitle}_${widget.series.coreName}',
+              categoryTitle: widget.categoryTitle,
             ),
           ),
         );
@@ -1258,6 +1261,7 @@ class _LibraryListItemState extends ConsumerState<_LibraryListItem> {
               season: widget.series.seasons.first,
               series: widget.series,
               heroTag: 'hero_library_${widget.categoryTitle}_${widget.series.coreName}',
+              categoryTitle: widget.categoryTitle,
             ),
           ),
         );
@@ -1325,19 +1329,28 @@ class _LibraryListItemState extends ConsumerState<_LibraryListItem> {
                     const SizedBox(height: 6),
                     Row(
                       children: [
-                        Icon(Icons.video_library, size: 12, color: subTextColor),
-                        const SizedBox(width: 4),
-                        Text(
-                          '$seasonCount Season${seasonCount > 1 ? "s" : ""}',
-                          style: TextStyle(color: subTextColor, fontSize: 12),
-                        ),
-                        const SizedBox(width: 12),
-                        Icon(Icons.play_circle_outline, size: 12, color: subTextColor),
-                        const SizedBox(width: 4),
-                        Text(
-                          '$totalEpisodes Episode${totalEpisodes > 1 ? "s" : ""}',
-                          style: TextStyle(color: subTextColor, fontSize: 12),
-                        ),
+                        if (widget.categoryTitle == 'Movies') ...[
+                          Icon(Icons.movie, size: 12, color: subTextColor),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Movie',
+                            style: TextStyle(color: subTextColor, fontSize: 12),
+                          ),
+                        ] else ...[
+                          Icon(Icons.video_library, size: 12, color: subTextColor),
+                          const SizedBox(width: 4),
+                          Text(
+                            '$seasonCount Season${seasonCount > 1 ? "s" : ""}',
+                            style: TextStyle(color: subTextColor, fontSize: 12),
+                          ),
+                          const SizedBox(width: 12),
+                          Icon(Icons.play_circle_outline, size: 12, color: subTextColor),
+                          const SizedBox(width: 4),
+                          Text(
+                            '$totalEpisodes Episode${totalEpisodes > 1 ? "s" : ""}',
+                            style: TextStyle(color: subTextColor, fontSize: 12),
+                          ),
+                        ],
                       ],
                     ),
                     if (yearsText.isNotEmpty) ...[

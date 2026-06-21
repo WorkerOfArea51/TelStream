@@ -251,6 +251,7 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
                       series: series,
                       season: season,
                       heroTag: heroTag,
+                      categoryTitle: title,
                     ),
                   ),
                 );

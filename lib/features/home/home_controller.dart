@@ -395,40 +395,42 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
     return fetchedBatch;
   }
 
-  static String normalizeSeriesName(String name) {
+  static String normalizeSeriesName(String name, {bool isMovie = false}) {
     var normalized = name.trim();
 
     // 1. Remove bracketed text at the end, e.g. [1080p], (Movie), etc.
     normalized = normalized.replaceAll(RegExp(r'\s*[\[\(].*?[\]\)]\s*$'), '');
 
-    // 2. Remove trailing season / part / movie indicators.
-    
-    // Pattern A: trailing season/s/part with digit or Roman numeral
-    // e.g. "season 2", "s3", "part II", "part 2"
-    // Note: We avoid stripping "six" by requiring a space/separator when single-letter 's' is followed by a Roman numeral.
-    normalized = normalized.replaceAll(RegExp(r'(?:\s*[-–—:|]\s*)?\b(?:(?:season|part)\s*(?:\d+|[ivxIVX]+)|s\s*\d+|s\s+[ivxIVX]+)\b', caseSensitive: false), '');
+    if (!isMovie) {
+      // 2. Remove trailing season / part / movie indicators.
+      
+      // Pattern A: trailing season/s/part with digit or Roman numeral
+      // e.g. "season 2", "s3", "part II", "part 2"
+      // Note: We avoid stripping "six" by requiring a space/separator when single-letter 's' is followed by a Roman numeral.
+      normalized = normalized.replaceAll(RegExp(r'(?:\s*[-–—:|]\s*)?\b(?:(?:season|part)\s*(?:\d+|[ivxIVX]+)|s\s*\d+|s\s+[ivxIVX]+)\b', caseSensitive: false), '');
 
-    // Pattern B: trailing final season/chapters/act/arc indicators
-    // e.g. "final season", "final chapters", "final chapter", "final act", "final arc", "final"
-    normalized = normalized.replaceAll(RegExp(r'(?:\s*[-–—:|]\s*)?\b(?:the\s+)?final\s+(?:season|chapters?|act|arcs?|part)?\b', caseSensitive: false), '');
+      // Pattern B: trailing final season/chapters/act/arc indicators
+      // e.g. "final season", "final chapters", "final chapter", "final act", "final arc", "final"
+      normalized = normalized.replaceAll(RegExp(r'(?:\s*[-–—:|]\s*)?\b(?:the\s+)?final\s+(?:season|chapters?|act|arcs?|part)?\b', caseSensitive: false), '');
 
-    // Pattern C: trailing movie / ova / oad / special / specials / prequel / sequel tags
-    normalized = normalized.replaceAll(RegExp(r'(?:\s*[-–—:|]\s*)?\b(?:the\s+)?(?:movie|ova|oad|specials?|prequels?|sequels?)\b', caseSensitive: false), '');
+      // Pattern C: trailing movie / ova / oad / special / specials / prequel / sequel tags
+      normalized = normalized.replaceAll(RegExp(r'(?:\s*[-–—:|]\s*)?\b(?:the\s+)?(?:movie|ova|oad|specials?|prequels?|sequels?)\b', caseSensitive: false), '');
 
-    // Pattern D: trailing Roman numerals at the end of the string
-    // e.g. "II", "III", etc.
-    normalized = normalized.replaceAll(RegExp(r'\s*\b[ivxIVX]+\b$', caseSensitive: false), '');
+      // Pattern D: trailing Roman numerals at the end of the string
+      // e.g. "II", "III", etc.
+      normalized = normalized.replaceAll(RegExp(r'\s*\b[ivxIVX]+\b$', caseSensitive: false), '');
 
-    // Pattern E: trailing single digits (0-9) NOT preceded by "no" or "vol"
-    // e.g. "Log Horizon 2", "Jujutsu Kaisen 0"
-    normalized = normalized.replaceAll(RegExp(r'(?<!\bno)(?<!\bno\.)(?<!\bvol)(?<!\bvol\.)\s+\b\d\b$', caseSensitive: false), '');
+      // Pattern E: trailing single digits (0-9) NOT preceded by "no" or "vol"
+      // e.g. "Log Horizon 2", "Jujutsu Kaisen 0"
+      normalized = normalized.replaceAll(RegExp(r'(?<!\bno)(?<!\bno\.)(?<!\bvol)(?<!\bvol\.)\s+\b\d\b$', caseSensitive: false), '');
 
-    // Pattern F: trailing single letter "S" (case insensitive) preceded by space (e.g. "Dragon Maid S")
-    normalized = normalized.replaceAll(RegExp(r'\s+\b[sS]\b$'), '');
+      // Pattern F: trailing single letter "S" (case insensitive) preceded by space (e.g. "Dragon Maid S")
+      normalized = normalized.replaceAll(RegExp(r'\s+\b[sS]\b$'), '');
 
-    // 3. Remove common trailing subtitles after a colon if it's left with something
-    if (normalized.contains(':')) {
-      normalized = normalized.split(':')[0].trim();
+      // 3. Remove common trailing subtitles after a colon if it's left with something
+      if (normalized.contains(':')) {
+        normalized = normalized.split(':')[0].trim();
+      }
     }
 
     // Also clean up any trailing dashes, colons, or punctuation left over from the replacements
@@ -521,7 +523,8 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
         if (captionText.isNotEmpty) {
           final lines = captionText.split('\n');
           final fullTitle = lines.first.trim();
-          final baseName = normalizeSeriesName(fullTitle);
+          final isMovie = category.title == 'Movies';
+          final baseName = normalizeSeriesName(fullTitle, isMovie: isMovie);
           
           final newSeason = AnimeSeason(
             fullTitle: fullTitle,
