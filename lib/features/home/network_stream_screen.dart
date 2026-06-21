@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../player/pip_manager.dart';
+import '../../services/storage_service.dart';
 
 class NetworkStreamScreen extends ConsumerStatefulWidget {
   const NetworkStreamScreen({super.key});
@@ -23,6 +24,8 @@ class _NetworkStreamScreenState extends ConsumerState<NetworkStreamScreen> {
     if (_formKey.currentState!.validate()) {
       final url = _urlController.text.trim();
       
+      ref.read(recentNetworkStreamsProvider.notifier).addStream(url);
+      
       // We extract filename from URL or use a default title
       String fileName = 'Network Stream';
       try {
@@ -43,9 +46,31 @@ class _NetworkStreamScreenState extends ConsumerState<NetworkStreamScreen> {
     }
   }
 
+  void _playStreamDirect(String url) {
+    ref.read(recentNetworkStreamsProvider.notifier).addStream(url);
+    
+    String fileName = 'Network Stream';
+    try {
+      final uri = Uri.parse(url);
+      if (uri.pathSegments.isNotEmpty) {
+        fileName = uri.pathSegments.last;
+      }
+    } catch (_) {}
+
+    ref.read(pipControllerProvider.notifier).playVideo(
+      context,
+      messageId: 0,
+      videoFileId: 0,
+      videoTitle: fileName,
+      networkUrl: url,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final recentStreams = ref.watch(recentNetworkStreamsProvider);
+
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
@@ -128,6 +153,71 @@ class _NetworkStreamScreenState extends ConsumerState<NetworkStreamScreen> {
                   ),
                 ),
               ),
+              if (recentStreams.isNotEmpty) ...[
+                const SizedBox(height: 32),
+                Row(
+                  children: const [
+                    Icon(Icons.history, color: Colors.orange, size: 20),
+                    SizedBox(width: 8),
+                    Text(
+                      'Recent Streams',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Expanded(
+                  child: ListView.builder(
+                    itemCount: recentStreams.length,
+                    itemBuilder: (context, index) {
+                      final url = recentStreams[index];
+                      String title = url;
+                      try {
+                        final uri = Uri.parse(url);
+                        if (uri.pathSegments.isNotEmpty) {
+                          title = uri.pathSegments.last;
+                        }
+                      } catch (_) {}
+                      
+                      return Card(
+                        color: theme.cardColor,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        margin: const EdgeInsets.only(bottom: 8),
+                        child: ListTile(
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                          leading: const Icon(Icons.link, color: Colors.white54),
+                          title: Text(
+                            title,
+                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          subtitle: Text(
+                            url,
+                            style: const TextStyle(color: Colors.white30, fontSize: 11),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          trailing: IconButton(
+                            icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                            onPressed: () {
+                              ref.read(recentNetworkStreamsProvider.notifier).removeStream(url);
+                            },
+                          ),
+                          onTap: () => _playStreamDirect(url),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ] else
+                const Spacer(),
             ],
           ),
         ),

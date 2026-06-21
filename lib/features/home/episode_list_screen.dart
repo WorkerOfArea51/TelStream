@@ -615,6 +615,9 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
             networkUrl: isDownloaded ? task.localPath : null,
           );
         },
+        onLongPress: () {
+          _showMarkWatchedDialog(context, msg, index, fileTitle);
+        },
         child: Padding(
           padding: const EdgeInsets.all(12),
           child: Column(
@@ -737,6 +740,85 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
       autoDownload: true,
       width: double.infinity,
       height: double.infinity,
+    );
+  }
+
+  void _showMarkWatchedDialog(BuildContext context, td.Message msg, int index, String title) {
+    final storage = ref.read(storageServiceProvider);
+    final theme = Theme.of(context);
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: theme.cardColor,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Text(
+                  title,
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const Divider(height: 1),
+              ListTile(
+                leading: const Icon(Icons.check_circle_outline, color: Colors.green),
+                title: const Text('Mark as Watched'),
+                onTap: () async {
+                  int duration = 0;
+                  if (msg.content is td.MessageVideo) {
+                    duration = (msg.content as td.MessageVideo).video.duration;
+                  } else {
+                    duration = storage.getVideoDuration(msg.id);
+                  }
+                  final resolvedDuration = duration > 0 ? duration : 1800;
+                  if (duration <= 0) {
+                    await storage.saveVideoDuration(msg.id, resolvedDuration);
+                  }
+                  await storage.saveWatchPosition(msg.id, resolvedDuration);
+                  
+                  if (!storage.isIncognitoMode() && widget.series.coreName.isNotEmpty) {
+                    await ref.read(historyLogProvider.notifier).addToHistory(
+                      seriesName: widget.series.coreName,
+                      messageId: msg.id,
+                      episodeIndex: index,
+                      episodeTitle: title.replaceFirst('${widget.series.coreName} - ', ''),
+                      positionInSeconds: resolvedDuration,
+                      videoFileId: msg.content is td.MessageVideo
+                          ? (msg.content as td.MessageVideo).video.video.id
+                          : (msg.content as td.MessageDocument).document.document.id,
+                    );
+                  }
+                  
+                  if (context.mounted) {
+                    setState(() {});
+                    Navigator.pop(context);
+                  }
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.unpublished_outlined, color: Colors.redAccent),
+                title: const Text('Mark as Unwatched'),
+                onTap: () async {
+                  await storage.saveWatchPosition(msg.id, 0);
+                  if (context.mounted) {
+                    setState(() {});
+                    Navigator.pop(context);
+                  }
+                },
+              ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        );
+      },
     );
   }
 }

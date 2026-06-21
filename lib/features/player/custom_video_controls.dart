@@ -23,6 +23,7 @@ import 'widgets/equalizer_dialog.dart';
 import 'widgets/speed_selector_dialog.dart';
 import 'widgets/track_selector_panel.dart';
 import 'widgets/subtitle_downloader_dialog.dart';
+import 'widgets/audio_sync_dialog.dart';
 
 class CustomVideoControls extends ConsumerStatefulWidget {
   final Player player;
@@ -105,6 +106,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
   final bool _audioBoostActive = false;
   bool _nightModeActive = false;
   bool _showSpeedIndicator = false;
+  double _audioDelay = 0.0;
 
   // Double tap seek variables
   bool _showLeftSeekOverlay = false;
@@ -660,6 +662,12 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
         isActive: _sleepTimerSecondsRemaining != null,
         onTap: _showSleepTimerSelector,
       ),
+      _buildCircularActionButton(
+        icon: Icons.sync,
+        label: 'A/V Sync',
+        isActive: _audioDelay != 0.0,
+        onTap: _showAudioDelayDialog,
+      ),
     ];
 
     if (items.length <= 3) {
@@ -798,6 +806,17 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     _currentVolume = widget.player.state.volume;
     _initSystemVolumeAndBrightness();
     _initAspectRatio();
+    if (widget.player.platform is NativePlayer) {
+      try {
+        (widget.player.platform as NativePlayer).getProperty('audio-delay').then((delayStr) {
+          if (mounted) {
+            setState(() {
+              _audioDelay = double.tryParse(delayStr) ?? 0.0;
+            });
+          }
+        }).catchError((_) {});
+      } catch (_) {}
+    }
     _bufferingSubscription = widget.player.stream.buffering.listen((buffering) {
       if (mounted) {
         setState(() {
@@ -3459,6 +3478,19 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     EqualizerDialog.show(
       context,
       onFiltersUpdated: _updateAudioFilters,
+    );
+  }
+
+  void _showAudioDelayDialog() {
+    AudioSyncDialog.show(
+      context,
+      player: widget.player,
+      currentDelay: _audioDelay,
+      onDelayChanged: (val) {
+        setState(() {
+          _audioDelay = val;
+        });
+      },
     );
   }
 

@@ -731,6 +731,32 @@ class StorageService {
       await _save();
     }
   }
+
+  List<String> getRecentNetworkStreams() {
+    if (_data['recent_network_streams'] == null) return [];
+    return List<String>.from(_data['recent_network_streams']);
+  }
+
+  Future<void> addRecentNetworkStream(String url) async {
+    _data['recent_network_streams'] ??= <dynamic>[];
+    final List<String> list = List<String>.from(_data['recent_network_streams']);
+    list.remove(url);
+    list.insert(0, url);
+    if (list.length > 20) {
+      list.removeLast();
+    }
+    _data['recent_network_streams'] = list;
+    await _save();
+  }
+
+  Future<void> removeRecentNetworkStream(String url) async {
+    if (_data['recent_network_streams'] != null) {
+      final List<String> list = List<String>.from(_data['recent_network_streams']);
+      list.remove(url);
+      _data['recent_network_streams'] = list;
+      await _save();
+    }
+  }
 }
 
 class FavoritesNotifier extends Notifier<List<String>> {
@@ -830,5 +856,26 @@ class HistoryLogNotifier extends Notifier<List<Map<String, dynamic>>> {
 }
 
 final historyLogProvider = NotifierProvider<HistoryLogNotifier, List<Map<String, dynamic>>>(HistoryLogNotifier.new);
+
+class RecentNetworkStreamsNotifier extends Notifier<List<String>> {
+  @override
+  List<String> build() {
+    return ref.watch(storageServiceProvider).getRecentNetworkStreams();
+  }
+
+  Future<void> addStream(String url) async {
+    final storage = ref.read(storageServiceProvider);
+    await storage.addRecentNetworkStream(url);
+    state = storage.getRecentNetworkStreams();
+  }
+
+  Future<void> removeStream(String url) async {
+    final storage = ref.read(storageServiceProvider);
+    await storage.removeRecentNetworkStream(url);
+    state = storage.getRecentNetworkStreams();
+  }
+}
+
+final recentNetworkStreamsProvider = NotifierProvider<RecentNetworkStreamsNotifier, List<String>>(RecentNetworkStreamsNotifier.new);
 
 

@@ -189,6 +189,37 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
 
         // Apply adaptive streaming profile
         _applyStreamingProfile();
+
+        // Apply custom MPV options
+        final customOpts = _settings.customMpvOptions;
+        if (customOpts.isNotEmpty) {
+          final pairs = customOpts.split(',');
+          for (final pair in pairs) {
+            final idx = pair.indexOf('=');
+            if (idx != -1) {
+              final key = pair.substring(0, idx).trim();
+              final value = pair.substring(idx + 1).trim();
+              if (key.isNotEmpty) {
+                try {
+                  nativePlayer.setProperty(key, value);
+                  Log.i('Applied custom MPV option: $key = $value');
+                } catch (e) {
+                  Log.w('Failed to set custom MPV option $key: $e');
+                }
+              }
+            } else {
+              final key = pair.trim();
+              if (key.isNotEmpty) {
+                try {
+                  nativePlayer.setProperty(key, 'yes');
+                  Log.i('Applied custom MPV option: $key = yes');
+                } catch (e) {
+                  Log.w('Failed to set custom MPV option $key: $e');
+                }
+              }
+            }
+          }
+        }
       }
     } catch (e, stack) {
       Log.e('Failed to configure native player features', e, stack);

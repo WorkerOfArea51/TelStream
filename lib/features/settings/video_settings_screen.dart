@@ -471,6 +471,43 @@ class VideoSettingsScreen extends ConsumerWidget {
               ],
             ),
           ),
+
+          const SizedBox(height: 20),
+          _buildSectionHeader(context, 'Advanced Options'),
+          Card(
+            elevation: 0,
+            color: theme.cardColor,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+              side: BorderSide(color: theme.colorScheme.onSurface.withValues(alpha: 0.08), width: 1),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: Column(
+              children: [
+                ListTile(
+                  title: Text('Custom MPV Options', style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
+                  subtitle: Text(
+                    settings.customMpvOptions.isEmpty
+                        ? 'None (e.g. demuxer-max-bytes=100M,speed=1.1)'
+                        : settings.customMpvOptions,
+                    style: TextStyle(color: isDark ? Colors.white54 : Colors.black54, fontSize: 12),
+                  ),
+                  trailing: const Icon(Icons.edit, size: 20),
+                  onTap: () async {
+                    final newVal = await _showTextFieldDialog(
+                      context,
+                      'Custom MPV Options',
+                      'Specify custom startup options passed to MPV (comma-separated):',
+                      settings.customMpvOptions,
+                    );
+                    if (newVal != null) {
+                      notifier.updateSettings(settings.copyWith(customMpvOptions: newVal));
+                    }
+                  },
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
