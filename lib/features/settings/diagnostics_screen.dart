@@ -70,7 +70,7 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
     
     final isAndroid = Platform.isAndroid;
     final decoderMode = storage.getHardwareDecoderMode();
-    final isNativeBlending = settings.subtitleRendererMode == 'native';
+    final isNativeBlending = settings.subtitleRendererMode == 'native' || settings.subtitleRendererMode == 'auto';
     
     // Check for the critical zero-copy subtitle rendering conflict
     final hasConflict = isAndroid && isNativeBlending && decoderMode == 'mediacodec';
@@ -183,9 +183,11 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
                 ListTile(
                   title: const Text('Subtitle Renderer Mode', style: TextStyle(color: Colors.white)),
                   subtitle: Text(
-                    settings.subtitleRendererMode == 'flutter' 
-                        ? 'Compatible Flutter Text Overlay' 
-                        : 'Stylized Native Blending',
+                    settings.subtitleRendererMode == 'auto'
+                        ? 'Smart Auto (Auto Overlay / Blending)'
+                        : settings.subtitleRendererMode == 'flutter' 
+                            ? 'Compatible Flutter Text Overlay' 
+                            : 'Stylized Native Blending',
                     style: const TextStyle(color: Colors.white54, fontSize: 12),
                   ),
                   trailing: const Icon(Icons.subtitles, color: Colors.white30),

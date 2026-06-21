@@ -44,8 +44,11 @@ class VideoPlayerScreen extends ConsumerStatefulWidget {
 }
 
 class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with WidgetsBindingObserver {
-  late final Player player;
-  late final VideoController controller;
+  late Player player;
+  late VideoController controller;
+  bool _currentLibass = false;
+  String? _openedMediaPath;
+  bool _isRecreatingPlayer = false;
   StreamSubscription? _updatesSubscription;
   bool _isPlaying = false;
   int _downloadedPrefixSize = 0;
@@ -70,7 +73,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
   late final StorageService _storageService;
   late final TdlibService _tdlibService;
   late final PipController _pipController;
-  late final VideoSettings _settings;
+  late VideoSettings _settings;
   late final StreamingProxyService _proxyService;
 
   @override
@@ -86,155 +89,11 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
     
 
 
-    player = Player(
-      configuration: PlayerConfiguration(
-        pitch: _settings.pitchCorrection,
-        libass: _settings.subtitleRendererMode == 'native',
-        libassAndroidFont: 'assets/fonts/Roboto-Regular.ttf',
-        libassAndroidFontName: 'Roboto',
-      ),
-    );
+    final initialLibass = _settings.subtitleRendererMode == 'native'; // For 'auto', start with false (overlay)
+    _currentLibass = initialLibass;
+    _initPlayerInstance(libass: initialLibass);
+    _setupPlayerListeners();
 
-    // Optimize streaming cache/buffering parameters for low-bandwidth connections and reduce glitching
-    try {
-      if (player.platform is NativePlayer) {
-        final nativePlayer = player.platform as NativePlayer;
-        
-        // Enable fast rendering/scaling profile to save GPU/CPU thermals and prevent lag
-        nativePlayer.setProperty('profile', 'fast');
-
-        nativePlayer.setProperty('cache', 'yes');
-        nativePlayer.setProperty('demuxer-max-back-bytes', '16777216'); // 16 MB back buffer (instant backward seek)
-        nativePlayer.setProperty('cache-pause', 'yes'); // Stalls playback if buffer runs out to prevent decoding corrupted frames
-        nativePlayer.setProperty('cache-pause-initial', 'no'); // Start playing immediately without artificial startup delay
-        nativePlayer.setProperty('hr-seek', 'no'); // Disable high-precision seeking on slow networks to seek instantly to keyframes
-        
-        // Set synchronization clocks and framedrop to maintain perfect audio/video/subtitle sync at high speed
-        nativePlayer.setProperty('video-sync', 'audio');
-        nativePlayer.setProperty('audio-pitch-correction', 'yes');
-        nativePlayer.setProperty('audio-buffer', '0.2'); // Increased to 0.2s to prevent audio underflow stutters
-        nativePlayer.setProperty('framedrop', 'vo'); // Drop late frames in VO to avoid lag at 2x speed without decoder slideshow freezes
-        nativePlayer.setProperty('sub-fix-timing', 'yes');
-        nativePlayer.setProperty('stream-buffer-size', '8388608'); // 8 MB stream buffer for high-throughput network reading
-        nativePlayer.setProperty('vd-lavc-fast', 'yes'); // Enable fast decoding optimizations
-        nativePlayer.setProperty('vd-lavc-skiploopfilter', 'all'); // Skip all loop filtering to keep up with 2x playback speed
-        nativePlayer.setProperty('vd-lavc-threads', '0'); // Enable multi-threaded video decoding to prevent lag at 2x speed
-
-        final hwDecMode = _storageService.getHardwareDecoderMode();
-        if (hwDecMode != 'no') {
-          if (Platform.isAndroid) {
-            nativePlayer.setProperty('hwdec', hwDecMode);
-          } else {
-            nativePlayer.setProperty('hwdec', 'auto');
-          }
-        } else {
-          nativePlayer.setProperty('hwdec', 'no');
-        }
-        // Always configure native subtitle rendering (libass)
-        nativePlayer.setProperty('sub-visibility', 'yes');
-        nativePlayer.setProperty('sub-auto', 'all');
-        nativePlayer.setProperty('embeddedfonts', 'yes'); // Enable embedded fonts inside media containers (MKV, etc.)
-        nativePlayer.setProperty('blend-subtitles', 'no'); // Set to 'no' so subtitles render independently and sync perfectly with the master audio clock
-        nativePlayer.setProperty('demuxer-mkv-subtitle-preroll', 'yes');
-        nativePlayer.setProperty('sub-ass-override', 'scale');
-
-        // Load subtitle customizations
-        final subSize = _storageService.getSubtitleFontSize();
-        final subColor = _storageService.getSubtitleColor();
-        final subDelay = _storageService.getSubtitleDelay();
-        final subFont = _storageService.getSubtitleFont();
-
-        nativePlayer.setProperty('sub-font-size', subSize.round().toString());
-        nativePlayer.setProperty('sub-color', subColor);
-        nativePlayer.setProperty('sub-delay', subDelay.toString());
-
-        // Set sub-font to the font family name.
-        String resolvedFontFamily = 'Roboto'; // Default to Roboto
-        if (subFont.toLowerCase().contains('arial')) {
-          resolvedFontFamily = 'Arial';
-        } else if (subFont.toLowerCase().contains('dejavu')) {
-          resolvedFontFamily = 'DejaVuSans';
-        } else if (subFont.toLowerCase().contains('sans-serif')) {
-          resolvedFontFamily = 'sans-serif';
-        } else if (subFont.toLowerCase().contains('roboto')) {
-          resolvedFontFamily = 'Roboto';
-        }
-        
-        nativePlayer.setProperty('sub-font', resolvedFontFamily);
-
-        final volBoost = _storageService.getVolumeBoostEnabled();
-        if (volBoost) {
-          nativePlayer.setProperty('volume-max', '200');
-        }
-
-        // Apply audio filters (DRC & Equalizer)
-        final filters = <String>[];
-        if (_settings.dynamicRangeCompression) {
-          filters.add('lavfi=[dynaudnorm]');
-        }
-        if (_settings.equalizerEnabled) {
-          final bands = _settings.equalizerBands;
-          filters.add('equalizer=f=100:width_type=o:w=2.0:g=${bands[0]}');
-          filters.add('equalizer=f=300:width_type=o:w=2.0:g=${bands[1]}');
-          filters.add('equalizer=f=1000:width_type=o:w=2.0:g=${bands[2]}');
-          filters.add('equalizer=f=3000:width_type=o:w=2.0:g=${bands[3]}');
-          filters.add('equalizer=f=10000:width_type=o:w=2.0:g=${bands[4]}');
-        }
-        if (filters.isNotEmpty) {
-          nativePlayer.setProperty('af', filters.join(','));
-          Log.i('Applied audio filters on init: ${filters.join(',')}');
-        } else {
-          nativePlayer.setProperty('af', '');
-        }
-
-        // Apply adaptive streaming profile
-        _applyStreamingProfile();
-
-        // Apply custom MPV options
-        final customOpts = _settings.customMpvOptions;
-        if (customOpts.isNotEmpty) {
-          final pairs = customOpts.split(',');
-          for (final pair in pairs) {
-            final idx = pair.indexOf('=');
-            if (idx != -1) {
-              final key = pair.substring(0, idx).trim();
-              final value = pair.substring(idx + 1).trim();
-              if (key.isNotEmpty) {
-                try {
-                  nativePlayer.setProperty(key, value);
-                  Log.i('Applied custom MPV option: $key = $value');
-                } catch (e) {
-                  Log.w('Failed to set custom MPV option $key: $e');
-                }
-              }
-            } else {
-              final key = pair.trim();
-              if (key.isNotEmpty) {
-                try {
-                  nativePlayer.setProperty(key, 'yes');
-                  Log.i('Applied custom MPV option: $key = yes');
-                } catch (e) {
-                  Log.w('Failed to set custom MPV option $key: $e');
-                }
-              }
-            }
-          }
-        }
-      }
-    } catch (e, stack) {
-      Log.e('Failed to configure native player features', e, stack);
-    }
-
-    final hwDecMode = _storageService.getHardwareDecoderMode();
-    final enableHw = hwDecMode != 'no';
-    _pipController.setActivePlayer(player);
-    controller = VideoController(
-      player,
-      configuration: VideoControllerConfiguration(
-        enableHardwareAcceleration: enableHw,
-      ),
-    );
-    
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _pipController.isTransitioning = false;
     });
@@ -250,139 +109,6 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
     } else {
       _resetOrientationAndUI();
     }
-
-
-
-    // Auto-apply saved preferred tracks with smart sub/dub tracking
-    _tracksSubscription = player.stream.tracks.listen((tracks) {
-      if (tracks.audio.isEmpty && tracks.subtitle.isEmpty) return;
-      if (_initialTrackSelectionDone) return;
-      _initialTrackSelectionDone = true;
-
-      // 1. Select the audio track based on global preference
-      final prefAudio = _storageService.getPreferredAudioTrack();
-      AudioTrack? targetAudioTrack;
-      if (prefAudio != null && prefAudio != 'auto') {
-        for (final track in tracks.audio) {
-          final identifier = (track.language ?? track.title ?? track.id).toLowerCase();
-          if (identifier == prefAudio.toLowerCase() ||
-              (track.title != null && track.title!.toLowerCase().contains(prefAudio.toLowerCase())) ||
-              (track.language != null && track.language!.toLowerCase().contains(prefAudio.toLowerCase()))) {
-            targetAudioTrack = track;
-            break;
-          }
-        }
-      }
-
-      // Apply audio track if resolved and not already set
-      if (targetAudioTrack != null) {
-        if (player.state.track.audio != targetAudioTrack) {
-          player.setAudioTrack(targetAudioTrack);
-          Log.i('Automatically applied preferred audio track: ${targetAudioTrack.language ?? targetAudioTrack.title ?? targetAudioTrack.id}');
-        }
-      } else {
-        targetAudioTrack = player.state.track.audio;
-      }
-
-      // 2. Classify audio language category for sub/dub logic
-      String audioLangCategory = 'other';
-      final lower = (targetAudioTrack.language ?? targetAudioTrack.title ?? '').toLowerCase();
-      if (lower.contains('jpn') || lower.contains('ja') || lower.contains('japanese')) {
-        audioLangCategory = 'jpn';
-      } else if (lower.contains('eng') || lower.contains('en') || lower.contains('english')) {
-        audioLangCategory = 'eng';
-      }
-
-      // 3. Select subtitle track based on the audio language preference
-      final prefSub = _storageService.getPreferredSubtitleTrackForAudioLanguage(audioLangCategory);
-      bool matchedSub = false;
-
-      if (prefSub != null) {
-        if (prefSub == 'no') {
-          if (player.state.track.subtitle != SubtitleTrack.no()) {
-            player.setSubtitleTrack(SubtitleTrack.no());
-          }
-          matchedSub = true;
-        } else {
-          for (final track in tracks.subtitle) {
-            final identifier = (track.language ?? track.title ?? track.id).toLowerCase();
-            if (identifier == prefSub.toLowerCase() ||
-                (track.title != null && track.title!.toLowerCase().contains(prefSub.toLowerCase())) ||
-                (track.language != null && track.language!.toLowerCase().contains(prefSub.toLowerCase()))) {
-              if (player.state.track.subtitle != track) {
-                player.setSubtitleTrack(track);
-                Log.i('Automatically applied preferred subtitle track ($prefSub) for audio language category ($audioLangCategory)');
-              }
-              matchedSub = true;
-              break;
-            }
-          }
-        }
-      }
-
-      // 4. Default smart fallbacks if no user preference is saved
-      if (!matchedSub) {
-        final currentSub = player.state.track.subtitle;
-        if (currentSub.id == 'no' || currentSub.id == 'auto') {
-          if (audioLangCategory == 'eng') {
-            // English audio (Dub) -> Default to forced/signs/songs subtitles if available, otherwise disabled
-            SubtitleTrack? forcedTrack;
-            for (final track in tracks.subtitle) {
-              final titleLower = (track.title ?? '').toLowerCase();
-              if (titleLower.contains('forced') || 
-                  titleLower.contains('sign') || 
-                  titleLower.contains('song') || 
-                  titleLower.contains('translation')) {
-                forcedTrack = track;
-                break;
-              }
-            }
-            final targetTrack = forcedTrack ?? SubtitleTrack.no();
-            if (player.state.track.subtitle != targetTrack) {
-              player.setSubtitleTrack(targetTrack);
-              Log.i('Smart Sub/Dub default: English audio -> Target subtitle track: ${targetTrack.title ?? targetTrack.id}');
-            }
-          } else {
-            // Japanese / other audio (Sub) -> Default to English subtitle if available
-            if (tracks.subtitle.isNotEmpty) {
-              SubtitleTrack? targetSubTrack;
-              for (final track in tracks.subtitle) {
-                final lower = (track.language ?? track.title ?? '').toLowerCase();
-                if (lower.contains('eng') || lower.contains('en') || lower.contains('english')) {
-                  targetSubTrack = track;
-                  break;
-                }
-              }
-              targetSubTrack ??= tracks.subtitle.firstWhere(
-                (t) => t.id != 'no' && t.id != 'auto',
-                orElse: () => tracks.subtitle.first,
-              );
-              
-              if (player.state.track.subtitle != targetSubTrack) {
-                player.setSubtitleTrack(targetSubTrack);
-                Log.i('Smart Sub/Dub default: $audioLangCategory audio -> English/fallback subtitle: ${targetSubTrack.language ?? targetSubTrack.title ?? targetSubTrack.id}');
-              }
-            }
-          }
-        }
-      }
-
-      // Update blend-subtitles based on selected track codec
-      _updateBlendSubtitlesForTrack(player, player.state.track.subtitle);
-    });
-
-    _bufferingSubscription = player.stream.buffering.listen((buffering) {
-      if (mounted) {
-        setState(() {
-          _isBuffering = buffering;
-        });
-      }
-      
-      // Pause preload dynamically if buffering starts
-      if (buffering && _nextEpisodePreloaded) {
-        _cancelPreloadOfNextEpisode();
-      }
-    });
 
     // Pause other downloads while streaming to maximize bandwidth
     Future.microtask(() {
@@ -481,6 +207,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
   DateTime? _lastUpdateTime;
 
   void _startPlayback(String localPath) {
+    _openedMediaPath = localPath;
     if (_isPlaying) return;
     _isPlaying = true;
     player.open(Media(localPath), play: true).then((_) {
@@ -932,6 +659,13 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
   Widget build(BuildContext context) {
     final pipState = ref.watch(pipControllerProvider);
 
+    ref.listen<VideoSettings>(videoSettingsProvider, (previous, next) {
+      if (previous?.subtitleRendererMode != next.subtitleRendererMode) {
+        _settings = next;
+        _updateBlendSubtitlesForTrack(player, player.state.track.subtitle);
+      }
+    });
+
     return PopScope(
       canPop: true,
       onPopInvokedWithResult: (didPop, result) {},
@@ -1128,18 +862,419 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         final settings = ref.read(videoSettingsProvider);
         final isFlutterOverlay = settings.subtitleRendererMode == 'flutter';
         
-        final useNativeBlending = !isDirectHw && !isFlutterOverlay;
+        // Auto detection mode
+        bool requiresLibass = false;
+        if (settings.subtitleRendererMode == 'auto') {
+          // Get the codec of the selected track
+          try {
+            final countStr = await nativePlayer.getProperty('track-list/count');
+            final count = int.tryParse(countStr) ?? 0;
+            for (int i = 0; i < count; i++) {
+              final type = await nativePlayer.getProperty('track-list/$i/type');
+              final id = await nativePlayer.getProperty('track-list/$i/id');
+              if (type == 'sub' && id == targetId) {
+                final codec = (await nativePlayer.getProperty('track-list/$i/codec')).toLowerCase();
+                requiresLibass = codec.contains('ass') ||
+                                 codec.contains('ssa') ||
+                                 codec.contains('pgs') ||
+                                 codec.contains('hdmv') ||
+                                 codec.contains('dvd') ||
+                                 codec.contains('vob') ||
+                                 codec.contains('dvb') ||
+                                 codec == 'xsub';
+                break;
+              }
+            }
+          } catch (_) {}
+        }
+        
+        final targetLibass = settings.subtitleRendererMode == 'native' || 
+                             (settings.subtitleRendererMode == 'auto' && requiresLibass);
+                             
+        if (targetLibass != _currentLibass) {
+          Log.i('Smart Subtitles: Switching libass from $_currentLibass to $targetLibass. Recreating player.');
+          await _recreatePlayer(targetLibass, track);
+          return;
+        }
+        
+        final useNativeBlending = !isDirectHw && !isFlutterOverlay && targetLibass;
         
         if (useNativeBlending) {
           nativePlayer.setProperty('blend-subtitles', 'yes');
           Log.i('Native blending subtitle enabled. Set blend-subtitles to yes.');
         } else {
           nativePlayer.setProperty('blend-subtitles', 'no');
-          Log.i('Native blending subtitle disabled (Direct HW / Flutter Overlay). Set blend-subtitles to no.');
+          Log.i('Native blending subtitle disabled. Set blend-subtitles to no.');
         }
       }
     } catch (e) {
       Log.e('Failed to check and update blend-subtitles for track', e);
+    }
+  }
+
+  void _initPlayerInstance({required bool libass}) {
+    player = Player(
+      configuration: PlayerConfiguration(
+        pitch: _settings.pitchCorrection,
+        libass: libass,
+        libassAndroidFont: 'assets/fonts/Roboto-Regular.ttf',
+        libassAndroidFontName: 'Roboto',
+      ),
+    );
+
+    // Optimize streaming cache/buffering parameters for low-bandwidth connections and reduce glitching
+    try {
+      if (player.platform is NativePlayer) {
+        final nativePlayer = player.platform as NativePlayer;
+        
+        // Enable fast rendering/scaling profile to save GPU/CPU thermals and prevent lag
+        nativePlayer.setProperty('profile', 'fast');
+
+        nativePlayer.setProperty('cache', 'yes');
+        nativePlayer.setProperty('demuxer-max-back-bytes', '16777216'); // 16 MB back buffer (instant backward seek)
+        nativePlayer.setProperty('cache-pause', 'yes'); // Stalls playback if buffer runs out to prevent decoding corrupted frames
+        nativePlayer.setProperty('cache-pause-initial', 'no'); // Start playing immediately without artificial startup delay
+        nativePlayer.setProperty('hr-seek', 'no'); // Disable high-precision seeking on slow networks to seek instantly to keyframes
+        
+        // Set synchronization clocks and framedrop to maintain perfect audio/video/subtitle sync at high speed
+        nativePlayer.setProperty('video-sync', 'audio');
+        nativePlayer.setProperty('audio-pitch-correction', 'yes');
+        nativePlayer.setProperty('audio-buffer', '0.2'); // Increased to 0.2s to prevent audio underflow stutters
+        nativePlayer.setProperty('framedrop', 'vo'); // Drop late frames in VO to avoid lag at 2x speed without decoder slideshow freezes
+        nativePlayer.setProperty('sub-fix-timing', 'yes');
+        nativePlayer.setProperty('stream-buffer-size', '8388608'); // 8 MB stream buffer for high-throughput network reading
+        nativePlayer.setProperty('vd-lavc-fast', 'yes'); // Enable fast decoding optimizations
+        nativePlayer.setProperty('vd-lavc-skiploopfilter', 'all'); // Skip all loop filtering to keep up with 2x playback speed
+        nativePlayer.setProperty('vd-lavc-threads', '0'); // Enable multi-threaded video decoding to prevent lag at 2x speed
+
+        final hwDecMode = _storageService.getHardwareDecoderMode();
+        if (hwDecMode != 'no') {
+          if (Platform.isAndroid) {
+            nativePlayer.setProperty('hwdec', hwDecMode);
+          } else {
+            nativePlayer.setProperty('hwdec', 'auto');
+          }
+        } else {
+          nativePlayer.setProperty('hwdec', 'no');
+        }
+        // Always configure native subtitle rendering (libass)
+        nativePlayer.setProperty('sub-visibility', 'yes');
+        nativePlayer.setProperty('sub-auto', 'all');
+        nativePlayer.setProperty('embeddedfonts', 'yes'); // Enable embedded fonts inside media containers (MKV, etc.)
+        nativePlayer.setProperty('blend-subtitles', 'no'); // Set to 'no' so subtitles render independently and sync perfectly with the master audio clock
+        nativePlayer.setProperty('demuxer-mkv-subtitle-preroll', 'yes');
+        nativePlayer.setProperty('sub-ass-override', 'scale');
+
+        // Load subtitle customizations
+        final subSize = _storageService.getSubtitleFontSize();
+        final subColor = _storageService.getSubtitleColor();
+        final subDelay = _storageService.getSubtitleDelay();
+        final subFont = _storageService.getSubtitleFont();
+
+        nativePlayer.setProperty('sub-font-size', subSize.round().toString());
+        nativePlayer.setProperty('sub-color', subColor);
+        nativePlayer.setProperty('sub-delay', subDelay.toString());
+
+        // Set sub-font to the font family name.
+        String resolvedFontFamily = 'Roboto'; // Default to Roboto
+        if (subFont.toLowerCase().contains('arial')) {
+          resolvedFontFamily = 'Arial';
+        } else if (subFont.toLowerCase().contains('dejavu')) {
+          resolvedFontFamily = 'DejaVuSans';
+        } else if (subFont.toLowerCase().contains('sans-serif')) {
+          resolvedFontFamily = 'sans-serif';
+        } else if (subFont.toLowerCase().contains('roboto')) {
+          resolvedFontFamily = 'Roboto';
+        }
+        
+        nativePlayer.setProperty('sub-font', resolvedFontFamily);
+
+        final volBoost = _storageService.getVolumeBoostEnabled();
+        if (volBoost) {
+          nativePlayer.setProperty('volume-max', '200');
+        }
+
+        // Apply audio filters (DRC & Equalizer)
+        final filters = <String>[];
+        if (_settings.dynamicRangeCompression) {
+          filters.add('lavfi=[dynaudnorm]');
+        }
+        if (_settings.equalizerEnabled) {
+          final bands = _settings.equalizerBands;
+          filters.add('equalizer=f=100:width_type=o:w=2.0:g=${bands[0]}');
+          filters.add('equalizer=f=300:width_type=o:w=2.0:g=${bands[1]}');
+          filters.add('equalizer=f=1000:width_type=o:w=2.0:g=${bands[2]}');
+          filters.add('equalizer=f=3000:width_type=o:w=2.0:g=${bands[3]}');
+          filters.add('equalizer=f=10000:width_type=o:w=2.0:g=${bands[4]}');
+        }
+        if (filters.isNotEmpty) {
+          nativePlayer.setProperty('af', filters.join(','));
+          Log.i('Applied audio filters on init: ${filters.join(',')}');
+        } else {
+          nativePlayer.setProperty('af', '');
+        }
+
+        // Apply adaptive streaming profile
+        _applyStreamingProfile();
+
+        // Apply custom MPV options
+        final customOpts = _settings.customMpvOptions;
+        if (customOpts.isNotEmpty) {
+          final pairs = customOpts.split(',');
+          for (final pair in pairs) {
+            final idx = pair.indexOf('=');
+            if (idx != -1) {
+              final key = pair.substring(0, idx).trim();
+              final value = pair.substring(idx + 1).trim();
+              if (key.isNotEmpty) {
+                try {
+                  nativePlayer.setProperty(key, value);
+                  Log.i('Applied custom MPV option: $key = $value');
+                } catch (e) {
+                  Log.w('Failed to set custom MPV option $key: $e');
+                }
+              }
+            } else {
+              final key = pair.trim();
+              if (key.isNotEmpty) {
+                try {
+                  nativePlayer.setProperty(key, 'yes');
+                  Log.i('Applied custom MPV option: $key = yes');
+                } catch (e) {
+                  Log.w('Failed to set custom MPV option $key: $e');
+                }
+              }
+            }
+          }
+        }
+      }
+    } catch (e, stack) {
+      Log.e('Failed to configure native player features', e, stack);
+    }
+
+    final hwDecMode = _storageService.getHardwareDecoderMode();
+    final enableHw = hwDecMode != 'no';
+    _pipController.setActivePlayer(player);
+    controller = VideoController(
+      player,
+      configuration: VideoControllerConfiguration(
+        enableHardwareAcceleration: enableHw,
+      ),
+    );
+  }
+
+  void _setupPlayerListeners() {
+    _tracksSubscription?.cancel();
+    _bufferingSubscription?.cancel();
+
+    _tracksSubscription = player.stream.tracks.listen((tracks) {
+      if (tracks.audio.isEmpty && tracks.subtitle.isEmpty) return;
+      if (_initialTrackSelectionDone) return;
+      _initialTrackSelectionDone = true;
+
+      // 1. Select the audio track based on global preference
+      final prefAudio = _storageService.getPreferredAudioTrack();
+      AudioTrack? targetAudioTrack;
+      if (prefAudio != null && prefAudio != 'auto') {
+        for (final track in tracks.audio) {
+          final identifier = (track.language ?? track.title ?? track.id).toLowerCase();
+          if (identifier == prefAudio.toLowerCase() ||
+              (track.title != null && track.title!.toLowerCase().contains(prefAudio.toLowerCase())) ||
+              (track.language != null && track.language!.toLowerCase().contains(prefAudio.toLowerCase()))) {
+            targetAudioTrack = track;
+            break;
+          }
+        }
+      }
+
+      // Apply audio track if resolved and not already set
+      if (targetAudioTrack != null) {
+        if (player.state.track.audio != targetAudioTrack) {
+          player.setAudioTrack(targetAudioTrack);
+          Log.i('Automatically applied preferred audio track: ${targetAudioTrack.language ?? targetAudioTrack.title ?? targetAudioTrack.id}');
+        }
+      } else {
+        targetAudioTrack = player.state.track.audio;
+      }
+
+      // 2. Classify audio language category for sub/dub logic
+      String audioLangCategory = 'other';
+      final lower = (targetAudioTrack.language ?? targetAudioTrack.title ?? '').toLowerCase();
+      if (lower.contains('jpn') || lower.contains('ja') || lower.contains('japanese')) {
+        audioLangCategory = 'jpn';
+      } else if (lower.contains('eng') || lower.contains('en') || lower.contains('english')) {
+        audioLangCategory = 'eng';
+      }
+
+      // 3. Select subtitle track based on the audio language preference
+      final prefSub = _storageService.getPreferredSubtitleTrackForAudioLanguage(audioLangCategory);
+      bool matchedSub = false;
+
+      if (prefSub != null) {
+        if (prefSub == 'no') {
+          if (player.state.track.subtitle != SubtitleTrack.no()) {
+            player.setSubtitleTrack(SubtitleTrack.no());
+          }
+          matchedSub = true;
+        } else {
+          for (final track in tracks.subtitle) {
+            final identifier = (track.language ?? track.title ?? track.id).toLowerCase();
+            if (identifier == prefSub.toLowerCase() ||
+                (track.title != null && track.title!.toLowerCase().contains(prefSub.toLowerCase())) ||
+                (track.language != null && track.language!.toLowerCase().contains(prefSub.toLowerCase()))) {
+              if (player.state.track.subtitle != track) {
+                player.setSubtitleTrack(track);
+                Log.i('Automatically applied preferred subtitle track ($prefSub) for audio language category ($audioLangCategory)');
+              }
+              matchedSub = true;
+              break;
+            }
+          }
+        }
+      }
+
+      // 4. Default smart fallbacks if no user preference is saved
+      if (!matchedSub) {
+        final currentSub = player.state.track.subtitle;
+        if (currentSub.id == 'no' || currentSub.id == 'auto') {
+          if (audioLangCategory == 'eng') {
+            // English audio (Dub) -> Default to forced/signs/songs subtitles if available, otherwise disabled
+            SubtitleTrack? forcedTrack;
+            for (final track in tracks.subtitle) {
+              final titleLower = (track.title ?? '').toLowerCase();
+              if (titleLower.contains('forced') || 
+                  titleLower.contains('sign') || 
+                  titleLower.contains('song') || 
+                  titleLower.contains('translation')) {
+                forcedTrack = track;
+                break;
+              }
+            }
+            final targetTrack = forcedTrack ?? SubtitleTrack.no();
+            if (player.state.track.subtitle != targetTrack) {
+              player.setSubtitleTrack(targetTrack);
+              Log.i('Smart Sub/Dub default: English audio -> Target subtitle track: ${targetTrack.title ?? targetTrack.id}');
+            }
+          } else {
+            // Japanese / other audio (Sub) -> Default to English subtitle if available
+            if (tracks.subtitle.isNotEmpty) {
+              SubtitleTrack? targetSubTrack;
+              for (final track in tracks.subtitle) {
+                final lower = (track.language ?? track.title ?? '').toLowerCase();
+                if (lower.contains('eng') || lower.contains('en') || lower.contains('english')) {
+                  targetSubTrack = track;
+                  break;
+                }
+              }
+              targetSubTrack ??= tracks.subtitle.firstWhere(
+                (t) => t.id != 'no' && t.id != 'auto',
+                orElse: () => tracks.subtitle.first,
+              );
+              
+              if (player.state.track.subtitle != targetSubTrack) {
+                player.setSubtitleTrack(targetSubTrack);
+                Log.i('Smart Sub/Dub default: $audioLangCategory audio -> English/fallback subtitle: ${targetSubTrack.language ?? targetSubTrack.title ?? targetSubTrack.id}');
+              }
+            }
+          }
+        }
+      }
+
+      // Update blend-subtitles based on selected track codec
+      _updateBlendSubtitlesForTrack(player, player.state.track.subtitle);
+    });
+
+    _bufferingSubscription = player.stream.buffering.listen((buffering) {
+      if (mounted) {
+        setState(() {
+          _isBuffering = buffering;
+        });
+      }
+      
+      // Pause preload dynamically if buffering starts
+      if (buffering && _nextEpisodePreloaded) {
+        _cancelPreloadOfNextEpisode();
+      }
+    });
+  }
+
+  Future<void> _recreatePlayer(bool newLibass, SubtitleTrack targetTrack) async {
+    if (_isRecreatingPlayer || !mounted) return;
+    _isRecreatingPlayer = true;
+    
+    // Save current playback state
+    final savedPosition = player.state.position;
+    final wasPlaying = player.state.playing;
+    final volume = player.state.volume;
+    final rate = player.state.rate;
+    final currentAudioTrack = player.state.track.audio;
+    
+    Log.i('Recreating player dynamically: position=$savedPosition, playing=$wasPlaying, volume=$volume, rate=$rate, libass=$newLibass');
+    
+    setState(() {
+      _isBuffering = true;
+    });
+    
+    _tracksSubscription?.cancel();
+    _bufferingSubscription?.cancel();
+    
+    try {
+      await player.dispose();
+    } catch (e) {
+      Log.e('Error disposing old player during recreation', e);
+    }
+    
+    _currentLibass = newLibass;
+    _initialTrackSelectionDone = false; // Allow track listener to run again
+    
+    _initPlayerInstance(libass: newLibass);
+    
+    // Set up new listeners for the new player instance
+    _setupPlayerListeners();
+    
+    // Set track selection listener to restore selected tracks on-the-fly
+    _tracksSubscription = player.stream.tracks.listen((tracks) {
+      if (tracks.audio.isEmpty && tracks.subtitle.isEmpty) return;
+      if (_initialTrackSelectionDone) return;
+      _initialTrackSelectionDone = true;
+      
+      // Restore audio track
+      if (currentAudioTrack.id != 'no' && currentAudioTrack.id != 'auto') {
+        final matchedAudio = tracks.audio.firstWhere(
+          (t) => t.id == currentAudioTrack.id,
+          orElse: () => tracks.audio.first,
+        );
+        player.setAudioTrack(matchedAudio);
+      }
+      
+      // Restore selected subtitle track
+      if (targetTrack.id != 'no' && targetTrack.id != 'auto') {
+        final matchedSub = tracks.subtitle.firstWhere(
+          (t) => t.id == targetTrack.id,
+          orElse: () => SubtitleTrack.no(),
+        );
+        player.setSubtitleTrack(matchedSub);
+      } else {
+        player.setSubtitleTrack(SubtitleTrack.no());
+      }
+      
+      _updateBlendSubtitlesForTrack(player, player.state.track.subtitle);
+    });
+    
+    // Start media playback at the saved position
+    if (_openedMediaPath != null) {
+      _isPlaying = true;
+      await player.open(Media(_openedMediaPath!), play: wasPlaying);
+      if (mounted) {
+        await player.seek(savedPosition);
+        await player.setVolume(volume);
+        await player.setRate(rate);
+      }
+    }
+    
+    _isRecreatingPlayer = false;
+    if (mounted) {
+      setState(() {});
     }
   }
 }

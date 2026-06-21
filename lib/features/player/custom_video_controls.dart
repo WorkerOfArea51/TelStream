@@ -98,7 +98,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
   double _currentBrightness = 1.0;
   bool _showVolumeIndicator = false;
   bool _showBrightnessIndicator = false;
-  bool _showSeekIndicator = false;
+   bool _showSeekIndicator = false;
   String _seekDirection = '';
   bool _isPhysicalBrightnessSupported = false;
   Timer? _brightnessSaveTimer;
@@ -106,6 +106,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
   bool _nightModeActive = false;
   bool _showSpeedIndicator = false;
   double _audioDelay = 0.0;
+  double _subtitleDelay = 0.0;
 
   // Double tap seek variables
   bool _showLeftSeekOverlay = false;
@@ -591,6 +592,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     super.initState();
     final settings = ref.read(videoSettingsProvider);
     _nightModeActive = settings.dynamicRangeCompression;
+    _subtitleDelay = ref.read(storageServiceProvider).getSubtitleDelay();
     _startHideTimer();
     _currentVolume = widget.player.state.volume;
     _initSystemVolumeAndBrightness();
@@ -655,6 +657,72 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
       Future.delayed(const Duration(milliseconds: 500), _loadChapters);
     });
     Future.delayed(const Duration(milliseconds: 500), _loadChapters);
+  }
+
+  @override
+  void didUpdateWidget(CustomVideoControls oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.player != widget.player) {
+      _positionSubscription?.cancel();
+      _durationSubscription?.cancel();
+      _trackSubscription?.cancel();
+      _tracksListSubscription?.cancel();
+      _bufferingSubscription?.cancel();
+      _playlistSubscription?.cancel();
+      _volumeSubscription?.cancel();
+
+      _currentVolume = widget.player.state.volume;
+      _subtitleDelay = ref.read(storageServiceProvider).getSubtitleDelay();
+
+      _bufferingSubscription = widget.player.stream.buffering.listen((buffering) {
+        if (mounted) {
+          setState(() {
+            _isBuffering = buffering;
+          });
+        }
+      });
+      _positionSubscription = widget.player.stream.position.listen((pos) {
+        _checkAutoNextTrigger(pos);
+        _checkAbRepeat(pos);
+        if (!_blendSubtitlesChecked && pos.inSeconds > 0) {
+          _blendSubtitlesChecked = true;
+          _updateBlendSubtitlesForTrack(widget.player, widget.player.state.track.subtitle);
+        }
+      });
+      _durationSubscription = widget.player.stream.duration.listen((dur) {
+        if (dur.inSeconds > 0) {
+          _loadChapters();
+          _updateBlendSubtitlesForTrack(widget.player, widget.player.state.track.subtitle);
+        }
+      });
+      _trackSubscription = widget.player.stream.track.listen((track) {
+        _updateBlendSubtitlesForTrack(widget.player, track.subtitle);
+      });
+      _tracksListSubscription = widget.player.stream.tracks.listen((_) {
+        _updateBlendSubtitlesForTrack(widget.player, widget.player.state.track.subtitle);
+        if (_showTrackSelectorPanel) {
+          _loadTrackCodecs();
+        }
+      });
+      _playlistSubscription = widget.player.stream.playlist.listen((_) {
+        if (mounted) {
+          setState(() {
+            _chapters = [];
+            _hasChapters = false;
+            _chaptersLoadAttempts = 0;
+            _autoNextCancelled = false;
+            _autoNextTriggered = false;
+            _showAutoNextCountdown = false;
+            _autoNextSlideIn = false;
+          });
+        }
+        Future.delayed(const Duration(milliseconds: 500), _loadChapters);
+      });
+      
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _updateBlendSubtitlesForTrack(widget.player, widget.player.state.track.subtitle);
+      });
+    }
   }
 
   Future<void> _initSystemVolumeAndBrightness() async {
@@ -2200,32 +2268,35 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     final storage = ref.read(storageServiceProvider);
     final subSize = storage.getSubtitleFontSize();
 
+    final subFont = storage.getSubtitleFont();
+    String resolvedFontFamily = 'Roboto';
+    if (subFont.toLowerCase().contains('arial')) {
+      resolvedFontFamily = 'Arial';
+    } else if (subFont.toLowerCase().contains('dejavu')) {
+      resolvedFontFamily = 'DejaVuSans';
+    } else if (subFont.toLowerCase().contains('sans-serif')) {
+      resolvedFontFamily = 'sans-serif';
+    } else if (subFont.toLowerCase().contains('roboto')) {
+      resolvedFontFamily = 'Roboto';
+    }
+
     final subtitleConfig = SubtitleViewConfiguration(
       visible: !_isBlendingSubtitles,
       style: TextStyle(
         fontSize: subSize,
         color: Colors.white,
+        fontFamily: resolvedFontFamily,
+        fontWeight: FontWeight.bold,
         shadows: const [
-          Shadow(
-            offset: Offset(-1.5, -1.5),
-            color: Colors.black,
-            blurRadius: 1.0,
-          ),
-          Shadow(
-            offset: Offset(1.5, -1.5),
-            color: Colors.black,
-            blurRadius: 1.0,
-          ),
-          Shadow(
-            offset: Offset(1.5, 1.5),
-            color: Colors.black,
-            blurRadius: 1.0,
-          ),
-          Shadow(
-            offset: Offset(-1.5, 1.5),
-            color: Colors.black,
-            blurRadius: 1.0,
-          ),
+          Shadow(offset: Offset(-2.0, -2.0), color: Colors.black, blurRadius: 2.0),
+          Shadow(offset: Offset(2.0, -2.0), color: Colors.black, blurRadius: 2.0),
+          Shadow(offset: Offset(2.0, 2.0), color: Colors.black, blurRadius: 2.0),
+          Shadow(offset: Offset(-2.0, 2.0), color: Colors.black, blurRadius: 2.0),
+          Shadow(offset: Offset(0.0, -2.0), color: Colors.black, blurRadius: 2.0),
+          Shadow(offset: Offset(0.0, 2.0), color: Colors.black, blurRadius: 2.0),
+          Shadow(offset: Offset(-2.0, 0.0), color: Colors.black, blurRadius: 2.0),
+          Shadow(offset: Offset(2.0, 0.0), color: Colors.black, blurRadius: 2.0),
+          Shadow(offset: Offset(0.0, 4.0), color: Colors.black54, blurRadius: 6.0),
         ],
       ),
     );
@@ -2851,6 +2922,25 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
               player: widget.player,
               isSubtitle: _trackSelectorIsSubtitle,
               trackCodecs: _trackCodecs,
+              currentRendererMode: settings.subtitleRendererMode,
+              onRendererModeChanged: (newMode) {
+                ref.read(videoSettingsProvider.notifier).updateSettings(
+                  settings.copyWith(subtitleRendererMode: newMode),
+                );
+              },
+              currentSubtitleDelay: _subtitleDelay,
+              onSubtitleDelayChanged: (val) {
+                final roundedVal = double.parse(val.toStringAsFixed(1));
+                if (widget.player.platform is NativePlayer) {
+                  try {
+                    (widget.player.platform as NativePlayer).setProperty('sub-delay', roundedVal.toString());
+                  } catch (_) {}
+                }
+                ref.read(storageServiceProvider).setSubtitleDelay(roundedVal);
+                setState(() {
+                  _subtitleDelay = roundedVal;
+                });
+              },
               onTrackSelected: _handleTrackSelection,
               onPickLocalSubtitle: _pickLocalSubtitleFile,
               onOpenSubtitleDownloader: _showSubtitleDownloaderDialog,
@@ -3305,7 +3395,33 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
         final settings = ref.read(videoSettingsProvider);
         final isFlutterOverlay = settings.subtitleRendererMode == 'flutter';
         
-        final useNativeBlending = !isDirectHw && !isFlutterOverlay;
+        // Auto detection mode
+        bool requiresLibass = false;
+        try {
+          final countStr = await nativePlayer.getProperty('track-list/count');
+          final count = int.tryParse(countStr) ?? 0;
+          for (int i = 0; i < count; i++) {
+            final type = await nativePlayer.getProperty('track-list/$i/type');
+            final id = await nativePlayer.getProperty('track-list/$i/id');
+            if (type == 'sub' && id == targetId) {
+              final codec = (await nativePlayer.getProperty('track-list/$i/codec')).toLowerCase();
+              requiresLibass = codec.contains('ass') ||
+                               codec.contains('ssa') ||
+                               codec.contains('pgs') ||
+                               codec.contains('hdmv') ||
+                               codec.contains('dvd') ||
+                               codec.contains('vob') ||
+                               codec.contains('dvb') ||
+                               codec == 'xsub';
+              break;
+            }
+          }
+        } catch (_) {}
+        
+        final useNativeBlending = !isDirectHw && 
+            !isFlutterOverlay && 
+            (settings.subtitleRendererMode == 'native' || 
+             (settings.subtitleRendererMode == 'auto' && requiresLibass));
         
         if (useNativeBlending) {
           nativePlayer.setProperty('blend-subtitles', 'yes');
@@ -3317,7 +3433,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
           }
         } else {
           nativePlayer.setProperty('blend-subtitles', 'no');
-          Log.i('Native blending subtitle disabled (Direct HW / Flutter Overlay). Set blend-subtitles to no.');
+          Log.i('Native blending subtitle disabled. Set blend-subtitles to no.');
           if (mounted && _isBlendingSubtitles) {
             setState(() {
               _isBlendingSubtitles = false;
@@ -3326,11 +3442,12 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
           
           // Show SnackBar warning if on Android and using direct hardware decoding with a graphical/ASS track
           // ONLY if not in Flutter overlay mode (which handles rendering anyway)
-          if (Platform.isAndroid && mounted && !isFlutterOverlay) {
+          final isTargetAssOrPgs = settings.subtitleRendererMode == 'native' || 
+                                   (settings.subtitleRendererMode == 'auto' && requiresLibass);
+          if (Platform.isAndroid && mounted && !isFlutterOverlay && isTargetAssOrPgs) {
             try {
               final countStr = await nativePlayer.getProperty('track-list/count');
               final count = int.tryParse(countStr) ?? 0;
-              
               for (int i = 0; i < count; i++) {
                 final type = await nativePlayer.getProperty('track-list/$i/type');
                 final id = await nativePlayer.getProperty('track-list/$i/id');

@@ -30,6 +30,10 @@ class Constants {
 * **Local & External Subtitles Picker**: Integrated a file picker for external subtitles with secure sandbox copying and improved error propagation.
 * **Manual Tracker Matcher UI**: Added direct AniList, MyAnimeList, and Trakt.tv search integration and progress sync indicator toasts within the player interface.
 * **Subtitle Streaming Fixes**: Resolved HTTP loopback range and Matroska content-type headers matching inside the proxy service to load embedded subtitles seamlessly.
+* **Smart Auto Subtitle Renderer**: Automatically matches SRT/VTT formats with high-definition Flutter Overlay and complex ASS/PGS styles with Native Blending decoder options.
+* **In-Player Renderer Overrides**: Switch subtitle renderers on-the-fly directly in the subtitle track selector panel.
+* **Subtitle Delay Sync Slider**: Adjust subtitle sync offsets from -5.0s to +5.0s in 0.1s increments with a one-click Reset button.
+* **Enhanced Subtitle Visibility**: Render Flutter text overlay subtitles with extra bold thickness, 8-way letter outline, and heavy drop shadow.
 ''';
 
   // Telegram API Credentials from secrets.dart

@@ -7,6 +7,10 @@ class TrackSelectorPanel extends StatelessWidget {
   final Player player;
   final bool isSubtitle;
   final Map<String, String> trackCodecs;
+  final String currentRendererMode;
+  final ValueChanged<String> onRendererModeChanged;
+  final double currentSubtitleDelay;
+  final ValueChanged<double> onSubtitleDelayChanged;
   final ValueChanged<dynamic> onTrackSelected;
   final VoidCallback onPickLocalSubtitle;
   final VoidCallback onOpenSubtitleDownloader;
@@ -17,6 +21,10 @@ class TrackSelectorPanel extends StatelessWidget {
     required this.player,
     required this.isSubtitle,
     required this.trackCodecs,
+    required this.currentRendererMode,
+    required this.onRendererModeChanged,
+    required this.currentSubtitleDelay,
+    required this.onSubtitleDelayChanged,
     required this.onTrackSelected,
     required this.onPickLocalSubtitle,
     required this.onOpenSubtitleDownloader,
@@ -66,7 +74,7 @@ class TrackSelectorPanel extends StatelessWidget {
               child: BackdropFilter(
                 filter: ImageFilter.blur(sigmaX: 15.0, sigmaY: 15.0),
                 child: Container(
-                  height: 340,
+                  height: isSubtitle ? 420.0 : 340.0,
                   decoration: BoxDecoration(
                     color: const Color(0xE60F172A), // Slate 900 with 90% opacity
                     borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
@@ -134,6 +142,37 @@ class TrackSelectorPanel extends StatelessWidget {
                             ],
                           ),
                         ),
+                        if (isSubtitle) ...[
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+                            child: Row(
+                              children: [
+                                const Text(
+                                  'Renderer:',
+                                  style: TextStyle(
+                                    color: Colors.white70,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                                    children: [
+                                      _buildModeButton('auto', 'Smart Auto', currentRendererMode, settingsAccent),
+                                      const SizedBox(width: 6),
+                                      _buildModeButton('flutter', 'Overlay', currentRendererMode, settingsAccent),
+                                      const SizedBox(width: 6),
+                                      _buildModeButton('native', 'Native', currentRendererMode, settingsAccent),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                        ],
                         const Divider(color: Colors.white10, height: 1),
                         Expanded(
                           child: options.isEmpty
@@ -293,6 +332,75 @@ class TrackSelectorPanel extends StatelessWidget {
                                   },
                                 ),
                         ),
+                        if (isSubtitle) ...[
+                          const Divider(color: Colors.white10, height: 1),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    const Text(
+                                      'Subtitle Delay Sync:',
+                                      style: TextStyle(
+                                        color: Colors.white70,
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    Row(
+                                      children: [
+                                        Text(
+                                          '${currentSubtitleDelay > 0 ? '+' : ''}${currentSubtitleDelay.toStringAsFixed(1)}s',
+                                          style: TextStyle(
+                                            color: settingsAccent,
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        TextButton(
+                                          style: TextButton.styleFrom(
+                                            padding: EdgeInsets.zero,
+                                            minimumSize: Size.zero,
+                                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                          ),
+                                          onPressed: () => onSubtitleDelayChanged(0.0),
+                                          child: Text(
+                                            'Reset',
+                                            style: TextStyle(
+                                              color: settingsAccent,
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                                SliderTheme(
+                                  data: SliderTheme.of(context).copyWith(
+                                    trackHeight: 2,
+                                    thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+                                    overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
+                                  ),
+                                  child: Slider(
+                                    value: currentSubtitleDelay.clamp(-5.0, 5.0),
+                                    min: -5.0,
+                                    max: 5.0,
+                                    divisions: 100, // 0.1s increments
+                                    activeColor: settingsAccent,
+                                    inactiveColor: Colors.white24,
+                                    onChanged: onSubtitleDelayChanged,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -359,5 +467,36 @@ class TrackSelectorPanel extends StatelessWidget {
       default:
         return code.toUpperCase();
     }
+  }
+
+  Widget _buildModeButton(String mode, String label, String currentMode, Color activeColor) {
+    final isSelected = mode == currentMode;
+    return Expanded(
+      child: InkWell(
+        onTap: () => onRendererModeChanged(mode),
+        borderRadius: BorderRadius.circular(8),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: isSelected ? activeColor.withValues(alpha: 0.15) : Colors.white.withValues(alpha: 0.03),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: isSelected ? activeColor : Colors.white10,
+              width: 1.5,
+            ),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              color: isSelected ? activeColor : Colors.white70,
+              fontSize: 12,
+              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
