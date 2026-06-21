@@ -757,6 +757,15 @@ class StorageService {
       await _save();
     }
   }
+
+  String exportBackupData() {
+    return json.encode(_data);
+  }
+
+  Future<void> importBackupData(Map<String, dynamic> data) async {
+    _data = Map<String, dynamic>.from(data);
+    await _save();
+  }
 }
 
 class FavoritesNotifier extends Notifier<List<String>> {

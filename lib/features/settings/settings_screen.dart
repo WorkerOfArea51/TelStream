@@ -16,6 +16,8 @@ import 'settings_provider.dart';
 import 'video_settings_screen.dart';
 import 'advanced_cache_manager_screen.dart';
 import 'tracker_settings_screen.dart';
+import 'diagnostics_screen.dart';
+import 'backup_manager_screen.dart';
 import '../../core/widgets/whats_new_dialog.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/logger.dart';
@@ -575,6 +577,48 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   MaterialPageRoute(builder: (_) => const TrackerSettingsScreen()),
                 );
               },
+            ),
+          ),
+
+          const SizedBox(height: 24),
+          Text('Diagnostics & Backups', style: TextStyle(color: settingsAccent, fontWeight: FontWeight.bold, fontSize: 16)),
+          const SizedBox(height: 12),
+          Card(
+            elevation: 0,
+            color: theme.cardColor,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+              side: BorderSide(color: theme.colorScheme.onSurface.withValues(alpha: 0.08), width: 1),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: Column(
+              children: [
+                ListTile(
+                  leading: Icon(Icons.build_circle_rounded, color: isDark ? Colors.white70 : Colors.black54),
+                  title: const Text('Troubleshooting & Diagnostics'),
+                  subtitle: Text('Diagnose hardware decoding and subtitle rendering issues.', style: TextStyle(color: isDark ? Colors.white54 : Colors.black54, fontSize: 12)),
+                  trailing: Icon(Icons.chevron_right, color: isDark ? Colors.white54 : Colors.black54),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const DiagnosticsScreen()),
+                    );
+                  },
+                ),
+                Divider(color: theme.dividerColor, height: 1, indent: 56, endIndent: 16),
+                ListTile(
+                  leading: Icon(Icons.settings_backup_restore_rounded, color: isDark ? Colors.white70 : Colors.black54),
+                  title: const Text('Backup & Restore'),
+                  subtitle: Text('Export or import settings and watch history.', style: TextStyle(color: isDark ? Colors.white54 : Colors.black54, fontSize: 12)),
+                  trailing: Icon(Icons.chevron_right, color: isDark ? Colors.white54 : Colors.black54),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const BackupManagerScreen()),
+                    );
+                  },
+                ),
+              ],
             ),
           ),
 

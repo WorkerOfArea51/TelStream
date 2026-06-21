@@ -191,7 +191,8 @@ class TrackSelectorPanel extends StatelessWidget {
                                         style: TextStyle(fontSize: 15),
                                       );
                                     } else {
-                                      final lang = (track.language ?? '').toUpperCase();
+                                      final rawLang = track.language ?? '';
+                                      final lang = _getLanguageName(rawLang);
                                       final tTitle = track.title ?? 'Track ${track.id}';
                                       
                                       final typeKey = isSubtitle ? 'sub' : 'audio';
@@ -214,7 +215,7 @@ class TrackSelectorPanel extends StatelessWidget {
                                       }
                                       final displayTitle = '$tTitle$formatSuffix';
                                       
-                                      if (lang.isNotEmpty) {
+                                      if (rawLang.isNotEmpty) {
                                         leadingWidget = Container(
                                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                           decoration: BoxDecoration(
@@ -302,5 +303,61 @@ class TrackSelectorPanel extends StatelessWidget {
         );
       },
     );
+  }
+
+  String _getLanguageName(String code) {
+    final cleanCode = code.toLowerCase().trim();
+    switch (cleanCode) {
+      case 'eng':
+      case 'en':
+        return 'English';
+      case 'jpn':
+      case 'ja':
+        return 'Japanese';
+      case 'zho':
+      case 'chi':
+      case 'zh':
+        return 'Chinese';
+      case 'spa':
+      case 'es':
+        return 'Spanish';
+      case 'fra':
+      case 'fre':
+      case 'fr':
+        return 'French';
+      case 'deu':
+      case 'ger':
+      case 'de':
+        return 'German';
+      case 'rus':
+      case 'ru':
+        return 'Russian';
+      case 'kor':
+      case 'ko':
+        return 'Korean';
+      case 'ita':
+      case 'it':
+        return 'Italian';
+      case 'por':
+      case 'pt':
+        return 'Portuguese';
+      case 'ind':
+      case 'id':
+        return 'Indonesian';
+      case 'vie':
+      case 'vi':
+        return 'Vietnamese';
+      case 'ara':
+      case 'ar':
+        return 'Arabic';
+      case 'hin':
+      case 'hi':
+        return 'Hindi';
+      case 'ben':
+      case 'bn':
+        return 'Bengali';
+      default:
+        return code.toUpperCase();
+    }
   }
 }
