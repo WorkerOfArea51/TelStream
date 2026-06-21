@@ -405,7 +405,8 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
     
     // Pattern A: trailing season/s/part with digit or Roman numeral
     // e.g. "season 2", "s3", "part II", "part 2"
-    normalized = normalized.replaceAll(RegExp(r'(?:\s*[-–—:|]\s*)?\b(?:season|s|part)\s*(?:\d+|[ivxIVX]+)\b', caseSensitive: false), '');
+    // Note: We avoid stripping "six" by requiring a space/separator when single-letter 's' is followed by a Roman numeral.
+    normalized = normalized.replaceAll(RegExp(r'(?:\s*[-–—:|]\s*)?\b(?:(?:season|part)\s*(?:\d+|[ivxIVX]+)|s\s*\d+|s\s+[ivxIVX]+)\b', caseSensitive: false), '');
 
     // Pattern B: trailing final season/chapters/act/arc indicators
     // e.g. "final season", "final chapters", "final chapter", "final act", "final arc", "final"
@@ -466,9 +467,10 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
     }
     
     // Check if diff starts with "Season" or "S" (case insensitive)
-    final seasonNumMatch = RegExp(r'^(?:season|s)\s*(\d+|[ivxIVX]+)$', caseSensitive: false).firstMatch(diff);
+    // Note: We avoid matching "six" as "Season IX" by requiring a space when single-letter 's' is followed by a Roman numeral.
+    final seasonNumMatch = RegExp(r'^(?:season\s*(\d+|[ivxIVX]+)|s\s*(\d+)|s\s+([ivxIVX]+))$', caseSensitive: false).firstMatch(diff);
     if (seasonNumMatch != null) {
-      final val = seasonNumMatch.group(1)!;
+      final val = seasonNumMatch.group(1) ?? seasonNumMatch.group(2) ?? seasonNumMatch.group(3)!;
       return 'Season $val';
     }
     
@@ -528,12 +530,13 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
             episodes: currentEpisodes.reversed.toList(),
           );
           
-          if (!seriesMap.containsKey(baseName)) {
-            seriesMap[baseName] = AnimeSeries(coreName: baseName, seasons: []);
-            seriesList.add(seriesMap[baseName]!);
+          final canonicalKey = baseName.toLowerCase().replaceAll(RegExp(r'[^a-zA-Z0-9]'), '');
+          if (!seriesMap.containsKey(canonicalKey)) {
+            seriesMap[canonicalKey] = AnimeSeries(coreName: baseName, seasons: []);
+            seriesList.add(seriesMap[canonicalKey]!);
           }
           
-          seriesMap[baseName]!.seasons.insert(0, newSeason);
+          seriesMap[canonicalKey]!.seasons.insert(0, newSeason);
           currentEpisodes = [];
         }
       }
@@ -921,14 +924,14 @@ class SeasonSortKey implements Comparable<SeasonSortKey> {
 
   @override
   int compareTo(SeasonSortKey other) {
-    // 1. Compare release year if both are > 0 and not equal
-    if (releaseYear > 0 && other.releaseYear > 0 && releaseYear != other.releaseYear) {
-      return releaseYear.compareTo(other.releaseYear);
-    }
-
-    // 2. Compare season number
+    // 1. Compare season number
     if (seasonNum != other.seasonNum) {
       return seasonNum.compareTo(other.seasonNum);
+    }
+
+    // 2. Compare release year if both are > 0 and not equal
+    if (releaseYear > 0 && other.releaseYear > 0 && releaseYear != other.releaseYear) {
+      return releaseYear.compareTo(other.releaseYear);
     }
     
     // 3. Compare part numbers
