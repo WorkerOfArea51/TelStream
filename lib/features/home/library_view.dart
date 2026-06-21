@@ -1222,8 +1222,9 @@ class _LibraryListItemState extends ConsumerState<_LibraryListItem> {
     final seasonCount = widget.series.seasons.length;
 
     final years = widget.series.seasons
-        .map((s) => storage.getSeasonReleaseYear(s.fullTitle))
+        .map((s) => s.getReleaseYear(storage))
         .where((y) => y != null && y > 0)
+        .cast<int>()
         .toSet()
         .toList();
     years.sort();

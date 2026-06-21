@@ -567,7 +567,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
         final seriesName = series.coreName.toLowerCase();
         final seasonNames = series.seasons.map((s) => s.fullTitle.toLowerCase()).join(' ');
         final releaseYears = series.seasons
-            .map((s) => storage.getSeasonReleaseYear(s.fullTitle))
+            .map((s) => s.getReleaseYear(storage))
             .where((y) => y != null && y > 0)
             .join(' ');
         final fullText = '$seriesName $seasonNames $releaseYears';
@@ -871,7 +871,7 @@ class SeasonSortKey implements Comparable<SeasonSortKey> {
         lower.contains('arc') || lower.contains('saga')) {
       year = 0; // Bypasses release year lookup
     } else {
-      year = storage.getSeasonReleaseYear(season.fullTitle) ?? 0;
+      year = season.getReleaseYear(storage) ?? 0;
     }
 
     // Clean the name of part/volume indicators first to avoid matching their digits as season number.
