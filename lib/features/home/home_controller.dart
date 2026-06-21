@@ -827,6 +827,7 @@ class SeasonSortKey implements Comparable<SeasonSortKey> {
   final int messageId;
   final String original;
   final int releaseYear;
+  final bool isExplicit;
 
   SeasonSortKey({
     required this.seasonNum,
@@ -834,6 +835,7 @@ class SeasonSortKey implements Comparable<SeasonSortKey> {
     required this.messageId,
     required this.original,
     required this.releaseYear,
+    required this.isExplicit,
   });
 
   static int _parseRomanNumeral(String r) {
@@ -859,6 +861,7 @@ class SeasonSortKey implements Comparable<SeasonSortKey> {
     int sNum = 1; // Default to 1 (base Season 1) if no numbers detected, so it sorts before Season 2+
     double pNum = 0.0;
     int year = 0;
+    bool explicit = false;
 
     // Check if season fullTitle or name contains "arc" or "saga"
     if (fullTitleLower.contains('arc') || fullTitleLower.contains('saga') ||
@@ -868,37 +871,51 @@ class SeasonSortKey implements Comparable<SeasonSortKey> {
       year = storage.getSeasonReleaseYear(season.fullTitle) ?? 0;
     }
 
+    // Clean the name of part/volume indicators first to avoid matching their digits as season number.
+    final lowerForSeason = lower
+        .replaceAll(RegExp(r'\bpart\s*(\d+|[ivxIVX]+)\b', caseSensitive: false), '')
+        .replaceAll(RegExp(r'\bvol(?:ume)?\s*(\d+|[ivxIVX]+)\b', caseSensitive: false), '')
+        .trim();
+
     // Check for special keywords first
-    if (lower.contains('final season') || lower.contains('final_season')) {
+    if (lowerForSeason.contains('final season') || lowerForSeason.contains('final_season')) {
       sNum = 99;
-    } else if (lower.contains('ova') || lower.contains('special') || lower.contains('movie')) {
+      explicit = true;
+    } else if (lowerForSeason.contains('ova') || lowerForSeason.contains('special') || lowerForSeason.contains('movie')) {
       sNum = 100;
-    } else if (lower.trim() == 'season s' || lower.trim() == 's') {
+      explicit = false;
+    } else if (lowerForSeason.trim() == 'season s' || lowerForSeason.trim() == 's') {
       sNum = 2; // S suffix usually represents second season / sequel
+      explicit = true;
     } else {
       // 1. Look for Roman numerals first
-      final romanMatch = RegExp(r'\b(i|ii|iii|iv|v|vi|vii|viii|ix|x)\b', caseSensitive: false).firstMatch(lower);
+      final romanMatch = RegExp(r'\b(i|ii|iii|iv|v|vi|vii|viii|ix|x)\b', caseSensitive: false).firstMatch(lowerForSeason);
       if (romanMatch != null) {
         sNum = _parseRomanNumeral(romanMatch.group(1)!);
+        explicit = true;
       } else {
         // 2. Look for "season X" or "sX"
-        final match = RegExp(r'(?:season|s)\s*(\d+)').firstMatch(lower);
+        final match = RegExp(r'(?:season|s)\s*(\d+)').firstMatch(lowerForSeason);
         if (match != null) {
           sNum = int.tryParse(match.group(1)!) ?? 1;
+          explicit = true;
         } else if (fullTitleLower.contains('arc') || fullTitleLower.contains('saga') ||
-                   lower.contains('arc') || lower.contains('saga')) {
+                   lowerForSeason.contains('arc') || lowerForSeason.contains('saga')) {
           // Default to season 1 for all arcs/sagas unless they have an explicit season X tag
           sNum = 1;
+          explicit = false;
         } else {
           // Look for a number at the start of the string (e.g. "1.Agent..." or "14.Lost...")
-          final matchStart = RegExp(r'^\s*(\d+)').firstMatch(lower);
+          final matchStart = RegExp(r'^\s*(\d+)').firstMatch(lowerForSeason);
           if (matchStart != null) {
             sNum = int.tryParse(matchStart.group(1)!) ?? 1;
+            explicit = true;
           } else {
             // Look for any other isolated number in the season name
-            final matchAny = RegExp(r'\b(\d+)\b').firstMatch(lower);
+            final matchAny = RegExp(r'\b(\d+)\b').firstMatch(lowerForSeason);
             if (matchAny != null) {
               sNum = int.tryParse(matchAny.group(1)!) ?? 1;
+              explicit = true;
             }
           }
         }
@@ -919,19 +936,27 @@ class SeasonSortKey implements Comparable<SeasonSortKey> {
       messageId: season.posterMessage.id,
       original: name,
       releaseYear: year,
+      isExplicit: explicit,
     );
   }
 
   @override
   int compareTo(SeasonSortKey other) {
-    // 1. Compare season number
-    if (seasonNum != other.seasonNum) {
-      return seasonNum.compareTo(other.seasonNum);
+    // If both are explicitly numbered seasons, compare season number first
+    if (isExplicit && other.isExplicit) {
+      if (seasonNum != other.seasonNum) {
+        return seasonNum.compareTo(other.seasonNum);
+      }
     }
 
-    // 2. Compare release year if both are > 0 and not equal
+    // Otherwise, compare release year if both are > 0 and not equal
     if (releaseYear > 0 && other.releaseYear > 0 && releaseYear != other.releaseYear) {
       return releaseYear.compareTo(other.releaseYear);
+    }
+
+    // If release years are equal, or one is 0, check seasonNum
+    if (seasonNum != other.seasonNum) {
+      return seasonNum.compareTo(other.seasonNum);
     }
     
     // 3. Compare part numbers
