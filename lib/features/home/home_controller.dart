@@ -216,6 +216,8 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
       bool changed = false;
       bool reachedEnd = false;
       
+      DateTime lastUiUpdateTime = DateTime.now();
+
       // Sync messages incrementally from the network in the background
       while (_hasMore) {
         // Yield execution and pause TDLib requests while video is actively playing to maximize streaming bandwidth
@@ -225,7 +227,12 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
 
         final networkMessages = await _fetchMessages(fromId: currentFromId, onlyLocal: false);
         if (networkMessages.isEmpty) {
-          break;
+          if (!_hasMore) {
+            break; // Truly reached the end of history
+          }
+          // Temporary network / cache delay, wait a bit and try again
+          await Future.delayed(const Duration(seconds: 3));
+          continue;
         }
         
         for (final msg in networkMessages) {
@@ -248,15 +255,28 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
         currentFromId = networkMessages.last.id;
         
         if (changed) {
-          _rawMessages.sort((a, b) => b.id.compareTo(a.id));
-          _allSeries = _parseMessages(_rawMessages);
-          state = AsyncValue.data(_applySearchAndSort(_allSeries));
-          _triggerReleaseYearsSync();
-          changed = false; // Reset changed flag
+          final now = DateTime.now();
+          final isNearEnd = reachedEnd || !_hasMore;
+          if (isNearEnd || now.difference(lastUiUpdateTime) > const Duration(milliseconds: 1500)) {
+            _rawMessages.sort((a, b) => b.id.compareTo(a.id));
+            _allSeries = _parseMessages(_rawMessages);
+            state = AsyncValue.data(_applySearchAndSort(_allSeries));
+            _triggerReleaseYearsSync();
+            lastUiUpdateTime = now;
+            changed = false; // Reset changed flag
+          }
         }
         
         // Brief pause to respect Telegram rate limits and yield UI thread
         await Future.delayed(const Duration(milliseconds: 200));
+      }
+
+      // Final UI update to guarantee that any pending changes are flushed
+      if (changed) {
+        _rawMessages.sort((a, b) => b.id.compareTo(a.id));
+        _allSeries = _parseMessages(_rawMessages);
+        state = AsyncValue.data(_applySearchAndSort(_allSeries));
+        _triggerReleaseYearsSync();
       }
 
       // Update the indexing checkpoint if we have indexed items
@@ -278,7 +298,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
     int currentFromId = fromId;
     
     // Fetch larger chunks so we get posters more reliably
-    while (fetchedBatch.length < 100 && retries < 3) {
+    while (fetchedBatch.length < 100 && retries < 5) {
       response = await tdlibService.sendAsync(td.GetChatHistory(
         chatId: category.channelId,
         fromMessageId: currentFromId,
@@ -312,20 +332,31 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
           !(fetched.length == 1 && fetched.first.id == currentFromId);
 
       if (!gotNewMessages) {
+        // If we got a completely empty list, it means the server has no more messages (end of history).
+        if (fetched.isEmpty) {
+          _hasMore = false;
+          break;
+        }
+
         // If we already successfully fetched some messages in this batch, return them
         // and keep _hasMore = true so the next pagination can attempt to fetch further.
         if (fetchedBatch.isNotEmpty || onlyLocal) {
           break;
         }
         
-        // If we got nothing at all, wait and retry to allow TDLib's background sync to complete.
-        if (retries < 3) {
+        // If we got only the starting message, wait and retry.
+        if (retries < 5) {
           retries++;
           await Future.delayed(const Duration(seconds: 1));
           continue;
         } else {
-          // No messages found even after retries; we've truly hit the end of history.
-          _hasMore = false;
+          // If we retried 5 times and still got only the starting message, 
+          // do NOT set _hasMore = false (unless currentFromId is very small).
+          // Just break the batch loop so we return empty, allowing the background sync
+          // to try again after a pause.
+          if (currentFromId <= 5) {
+            _hasMore = false;
+          }
           break;
         }
       }
