@@ -72,7 +72,15 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
 
     _triggerReleaseYearsSync();
 
-    return _fetchInitial();
+    final initialList = await _fetchInitial();
+    
+    // Schedule background sync to start in the next event loop tick,
+    // ensuring the provider is fully built and state is set before updating it.
+    Future.delayed(const Duration(milliseconds: 200), () {
+      _syncFromNetwork();
+    });
+    
+    return initialList;
   }
 
   void setSortOrder(SortOrder order) {
@@ -201,10 +209,6 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
       _allSeries = _parseMessages(_rawMessages);
       currentFromId = _rawMessages.last.id;
     }
-    
-    // 2. Immediately kick off background network sync to sync the entire channel history
-    _syncFromNetwork();
-    
     return _applySearchAndSort(_allSeries);
   }
 
@@ -220,55 +224,61 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
 
       // Sync messages incrementally from the network in the background
       while (_hasMore) {
-        // Yield execution and pause TDLib requests while video is actively playing to maximize streaming bandwidth
-        while (ref.read(pipControllerProvider) != null) {
-          await Future.delayed(const Duration(seconds: 2));
-        }
-
-        final networkMessages = await _fetchMessages(fromId: currentFromId, onlyLocal: false);
-        if (networkMessages.isEmpty) {
-          if (!_hasMore) {
-            break; // Truly reached the end of history
+        try {
+          // Yield execution and pause TDLib requests while video is actively playing to maximize streaming bandwidth
+          while (ref.read(pipControllerProvider) != null) {
+            await Future.delayed(const Duration(seconds: 2));
           }
-          // Temporary network / cache delay, wait a bit and try again
-          await Future.delayed(const Duration(seconds: 3));
-          continue;
-        }
-        
-        for (final msg in networkMessages) {
-          if (lastIndexedId > 0 && msg.id <= lastIndexedId) {
-            reachedEnd = true;
-            _hasMore = false;
+
+          final networkMessages = await _fetchMessages(fromId: currentFromId, onlyLocal: false);
+          if (networkMessages.isEmpty) {
+            if (!_hasMore) {
+              break; // Truly reached the end of history
+            }
+            // Temporary network / cache delay, wait a bit and try again
+            await Future.delayed(const Duration(seconds: 3));
+            continue;
+          }
+          
+          for (final msg in networkMessages) {
+            if (lastIndexedId > 0 && msg.id <= lastIndexedId) {
+              reachedEnd = true;
+              _hasMore = false;
+              break;
+            }
+            if (!_rawMessageIds.contains(msg.id)) {
+              _rawMessages.add(msg);
+              _rawMessageIds.add(msg.id);
+              changed = true;
+            }
+          }
+          
+          if (reachedEnd) {
             break;
           }
-          if (!_rawMessageIds.contains(msg.id)) {
-            _rawMessages.add(msg);
-            _rawMessageIds.add(msg.id);
-            changed = true;
+          
+          currentFromId = networkMessages.last.id;
+          
+          if (changed) {
+            final now = DateTime.now();
+            final isNearEnd = reachedEnd || !_hasMore;
+            if (isNearEnd || now.difference(lastUiUpdateTime) > const Duration(milliseconds: 1500)) {
+              _rawMessages.sort((a, b) => b.id.compareTo(a.id));
+              _allSeries = _parseMessages(_rawMessages);
+              state = AsyncValue.data(_applySearchAndSort(_allSeries));
+              _triggerReleaseYearsSync();
+              lastUiUpdateTime = now;
+              changed = false; // Reset changed flag
+            }
           }
+          
+          // Brief pause to respect Telegram rate limits and yield UI thread
+          await Future.delayed(const Duration(milliseconds: 200));
+        } catch (e, stackTrace) {
+          Log.e("Error during background sync iteration", e, stackTrace);
+          // Wait a bit before retrying the next iteration to prevent hammering the network
+          await Future.delayed(const Duration(seconds: 4));
         }
-        
-        if (reachedEnd) {
-          break;
-        }
-        
-        currentFromId = networkMessages.last.id;
-        
-        if (changed) {
-          final now = DateTime.now();
-          final isNearEnd = reachedEnd || !_hasMore;
-          if (isNearEnd || now.difference(lastUiUpdateTime) > const Duration(milliseconds: 1500)) {
-            _rawMessages.sort((a, b) => b.id.compareTo(a.id));
-            _allSeries = _parseMessages(_rawMessages);
-            state = AsyncValue.data(_applySearchAndSort(_allSeries));
-            _triggerReleaseYearsSync();
-            lastUiUpdateTime = now;
-            changed = false; // Reset changed flag
-          }
-        }
-        
-        // Brief pause to respect Telegram rate limits and yield UI thread
-        await Future.delayed(const Duration(milliseconds: 200));
       }
 
       // Final UI update to guarantee that any pending changes are flushed
