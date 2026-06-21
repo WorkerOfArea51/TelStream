@@ -89,7 +89,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
     player = Player(
       configuration: PlayerConfiguration(
         pitch: _settings.pitchCorrection,
-        libass: true, // Always enable libass to allow subtitle parsing for both native and flutter modes
+        libass: _settings.subtitleRendererMode == 'native',
         libassAndroidFont: 'assets/fonts/Roboto-Regular.ttf',
         libassAndroidFontName: 'Roboto',
       ),

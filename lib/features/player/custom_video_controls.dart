@@ -13,7 +13,6 @@ import 'package:file_picker/file_picker.dart';
 import '../settings/settings_provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../../services/storage_service.dart';
-import '../../services/skip_times_service.dart';
 import '../../core/logger.dart';
 import 'package:path_provider/path_provider.dart';
 import '../../services/permission_service.dart';
@@ -130,19 +129,6 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
 
   // Skip Times variables
   StreamSubscription? _durationSubscription;
-  List<SkipInterval> _apiSkipIntervals = [];
-  // List<SkipInterval> _chapterSkipIntervals = [];
-  // List<SkipInterval> _skipIntervals = [];
-  bool _skipTimesLoaded = false;
-  bool _isLoadingSkipTimes = false;
-  // bool _introSkipped = false;
-  // bool _outroSkipped = false;
-  // bool _showIntroOverlay = false;
-  // bool _showOutroOverlay = false;
-  // bool _isSkipButtonExpanded = true;
-  // Timer? _skipButtonCollapseTimer;
-  // SkipInterval? _currentActiveOP;
-  // SkipInterval? _currentActiveED;
   bool _toastShowing = false;
   String _toastMessage = '';
   Timer? _toastTimer;
@@ -217,32 +203,6 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     }
   }
 
-  void _loadSkipTimes(double duration) async {
-    if (_skipTimesLoaded || _isLoadingSkipTimes || duration <= 0) return;
-    _isLoadingSkipTimes = true;
-    try {
-      final skipTimesService = ref.read(skipTimesServiceProvider);
-      final intervals = await skipTimesService.fetchSkipTimes(
-        seriesName: widget.seriesName,
-        episodeNumber: widget.currentEpisodeIndex + 1,
-        totalDuration: duration,
-        videoTitle: widget.videoTitle,
-      );
-      if (mounted) {
-        setState(() {
-          _apiSkipIntervals = intervals;
-          _skipTimesLoaded = true;
-        });
-        Log.i('Loaded ${_apiSkipIntervals.length} skip intervals for ${widget.seriesName}');
-        _refreshSkipIntervals();
-      }
-    } catch (e, stack) {
-      Log.e('Error loading skip times', e, stack);
-    } finally {
-      _isLoadingSkipTimes = false;
-    }
-  }
-
   bool _isChapterIntro(VideoChapter ch, double start, double end) {
     final titleLower = ch.title.toLowerCase().trim();
     return titleLower.contains('intro') ||
@@ -280,177 +240,6 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
         titleLower.contains('ed1') ||
         titleLower.contains('ed2');
   }
-
-  List<SkipInterval> _extractSkipTimesFromChapters() {
-    final List<SkipInterval> intervals = [];
-    if (_chapters.isEmpty) return intervals;
-    
-    final totalDuration = widget.player.state.duration.inSeconds.toDouble();
-    
-    for (int i = 0; i < _chapters.length; i++) {
-      final ch = _chapters[i];
-      final start = ch.position.inSeconds.toDouble();
-      final end = (i + 1 < _chapters.length)
-          ? _chapters[i + 1].position.inSeconds.toDouble()
-          : (totalDuration > 0 ? totalDuration : start + 90.0);
-          
-      final isOp = _isChapterIntro(ch, start, end);
-      final isEd = _isChapterOutro(ch, start, end, totalDuration);
-      
-      if (isOp || isEd) {
-        intervals.add(SkipInterval(
-          startTime: start,
-          endTime: end,
-          type: isOp ? 'op' : 'ed',
-        ));
-      }
-    }
-    return intervals;
-  }
-
-  void _refreshSkipIntervals() {
-    final duration = widget.player.state.duration.inSeconds.toDouble();
-    if (duration <= 0) return;
-
-    final chapterIntervals = _extractSkipTimesFromChapters();
-    
-    // Heuristics
-    final isAnime = duration >= 1080 && duration <= 1680;
-    final List<SkipInterval> heuristics = [];
-
-    // Combine API and Chapter intervals first to check if they have OP/ED
-    final List<SkipInterval> currentMerged = [..._apiSkipIntervals, ...chapterIntervals];
-    final hasOP = currentMerged.any((interval) => interval.type == 'op');
-    final hasED = currentMerged.any((interval) => interval.type == 'ed');
-
-    if (isAnime) {
-      if (!hasOP) {
-        heuristics.add(const SkipInterval(
-          startTime: 10.0,
-          endTime: 240.0, // Show for the first 4 minutes
-          type: 'op_heuristic',
-        ));
-      }
-      if (!hasED) {
-        heuristics.add(SkipInterval(
-          startTime: duration - 180.0,
-          endTime: duration - 30.0,
-          type: 'ed_heuristic',
-        ));
-      }
-    }
-
-    if (mounted) {
-      setState(() {
-        // _chapterSkipIntervals = chapterIntervals;
-        // _skipIntervals = [..._apiSkipIntervals, ..._chapterSkipIntervals, ...heuristics];
-      });
-    }
-  }
-
-  // void _triggerSkipButtonCollapseTimer() {
-  //   _skipButtonCollapseTimer?.cancel();
-  //   setState(() {
-  //     _isSkipButtonExpanded = true;
-  //   });
-  //   _skipButtonCollapseTimer = Timer(const Duration(seconds: 2), () {
-  //     if (mounted) {
-  //       setState(() {
-  //         _isSkipButtonExpanded = false;
-  //       });
-  //     }
-  //   });
-  // }
-  // 
-  // void _checkSkipTimes(Duration pos) {
-  //   if (_skipIntervals.isEmpty) return;
-  //   
-  //   final settings = ref.read(videoSettingsProvider);
-  //   final currentSecs = pos.inSeconds.toDouble();
-  // 
-  //   // Check if we are inside any OP or ED interval
-  //   SkipInterval? activeOP;
-  //   SkipInterval? activeED;
-  // 
-  //   for (final interval in _skipIntervals) {
-  //     if (currentSecs >= interval.startTime && currentSecs < interval.endTime) {
-  //       if (interval.type == 'op' || interval.type == 'op_heuristic') {
-  //         activeOP = interval;
-  //       } else if (interval.type == 'ed' || interval.type == 'ed_heuristic') {
-  //         activeED = interval;
-  //       }
-  //     }
-  //   }
-  // 
-  //   // Handle Intro (OP)
-  //   if (activeOP != null) {
-  //     _currentActiveOP = activeOP;
-  //     final isHeuristic = activeOP.type == 'op_heuristic';
-  //     if (settings.autoSkipIntroOutro && !isHeuristic) {
-  //       if (!_introSkipped) {
-  //         _introSkipped = true;
-  //         final target = Duration(seconds: activeOP.endTime.toInt());
-  //         final safeTarget = _clampSeekTarget(target, showMessage: false);
-  //         _performSeek(safeTarget);
-  //         _showSkipToast('Auto-skipped Intro');
-  //       }
-  //     } else {
-  //       if (!_showIntroOverlay) {
-  //         _triggerSkipButtonCollapseTimer();
-  //         setState(() {
-  //           _showIntroOverlay = true;
-  //         });
-  //       }
-  //     }
-  //   } else {
-  //     _currentActiveOP = null;
-  //     _introSkipped = false;
-  //     if (_showIntroOverlay) {
-  //       setState(() {
-  //         _showIntroOverlay = false;
-  //         _isSkipButtonExpanded = true;
-  //         _skipButtonCollapseTimer?.cancel();
-  //       });
-  //     }
-  //   }
-  // 
-  //   // Handle Outro (ED)
-  //   if (activeED != null) {
-  //     _currentActiveED = activeED;
-  //     final isHeuristic = activeED.type == 'ed_heuristic';
-  //     if (settings.autoSkipIntroOutro && !isHeuristic) {
-  //       if (!_outroSkipped) {
-  //         _outroSkipped = true;
-  //         if (widget.hasNextEpisode && widget.onNextEpisode != null) {
-  //           widget.onNextEpisode!();
-  //           _showSkipToast('Auto-playing Next Episode');
-  //         } else {
-  //           final target = Duration(seconds: activeED.endTime.toInt());
-  //           final safeTarget = _clampSeekTarget(target, showMessage: false);
-  //           _performSeek(safeTarget);
-  //           _showSkipToast('Auto-skipped Outro');
-  //         }
-  //       }
-  //     } else {
-  //       if (!_showOutroOverlay) {
-  //         _triggerSkipButtonCollapseTimer();
-  //         setState(() {
-  //           _showOutroOverlay = true;
-  //         });
-  //       }
-  //     }
-  //   } else {
-  //     _currentActiveED = null;
-  //     _outroSkipped = false;
-  //     if (_showOutroOverlay) {
-  //       setState(() {
-  //         _showOutroOverlay = false;
-  //         _isSkipButtonExpanded = true;
-  //         _skipButtonCollapseTimer?.cancel();
-  //       });
-  //     }
-  //   }
-  // }
 
   void _showSkipToast(String msg) {
     _toastTimer?.cancel();
@@ -835,9 +624,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     });
     _durationSubscription = widget.player.stream.duration.listen((dur) {
       if (dur.inSeconds > 0) {
-        _loadSkipTimes(dur.inSeconds.toDouble());
         _loadChapters();
-        _refreshSkipIntervals();
         _updateBlendSubtitlesForTrack(widget.player, widget.player.state.track.subtitle);
       }
     });
@@ -858,16 +645,6 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
         setState(() {
           _chapters = [];
           _hasChapters = false;
-          _apiSkipIntervals = [];
-          // _chapterSkipIntervals = [];
-          // _skipIntervals = [];
-          _skipTimesLoaded = false;
-          // _introSkipped = false;
-          // _outroSkipped = false;
-          // _showIntroOverlay = false;
-          // _showOutroOverlay = false;
-          // _isSkipButtonExpanded = true;
-          // _skipButtonCollapseTimer?.cancel();
           _chaptersLoadAttempts = 0;
           _autoNextCancelled = false;
           _autoNextTriggered = false;
@@ -1468,7 +1245,6 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
               _hasChapters = loadedChapters.isNotEmpty;
               _chaptersLoadAttempts = 0;
             });
-            _refreshSkipIntervals();
           }
           return;
         }
