@@ -80,7 +80,7 @@ class _LibraryViewState extends ConsumerState<LibraryView> with SingleTickerProv
     final favorites = ref.watch(favoritesProvider);
     final isDownloadedOnly = ref.watch(downloadedOnlyProvider);
     final settings = ref.watch(videoSettingsProvider);
-    final layout = settings.libraryLayout;
+    final layout = settings.getLayoutForCategory(widget.category.title);
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -162,7 +162,7 @@ class _LibraryViewState extends ConsumerState<LibraryView> with SingleTickerProv
                         color: theme.cardColor,
                         onSelected: (String selectedLayout) {
                           ref.read(videoSettingsProvider.notifier).updateSettings(
-                            settings.copyWith(libraryLayout: selectedLayout),
+                            settings.copyWithLayoutForCategory(widget.category.title, selectedLayout),
                           );
                         },
                         itemBuilder: (context) => [
@@ -335,7 +335,7 @@ class _LibraryViewState extends ConsumerState<LibraryView> with SingleTickerProv
         },
         loading: () {
           final settings = ref.watch(videoSettingsProvider);
-          final layout = settings.libraryLayout;
+          final layout = settings.getLayoutForCategory(widget.category.title);
           if (layout == 'List') {
             return ListView.builder(
               padding: const EdgeInsets.only(left: 12, right: 12, top: 12, bottom: 96),

@@ -28,7 +28,9 @@ class VideoSettings {
   final String equalizerPreset;
   final double longPressSpeed;
   final String gestureSensitivity;
-  final String libraryLayout;
+  final String animeLayout;
+  final String moviesLayout;
+  final String webSeriesLayout;
   final String openSubtitlesApiKey;
   final String subdlApiKey;
   final String preferredSubtitleProvider;
@@ -60,11 +62,39 @@ class VideoSettings {
     this.equalizerPreset = 'Flat',
     this.longPressSpeed = 1.5,
     this.gestureSensitivity = 'Normal',
-    this.libraryLayout = 'Grid',
+    this.animeLayout = 'Grid',
+    this.moviesLayout = 'Grid',
+    this.webSeriesLayout = 'Grid',
     this.openSubtitlesApiKey = '',
     this.subdlApiKey = '',
     this.preferredSubtitleProvider = 'opensubtitles',
   });
+
+  String getLayoutForCategory(String categoryTitle) {
+    switch (categoryTitle.toLowerCase()) {
+      case 'anime':
+        return animeLayout;
+      case 'movies':
+        return moviesLayout;
+      case 'web series':
+        return webSeriesLayout;
+      default:
+        return 'Grid';
+    }
+  }
+
+  VideoSettings copyWithLayoutForCategory(String categoryTitle, String layout) {
+    switch (categoryTitle.toLowerCase()) {
+      case 'anime':
+        return copyWith(animeLayout: layout);
+      case 'movies':
+        return copyWith(moviesLayout: layout);
+      case 'web series':
+        return copyWith(webSeriesLayout: layout);
+      default:
+        return this;
+    }
+  }
 
   VideoSettings copyWith({
     int? doubleTapSeekDuration,
@@ -93,7 +123,9 @@ class VideoSettings {
     String? equalizerPreset,
     double? longPressSpeed,
     String? gestureSensitivity,
-    String? libraryLayout,
+    String? animeLayout,
+    String? moviesLayout,
+    String? webSeriesLayout,
     String? openSubtitlesApiKey,
     String? subdlApiKey,
     String? preferredSubtitleProvider,
@@ -125,7 +157,9 @@ class VideoSettings {
       equalizerPreset: equalizerPreset ?? this.equalizerPreset,
       longPressSpeed: longPressSpeed ?? this.longPressSpeed,
       gestureSensitivity: gestureSensitivity ?? this.gestureSensitivity,
-      libraryLayout: libraryLayout ?? this.libraryLayout,
+      animeLayout: animeLayout ?? this.animeLayout,
+      moviesLayout: moviesLayout ?? this.moviesLayout,
+      webSeriesLayout: webSeriesLayout ?? this.webSeriesLayout,
       openSubtitlesApiKey: openSubtitlesApiKey ?? this.openSubtitlesApiKey,
       subdlApiKey: subdlApiKey ?? this.subdlApiKey,
       preferredSubtitleProvider: preferredSubtitleProvider ?? this.preferredSubtitleProvider,
@@ -160,7 +194,9 @@ class VideoSettings {
       'equalizerPreset': equalizerPreset,
       'longPressSpeed': longPressSpeed,
       'gestureSensitivity': gestureSensitivity,
-      'libraryLayout': libraryLayout,
+      'animeLayout': animeLayout,
+      'moviesLayout': moviesLayout,
+      'webSeriesLayout': webSeriesLayout,
       'openSubtitlesApiKey': openSubtitlesApiKey,
       'subdlApiKey': subdlApiKey,
       'preferredSubtitleProvider': preferredSubtitleProvider,
@@ -195,7 +231,9 @@ class VideoSettings {
       equalizerPreset: json['equalizerPreset'] ?? 'Flat',
       longPressSpeed: (json['longPressSpeed'] as num?)?.toDouble() ?? 1.5,
       gestureSensitivity: json['gestureSensitivity'] ?? 'Normal',
-      libraryLayout: json['libraryLayout'] ?? 'Grid',
+      animeLayout: json['animeLayout'] ?? json['libraryLayout'] ?? 'Grid',
+      moviesLayout: json['moviesLayout'] ?? json['libraryLayout'] ?? 'Grid',
+      webSeriesLayout: json['webSeriesLayout'] ?? json['libraryLayout'] ?? 'Grid',
       openSubtitlesApiKey: json['openSubtitlesApiKey'] ?? '',
       subdlApiKey: json['subdlApiKey'] ?? '',
       preferredSubtitleProvider: json['preferredSubtitleProvider'] ?? 'opensubtitles',
