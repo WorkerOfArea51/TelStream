@@ -354,18 +354,100 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
     return fetchedBatch;
   }
 
-  String _normalizeSeriesName(String name) {
+  static String normalizeSeriesName(String name) {
     var normalized = name.trim();
-    // Remove "season X", "sX", "part X", "ova", etc.
-    final regex = RegExp(r'(?:\s*-\s*|\s*:?\s*)?(?:season|s|part)\s*\d+.*', caseSensitive: false);
-    normalized = normalized.replaceAll(regex, '');
+
+    // 1. Remove bracketed text at the end, e.g. [1080p], (Movie), etc.
+    normalized = normalized.replaceAll(RegExp(r'\s*[\[\(].*?[\]\)]\s*$'), '');
+
+    // 2. Remove trailing season / part / movie indicators.
     
-    // Remove common trailing subtitles after a colon
+    // Pattern A: trailing season/s/part with digit or Roman numeral
+    // e.g. "season 2", "s3", "part II", "part 2"
+    normalized = normalized.replaceAll(RegExp(r'(?:\s*[-–—:|]\s*)?\b(?:season|s|part)\s*(?:\d+|[ivxIVX]+)\b', caseSensitive: false), '');
+
+    // Pattern B: trailing final season/chapters/act/arc indicators
+    // e.g. "final season", "final chapters", "final chapter", "final act", "final arc", "final"
+    normalized = normalized.replaceAll(RegExp(r'(?:\s*[-–—:|]\s*)?\bfinal\s+(?:season|chapters?|act|arcs?|part)?\b', caseSensitive: false), '');
+
+    // Pattern C: trailing movie / ova / oad / special / specials / prequel / sequel tags
+    normalized = normalized.replaceAll(RegExp(r'(?:\s*[-–—:|]\s*)?\b(?:the\s+)?(?:movie|ova|oad|specials?|prequels?|sequels?)\b', caseSensitive: false), '');
+
+    // Pattern D: trailing Roman numerals at the end of the string
+    // e.g. "II", "III", etc.
+    normalized = normalized.replaceAll(RegExp(r'\s*\b[ivxIVX]+\b$', caseSensitive: false), '');
+
+    // Pattern E: trailing single digits (0-9) NOT preceded by "no" or "vol"
+    // e.g. "Log Horizon 2", "Jujutsu Kaisen 0"
+    normalized = normalized.replaceAll(RegExp(r'(?<!\bno)(?<!\bno\.)(?<!\bvol)(?<!\bvol\.)\s+\b\d\b$', caseSensitive: false), '');
+
+    // Pattern F: trailing single letter "S" (case insensitive) preceded by space (e.g. "Dragon Maid S")
+    normalized = normalized.replaceAll(RegExp(r'\s+\b[sS]\b$'), '');
+
+    // 3. Remove common trailing subtitles after a colon if it's left with something
     if (normalized.contains(':')) {
       normalized = normalized.split(':')[0].trim();
     }
-    
+
+    // Also clean up any trailing dashes, colons, or punctuation left over from the replacements
+    normalized = normalized.replaceAll(RegExp(r'\s*[-–—:|]+\s*$'), '');
+
     return normalized.trim();
+  }
+
+  static String parseSeasonName(String fullTitle, String baseName) {
+    final ft = fullTitle.trim();
+    final bn = baseName.trim();
+    if (ft.toLowerCase() == bn.toLowerCase()) {
+      return 'Season 1';
+    }
+    
+    if (ft.length <= bn.length) {
+      return 'Season 1';
+    }
+
+    var diff = ft.substring(bn.length).trim();
+    // Remove leading dashes, colons, spaces, punctuation
+    diff = diff.replaceAll(RegExp(r'^[-–—:|,\s]+'), '').trim();
+    
+    if (diff.isEmpty) {
+      return 'Season 1';
+    }
+    
+    // Check if diff is a Roman numeral (e.g. "II", "III")
+    if (RegExp(r'^[ivxIVX]+$').hasMatch(diff)) {
+      return 'Season $diff';
+    }
+    
+    // Check if diff is just a single digit (e.g. "2", "3")
+    if (RegExp(r'^\d+$').hasMatch(diff)) {
+      return 'Season $diff';
+    }
+    
+    // Check if diff starts with "Season" or "S" (case insensitive)
+    final seasonNumMatch = RegExp(r'^(?:season|s)\s*(\d+|[ivxIVX]+)$', caseSensitive: false).firstMatch(diff);
+    if (seasonNumMatch != null) {
+      final val = seasonNumMatch.group(1)!;
+      return 'Season $val';
+    }
+    
+    if (diff.toLowerCase() == 'final season' || diff.toLowerCase() == 'final_season') {
+      return 'Final Season';
+    }
+    
+    if (diff.toLowerCase() == 's') {
+      return 'Season S';
+    }
+    
+    if (diff.toLowerCase() == 'movie' || diff.toLowerCase() == 'the movie') {
+      return 'Movie';
+    }
+    
+    // Otherwise, capitalize first letter of each word
+    return diff.split(' ').map((word) {
+      if (word.isEmpty) return '';
+      return word[0].toUpperCase() + word.substring(1);
+    }).join(' ');
   }
 
   List<AnimeSeries> _parseMessages(List<td.Message> raw) {
@@ -396,11 +478,11 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
         if (captionText.isNotEmpty) {
           final lines = captionText.split('\n');
           final fullTitle = lines.first.trim();
-          final baseName = _normalizeSeriesName(fullTitle);
+          final baseName = normalizeSeriesName(fullTitle);
           
           final newSeason = AnimeSeason(
             fullTitle: fullTitle,
-            seasonName: fullTitle == baseName ? 'Season 1' : fullTitle.replaceFirst(baseName, '').replaceAll(':', '').trim(),
+            seasonName: parseSeasonName(fullTitle, baseName),
             posterMessage: msg,
             episodes: currentEpisodes.reversed.toList(),
           );
@@ -710,6 +792,22 @@ class SeasonSortKey implements Comparable<SeasonSortKey> {
     required this.releaseYear,
   });
 
+  static int _parseRomanNumeral(String r) {
+    switch (r.toLowerCase()) {
+      case 'i': return 1;
+      case 'ii': return 2;
+      case 'iii': return 3;
+      case 'iv': return 4;
+      case 'v': return 5;
+      case 'vi': return 6;
+      case 'vii': return 7;
+      case 'viii': return 8;
+      case 'ix': return 9;
+      case 'x': return 10;
+      default: return 1;
+    }
+  }
+
   static SeasonSortKey fromSeason(AnimeSeason season, StorageService storage) {
     final name = season.seasonName;
     final lower = name.toLowerCase();
@@ -731,25 +829,33 @@ class SeasonSortKey implements Comparable<SeasonSortKey> {
       sNum = 99;
     } else if (lower.contains('ova') || lower.contains('special') || lower.contains('movie')) {
       sNum = 100;
+    } else if (lower.trim() == 'season s' || lower.trim() == 's') {
+      sNum = 2; // S suffix usually represents second season / sequel
     } else {
-      // Look for "season X" or "sX"
-      final match = RegExp(r'(?:season|s)\s*(\d+)').firstMatch(lower);
-      if (match != null) {
-        sNum = int.tryParse(match.group(1)!) ?? 1;
-      } else if (fullTitleLower.contains('arc') || fullTitleLower.contains('saga') ||
-                 lower.contains('arc') || lower.contains('saga')) {
-        // Default to season 1 for all arcs/sagas unless they have an explicit season X tag
-        sNum = 1;
+      // 1. Look for Roman numerals first
+      final romanMatch = RegExp(r'\b(i|ii|iii|iv|v|vi|vii|viii|ix|x)\b', caseSensitive: false).firstMatch(lower);
+      if (romanMatch != null) {
+        sNum = _parseRomanNumeral(romanMatch.group(1)!);
       } else {
-        // Look for a number at the start of the string (e.g. "1.Agent..." or "14.Lost...")
-        final matchStart = RegExp(r'^\s*(\d+)').firstMatch(lower);
-        if (matchStart != null) {
-          sNum = int.tryParse(matchStart.group(1)!) ?? 1;
+        // 2. Look for "season X" or "sX"
+        final match = RegExp(r'(?:season|s)\s*(\d+)').firstMatch(lower);
+        if (match != null) {
+          sNum = int.tryParse(match.group(1)!) ?? 1;
+        } else if (fullTitleLower.contains('arc') || fullTitleLower.contains('saga') ||
+                   lower.contains('arc') || lower.contains('saga')) {
+          // Default to season 1 for all arcs/sagas unless they have an explicit season X tag
+          sNum = 1;
         } else {
-          // Look for any other isolated number in the season name
-          final matchAny = RegExp(r'\b(\d+)\b').firstMatch(lower);
-          if (matchAny != null) {
-            sNum = int.tryParse(matchAny.group(1)!) ?? 1;
+          // Look for a number at the start of the string (e.g. "1.Agent..." or "14.Lost...")
+          final matchStart = RegExp(r'^\s*(\d+)').firstMatch(lower);
+          if (matchStart != null) {
+            sNum = int.tryParse(matchStart.group(1)!) ?? 1;
+          } else {
+            // Look for any other isolated number in the season name
+            final matchAny = RegExp(r'\b(\d+)\b').firstMatch(lower);
+            if (matchAny != null) {
+              sNum = int.tryParse(matchAny.group(1)!) ?? 1;
+            }
           }
         }
       }
