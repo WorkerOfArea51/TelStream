@@ -368,7 +368,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
 
     // Pattern B: trailing final season/chapters/act/arc indicators
     // e.g. "final season", "final chapters", "final chapter", "final act", "final arc", "final"
-    normalized = normalized.replaceAll(RegExp(r'(?:\s*[-–—:|]\s*)?\bfinal\s+(?:season|chapters?|act|arcs?|part)?\b', caseSensitive: false), '');
+    normalized = normalized.replaceAll(RegExp(r'(?:\s*[-–—:|]\s*)?\b(?:the\s+)?final\s+(?:season|chapters?|act|arcs?|part)?\b', caseSensitive: false), '');
 
     // Pattern C: trailing movie / ova / oad / special / specials / prequel / sequel tags
     normalized = normalized.replaceAll(RegExp(r'(?:\s*[-–—:|]\s*)?\b(?:the\s+)?(?:movie|ova|oad|specials?|prequels?|sequels?)\b', caseSensitive: false), '');
