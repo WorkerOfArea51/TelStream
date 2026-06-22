@@ -14,6 +14,7 @@ import '../settings/settings_provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../../services/storage_service.dart';
 import '../../core/logger.dart';
+import '../../services/streaming_proxy_service.dart';
 import 'package:path_provider/path_provider.dart';
 import '../../services/permission_service.dart';
 import 'pip_manager.dart';
@@ -107,6 +108,9 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
   bool _showSpeedIndicator = false;
   double _audioDelay = 0.0;
   double _subtitleDelay = 0.0;
+  Timer? _statsTimer;
+  Map<String, String> _nerdStats = {};
+  final Map<int, int> _lastDownloadedBytes = {};
 
   // Double tap seek variables
   bool _showLeftSeekOverlay = false;
@@ -459,6 +463,17 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
         isActive: _audioDelay != 0.0,
         onTap: _showAudioDelayDialog,
       ),
+      _buildCircularActionButton(
+        icon: Icons.analytics_outlined,
+        label: 'Stats',
+        isActive: ref.watch(videoSettingsProvider).showStatsForNerds,
+        onTap: () {
+          final s = ref.read(videoSettingsProvider);
+          ref.read(videoSettingsProvider.notifier).updateSettings(
+            s.copyWith(showStatsForNerds: !s.showStatsForNerds),
+          );
+        },
+      ),
     ];
 
     if (items.length <= 3) {
@@ -586,6 +601,115 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
       return '$hrs:$m:$sec';
     }
     return '$min:$sec';
+  }
+
+  void _startStatsTimer() {
+    _statsTimer?.cancel();
+    _statsTimer = Timer.periodic(const Duration(seconds: 1), (timer) async {
+      final settings = ref.read(videoSettingsProvider);
+      if (!settings.showStatsForNerds || !mounted) {
+        _statsTimer?.cancel();
+        return;
+      }
+      
+      final player = widget.player;
+      final nativePlayer = player.platform;
+      if (nativePlayer is NativePlayer) {
+        try {
+          final results = await Future.wait([
+            nativePlayer.getProperty('hwdec-current').catchError((_) => 'no'),
+            nativePlayer.getProperty('video-out-params/w').catchError((_) => ''),
+            nativePlayer.getProperty('video-out-params/h').catchError((_) => ''),
+            nativePlayer.getProperty('container-fps').catchError((_) => ''),
+            nativePlayer.getProperty('demuxer-cache-duration').catchError((_) => '0'),
+            nativePlayer.getProperty('demuxer-cache-state').catchError((_) => '{}'),
+            nativePlayer.getProperty('frame-drop-count').catchError((_) => '0'),
+          ]);
+          
+          final hwdec = results[0];
+          final w = results[1];
+          final h = results[2];
+          final fps = results[3];
+          final cacheDuration = results[4];
+          final cacheStateStr = results[5];
+          final frameDrops = results[6];
+          
+          double cacheMb = 0.0;
+          if (cacheStateStr.isNotEmpty && cacheStateStr != '{}') {
+            try {
+              if (cacheStateStr.trim().startsWith('{')) {
+                final bytesIdx = cacheStateStr.indexOf('"fw-bytes":');
+                if (bytesIdx != -1) {
+                  final endIdx = cacheStateStr.indexOf(',', bytesIdx);
+                  final bytesStr = cacheStateStr.substring(bytesIdx + 11, endIdx != -1 ? endIdx : cacheStateStr.length).replaceAll(RegExp(r'[^\d]'), '');
+                  final bytesVal = int.tryParse(bytesStr) ?? 0;
+                  cacheMb = bytesVal / (1024 * 1024);
+                }
+              } else {
+                final match = RegExp(r'fw-bytes=(\d+)').firstMatch(cacheStateStr);
+                if (match != null) {
+                  final bytesVal = int.tryParse(match.group(1) ?? '0') ?? 0;
+                  cacheMb = bytesVal / (1024 * 1024);
+                }
+              }
+            } catch (_) {}
+          }
+          
+          final proxy = ref.read(streamingProxyServiceProvider);
+          int? activeFileId;
+          final playingUrl = widget.player.state.playlist.index >= 0 && 
+                            widget.player.state.playlist.index < widget.player.state.playlist.medias.length
+              ? widget.player.state.playlist.medias[widget.player.state.playlist.index].uri
+              : '';
+          if (playingUrl.startsWith('http://127.0.0.1:')) {
+            final uri = Uri.tryParse(playingUrl);
+            if (uri != null) {
+              final idStr = uri.queryParameters['fileId'];
+              if (idStr != null) {
+                activeFileId = int.tryParse(idStr);
+              }
+            }
+          }
+          
+          String speedStr = '0 KB/s';
+          if (activeFileId != null) {
+            final cachedFile = proxy.getCachedFile(activeFileId);
+            if (cachedFile != null) {
+              final currentDownloaded = cachedFile.local.downloadedSize;
+              final lastDownloaded = _lastDownloadedBytes[activeFileId] ?? currentDownloaded;
+              final diff = currentDownloaded - lastDownloaded;
+              _lastDownloadedBytes[activeFileId] = currentDownloaded;
+              
+              if (diff > 0) {
+                if (diff < 1024 * 1024) {
+                  speedStr = '${(diff / 1024).toStringAsFixed(1)} KB/s';
+                } else {
+                  speedStr = '${(diff / (1024 * 1024)).toStringAsFixed(2)} MB/s';
+                }
+              } else if (cachedFile.local.isDownloadingCompleted) {
+                speedStr = 'Completed (Local Disk)';
+              } else {
+                speedStr = '0 KB/s (Idle)';
+              }
+            }
+          }
+          
+          if (mounted) {
+            setState(() {
+              _nerdStats = {
+                'Resolution & FPS': w.isNotEmpty && h.isNotEmpty 
+                    ? '$w x $h @ ${double.tryParse(fps)?.toStringAsFixed(2) ?? fps} fps'
+                    : 'Loading...',
+                'Decoder': hwdec == 'no' ? 'Software' : hwdec,
+                'Forward Buffer': '${cacheMb.toStringAsFixed(1)} MB (${double.tryParse(cacheDuration)?.toStringAsFixed(1) ?? cacheDuration}s)',
+                'Download Speed': speedStr,
+                'Frame Drops': frameDrops,
+              };
+            });
+          }
+        } catch (_) {}
+      }
+    });
   }
 
   @override
@@ -769,6 +893,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
 
   @override
   void dispose() {
+    _statsTimer?.cancel();
     _autoNextSlideInTimer?.cancel();
     _autoNextTimer?.cancel();
     // _skipButtonCollapseTimer?.cancel();
@@ -2284,6 +2409,11 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     final screenWidth = MediaQuery.of(context).size.width;
     final isPortrait = MediaQuery.of(context).orientation == Orientation.portrait;
     final settings = ref.watch(videoSettingsProvider);
+    if (settings.showStatsForNerds && (_statsTimer == null || !_statsTimer!.isActive)) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _startStatsTimer();
+      });
+    }
     final theme = Theme.of(context);
     final customTheme = theme.extension<AppThemeExtension>();
     final settingsAccent = customTheme?.settingsAccent ?? theme.primaryColor;
@@ -3025,6 +3155,65 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
               ),
             ),
           
+          // Stats for Nerds Overlay
+          if (settings.showStatsForNerds && _nerdStats.isNotEmpty)
+            Positioned(
+              top: 100,
+              left: 16,
+              child: IgnorePointer(
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  width: 250,
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.75),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.white12),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text(
+                        'Stats for Nerds',
+                        style: TextStyle(
+                          color: Colors.orange,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const Divider(color: Colors.white12, height: 8),
+                      ..._nerdStats.entries.map((entry) {
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 3.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                entry.key,
+                                style: const TextStyle(
+                                  color: Colors.white54,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              Text(
+                                entry.value,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 11,
+                                  fontFamily: 'monospace',
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+
           // Custom Track Selector Modal Panel Background Blur
           if (_showTrackSelectorPanel)
             GestureDetector(
@@ -3520,7 +3709,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
         final targetLibass = settings.subtitleRendererMode == 'native';
 
         // Dynamically shift decoder to mediacodec-copy if native subtitles are used on direct mediacodec
-        if (Platform.isAndroid && hwdec == 'mediacodec') {
+        if (isDirectHw) {
           if (targetLibass) {
             nativePlayer.setProperty('hwdec', 'mediacodec-copy');
             Log.i('Dynamic decode path (controls): forced mediacodec-copy for active native subtitles');

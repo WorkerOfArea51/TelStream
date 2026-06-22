@@ -411,6 +411,64 @@ class _AdvancedCacheManagerScreenState extends ConsumerState<AdvancedCacheManage
     }
   }
 
+  Future<void> _compactDatabaseAction() async {
+    final theme = Theme.of(context);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: theme.cardColor,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: BorderSide(color: theme.colorScheme.onSurface.withValues(alpha: 0.08)),
+          ),
+          title: const Text('Compact & Defragment Database'),
+          content: const Text(
+            'This will defragment SQLite indexes and optimize TDLib storage to reclaim empty disk space.\n\n'
+            'This action is safe and does not delete your login session or watched history.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: Text('Cancel', style: TextStyle(color: theme.brightness == Brightness.dark ? Colors.white54 : Colors.black54)),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: theme.primaryColor),
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Optimize Now', style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        );
+      }
+    );
+
+    if (confirmed == true) {
+      if (mounted) {
+        setState(() => _isLoading = true);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Optimizing & compacting databases...'), duration: Duration(seconds: 2)),
+        );
+      }
+
+      try {
+        await ref.read(tdlibServiceProvider).compactDatabase();
+      } catch (e) {
+        Log.e('Compaction action failed: $e');
+      }
+
+      await _loadAllCacheData();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Database compacted and defragmented successfully!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -555,6 +613,39 @@ class _AdvancedCacheManagerScreenState extends ConsumerState<AdvancedCacheManage
                       trailing: IconButton(
                         icon: const Icon(Icons.delete_sweep, color: Colors.redAccent),
                         onPressed: _clearMetadataCacheAction,
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 24),
+                  Text(
+                    'Database & Storage Maintenance',
+                    style: TextStyle(color: settingsAccent, fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: theme.cardColor,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: theme.colorScheme.onSurface.withValues(alpha: 0.08)),
+                    ),
+                    child: ListTile(
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                      leading: CircleAvatar(
+                        backgroundColor: settingsAccent.withValues(alpha: 0.12),
+                        child: Icon(Icons.storage, color: settingsAccent),
+                      ),
+                      title: const Text(
+                        'Defragment & Compact Database',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                      ),
+                      subtitle: const Text(
+                        'Vacuums indices and compacts SQLite storage to reclaim disk space (safe, session-friendly).',
+                        style: TextStyle(fontSize: 12),
+                      ),
+                      trailing: IconButton(
+                        icon: Icon(Icons.cleaning_services, color: settingsAccent),
+                        onPressed: _compactDatabaseAction,
                       ),
                     ),
                   ),

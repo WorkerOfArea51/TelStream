@@ -35,6 +35,7 @@ class VideoSettings {
   final String subdlApiKey;
   final String preferredSubtitleProvider;
   final String customMpvOptions;
+  final bool showStatsForNerds;
 
   const VideoSettings({
     this.doubleTapSeekDuration = 10,
@@ -70,6 +71,7 @@ class VideoSettings {
     this.subdlApiKey = '',
     this.preferredSubtitleProvider = 'opensubtitles',
     this.customMpvOptions = '',
+    this.showStatsForNerds = false,
   });
 
   String getLayoutForCategory(String categoryTitle) {
@@ -132,6 +134,7 @@ class VideoSettings {
     String? subdlApiKey,
     String? preferredSubtitleProvider,
     String? customMpvOptions,
+    bool? showStatsForNerds,
   }) {
     return VideoSettings(
       doubleTapSeekDuration: doubleTapSeekDuration ?? this.doubleTapSeekDuration,
@@ -167,6 +170,7 @@ class VideoSettings {
       subdlApiKey: subdlApiKey ?? this.subdlApiKey,
       preferredSubtitleProvider: preferredSubtitleProvider ?? this.preferredSubtitleProvider,
       customMpvOptions: customMpvOptions ?? this.customMpvOptions,
+      showStatsForNerds: showStatsForNerds ?? this.showStatsForNerds,
     );
   }
 
@@ -205,6 +209,7 @@ class VideoSettings {
       'subdlApiKey': subdlApiKey,
       'preferredSubtitleProvider': preferredSubtitleProvider,
       'customMpvOptions': customMpvOptions,
+      'showStatsForNerds': showStatsForNerds,
     };
   }
 
@@ -243,6 +248,7 @@ class VideoSettings {
       subdlApiKey: json['subdlApiKey'] ?? '',
       preferredSubtitleProvider: json['preferredSubtitleProvider'] ?? 'opensubtitles',
       customMpvOptions: json['customMpvOptions'] ?? '',
+      showStatsForNerds: json['showStatsForNerds'] ?? false,
     );
   }
 }

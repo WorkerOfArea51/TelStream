@@ -857,7 +857,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         final targetLibass = settings.subtitleRendererMode == 'native';
 
         // Dynamically shift decoder to mediacodec-copy if native subtitles are used on direct mediacodec
-        if (Platform.isAndroid && hwdec == 'mediacodec') {
+        if (isDirectHw) {
           if (targetLibass) {
             nativePlayer.setProperty('hwdec', 'mediacodec-copy');
             Log.i('Dynamic decode path: forced mediacodec-copy for active native subtitles');

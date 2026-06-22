@@ -304,6 +304,27 @@ class TdlibService {
     }
   }
 
+  Future<void> compactDatabase() async {
+    try {
+      Log.i('TDLib compactDatabase initiated.');
+      // Optimize storage to trigger general database defragmentation and vacuum SQLite pages
+      await sendAsync(const td.OptimizeStorage(
+        size: 0,
+        ttl: 0,
+        count: 0,
+        immunityDelay: 0,
+        fileTypes: [],
+        chatIds: [],
+        excludeChatIds: [],
+        returnDeletedFileStatistics: false,
+        chatLimit: 0,
+      ));
+      Log.i('TDLib compactDatabase completed successfully.');
+    } catch (e, stack) {
+      Log.e('TDLib Database compaction failed', e, stack);
+    }
+  }
+
   final Map<int, Completer<td.TdObject>> _pendingRequests = {};
   int _requestId = 0;
 

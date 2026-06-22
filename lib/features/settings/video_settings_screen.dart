@@ -487,6 +487,14 @@ class VideoSettingsScreen extends ConsumerWidget {
             clipBehavior: Clip.antiAlias,
             child: Column(
               children: [
+                _buildSwitch(
+                  context: context,
+                  title: 'Show Stats for Nerds',
+                  subtitle: 'Display real-time media player analytics and network buffer stats during video playback',
+                  value: settings.showStatsForNerds,
+                  onChanged: (val) => notifier.updateSettings(settings.copyWith(showStatsForNerds: val)),
+                ),
+                Divider(color: theme.dividerColor, height: 1, indent: 16, endIndent: 16),
                 ListTile(
                   title: Text('Custom MPV Options', style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
                   subtitle: Text(

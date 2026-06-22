@@ -14,15 +14,14 @@ class ChannelCategory {
 }
 
 class Constants {
-  static const String currentVersion = '2.7.9';
+  static const String currentVersion = '2.8.0';
   static const String changelog = '''
-### 🚀 What's New in v2.7.9
+### 🚀 What's New in v2.8.0
 
-* **High-Performance Adaptive Streaming & Resilient Network Handovers**:
-  - Optimized streaming chunk size to 128 KB (down from 1 MB) to ensure smooth, incremental data delivery to the video player under variable bandwidth networks (e.g. 2.4 GHz WiFi, unstable mobile data, and congested ISPs).
-  - Implemented a resilient download wait loop: Every 1.5 seconds, if the player is waiting for bytes, the proxy checks the connection and re-triggers the TDLib download task. This auto-recovers and continues streaming seamlessly during network switches (cellular to WiFi, 2.4GHz to 5GHz/6GHz handovers).
-  - Increased MPV's forward cache size to 100 MB and the readahead time limit to 60 seconds. This allows the player to aggressively buffer content when the connection is fast, preventing playback stutters when entering weak connection zones.
-  - Configured a 5-second buffer recovery hold (`cache-pause-wait`) before resuming playback after exhaustion to avoid continuous start-stop stutter cycles.
+* **Stats for Nerds & Real-time Media Analytics**:
+  - Added a "Show Stats for Nerds" overlay during video playback displaying real-time video resolution, framerate, video/audio codec, active hardware decoder, active download byte offsets, buffering rate, and network prefetch cache parameters.
+* **Database Maintenance & Defragmentation**:
+  - Integrated a manual "Defragment & Compact Database" action in the Advanced Cache screen to optimize SQLite databases and TDLib storage, reclaiming disk space safely without clearing history or active login sessions.
 
 ### 🚀 What's New in v2.7.8
 
