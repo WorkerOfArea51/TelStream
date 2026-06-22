@@ -3393,35 +3393,8 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
         final isDirectHw = Platform.isAndroid && hwdec == 'mediacodec';
         
         final settings = ref.read(videoSettingsProvider);
-        final isFlutterOverlay = settings.subtitleRendererMode == 'flutter';
         
-        // Auto detection mode
-        bool requiresLibass = false;
-        try {
-          final countStr = await nativePlayer.getProperty('track-list/count');
-          final count = int.tryParse(countStr) ?? 0;
-          for (int i = 0; i < count; i++) {
-            final type = await nativePlayer.getProperty('track-list/$i/type');
-            final id = await nativePlayer.getProperty('track-list/$i/id');
-            if (type == 'sub' && id == targetId) {
-              final codec = (await nativePlayer.getProperty('track-list/$i/codec')).toLowerCase();
-              requiresLibass = codec.contains('ass') ||
-                               codec.contains('ssa') ||
-                               codec.contains('pgs') ||
-                               codec.contains('hdmv') ||
-                               codec.contains('dvd') ||
-                               codec.contains('vob') ||
-                               codec.contains('dvb') ||
-                               codec == 'xsub';
-              break;
-            }
-          }
-        } catch (_) {}
-        
-        final useNativeBlending = !isDirectHw && 
-            !isFlutterOverlay && 
-            (settings.subtitleRendererMode == 'native' || 
-             (settings.subtitleRendererMode == 'auto' && requiresLibass));
+        final useNativeBlending = !isDirectHw && (settings.subtitleRendererMode == 'native');
         
         if (useNativeBlending) {
           nativePlayer.setProperty('blend-subtitles', 'yes');
@@ -3442,9 +3415,8 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
           
           // Show SnackBar warning if on Android and using direct hardware decoding with a graphical/ASS track
           // ONLY if not in Flutter overlay mode (which handles rendering anyway)
-          final isTargetAssOrPgs = settings.subtitleRendererMode == 'native' || 
-                                   (settings.subtitleRendererMode == 'auto' && requiresLibass);
-          if (Platform.isAndroid && mounted && !isFlutterOverlay && isTargetAssOrPgs) {
+          final isTargetAssOrPgs = settings.subtitleRendererMode == 'native';
+          if (Platform.isAndroid && mounted && isTargetAssOrPgs) {
             try {
               final countStr = await nativePlayer.getProperty('track-list/count');
               final count = int.tryParse(countStr) ?? 0;

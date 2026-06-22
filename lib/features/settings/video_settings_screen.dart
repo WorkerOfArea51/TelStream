@@ -306,14 +306,10 @@ class VideoSettingsScreen extends ConsumerWidget {
                 _buildRadioGroup(
                   context: context,
                   title: 'Subtitle Renderer Mode',
-                  options: const ['Smart Auto', 'Flutter Text Overlay', 'Native Blending'],
-                  currentValue: settings.subtitleRendererMode == 'auto'
-                      ? 'Smart Auto'
-                      : (settings.subtitleRendererMode == 'flutter' ? 'Flutter Text Overlay' : 'Native Blending'),
+                  options: const ['Flutter Text Overlay', 'Native Blending'],
+                  currentValue: settings.subtitleRendererMode == 'flutter' ? 'Flutter Text Overlay' : 'Native Blending',
                   onChanged: (val) {
-                    final mode = val == 'Smart Auto'
-                        ? 'auto'
-                        : (val == 'Flutter Text Overlay' ? 'flutter' : 'native');
+                    final mode = val == 'Flutter Text Overlay' ? 'flutter' : 'native';
                     notifier.updateSettings(settings.copyWith(subtitleRendererMode: mode));
                   },
                 ),

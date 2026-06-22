@@ -160,10 +160,8 @@ class TrackSelectorPanel extends StatelessWidget {
                                   child: Row(
                                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                                     children: [
-                                      _buildModeButton('auto', 'Smart Auto', currentRendererMode, settingsAccent),
-                                      const SizedBox(width: 6),
                                       _buildModeButton('flutter', 'Overlay', currentRendererMode, settingsAccent),
-                                      const SizedBox(width: 6),
+                                      const SizedBox(width: 8),
                                       _buildModeButton('native', 'Native', currentRendererMode, settingsAccent),
                                     ],
                                   ),

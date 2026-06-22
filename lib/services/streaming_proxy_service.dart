@@ -172,7 +172,7 @@ class StreamingProxyService {
           final downloadedDelta = (res.local.downloadedSize - baseDownloaded).clamp(0, res.expectedSize);
           final activeRangeEnd = activeOffset + downloadedDelta;
 
-          const graceBuffer = 5 * 1024 * 1024;
+          const graceBuffer = 1 * 1024 * 1024;
           const forwardThreshold = 3 * 1024 * 1024;
 
           final isOutBefore = start < activeOffset;
@@ -291,7 +291,7 @@ class StreamingProxyService {
         td.File currentFile = _fileStates[fileId] ?? tdFile;
 
         while (sentBytes < responseLength) {
-          final chunkNeeded = (responseLength - sentBytes).clamp(0, 524288);
+          final chunkNeeded = (responseLength - sentBytes).clamp(0, 1048576);
           if (chunkNeeded <= 0) break;
 
           final targetEndOffset = currentOffset + chunkNeeded;
@@ -339,7 +339,7 @@ class StreamingProxyService {
               final isOutAfter = currentOffset > activeRangeEnd + 3 * 1024 * 1024;
 
               if (isOutBefore || (isOutAfter && (!hasEarlierRequest || isTailQuery))) {
-                final shiftOffset = (currentOffset - 5 * 1024 * 1024).clamp(0, currentFile.expectedSize);
+                final shiftOffset = (currentOffset - 1 * 1024 * 1024).clamp(0, currentFile.expectedSize);
                 Log.i('Proxy loop auto-shifting TDLib download for file $fileId to $shiftOffset (currentOffset: $currentOffset, activeOffset: $activeOffset, activeRangeEnd: $activeRangeEnd)');
                 
                 final currentDownloaded = currentFile.local.downloadedSize;

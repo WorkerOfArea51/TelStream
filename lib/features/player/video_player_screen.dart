@@ -363,8 +363,8 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         if (totalDuration > 0 && expectedSize > 0) {
           final fraction = savedPos / totalDuration;
           initialOffset = (fraction * expectedSize).round();
-          // Apply a 5MB lookbehind grace buffer for the initial seek offset
-          const graceBuffer = 5 * 1024 * 1024;
+          // Apply a 1MB lookbehind grace buffer for the initial seek offset
+          const graceBuffer = 1 * 1024 * 1024;
           initialOffset = (initialOffset - graceBuffer).clamp(0, expectedSize);
         }
       }
@@ -439,7 +439,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
           if (totalDuration > 0 && expectedSize > 0) {
             final fraction = savedPos / totalDuration;
             initialOffset = (fraction * expectedSize).round();
-            const graceBuffer = 5 * 1024 * 1024;
+            const graceBuffer = 1 * 1024 * 1024;
             initialOffset = (initialOffset - graceBuffer).clamp(0, expectedSize);
           }
         }
@@ -507,7 +507,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         });
       }
 
-      const graceBuffer = 5 * 1024 * 1024; // 5 MB lookbehind buffer to align with proxy and keyframe seek queries
+      const graceBuffer = 1 * 1024 * 1024; // 1 MB lookbehind buffer to align with proxy and keyframe seek queries
       final shiftOffset = (byteOffset - graceBuffer).clamp(0, expectedSize);
 
       // Update download offset in TDLib and Proxy synchronously to avoid race conditions
@@ -723,24 +723,24 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         final profile = _settings.streamingProfile;
         
         if (profile == 'Aggressive Buffer') {
-          nativePlayer.setProperty('demuxer-max-bytes', '524288000'); // 500 MB
-          nativePlayer.setProperty('demuxer-max-back-bytes', '157286400'); // 150 MB
-          nativePlayer.setProperty('demuxer-readahead-secs', '180');
+          nativePlayer.setProperty('demuxer-max-bytes', '629145600'); // 600 MB
+          nativePlayer.setProperty('demuxer-max-back-bytes', '209715200'); // 200 MB
+          nativePlayer.setProperty('demuxer-readahead-secs', '240');
           nativePlayer.setProperty('cache-pause-wait', '2');
-          Log.i('Applied Aggressive Buffer Profile: 500MB buffer, 150MB back buffer, 180s prefetch');
+          Log.i('Applied Aggressive Buffer Profile: 600MB buffer, 200MB back buffer, 240s prefetch');
         } else if (profile == 'Mobile Saver') {
-          nativePlayer.setProperty('demuxer-max-bytes', '41943040'); // 40 MB
-          nativePlayer.setProperty('demuxer-max-back-bytes', '10485760'); // 10 MB
-          nativePlayer.setProperty('demuxer-readahead-secs', '45');
-          nativePlayer.setProperty('cache-pause-wait', '4');
-          Log.i('Applied Mobile Saver Profile: 40MB buffer, 10MB back buffer, 45s prefetch');
+          nativePlayer.setProperty('demuxer-max-bytes', '104857600'); // 100 MB
+          nativePlayer.setProperty('demuxer-max-back-bytes', '31457280'); // 30 MB
+          nativePlayer.setProperty('demuxer-readahead-secs', '75');
+          nativePlayer.setProperty('cache-pause-wait', '6');
+          Log.i('Applied Mobile Saver Profile: 100MB buffer, 30MB back buffer, 75s prefetch');
         } else {
           // Balanced profile
-          nativePlayer.setProperty('demuxer-max-bytes', '157286400'); // 150 MB
-          nativePlayer.setProperty('demuxer-max-back-bytes', '52428800'); // 50 MB
-          nativePlayer.setProperty('demuxer-readahead-secs', '90');
-          nativePlayer.setProperty('cache-pause-wait', '3');
-          Log.i('Applied Balanced Profile: 150MB buffer, 50MB back buffer, 90s prefetch');
+          nativePlayer.setProperty('demuxer-max-bytes', '314572800'); // 300 MB
+          nativePlayer.setProperty('demuxer-max-back-bytes', '104857600'); // 100 MB
+          nativePlayer.setProperty('demuxer-readahead-secs', '150');
+          nativePlayer.setProperty('cache-pause-wait', '4');
+          Log.i('Applied Balanced Profile: 300MB buffer, 100MB back buffer, 150s prefetch');
         }
       }
     } catch (e) {
@@ -860,44 +860,16 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         final isDirectHw = Platform.isAndroid && hwdec == 'mediacodec';
         
         final settings = ref.read(videoSettingsProvider);
-        final isFlutterOverlay = settings.subtitleRendererMode == 'flutter';
         
-        // Auto detection mode
-        bool requiresLibass = false;
-        if (settings.subtitleRendererMode == 'auto') {
-          // Get the codec of the selected track
-          try {
-            final countStr = await nativePlayer.getProperty('track-list/count');
-            final count = int.tryParse(countStr) ?? 0;
-            for (int i = 0; i < count; i++) {
-              final type = await nativePlayer.getProperty('track-list/$i/type');
-              final id = await nativePlayer.getProperty('track-list/$i/id');
-              if (type == 'sub' && id == targetId) {
-                final codec = (await nativePlayer.getProperty('track-list/$i/codec')).toLowerCase();
-                requiresLibass = codec.contains('ass') ||
-                                 codec.contains('ssa') ||
-                                 codec.contains('pgs') ||
-                                 codec.contains('hdmv') ||
-                                 codec.contains('dvd') ||
-                                 codec.contains('vob') ||
-                                 codec.contains('dvb') ||
-                                 codec == 'xsub';
-                break;
-              }
-            }
-          } catch (_) {}
-        }
-        
-        final targetLibass = settings.subtitleRendererMode == 'native' || 
-                             (settings.subtitleRendererMode == 'auto' && requiresLibass);
+        final targetLibass = settings.subtitleRendererMode == 'native';
                              
         if (targetLibass != _currentLibass) {
-          Log.i('Smart Subtitles: Switching libass from $_currentLibass to $targetLibass. Recreating player.');
+          Log.i('Subtitles Mode: Switching libass from $_currentLibass to $targetLibass. Recreating player.');
           await _recreatePlayer(targetLibass, track);
           return;
         }
         
-        final useNativeBlending = !isDirectHw && !isFlutterOverlay && targetLibass;
+        final useNativeBlending = !isDirectHw && targetLibass;
         
         if (useNativeBlending) {
           nativePlayer.setProperty('blend-subtitles', 'yes');
@@ -933,7 +905,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         nativePlayer.setProperty('cache', 'yes');
         nativePlayer.setProperty('demuxer-max-back-bytes', '16777216'); // 16 MB back buffer (instant backward seek)
         nativePlayer.setProperty('cache-pause', 'yes'); // Stalls playback if buffer runs out to prevent decoding corrupted frames
-        nativePlayer.setProperty('cache-pause-initial', 'no'); // Start playing immediately without artificial startup delay
+        nativePlayer.setProperty('cache-pause-initial', 'yes'); // Wait for initial buffer to prevent stutters
         nativePlayer.setProperty('hr-seek', 'no'); // Disable high-precision seeking on slow networks to seek instantly to keyframes
         
         // Set synchronization clocks and framedrop to maintain perfect audio/video/subtitle sync at high speed
