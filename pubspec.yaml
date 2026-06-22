@@ -2,7 +2,7 @@ name: telstream
 description: "Stream Telegram videos seamlessly using a high-performance built-in media player powered by TDLib and MediaKit."
 publish_to: 'none'
 
-version: 2.7.0+24
+version: 2.8.0+25
 
 environment:
   sdk: ^3.12.1
