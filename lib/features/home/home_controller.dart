@@ -35,6 +35,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
   bool get showFavoritesOnly => _showFavoritesOnly;
 
   StreamSubscription? _updateSubscription;
+  bool _cacheLoadComplete = false;
   bool _isFetchingReleaseYears = false;
   Timer? _releaseYearsTimer;
 
@@ -209,13 +210,14 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
       _allSeries = _parseMessages(_rawMessages);
       currentFromId = _rawMessages.last.id;
     }
+    _cacheLoadComplete = !_hasMore;
     return _applySearchAndSort(_allSeries);
   }
 
   Future<void> _syncFromNetwork() async {
     try {
+      _hasMore = true; // Reset _hasMore to allow background network fetching
       final storage = ref.read(storageServiceProvider);
-      final lastIndexedId = storage.getLastIndexedMessageId(category.channelId);
       int currentFromId = 0;
       bool changed = false;
       bool reachedEnd = false;
@@ -241,7 +243,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
           }
           
           for (final msg in networkMessages) {
-            if (lastIndexedId > 0 && msg.id <= lastIndexedId) {
+            if (_rawMessageIds.contains(msg.id) && _cacheLoadComplete) {
               reachedEnd = true;
               _hasMore = false;
               break;
