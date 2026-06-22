@@ -14,10 +14,11 @@ class ChannelCategory {
 }
 
 class Constants {
-  static const String currentVersion = '2.7.2';
+  static const String currentVersion = '2.7.3';
   static const String changelog = '''
-### 🚀 What's New in v2.7.2
+### 🚀 What's New in v2.7.3
 
+* **Restored Season Tabs**: Restored the segmented season ChoiceChip/tab navigation inside the episode list screen to keep franchise episodes cleanly divided by season, while keeping the main catalog card simplified with total episode count.
 * **Franchise Grouping and Sorting Fixes**: Resolved Re:ZERO movie and OVA naming/grouping issues (Memory Snow, Frozen Bond) to ensure they are named correctly, sorted chronologically, and prevent shifted season numbers.
 * **Cached Database Pruning**: Invalidated legacy structured catalog cache to rebuild library from scratch with correct grouping.
 

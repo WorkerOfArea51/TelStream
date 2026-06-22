@@ -36,38 +36,22 @@ class EpisodeListScreen extends ConsumerStatefulWidget {
 }
 
 class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
-  late List<td.Message> _allEpisodes;
+  late AnimeSeason _selectedSeason;
   bool _isLoadingEpisodes = false;
   String? _errorMessage;
 
   @override
   void initState() {
     super.initState();
-    _initializeEpisodes();
-    
-    bool hasEmpty = widget.series.seasons.any((s) => s.episodes.isEmpty);
-    if (hasEmpty) {
-      _loadAllEmptyEpisodes();
+    _selectedSeason = widget.season;
+    if (_selectedSeason.episodes.isEmpty) {
+      _loadEpisodesDynamically();
     }
   }
 
-  void _initializeEpisodes() {
-    final List<td.Message> collected = [];
-    final Set<int> seenIds = {};
-    for (final season in widget.series.seasons) {
-      for (final ep in season.episodes) {
-        if (!seenIds.contains(ep.id)) {
-          collected.add(ep);
-          seenIds.add(ep.id);
-        }
-      }
-    }
-    // Sort all combined episodes by message ID ascending
-    collected.sort((a, b) => a.id.compareTo(b.id));
-    _allEpisodes = collected;
-  }
 
-  Future<void> _loadAllEmptyEpisodes() async {
+
+  Future<void> _loadEpisodesDynamically() async {
     if (!mounted) return;
     setState(() {
       _isLoadingEpisodes = true;
@@ -76,75 +60,65 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
 
     try {
       final tdlibService = ref.read(tdlibServiceProvider);
+      final posterId = _selectedSeason.posterMessage.id;
+      final chatId = _selectedSeason.posterMessage.chatId;
+      
+      final List<td.Message> collectedEpisodes = [];
+      int currentFromId = posterId;
 
-      for (final season in widget.series.seasons) {
-        if (season.episodes.isNotEmpty) continue;
-        
-        final posterId = season.posterMessage.id;
-        final chatId = season.posterMessage.chatId;
-        
-        final List<td.Message> collectedEpisodes = [];
-        int currentFromId = posterId;
+      final response = await tdlibService.sendAsync(td.GetChatHistory(
+        chatId: chatId,
+        fromMessageId: currentFromId,
+        offset: -100,
+        limit: 100,
+        onlyLocal: false,
+      )).timeout(
+        const Duration(seconds: 10),
+        onTimeout: () => td.TdError(code: 408, message: "Request Timeout"),
+      );
 
-        final response = await tdlibService.sendAsync(td.GetChatHistory(
-          chatId: chatId,
-          fromMessageId: currentFromId,
-          offset: -100,
-          limit: 100,
-          onlyLocal: false,
-        )).timeout(
-          const Duration(seconds: 10),
-          onTimeout: () => td.TdError(code: 408, message: "Request Timeout"),
-        );
+      if (response is td.TdError) {
+        throw Exception("Failed to load episodes: ${response.message}");
+      }
 
-        if (response is td.TdError) {
-          throw Exception("Failed to load episodes: ${response.message}");
-        }
+      List<td.Message> fetched = [];
+      if (response is td.Messages) {
+        fetched = response.messages;
+      } else if (response is td.FoundMessages) {
+        fetched = response.messages;
+      }
 
-        List<td.Message> fetched = [];
-        if (response is td.Messages) {
-          fetched = response.messages;
-        } else if (response is td.FoundMessages) {
-          fetched = response.messages;
-        }
+      for (final msg in fetched) {
+        if (msg.id == posterId) continue;
 
-        for (final msg in fetched) {
-          if (msg.id == posterId) continue;
-
-          if (msg.content is td.MessageVideo) {
+        if (msg.content is td.MessageVideo) {
+          collectedEpisodes.add(msg);
+        } else if (msg.content is td.MessageDocument) {
+          final doc = msg.content as td.MessageDocument;
+          final fileName = doc.document.fileName.toLowerCase();
+          if (doc.document.mimeType.startsWith('video/') ||
+              fileName.endsWith('.mkv') ||
+              fileName.endsWith('.mp4') ||
+              fileName.endsWith('.avi') ||
+              fileName.endsWith('.mov') ||
+              fileName.endsWith('.webm') ||
+              fileName.endsWith('.flv') ||
+              fileName.endsWith('.wmv')) {
             collectedEpisodes.add(msg);
-          } else if (msg.content is td.MessageDocument) {
-            final doc = msg.content as td.MessageDocument;
-            final fileName = doc.document.fileName.toLowerCase();
-            if (doc.document.mimeType.startsWith('video/') ||
-                fileName.endsWith('.mkv') ||
-                fileName.endsWith('.mp4') ||
-                fileName.endsWith('.avi') ||
-                fileName.endsWith('.mov') ||
-                fileName.endsWith('.webm') ||
-                fileName.endsWith('.flv') ||
-                fileName.endsWith('.wmv')) {
-              collectedEpisodes.add(msg);
-            }
-          } else if (msg.content is td.MessagePhoto) {
-            break;
           }
-        }
-
-        final idx = widget.series.seasons.indexOf(season);
-        if (idx != -1) {
-          widget.series.seasons[idx] = AnimeSeason(
-            fullTitle: season.fullTitle,
-            seasonName: season.seasonName,
-            posterMessage: season.posterMessage,
-            episodes: collectedEpisodes.reversed.toList(),
-          );
+        } else if (msg.content is td.MessagePhoto) {
+          break;
         }
       }
 
       if (mounted) {
         setState(() {
-          _initializeEpisodes();
+          _selectedSeason = AnimeSeason(
+            fullTitle: _selectedSeason.fullTitle,
+            seasonName: _selectedSeason.seasonName,
+            posterMessage: _selectedSeason.posterMessage,
+            episodes: collectedEpisodes.reversed.toList(),
+          );
           _isLoadingEpisodes = false;
         });
       }
@@ -162,6 +136,8 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
   void dispose() {
     super.dispose();
   }
+
+
 
   void _toggleFavorite() {
     ref.read(favoritesProvider.notifier).toggleFavorite(widget.series.coreName);
@@ -195,18 +171,18 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
     final lastWatchedMap = storage.getLastWatched();
     
     int resumeIndex = 0;
-    String btnText = 'Play Episode 1';
+    String btnText = 'Play Season 1';
     
     if (lastWatchedMap != null && lastWatchedMap['seriesName'] == widget.series.coreName) {
       resumeIndex = lastWatchedMap['episodeIndex'] as int? ?? 0;
-      if (resumeIndex < _allEpisodes.length) {
+      if (resumeIndex < _selectedSeason.episodes.length) {
         btnText = 'Resume Episode ${resumeIndex + 1}';
       }
-    } else if (_allEpisodes.isNotEmpty) {
+    } else if (_selectedSeason.episodes.isNotEmpty) {
       btnText = 'Play Episode 1';
     }
 
-    if (_allEpisodes.isEmpty) {
+    if (_selectedSeason.episodes.isEmpty) {
       return const SizedBox.shrink();
     }
 
@@ -230,7 +206,7 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
             style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, letterSpacing: 0.5),
           ),
           onPressed: () {
-            final msg = _allEpisodes[resumeIndex];
+            final msg = _selectedSeason.episodes[resumeIndex];
             int? fileId;
             String title = 'Episode ${resumeIndex + 1}';
             if (msg.content is td.MessageVideo) {
@@ -252,7 +228,7 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
                 messageId: msg.id,
                 videoFileId: fileId,
                 videoTitle: '${widget.series.coreName} - $title',
-                episodeList: _allEpisodes,
+                episodeList: _selectedSeason.episodes,
                 currentEpisodeIndex: resumeIndex,
                 seriesName: widget.series.coreName,
                 networkUrl: isDownloaded ? task.localPath : null,
@@ -271,15 +247,12 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
 
     td.File? posterFile;
     td.Minithumbnail? minithumbnail;
-    if (widget.series.seasons.isNotEmpty) {
-      final firstSeason = widget.series.seasons.first;
-      if (firstSeason.posterMessage.content is td.MessagePhoto) {
-        final photo = firstSeason.posterMessage.content as td.MessagePhoto;
-        if (photo.photo.sizes.isNotEmpty) {
-          posterFile = photo.photo.sizes.last.photo;
-        }
-        minithumbnail = photo.photo.minithumbnail;
+    if (_selectedSeason.posterMessage.content is td.MessagePhoto) {
+      final photo = _selectedSeason.posterMessage.content as td.MessagePhoto;
+      if (photo.photo.sizes.isNotEmpty) {
+        posterFile = photo.photo.sizes.last.photo;
       }
+      minithumbnail = photo.photo.minithumbnail;
     }
 
     final theme = Theme.of(context);
@@ -287,7 +260,7 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
     final settingsAccent = customTheme?.settingsAccent ?? theme.primaryColor;
     final isDark = theme.brightness == Brightness.dark;
 
-    final title = widget.series.coreName;
+    final title = _selectedSeason.fullTitle;
 
     return Theme(
       data: theme.copyWith(
@@ -411,7 +384,7 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
                             Text(
                               widget.categoryTitle == 'Movies'
                                   ? 'Movie'
-                                  : '${_allEpisodes.length} Episode${_allEpisodes.length > 1 ? "s" : ""}',
+                                  : '${_selectedSeason.episodes.length} Episode${_selectedSeason.episodes.length > 1 ? "s" : ""}',
                               style: TextStyle(
                                 color: isDark ? Colors.white70 : Colors.black87,
                                 fontWeight: FontWeight.bold,
@@ -431,6 +404,52 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
               ),
             ),
           ),
+          if (widget.series.seasons.length > 1)
+            SliverToBoxAdapter(
+              child: Container(
+                height: 48,
+                margin: const EdgeInsets.only(top: 8, bottom: 4),
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  itemCount: widget.series.seasons.length,
+                  itemBuilder: (context, index) {
+                    final season = widget.series.seasons[index];
+                    final isSelected = season.seasonName == _selectedSeason.seasonName;
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 10),
+                      child: ChoiceChip(
+                        label: Text(
+                          season.seasonName,
+                          style: TextStyle(
+                            color: isSelected ? theme.colorScheme.onPrimary : theme.colorScheme.onSurface,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                          ),
+                        ),
+                        selected: isSelected,
+                        selectedColor: theme.colorScheme.primary,
+                        backgroundColor: theme.cardColor,
+                        side: BorderSide(
+                          color: isSelected ? theme.colorScheme.primary : theme.dividerColor,
+                          width: 1,
+                        ),
+                        onSelected: (selected) {
+                          if (selected) {
+                            setState(() {
+                              _selectedSeason = season;
+                            });
+                            if (season.episodes.isEmpty) {
+                              _loadEpisodesDynamically();
+                            }
+                          }
+                        },
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
           if (_isLoadingEpisodes)
             SliverList(
               delegate: SliverChildBuilderDelegate(
@@ -453,7 +472,7 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
                           backgroundColor: theme.primaryColor,
                           foregroundColor: theme.primaryColor.computeLuminance() > 0.5 ? Colors.black : Colors.white,
                         ),
-                        onPressed: _loadAllEmptyEpisodes,
+                        onPressed: _loadEpisodesDynamically,
                         child: const Text('Retry'),
                       ),
                     ],
@@ -467,10 +486,10 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
               sliver: SliverList(
                 delegate: SliverChildBuilderDelegate(
                   (context, index) {
-                    final msg = _allEpisodes[index];
+                    final msg = _selectedSeason.episodes[index];
                     return _buildEpisodeCardItem(context, msg, index);
                   },
-                  childCount: _allEpisodes.length,
+                  childCount: _selectedSeason.episodes.length,
                 ),
               ),
             ),
@@ -590,7 +609,7 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
             messageId: msg.id,
             videoFileId: fileId!,
             videoTitle: '${widget.series.coreName} - $fileTitle',
-            episodeList: _allEpisodes,
+            episodeList: _selectedSeason.episodes,
             currentEpisodeIndex: index,
             seriesName: widget.series.coreName,
             networkUrl: isDownloaded ? task.localPath : null,
