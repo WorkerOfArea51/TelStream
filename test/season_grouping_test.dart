@@ -47,6 +47,8 @@ void main() {
       expect(HomeController.parseSeasonName('Ranma ½ (2024) 2nd Season', 'Ranma ½'), 'Season 2 (2024)');
       expect(HomeController.parseSeasonName('Ranma ½ (2024) Season 2', 'Ranma ½'), 'Season 2 (2024)');
       expect(HomeController.parseSeasonName('Ranma ½ - 2nd Season', 'Ranma ½'), 'Season 2');
+      expect(HomeController.parseSeasonName('Re:ZERO -Starting Life in Another World- Memory Snow', 'Re:ZERO -Starting Life in Another World'), 'Memory Snow');
+      expect(HomeController.parseSeasonName('Re:ZERO -Starting Life in Another World- Frozen Bond', 'Re:ZERO -Starting Life in Another World'), 'Frozen Bond');
     });
 
     test('normalizeSeriesName normalizes series names correctly', () {
@@ -57,6 +59,8 @@ void main() {
       expect(HomeController.normalizeSeriesName('👑 Re:ZERO'), '👑 Re:ZERO');
       expect(HomeController.normalizeSeriesName('Re:Creators'), 'Re:Creators');
       expect(HomeController.normalizeSeriesName('Re: Creators'), 'Re: Creators');
+      expect(HomeController.normalizeSeriesName('Re:ZERO -Starting Life in Another World- Memory Snow'), 'Re:ZERO -Starting Life in Another World');
+      expect(HomeController.normalizeSeriesName('Re:ZERO -Starting Life in Another World- Frozen Bond'), 'Re:ZERO -Starting Life in Another World');
     });
 
 

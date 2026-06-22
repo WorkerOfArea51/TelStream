@@ -43,6 +43,25 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
 
   @override
   FutureOr<List<AnimeSeries>> build() async {
+    final storage = ref.read(storageServiceProvider);
+    final lastSeen = storage.getLastSeenVersion();
+    if (lastSeen != Constants.currentVersion) {
+      try {
+        final directory = await getApplicationDocumentsDirectory();
+        for (final cat in Constants.categories) {
+          final cachePath = '${directory.path}/catalog_cache_${cat.title.replaceAll(' ', '_')}.json';
+          final file = File(cachePath);
+          if (await file.exists()) {
+            await file.delete();
+            Log.i('Deleted obsolete cache file due to version upgrade: $cachePath');
+          }
+        }
+      } catch (e, stack) {
+        Log.e('Failed to delete obsolete cache files', e, stack);
+      }
+      await storage.setLastSeenVersion(Constants.currentVersion);
+    }
+
     final tdlibService = ref.watch(tdlibServiceProvider);
     
     ref.listen(favoritesProvider, (previous, next) {
@@ -557,6 +576,9 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
 
       // Pattern F: trailing single letter "S" (case insensitive) preceded by space (e.g. "Dragon Maid S")
       normalized = normalized.replaceAll(RegExp(r'\s+\b[sS]\b$'), '');
+
+      // Pattern G: trailing known OVA/Movie subtitles that do not contain standard keywords (e.g. "Memory Snow", "Frozen Bond", "Hyouketsu no Kizuna")
+      normalized = normalized.replaceAll(RegExp(r'(?:\s*[-–—:|]\s*)?\b(?:Memory\s+Snow|Frozen\s+Bond|Hyouketsu\s+no\s+Kizuna)\b', caseSensitive: false), '');
 
       // 3. Remove common trailing subtitles after a colon if the prefix has length > 3 and doesn't end with "Re"
       if (normalized.contains(':')) {

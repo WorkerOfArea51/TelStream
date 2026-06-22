@@ -14,9 +14,14 @@ class ChannelCategory {
 }
 
 class Constants {
-  static const String currentVersion = '2.7.0';
+  static const String currentVersion = '2.7.2';
   static const String changelog = '''
-### 🚀 What's New in v2.7.0
+### 🚀 What's New in v2.7.2
+
+* **Franchise Grouping and Sorting Fixes**: Resolved Re:ZERO movie and OVA naming/grouping issues (Memory Snow, Frozen Bond) to ensure they are named correctly, sorted chronologically, and prevent shifted season numbers.
+* **Cached Database Pruning**: Invalidated legacy structured catalog cache to rebuild library from scratch with correct grouping.
+
+### 🚀 What's New in v2.7.1
 
 * **Airing Calendar Release Schedules**: Integrated a tabbed weekday release calendar fetching anime schedules from the public Jikan API with memory-caching protection.
 * **Downloads Queue Reordering**: Replaced active downloads queue with a drag-and-drop `ReorderableListView` to prioritize active TDLib download streams.
