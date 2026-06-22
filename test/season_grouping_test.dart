@@ -54,6 +54,10 @@ void main() {
       expect(HomeController.normalizeSeriesName('Ranma ½'), 'Ranma ½');
       expect(HomeController.normalizeSeriesName('Ranma ½ (2024)'), 'Ranma ½');
       expect(HomeController.normalizeSeriesName('Re:ZERO -Starting Life in Another World-'), 'Re:ZERO -Starting Life in Another World');
+      expect(HomeController.normalizeSeriesName('👑 Re:ZERO -Starting Life in Another World- Season 1'), '👑 Re:ZERO -Starting Life in Another World');
+      expect(HomeController.normalizeSeriesName('👑 Re:ZERO'), '👑 Re:ZERO');
+      expect(HomeController.normalizeSeriesName('Re:Creators'), 'Re:Creators');
+      expect(HomeController.normalizeSeriesName('Re: Creators'), 'Re: Creators');
     });
 
     test('season group consecutive numbering logic works correctly', () {

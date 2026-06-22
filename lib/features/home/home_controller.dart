@@ -429,11 +429,13 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
       // Pattern F: trailing single letter "S" (case insensitive) preceded by space (e.g. "Dragon Maid S")
       normalized = normalized.replaceAll(RegExp(r'\s+\b[sS]\b$'), '');
 
-      // 3. Remove common trailing subtitles after a colon if the prefix has length > 3
+      // 3. Remove common trailing subtitles after a colon if the prefix has length > 3 and doesn't end with "Re"
       if (normalized.contains(':')) {
         final parts = normalized.split(':');
-        if (parts[0].trim().length > 3) {
-          normalized = parts[0].trim();
+        final prefix = parts[0].trim();
+        final isRePrefix = RegExp(r'\b[rR][eE]\b$').hasMatch(prefix);
+        if (prefix.length > 3 && !isRePrefix) {
+          normalized = prefix;
         }
       }
     }
@@ -567,8 +569,10 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
           final canonicalKey = baseName.toLowerCase().replaceAll(RegExp(r'[^a-zA-Z0-9]'), '');
           
           // Prefix/substring grouping to merge movies and seasons under a clean core folder
-          String matchedKey = canonicalKey;
-          for (final existingKey in seriesMap.keys) {
+          // For movies category, we keep each movie alone (no folder merging)
+          String matchedKey = isMovie ? '${canonicalKey}_${msg.id}' : canonicalKey;
+          if (!isMovie) {
+            for (final existingKey in seriesMap.keys) {
             if (existingKey.length >= 7 && canonicalKey.length >= 7) {
               if (canonicalKey.startsWith(existingKey)) {
                 matchedKey = existingKey;
@@ -586,12 +590,13 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
                   if (idx != -1) {
                     seriesList[idx] = seriesMap[existingKey]!;
                   }
+                  break;
                 }
-                break;
               }
             }
           }
-
+        }
+          
           if (!seriesMap.containsKey(matchedKey)) {
             seriesMap[matchedKey] = AnimeSeries(coreName: baseName, seasons: []);
             seriesList.add(seriesMap[matchedKey]!);

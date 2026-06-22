@@ -1219,18 +1219,110 @@ class _LibraryListItemState extends ConsumerState<_LibraryListItem> {
     final storage = ref.read(storageServiceProvider);
 
     final totalEpisodes = widget.series.seasons.fold(0, (sum, s) => sum + s.episodes.length);
-    final realSeasons = widget.series.seasons.where((s) => !s.seasonName.toLowerCase().contains('movie')).toList();
-    final realMovies = widget.series.seasons.where((s) => s.seasonName.toLowerCase().contains('movie')).toList();
+    final realSeasons = widget.series.seasons.where((s) {
+      final name = s.seasonName.toLowerCase();
+      final isMovieName = name.contains('movie') || name.contains('film');
+      final isSpecialName = name.contains('special') ||
+                            name.contains('extra') ||
+                            name.contains('ova') ||
+                            name.contains('oad') ||
+                            name.contains('recap') ||
+                            RegExp(r'\bsp\b').hasMatch(name);
+      
+      if (isMovieName || isSpecialName) return false;
+      
+      for (final ep in s.episodes) {
+        String? fileName;
+        if (ep.content is td.MessageVideo) {
+          fileName = (ep.content as td.MessageVideo).video.fileName.toLowerCase();
+        } else if (ep.content is td.MessageDocument) {
+          fileName = (ep.content as td.MessageDocument).document.fileName.toLowerCase();
+        }
+        if (fileName != null) {
+          if (fileName.contains('movie') || fileName.contains('film')) {
+            return false;
+          }
+          if (fileName.contains('special') ||
+              fileName.contains('extra') ||
+              fileName.contains('ova') ||
+              fileName.contains('oad') ||
+              fileName.contains('recap') ||
+              RegExp(r'\bsp\b').hasMatch(fileName)) {
+            return false;
+          }
+        }
+      }
+      return true;
+    }).toList();
+
+    final realMovies = widget.series.seasons.where((s) {
+      final name = s.seasonName.toLowerCase();
+      if (name.contains('movie') || name.contains('film')) return true;
+      for (final ep in s.episodes) {
+        String? fileName;
+        if (ep.content is td.MessageVideo) {
+          fileName = (ep.content as td.MessageVideo).video.fileName.toLowerCase();
+        } else if (ep.content is td.MessageDocument) {
+          fileName = (ep.content as td.MessageDocument).document.fileName.toLowerCase();
+        }
+        if (fileName != null && (fileName.contains('movie') || fileName.contains('film'))) {
+          return true;
+        }
+      }
+      return false;
+    }).toList();
+
+    final realSpecials = widget.series.seasons.where((s) {
+      final name = s.seasonName.toLowerCase();
+      final isSpecialName = name.contains('special') ||
+                            name.contains('extra') ||
+                            name.contains('ova') ||
+                            name.contains('oad') ||
+                            name.contains('recap') ||
+                            RegExp(r'\bsp\b').hasMatch(name);
+      if (isSpecialName) return true;
+      
+      final isMovie = name.contains('movie') || name.contains('film');
+      if (isMovie) return false;
+      
+      for (final ep in s.episodes) {
+        String? fileName;
+        if (ep.content is td.MessageVideo) {
+          fileName = (ep.content as td.MessageVideo).video.fileName.toLowerCase();
+        } else if (ep.content is td.MessageDocument) {
+          fileName = (ep.content as td.MessageDocument).document.fileName.toLowerCase();
+        }
+        if (fileName != null) {
+          if (fileName.contains('movie') || fileName.contains('film')) {
+            continue;
+          }
+          if (fileName.contains('special') ||
+              fileName.contains('extra') ||
+              fileName.contains('ova') ||
+              fileName.contains('oad') ||
+              fileName.contains('recap') ||
+              RegExp(r'\bsp\b').hasMatch(fileName)) {
+            return true;
+          }
+        }
+      }
+      return false;
+    }).toList();
+
     final seasonCount = realSeasons.length;
     final movieCount = realMovies.length;
+    final specialCount = realSpecials.length;
 
-    String buildCountText(int seasons, int movies) {
+    String buildCountText(int seasons, int movies, int specials) {
       List<String> parts = [];
-      if (seasons > 0 || movies == 0) {
+      if (seasons > 0 || (movies == 0 && specials == 0)) {
         parts.add('$seasons Season${seasons != 1 ? "s" : ""}');
       }
       if (movies > 0) {
         parts.add('$movies Movie${movies != 1 ? "s" : ""}');
+      }
+      if (specials > 0) {
+        parts.add('$specials Special${specials != 1 ? "s" : ""}');
       }
       return parts.join(' • ');
     }
@@ -1355,7 +1447,7 @@ class _LibraryListItemState extends ConsumerState<_LibraryListItem> {
                           Icon(Icons.video_library, size: 12, color: subTextColor),
                           const SizedBox(width: 4),
                           Text(
-                            buildCountText(seasonCount, movieCount),
+                            buildCountText(seasonCount, movieCount, specialCount),
                             style: TextStyle(color: subTextColor, fontSize: 12),
                           ),
                           const SizedBox(width: 12),
