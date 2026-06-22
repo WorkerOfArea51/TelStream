@@ -717,7 +717,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     super.initState();
     final settings = ref.read(videoSettingsProvider);
     _nightModeActive = settings.dynamicRangeCompression;
-    _subtitleDelay = ref.read(storageServiceProvider).getSubtitleDelay();
+    _subtitleDelay = settings.subtitleDelay;
     _startHideTimer();
     _currentVolume = widget.player.state.volume;
     _initSystemVolumeAndBrightness();
@@ -797,7 +797,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
       _volumeSubscription?.cancel();
 
       _currentVolume = widget.player.state.volume;
-      _subtitleDelay = ref.read(storageServiceProvider).getSubtitleDelay();
+      _subtitleDelay = ref.read(videoSettingsProvider).subtitleDelay;
 
       _bufferingSubscription = widget.player.stream.buffering.listen((buffering) {
         if (mounted) {
@@ -2418,10 +2418,19 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     final customTheme = theme.extension<AppThemeExtension>();
     final settingsAccent = customTheme?.settingsAccent ?? theme.primaryColor;
 
-    final storage = ref.read(storageServiceProvider);
-    final subSize = storage.getSubtitleFontSize();
+    final subSize = settings.subtitleFontSize;
+    final subFont = settings.subtitleFont;
+    final subColorStr = settings.subtitleColor;
+    Color subColor = Colors.white;
+    try {
+      final cleanHex = subColorStr.replaceAll('#', '');
+      if (cleanHex.length == 6) {
+        subColor = Color(int.parse('FF$cleanHex', radix: 16));
+      } else if (cleanHex.length == 8) {
+        subColor = Color(int.parse(cleanHex, radix: 16));
+      }
+    } catch (_) {}
 
-    final subFont = storage.getSubtitleFont();
     String resolvedFontFamily = 'Roboto';
     if (subFont.toLowerCase().contains('arial')) {
       resolvedFontFamily = 'Arial';
@@ -2437,7 +2446,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
       visible: !_isBlendingSubtitles,
       style: TextStyle(
         fontSize: subSize,
-        color: Colors.white,
+        color: subColor,
         fontFamily: resolvedFontFamily,
         fontWeight: FontWeight.bold,
         shadows: const [
@@ -3250,6 +3259,8 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                   } catch (_) {}
                 }
                 ref.read(storageServiceProvider).setSubtitleDelay(roundedVal);
+                final s = ref.read(videoSettingsProvider);
+                ref.read(videoSettingsProvider.notifier).updateSettings(s.copyWith(subtitleDelay: roundedVal));
                 setState(() {
                   _subtitleDelay = roundedVal;
                 });

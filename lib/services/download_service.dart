@@ -84,6 +84,12 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
   Timer? _schedulerTimer;
   final Set<int> _pausedBySchedulerFileIds = {};
 
+  Timer? _pwmTimer;
+  int _pwmCycleElapsedMs = 0;
+  final Map<int, int> _startDownloadedSize = {};
+  final Map<int, bool> _isPwmPaused = {};
+  final Map<int, int> _lastPwmUpdateSizes = {};
+
   @override
   Map<int, DownloadTask> build() {
     ref.onDispose(() {
@@ -91,9 +97,17 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
       _dirWatcherSubscription?.cancel();
       _schedulerTimer?.cancel();
       _connectivitySubscription?.cancel();
+      _pwmTimer?.cancel();
     });
     _init();
     _setupConnectivityListener();
+
+    ref.listen<VideoSettings>(videoSettingsProvider, (previous, next) {
+      if (previous?.downloadSpeedLimit != next.downloadSpeedLimit) {
+        _updatePwmState();
+      }
+    });
+
     return {};
   }
 
@@ -212,6 +226,7 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
 
           final expectedSize = event.file.expectedSize;
           final downloadedSize = event.file.local.downloadedSize;
+          _lastPwmUpdateSizes[fileId] = downloadedSize;
           
           double progress = 0.0;
           if (expectedSize > 0) {
@@ -266,6 +281,7 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
     });
     _startSchedulerTimer();
     checkScheduler();
+    _updatePwmState();
   }
 
   void _startSchedulerTimer() {
@@ -323,6 +339,7 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
         Log.i('Connectivity auto-resume: re-triggered download for ${task.title} (ID: $fileId)');
       }
     });
+    _updatePwmState();
   }
 
   void checkScheduler() {
@@ -348,6 +365,7 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
         }
         state = updated;
       }
+      _updatePwmState();
       return;
     }
 
@@ -405,6 +423,7 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
         state = updated;
       }
     }
+    _updatePwmState();
   }
 
   void _watchDirectory(Directory downloadsDir) {
@@ -437,6 +456,7 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
 
     if (changed) {
       state = updatedState;
+      _updatePwmState();
     }
   }
 
@@ -496,6 +516,7 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
         synchronous: false,
       ));
     }
+    _updatePwmState();
   }
 
   Future<void> cancelDownload(int fileId) async {
@@ -503,6 +524,9 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
     final title = task?.title ?? 'Download';
     
     _pausedBySchedulerFileIds.remove(fileId);
+    _isPwmPaused.remove(fileId);
+    _startDownloadedSize.remove(fileId);
+    _lastPwmUpdateSizes.remove(fileId);
     
     // Remove active download from persistent queue database
     await ref.read(storageServiceProvider).removeActiveDownload(fileId);
@@ -519,11 +543,16 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
     _updateNativeNotification(fileId, title, 0.0, isCancelled: true);
 
     state = {...state}..remove(fileId);
+    _updatePwmState();
   }
 
   Future<void> _saveFilePermanently(int fileId, String tempPath, String title) async {
     try {
       _pausedBySchedulerFileIds.remove(fileId);
+      _isPwmPaused.remove(fileId);
+      _startDownloadedSize.remove(fileId);
+      _lastPwmUpdateSizes.remove(fileId);
+      
       final downloadsDir = await _getEffectiveDownloadsDirectory();
       if (!await downloadsDir.exists()) {
         await downloadsDir.create(recursive: true);
@@ -587,10 +616,12 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
 
       // Notify native background download service of success
       _updateNativeNotification(fileId, title, 1.0, isCompleted: true);
+      _updatePwmState();
 
     } catch (e, stackTrace) {
       Log.e('FAILED TO SAVE FILE PERMANENTLY', e, stackTrace);
       _updateNativeNotification(fileId, title, 0.0, isCancelled: true);
+      _updatePwmState();
     }
   }
 
@@ -606,6 +637,7 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
         Log.i('Paused background download for active streaming: ${task.title}');
       }
     });
+    _updatePwmState();
   }
 
   void resumeDownloadsAfterStreaming() {
@@ -623,6 +655,7 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
       }
     }
     _pausedForStreamingFileIds.clear();
+    _updatePwmState();
   }
 
   Future<void> deleteDownloadedFile(int fileId) async {
@@ -639,8 +672,151 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
       } catch (e, stack) {
         Log.e('Error deleting downloaded file: $path', e, stack);
       }
+      
+      _isPwmPaused.remove(fileId);
+      _startDownloadedSize.remove(fileId);
+      _lastPwmUpdateSizes.remove(fileId);
+      _pausedBySchedulerFileIds.remove(fileId);
+
       await storage.removeDownloadedFile(fileId);
       state = {...state}..remove(fileId);
+      _updatePwmState();
+    }
+  }
+
+  int? _parseSpeedLimit(String limit) {
+    if (limit == 'Unlimited') return null;
+    final match = RegExp(r'^(\d+)\s*(KB|MB)/s$').firstMatch(limit);
+    if (match != null) {
+      final value = int.parse(match.group(1)!);
+      final unit = match.group(2)!;
+      if (unit == 'KB') {
+        return value * 1024;
+      } else if (unit == 'MB') {
+        return value * 1024 * 1024;
+      }
+    }
+    return null;
+  }
+
+  int? parseSpeedLimitForTesting(String limit) => _parseSpeedLimit(limit);
+
+  void _onPwmTick() {
+    final settings = ref.read(videoSettingsProvider);
+    final limitBytesPerSec = _parseSpeedLimit(settings.downloadSpeedLimit);
+    if (limitBytesPerSec == null) {
+      _stopPwm();
+      return;
+    }
+
+    _pwmCycleElapsedMs += 100;
+    final isNewCycle = _pwmCycleElapsedMs >= 1000;
+    if (isNewCycle) {
+      _pwmCycleElapsedMs = 0;
+    }
+
+    final tdlib = ref.read(tdlibServiceProvider);
+
+    final activeRunningTasks = state.entries.where((entry) {
+      final task = entry.value;
+      return !task.isCompleted &&
+             !task.isScheduled &&
+             !_pausedForStreamingFileIds.contains(entry.key);
+    }).toList();
+
+    if (activeRunningTasks.isEmpty) {
+      return;
+    }
+
+    final limitPerFile = limitBytesPerSec ~/ activeRunningTasks.length;
+
+    for (final entry in activeRunningTasks) {
+      final fileId = entry.key;
+      final task = entry.value;
+
+      final currentSize = _lastPwmUpdateSizes[fileId] ?? 0;
+
+      if (isNewCycle) {
+        _startDownloadedSize[fileId] = currentSize;
+        if (_isPwmPaused[fileId] == true) {
+          _isPwmPaused[fileId] = false;
+          tdlib.send(td.DownloadFile(
+            fileId: fileId,
+            priority: 32,
+            offset: 0,
+            limit: 0,
+            synchronous: false,
+          ));
+          Log.d('PWM Cycle Start: Resumed download for ${task.title}');
+        }
+      } else {
+        final startSize = _startDownloadedSize[fileId] ?? currentSize;
+        final downloadedInCycle = currentSize - startSize;
+
+        if (downloadedInCycle >= limitPerFile && _isPwmPaused[fileId] != true) {
+          _isPwmPaused[fileId] = true;
+          tdlib.send(td.CancelDownloadFile(
+            fileId: fileId,
+            onlyIfPending: false,
+          ));
+          Log.d('PWM Cycle Limit Reached ($downloadedInCycle >= $limitPerFile bytes): Paused download for ${task.title}');
+        }
+      }
+    }
+  }
+
+  void _stopPwm() {
+    _pwmTimer?.cancel();
+    _pwmTimer = null;
+    _pwmCycleElapsedMs = 0;
+
+    final tdlib = ref.read(tdlibServiceProvider);
+    _isPwmPaused.forEach((fileId, isPaused) {
+      if (isPaused) {
+        final task = state[fileId];
+        if (task != null && !task.isCompleted && !task.isScheduled && !_pausedForStreamingFileIds.contains(fileId)) {
+          tdlib.send(td.DownloadFile(
+            fileId: fileId,
+            priority: 32,
+            offset: 0,
+            limit: 0,
+            synchronous: false,
+          ));
+          Log.i('PWM Disabled: Resumed download for ${task.title}');
+        }
+      }
+    });
+    _isPwmPaused.clear();
+    _startDownloadedSize.clear();
+  }
+
+  void _updatePwmState() {
+    final settings = ref.read(videoSettingsProvider);
+    final limit = _parseSpeedLimit(settings.downloadSpeedLimit);
+
+    if (limit == null) {
+      _stopPwm();
+      return;
+    }
+
+    final hasActiveIncomplete = state.entries.any((entry) {
+      final task = entry.value;
+      return !task.isCompleted &&
+             !task.isScheduled &&
+             !_pausedForStreamingFileIds.contains(entry.key);
+    });
+
+    if (hasActiveIncomplete) {
+      if (_pwmTimer == null) {
+        _pwmTimer = Timer.periodic(const Duration(milliseconds: 100), (_) {
+          _onPwmTick();
+        });
+        Log.i('PWM Speed Limiter started with limit: ${settings.downloadSpeedLimit}');
+      }
+    } else {
+      if (_pwmTimer != null) {
+        _stopPwm();
+      }
     }
   }
 

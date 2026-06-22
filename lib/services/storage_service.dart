@@ -758,6 +758,21 @@ class StorageService {
     }
   }
 
+  List<String> getSearchHistory(String category) {
+    if (_data['search_history'] == null) return [];
+    final map = _data['search_history'] as Map<String, dynamic>;
+    if (map[category] == null) return [];
+    return List<String>.from(map[category] as List);
+  }
+
+  Future<void> saveSearchHistory(String category, List<String> list) async {
+    _data['search_history'] ??= <String, dynamic>{};
+    final map = _data['search_history'] as Map<String, dynamic>;
+    final limited = list.take(10).toList();
+    map[category] = limited;
+    await _save();
+  }
+
   String exportBackupData() {
     return json.encode(_data);
   }
@@ -886,5 +901,49 @@ class RecentNetworkStreamsNotifier extends Notifier<List<String>> {
 }
 
 final recentNetworkStreamsProvider = NotifierProvider<RecentNetworkStreamsNotifier, List<String>>(RecentNetworkStreamsNotifier.new);
+
+class SearchHistoryNotifier extends Notifier<List<String>> {
+  final String arg;
+  SearchHistoryNotifier(this.arg);
+
+  @override
+  List<String> build() {
+    return ref.watch(storageServiceProvider).getSearchHistory(arg);
+  }
+
+  Future<void> addQuery(String query) async {
+    final cleanQuery = query.trim();
+    if (cleanQuery.isEmpty) return;
+
+    final storage = ref.read(storageServiceProvider);
+    final current = storage.getSearchHistory(arg);
+    final updated = List<String>.from(current);
+    updated.remove(cleanQuery);
+    updated.insert(0, cleanQuery);
+
+    await storage.saveSearchHistory(arg, updated);
+    state = storage.getSearchHistory(arg);
+  }
+
+  Future<void> removeQuery(String query) async {
+    final cleanQuery = query.trim();
+    if (cleanQuery.isEmpty) return;
+
+    final storage = ref.read(storageServiceProvider);
+    final current = storage.getSearchHistory(arg);
+    final updated = List<String>.from(current)..remove(cleanQuery);
+
+    await storage.saveSearchHistory(arg, updated);
+    state = storage.getSearchHistory(arg);
+  }
+
+  Future<void> clearHistory() async {
+    final storage = ref.read(storageServiceProvider);
+    await storage.saveSearchHistory(arg, []);
+    state = [];
+  }
+}
+
+final searchHistoryProvider = NotifierProvider.family<SearchHistoryNotifier, List<String>, String>(SearchHistoryNotifier.new);
 
 

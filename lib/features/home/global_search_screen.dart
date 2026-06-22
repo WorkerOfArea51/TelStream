@@ -5,6 +5,7 @@ import '../../models/anime_models.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/td_thumbnail.dart';
 import '../../core/constants.dart';
+import '../../services/storage_service.dart';
 import 'home_controller.dart';
 import 'episode_list_screen.dart';
 
@@ -87,6 +88,7 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
     final animeList = ref.watch(animeControllerProvider).value ?? [];
     final moviesList = ref.watch(moviesControllerProvider).value ?? [];
     final webSeriesList = ref.watch(webSeriesControllerProvider).value ?? [];
+    final searchHistory = ref.watch(searchHistoryProvider('global'));
 
     final animeResults = _filterSeries(animeList, _query);
     final moviesResults = _filterSeries(moviesList, _query);
@@ -124,35 +126,91 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
               _query = val;
             });
           },
+          onSubmitted: (val) {
+            final clean = val.trim();
+            if (clean.isNotEmpty) {
+              ref.read(searchHistoryProvider('global').notifier).addQuery(clean);
+            }
+          },
         ),
         iconTheme: IconThemeData(color: isDark ? Colors.white : Colors.black87),
       ),
       body: _query.isEmpty
-          ? Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.search_rounded, size: 72, color: isDark ? Colors.white24 : Colors.black12),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Search library dynamically',
-                    style: TextStyle(
-                      color: isDark ? Colors.white54 : Colors.black54,
-                      fontSize: 15,
-                      fontWeight: FontWeight.bold,
-                    ),
+          ? (searchHistory.isEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.search_rounded, size: 72, color: isDark ? Colors.white24 : Colors.black12),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Search library dynamically',
+                        style: TextStyle(
+                          color: isDark ? Colors.white54 : Colors.black54,
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Type letters to search with fuzzy tolerance',
+                        style: TextStyle(
+                          color: isDark ? Colors.white30 : Colors.black38,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Type letters to search with fuzzy tolerance',
-                    style: TextStyle(
-                      color: isDark ? Colors.white30 : Colors.black38,
-                      fontSize: 12,
+                )
+              : ListView(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Recent Searches',
+                          style: TextStyle(
+                            color: isDark ? Colors.white70 : Colors.black54,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
+                        ),
+                        TextButton.icon(
+                          onPressed: () {
+                            ref.read(searchHistoryProvider('global').notifier).clearHistory();
+                          },
+                          icon: Icon(Icons.delete_outline, size: 16, color: settingsAccent),
+                          label: Text(
+                            'Clear All',
+                            style: TextStyle(color: settingsAccent, fontSize: 13),
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                ],
-              ),
-            )
+                    const SizedBox(height: 8),
+                    ...searchHistory.map((q) => ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: Icon(Icons.history, color: isDark ? Colors.white30 : Colors.black26),
+                          title: Text(
+                            q,
+                            style: TextStyle(color: isDark ? Colors.white.withValues(alpha: 0.87) : Colors.black87),
+                          ),
+                          trailing: IconButton(
+                            icon: const Icon(Icons.close, size: 18),
+                            onPressed: () {
+                              ref.read(searchHistoryProvider('global').notifier).removeQuery(q);
+                            },
+                          ),
+                          onTap: () {
+                            _searchController.text = q;
+                            setState(() {
+                              _query = q;
+                            });
+                          },
+                        )),
+                  ],
+                ))
           : totalResults == 0
               ? Center(
                   child: Column(
@@ -244,6 +302,10 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
 
             return GestureDetector(
               onTap: () {
+                final clean = _query.trim();
+                if (clean.isNotEmpty) {
+                  ref.read(searchHistoryProvider('global').notifier).addQuery(clean);
+                }
                 Navigator.push(
                   context,
                   PremiumPageRoute(

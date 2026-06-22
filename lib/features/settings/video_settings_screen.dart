@@ -367,6 +367,120 @@ class VideoSettingsScreen extends ConsumerWidget {
                     }
                   },
                 ),
+                Divider(color: theme.dividerColor, height: 1, indent: 16, endIndent: 16),
+                ListTile(
+                  title: Text('Subtitle Font Size', style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
+                  subtitle: Text('${settings.subtitleFontSize.toInt()} px', style: TextStyle(color: isDark ? Colors.white54 : Colors.black54, fontSize: 12)),
+                  trailing: Icon(Icons.chevron_right, color: isDark ? Colors.white54 : Colors.black54),
+                  onTap: () async {
+                    final newSize = await showDialog<double>(
+                      context: context,
+                      builder: (context) => _SubtitleSizeDialog(
+                        current: settings.subtitleFontSize,
+                        currentColor: settings.subtitleColor,
+                        currentFont: settings.subtitleFont,
+                        accentColor: settingsAccent,
+                      ),
+                    );
+                    if (newSize != null) {
+                      notifier.updateSettings(settings.copyWith(subtitleFontSize: newSize));
+                    }
+                  },
+                ),
+                Divider(color: theme.dividerColor, height: 1, indent: 16, endIndent: 16),
+                ListTile(
+                  title: Text('Subtitle Color', style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
+                  subtitle: Row(
+                    children: [
+                      Container(
+                        width: 14,
+                        height: 14,
+                        decoration: BoxDecoration(
+                          color: _parseHexColor(settings.subtitleColor),
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white24),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(settings.subtitleColor, style: TextStyle(color: isDark ? Colors.white54 : Colors.black54, fontSize: 12)),
+                    ],
+                  ),
+                  trailing: Icon(Icons.chevron_right, color: isDark ? Colors.white54 : Colors.black54),
+                  onTap: () async {
+                    final newColor = await showDialog<String>(
+                      context: context,
+                      builder: (context) => _SubtitleColorDialog(
+                        current: settings.subtitleColor,
+                        currentSize: settings.subtitleFontSize,
+                        currentFont: settings.subtitleFont,
+                        accentColor: settingsAccent,
+                      ),
+                    );
+                    if (newColor != null) {
+                      notifier.updateSettings(settings.copyWith(subtitleColor: newColor));
+                    }
+                  },
+                ),
+                Divider(color: theme.dividerColor, height: 1, indent: 16, endIndent: 16),
+                ListTile(
+                  title: Text('Subtitle Delay Offset', style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
+                  subtitle: Text(
+                    settings.subtitleDelay == 0.0
+                        ? 'No default delay'
+                        : settings.subtitleDelay > 0.0
+                            ? '+${settings.subtitleDelay.toStringAsFixed(1)}s delay'
+                            : '${settings.subtitleDelay.toStringAsFixed(1)}s delay',
+                    style: TextStyle(color: isDark ? Colors.white54 : Colors.black54, fontSize: 12),
+                  ),
+                  trailing: Icon(Icons.chevron_right, color: isDark ? Colors.white54 : Colors.black54),
+                  onTap: () async {
+                    final newDelay = await showDialog<double>(
+                      context: context,
+                      builder: (context) => _SubtitleDelayDialog(
+                        current: settings.subtitleDelay,
+                        accentColor: settingsAccent,
+                      ),
+                    );
+                    if (newDelay != null) {
+                      notifier.updateSettings(settings.copyWith(subtitleDelay: newDelay));
+                    }
+                  },
+                ),
+                Divider(color: theme.dividerColor, height: 1, indent: 16, endIndent: 16),
+                ListTile(
+                  title: Text('Subtitle Font Family', style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
+                  subtitle: Text(settings.subtitleFont, style: TextStyle(color: isDark ? Colors.white54 : Colors.black54, fontSize: 12)),
+                  trailing: Icon(Icons.chevron_right, color: isDark ? Colors.white54 : Colors.black54),
+                  onTap: () async {
+                    final newFont = await showDialog<String>(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        backgroundColor: theme.cardColor,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          side: BorderSide(color: theme.colorScheme.onSurface.withValues(alpha: 0.08), width: 1),
+                        ),
+                        title: Text('Font Family', style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
+                        content: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            'Roboto',
+                            'Arial',
+                            'DejaVuSans',
+                            'sans-serif',
+                          ].map((f) => ListTile(
+                            title: Text(f, style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontFamily: f == 'DejaVuSans' ? 'DejaVuSans' : f)),
+                            trailing: settings.subtitleFont == f ? Icon(Icons.check, color: settingsAccent) : null,
+                            onTap: () => Navigator.pop(context, f),
+                          )).toList(),
+                        ),
+                      ),
+                    );
+                    if (newFont != null) {
+                      notifier.updateSettings(settings.copyWith(subtitleFont: newFont));
+                    }
+                  },
+                ),
               ],
             ),
           ),
@@ -467,6 +581,49 @@ class VideoSettingsScreen extends ConsumerWidget {
                     onChanged: (String? value) {
                       if (value != null) {
                         notifier.updateSettings(settings.copyWith(streamingProfile: value));
+                      }
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 20),
+          _buildSectionHeader(context, 'Downloads'),
+          Card(
+            elevation: 0,
+            color: theme.cardColor,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+              side: BorderSide(color: theme.colorScheme.onSurface.withValues(alpha: 0.08), width: 1),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: Column(
+              children: [
+                ListTile(
+                  title: Text('Download Speed Limit', style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
+                  subtitle: Text(settings.downloadSpeedLimit, style: TextStyle(color: isDark ? Colors.white54 : Colors.black54, fontSize: 12)),
+                  trailing: DropdownButton<String>(
+                    value: settings.downloadSpeedLimit,
+                    dropdownColor: theme.cardColor,
+                    underline: const SizedBox(),
+                    style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+                    icon: Icon(Icons.arrow_drop_down, color: isDark ? Colors.white70 : Colors.black54),
+                    items: const [
+                      DropdownMenuItem(value: 'Unlimited', child: Text('Unlimited')),
+                      DropdownMenuItem(value: '50 KB/s', child: Text('50 KB/s')),
+                      DropdownMenuItem(value: '100 KB/s', child: Text('100 KB/s')),
+                      DropdownMenuItem(value: '250 KB/s', child: Text('250 KB/s')),
+                      DropdownMenuItem(value: '500 KB/s', child: Text('500 KB/s')),
+                      DropdownMenuItem(value: '1 MB/s', child: Text('1 MB/s')),
+                      DropdownMenuItem(value: '2 MB/s', child: Text('2 MB/s')),
+                      DropdownMenuItem(value: '5 MB/s', child: Text('5 MB/s')),
+                      DropdownMenuItem(value: '10 MB/s', child: Text('10 MB/s')),
+                    ],
+                    onChanged: (String? value) {
+                      if (value != null) {
+                        notifier.updateSettings(settings.copyWith(downloadSpeedLimit: value));
                       }
                     },
                   ),
@@ -586,6 +743,18 @@ class VideoSettingsScreen extends ConsumerWidget {
     );
   }
 
+  Color _parseHexColor(String hex) {
+    try {
+      final cleanHex = hex.replaceAll('#', '');
+      if (cleanHex.length == 6) {
+        return Color(int.parse('FF$cleanHex', radix: 16));
+      } else if (cleanHex.length == 8) {
+        return Color(int.parse(cleanHex, radix: 16));
+      }
+    } catch (_) {}
+    return Colors.white;
+  }
+
   Future<String?> _showTextFieldDialog(
     BuildContext context,
     String title,
@@ -679,6 +848,383 @@ class _SeekDurationDialogState extends State<_SeekDurationDialog> {
                 _value = val.toInt();
               });
             },
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text('Cancel', style: TextStyle(color: isDark ? Colors.white54 : Colors.black54)),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(context, _value),
+          child: Text('Save', style: TextStyle(color: widget.accentColor)),
+        ),
+      ],
+    );
+  }
+}
+
+class _SubtitleSizeDialog extends StatefulWidget {
+  final double current;
+  final String currentColor;
+  final String currentFont;
+  final Color accentColor;
+
+  const _SubtitleSizeDialog({
+    required this.current,
+    required this.currentColor,
+    required this.currentFont,
+    required this.accentColor,
+  });
+
+  @override
+  State<_SubtitleSizeDialog> createState() => _SubtitleSizeDialogState();
+}
+
+class _SubtitleSizeDialogState extends State<_SubtitleSizeDialog> {
+  late double _value;
+
+  Color _parseHexColor(String hex) {
+    try {
+      final cleanHex = hex.replaceAll('#', '');
+      if (cleanHex.length == 6) {
+        return Color(int.parse('FF$cleanHex', radix: 16));
+      } else if (cleanHex.length == 8) {
+        return Color(int.parse(cleanHex, radix: 16));
+      }
+    } catch (_) {}
+    return Colors.white;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _value = widget.current;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    
+    String resolvedFontFamily = 'Roboto';
+    if (widget.currentFont.toLowerCase().contains('arial')) {
+      resolvedFontFamily = 'Arial';
+    } else if (widget.currentFont.toLowerCase().contains('dejavu')) {
+      resolvedFontFamily = 'DejaVuSans';
+    } else if (widget.currentFont.toLowerCase().contains('sans-serif')) {
+      resolvedFontFamily = 'sans-serif';
+    } else if (widget.currentFont.toLowerCase().contains('roboto')) {
+      resolvedFontFamily = 'Roboto';
+    }
+
+    return AlertDialog(
+      backgroundColor: theme.cardColor,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: theme.colorScheme.onSurface.withValues(alpha: 0.08), width: 1),
+      ),
+      title: Text('Subtitle Font Size', style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(16),
+            height: 100,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: Colors.black87,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(
+              'Hello World',
+              style: TextStyle(
+                fontSize: _value,
+                color: _parseHexColor(widget.currentColor),
+                fontFamily: resolvedFontFamily,
+                fontWeight: FontWeight.bold,
+                shadows: const [
+                  Shadow(offset: Offset(-1.5, -1.5), color: Colors.black),
+                  Shadow(offset: Offset(1.5, -1.5), color: Colors.black),
+                  Shadow(offset: Offset(1.5, 1.5), color: Colors.black),
+                  Shadow(offset: Offset(-1.5, 1.5), color: Colors.black),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text('${_value.toInt()} px', style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontSize: 18)),
+          Slider(
+            value: _value,
+            min: 15,
+            max: 80,
+            divisions: 65,
+            activeColor: widget.accentColor,
+            onChanged: (val) {
+              setState(() {
+                _value = val;
+              });
+            },
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text('Cancel', style: TextStyle(color: isDark ? Colors.white54 : Colors.black54)),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(context, _value),
+          child: Text('Save', style: TextStyle(color: widget.accentColor)),
+        ),
+      ],
+    );
+  }
+}
+
+class _SubtitleColorDialog extends StatefulWidget {
+  final String current;
+  final double currentSize;
+  final String currentFont;
+  final Color accentColor;
+
+  const _SubtitleColorDialog({
+    required this.current,
+    required this.currentSize,
+    required this.currentFont,
+    required this.accentColor,
+  });
+
+  @override
+  State<_SubtitleColorDialog> createState() => _SubtitleColorDialogState();
+}
+
+class _SubtitleColorDialogState extends State<_SubtitleColorDialog> {
+  late String _selectedHex;
+  final _customController = TextEditingController();
+
+  final List<Map<String, String>> _predefinedColors = [
+    {'name': 'White', 'hex': '#FFFFFF'},
+    {'name': 'Yellow', 'hex': '#FFFF00'},
+    {'name': 'Green', 'hex': '#00FF00'},
+    {'name': 'Cyan', 'hex': '#00FFFF'},
+    {'name': 'Red', 'hex': '#FF0000'},
+    {'name': 'Light Blue', 'hex': '#33B5E5'},
+    {'name': 'Amber', 'hex': '#FFBB33'},
+  ];
+
+  Color _parseHexColor(String hex) {
+    try {
+      final cleanHex = hex.replaceAll('#', '');
+      if (cleanHex.length == 6) {
+        return Color(int.parse('FF$cleanHex', radix: 16));
+      } else if (cleanHex.length == 8) {
+        return Color(int.parse(cleanHex, radix: 16));
+      }
+    } catch (_) {}
+    return Colors.white;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedHex = widget.current.toUpperCase();
+    if (!_selectedHex.startsWith('#')) {
+      _selectedHex = '#$_selectedHex';
+    }
+    _customController.text = _selectedHex;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    
+    String resolvedFontFamily = 'Roboto';
+    if (widget.currentFont.toLowerCase().contains('arial')) {
+      resolvedFontFamily = 'Arial';
+    } else if (widget.currentFont.toLowerCase().contains('dejavu')) {
+      resolvedFontFamily = 'DejaVuSans';
+    } else if (widget.currentFont.toLowerCase().contains('sans-serif')) {
+      resolvedFontFamily = 'sans-serif';
+    } else if (widget.currentFont.toLowerCase().contains('roboto')) {
+      resolvedFontFamily = 'Roboto';
+    }
+
+    return AlertDialog(
+      backgroundColor: theme.cardColor,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: theme.colorScheme.onSurface.withValues(alpha: 0.08), width: 1),
+      ),
+      title: Text('Subtitle Color', style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              height: 100,
+              width: double.maxFinite,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: Colors.black87,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                'Hello World',
+                style: TextStyle(
+                  fontSize: widget.currentSize,
+                  color: _parseHexColor(_selectedHex),
+                  fontFamily: resolvedFontFamily,
+                  fontWeight: FontWeight.bold,
+                  shadows: const [
+                    Shadow(offset: Offset(-1.5, -1.5), color: Colors.black),
+                    Shadow(offset: Offset(1.5, -1.5), color: Colors.black),
+                    Shadow(offset: Offset(1.5, 1.5), color: Colors.black),
+                    Shadow(offset: Offset(-1.5, 1.5), color: Colors.black),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: _predefinedColors.map((colorMap) {
+                final hex = colorMap['hex']!;
+                final color = _parseHexColor(hex);
+                final isSelected = _selectedHex == hex;
+                return GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      _selectedHex = hex;
+                      _customController.text = hex;
+                    });
+                  },
+                  child: Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: color,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: isSelected ? widget.accentColor : Colors.transparent,
+                        width: 3,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.2),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
+                        )
+                      ],
+                    ),
+                    child: isSelected
+                        ? Icon(
+                            Icons.check,
+                            color: color.computeLuminance() > 0.5 ? Colors.black : Colors.white,
+                            size: 20,
+                          )
+                        : null,
+                  ),
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _customController,
+              style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+              decoration: InputDecoration(
+                labelText: 'Custom Hex Color',
+                labelStyle: TextStyle(color: isDark ? Colors.white60 : Colors.black54),
+                hintText: '#FFFFFF',
+                hintStyle: TextStyle(color: isDark ? Colors.white24 : Colors.black26),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              onChanged: (val) {
+                if (val.startsWith('#') && (val.length == 7 || val.length == 9)) {
+                  setState(() {
+                    _selectedHex = val.toUpperCase();
+                  });
+                }
+              },
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text('Cancel', style: TextStyle(color: isDark ? Colors.white54 : Colors.black54)),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(context, _selectedHex),
+          child: Text('Save', style: TextStyle(color: widget.accentColor)),
+        ),
+      ],
+    );
+  }
+}
+
+class _SubtitleDelayDialog extends StatefulWidget {
+  final double current;
+  final Color accentColor;
+
+  const _SubtitleDelayDialog({required this.current, required this.accentColor});
+
+  @override
+  State<_SubtitleDelayDialog> createState() => _SubtitleDelayDialogState();
+}
+
+class _SubtitleDelayDialogState extends State<_SubtitleDelayDialog> {
+  late double _value;
+
+  @override
+  void initState() {
+    super.initState();
+    _value = widget.current;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    return AlertDialog(
+      backgroundColor: theme.cardColor,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: theme.colorScheme.onSurface.withValues(alpha: 0.08), width: 1),
+      ),
+      title: Text('Subtitle Delay Offset', style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            _value == 0.0
+                ? 'No Delay'
+                : _value > 0.0
+                    ? '+${_value.toStringAsFixed(1)} seconds'
+                    : '${_value.toStringAsFixed(1)} seconds',
+            style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontSize: 18),
+          ),
+          Slider(
+            value: _value,
+            min: -10.0,
+            max: 10.0,
+            divisions: 200,
+            activeColor: widget.accentColor,
+            onChanged: (val) {
+              setState(() {
+                _value = double.parse(val.toStringAsFixed(1));
+              });
+            },
+          ),
+          Text(
+            'Positive: Subtitles appear later\nNegative: Subtitles appear earlier',
+            style: TextStyle(color: isDark ? Colors.white38 : Colors.black38, fontSize: 11),
+            textAlign: TextAlign.center,
           ),
         ],
       ),

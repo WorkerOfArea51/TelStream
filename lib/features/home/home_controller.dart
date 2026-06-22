@@ -132,6 +132,21 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
     }
   }
 
+  List<int> getAvailableYears() {
+    final storage = ref.read(storageServiceProvider);
+    final Set<int> years = {};
+    for (final series in _allSeries) {
+      for (final season in series.seasons) {
+        final yr = season.getReleaseYear(storage);
+        if (yr != null && yr > 0) {
+          years.add(yr);
+        }
+      }
+    }
+    final sorted = years.toList()..sort((a, b) => b.compareTo(a));
+    return sorted;
+  }
+
   Future<void> loadMore() async {
     if (_isLoadingMore || !_hasMore) return;
     _isLoadingMore = true;

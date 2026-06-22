@@ -655,6 +655,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
 
     ref.listen<VideoSettings>(videoSettingsProvider, (previous, next) {
       bool needAudioFilterUpdate = false;
+      bool needSubUpdate = false;
       if (previous?.subtitleRendererMode != next.subtitleRendererMode) {
         _settings = next;
         _updateBlendSubtitlesForTrack(player, player.state.track.subtitle);
@@ -665,8 +666,18 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         _settings = next;
         needAudioFilterUpdate = true;
       }
+      if (previous?.subtitleFontSize != next.subtitleFontSize ||
+          previous?.subtitleColor != next.subtitleColor ||
+          previous?.subtitleDelay != next.subtitleDelay ||
+          previous?.subtitleFont != next.subtitleFont) {
+        _settings = next;
+        needSubUpdate = true;
+      }
       if (needAudioFilterUpdate) {
         _updateAudioFilters();
+      }
+      if (needSubUpdate) {
+        _updateSubtitleProperties();
       }
     });
 
@@ -961,29 +972,8 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         nativePlayer.setProperty('sub-scale-with-window', 'yes'); // Keep subtitles proportional to resizing
         nativePlayer.setProperty('sub-ass-force-margins', 'yes'); // Ensure margins are utilized for ASS subtitles
 
-        // Load subtitle customizations
-        final subSize = _storageService.getSubtitleFontSize();
-        final subColor = _storageService.getSubtitleColor();
-        final subDelay = _storageService.getSubtitleDelay();
-        final subFont = _storageService.getSubtitleFont();
-
-        nativePlayer.setProperty('sub-font-size', subSize.round().toString());
-        nativePlayer.setProperty('sub-color', subColor);
-        nativePlayer.setProperty('sub-delay', subDelay.toString());
-
-        // Set sub-font to the font family name.
-        String resolvedFontFamily = 'Roboto'; // Default to Roboto
-        if (subFont.toLowerCase().contains('arial')) {
-          resolvedFontFamily = 'Arial';
-        } else if (subFont.toLowerCase().contains('dejavu')) {
-          resolvedFontFamily = 'DejaVuSans';
-        } else if (subFont.toLowerCase().contains('sans-serif')) {
-          resolvedFontFamily = 'sans-serif';
-        } else if (subFont.toLowerCase().contains('roboto')) {
-          resolvedFontFamily = 'Roboto';
-        }
-        
-        nativePlayer.setProperty('sub-font', resolvedFontFamily);
+        // Load subtitle customizations dynamically
+        _updateSubtitleProperties();
 
         final volBoost = _storageService.getVolumeBoostEnabled();
         if (volBoost) {
@@ -1199,6 +1189,29 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         nativePlayer.setProperty('af', '');
         Log.i('Cleared audio filters dynamically');
       }
+    }
+  }
+
+  void _updateSubtitleProperties() {
+    if (player.platform is NativePlayer) {
+      final nativePlayer = player.platform as NativePlayer;
+      nativePlayer.setProperty('sub-font-size', _settings.subtitleFontSize.round().toString());
+      nativePlayer.setProperty('sub-color', _settings.subtitleColor);
+      nativePlayer.setProperty('sub-delay', _settings.subtitleDelay.toString());
+      
+      String resolvedFontFamily = 'Roboto';
+      final fontName = _settings.subtitleFont.toLowerCase();
+      if (fontName.contains('arial')) {
+        resolvedFontFamily = 'Arial';
+      } else if (fontName.contains('dejavu')) {
+        resolvedFontFamily = 'DejaVuSans';
+      } else if (fontName.contains('sans-serif')) {
+        resolvedFontFamily = 'sans-serif';
+      } else if (fontName.contains('roboto')) {
+        resolvedFontFamily = 'Roboto';
+      }
+      nativePlayer.setProperty('sub-font', resolvedFontFamily);
+      Log.i('Updated subtitle settings dynamically: size=${_settings.subtitleFontSize}, color=${_settings.subtitleColor}, delay=${_settings.subtitleDelay}, font=$resolvedFontFamily');
     }
   }
 

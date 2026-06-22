@@ -36,6 +36,11 @@ class VideoSettings {
   final String preferredSubtitleProvider;
   final String customMpvOptions;
   final bool showStatsForNerds;
+  final double subtitleFontSize;
+  final String subtitleColor;
+  final double subtitleDelay;
+  final String subtitleFont;
+  final String downloadSpeedLimit;
 
   const VideoSettings({
     this.doubleTapSeekDuration = 10,
@@ -72,6 +77,11 @@ class VideoSettings {
     this.preferredSubtitleProvider = 'opensubtitles',
     this.customMpvOptions = '',
     this.showStatsForNerds = false,
+    this.subtitleFontSize = 45.0,
+    this.subtitleColor = '#FFFFFF',
+    this.subtitleDelay = 0.0,
+    this.subtitleFont = 'Roboto',
+    this.downloadSpeedLimit = 'Unlimited',
   });
 
   String getLayoutForCategory(String categoryTitle) {
@@ -135,6 +145,11 @@ class VideoSettings {
     String? preferredSubtitleProvider,
     String? customMpvOptions,
     bool? showStatsForNerds,
+    double? subtitleFontSize,
+    String? subtitleColor,
+    double? subtitleDelay,
+    String? subtitleFont,
+    String? downloadSpeedLimit,
   }) {
     return VideoSettings(
       doubleTapSeekDuration: doubleTapSeekDuration ?? this.doubleTapSeekDuration,
@@ -171,6 +186,11 @@ class VideoSettings {
       preferredSubtitleProvider: preferredSubtitleProvider ?? this.preferredSubtitleProvider,
       customMpvOptions: customMpvOptions ?? this.customMpvOptions,
       showStatsForNerds: showStatsForNerds ?? this.showStatsForNerds,
+      subtitleFontSize: subtitleFontSize ?? this.subtitleFontSize,
+      subtitleColor: subtitleColor ?? this.subtitleColor,
+      subtitleDelay: subtitleDelay ?? this.subtitleDelay,
+      subtitleFont: subtitleFont ?? this.subtitleFont,
+      downloadSpeedLimit: downloadSpeedLimit ?? this.downloadSpeedLimit,
     );
   }
 
@@ -210,6 +230,11 @@ class VideoSettings {
       'preferredSubtitleProvider': preferredSubtitleProvider,
       'customMpvOptions': customMpvOptions,
       'showStatsForNerds': showStatsForNerds,
+      'subtitleFontSize': subtitleFontSize,
+      'subtitleColor': subtitleColor,
+      'subtitleDelay': subtitleDelay,
+      'subtitleFont': subtitleFont,
+      'downloadSpeedLimit': downloadSpeedLimit,
     };
   }
 
@@ -249,6 +274,11 @@ class VideoSettings {
       preferredSubtitleProvider: json['preferredSubtitleProvider'] ?? 'opensubtitles',
       customMpvOptions: json['customMpvOptions'] ?? '',
       showStatsForNerds: json['showStatsForNerds'] ?? false,
+      subtitleFontSize: (json['subtitleFontSize'] as num?)?.toDouble() ?? 45.0,
+      subtitleColor: json['subtitleColor'] ?? '#FFFFFF',
+      subtitleDelay: (json['subtitleDelay'] as num?)?.toDouble() ?? 0.0,
+      subtitleFont: json['subtitleFont'] ?? 'Roboto',
+      downloadSpeedLimit: json['downloadSpeedLimit'] ?? 'Unlimited',
     );
   }
 }
@@ -259,9 +289,31 @@ class VideoSettingsNotifier extends Notifier<VideoSettings> {
     final storageService = ref.read(storageServiceProvider);
     final rawSettings = storageService.getVideoSettings();
     if (rawSettings.isNotEmpty) {
-      return VideoSettings.fromJson(rawSettings);
+      final updatedJson = Map<String, dynamic>.from(rawSettings);
+      if (!updatedJson.containsKey('subtitleFontSize')) {
+        updatedJson['subtitleFontSize'] = storageService.getSubtitleFontSize();
+      }
+      if (!updatedJson.containsKey('subtitleColor')) {
+        updatedJson['subtitleColor'] = storageService.getSubtitleColor();
+      }
+      if (!updatedJson.containsKey('subtitleDelay')) {
+        updatedJson['subtitleDelay'] = storageService.getSubtitleDelay();
+      }
+      if (!updatedJson.containsKey('subtitleFont')) {
+        updatedJson['subtitleFont'] = storageService.getSubtitleFont();
+      }
+      if (!updatedJson.containsKey('downloadSpeedLimit')) {
+        updatedJson['downloadSpeedLimit'] = 'Unlimited';
+      }
+      return VideoSettings.fromJson(updatedJson);
     }
-    return const VideoSettings();
+    return VideoSettings(
+      subtitleFontSize: storageService.getSubtitleFontSize(),
+      subtitleColor: storageService.getSubtitleColor(),
+      subtitleDelay: storageService.getSubtitleDelay(),
+      subtitleFont: storageService.getSubtitleFont(),
+      downloadSpeedLimit: 'Unlimited',
+    );
   }
 
   void updateSettings(VideoSettings newSettings) {
