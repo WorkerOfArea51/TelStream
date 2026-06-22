@@ -1184,8 +1184,13 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
     Log.i('Recreating player dynamically: position=$savedPosition, playing=$wasPlaying, volume=$volume, rate=$rate, libass=$newLibass');
     
     setState(() {
+      _isPlaying = false;
       _isBuffering = true;
     });
+    
+    // Give the framework a short delay to completely unmount the old Video widget
+    // before we dispose the player, avoiding any "use of disposed player" crash.
+    await Future.delayed(const Duration(milliseconds: 100));
     
     _tracksSubscription?.cancel();
     _bufferingSubscription?.cancel();
@@ -1235,7 +1240,6 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
     
     // Start media playback at the saved position
     if (_openedMediaPath != null) {
-      _isPlaying = true;
       await player.open(Media(_openedMediaPath!), play: wasPlaying);
       if (mounted) {
         await player.seek(savedPosition);
@@ -1246,7 +1250,9 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
     
     _isRecreatingPlayer = false;
     if (mounted) {
-      setState(() {});
+      setState(() {
+        _isPlaying = true;
+      });
     }
   }
 }
