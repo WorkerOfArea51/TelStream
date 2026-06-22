@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
+import 'package:path_provider/path_provider.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tdlib/td_api.dart' as td;
@@ -61,6 +63,9 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
               state = AsyncValue.data(_applySearchAndSort(_allSeries));
             }
             _triggerReleaseYearsSync();
+            if (_cacheLoadComplete) {
+              _saveCatalogCache();
+            }
           }
         }
       }
@@ -114,6 +119,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
     try {
       int startingLength = _allSeries.length;
       int iterations = 0;
+      bool changed = false;
       while (_allSeries.length < startingLength + 10 && _hasMore && iterations < 5) {
         iterations++;
         final moreMessages = await _fetchMessages(fromId: _lastMessageId, onlyLocal: false);
@@ -124,6 +130,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
           if (!_rawMessageIds.contains(msg.id)) {
             _rawMessages.add(msg);
             _rawMessageIds.add(msg.id);
+            changed = true;
           }
         }
         
@@ -131,6 +138,9 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
         _allSeries = _parseMessages(_rawMessages);
         state = AsyncValue.data(_applySearchAndSort(_allSeries));
         _triggerReleaseYearsSync();
+      }
+      if (changed && _cacheLoadComplete) {
+        _saveCatalogCache();
       }
     } finally {
       _isLoadingMore = false;
@@ -192,7 +202,45 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
       _resolvedChatTitle = chatRes.title;
     }
 
-    // 1. First, load the initial batch using onlyLocal: true to render instantly from cache
+    // 1. Try loading catalog cache first
+    try {
+      final directory = await getApplicationDocumentsDirectory();
+      final cachePath = '${directory.path}/catalog_cache_${category.title.replaceAll(' ', '_')}.json';
+      final file = File(cachePath);
+      if (await file.exists()) {
+        final content = await file.readAsString();
+        final List<dynamic> jsonList = json.decode(content);
+        final List<AnimeSeries> cachedList = jsonList.map((s) => AnimeSeries.fromJson(s as Map<String, dynamic>)).toList();
+        
+        _allSeries = cachedList;
+        _rawMessages.clear();
+        _rawMessageIds.clear();
+        
+        for (final series in _allSeries) {
+          for (final season in series.seasons) {
+            if (!_rawMessageIds.contains(season.posterMessage.id)) {
+              _rawMessages.add(season.posterMessage);
+              _rawMessageIds.add(season.posterMessage.id);
+            }
+            for (final ep in season.episodes) {
+              if (!_rawMessageIds.contains(ep.id)) {
+                _rawMessages.add(ep);
+                _rawMessageIds.add(ep.id);
+              }
+            }
+          }
+        }
+        
+        _rawMessages.sort((a, b) => b.id.compareTo(a.id));
+        _cacheLoadComplete = true; // Cache loading completes the full load, subsequent sync starts incremental
+        Log.i('Loaded ${cachedList.length} series from catalog cache for category ${category.title}');
+        return _applySearchAndSort(_allSeries);
+      }
+    } catch (e, stack) {
+      Log.e('Failed to load catalog cache for ${category.title}, falling back to local DB loop', e, stack);
+    }
+
+    // Fallback: load using onlyLocal: true from TDLib local database
     int iterations = 0;
     int currentFromId = 0;
     while (_hasMore && iterations < 200) {
@@ -214,6 +262,20 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
     return _applySearchAndSort(_allSeries);
   }
 
+  Future<void> _saveCatalogCache() async {
+    try {
+      final directory = await getApplicationDocumentsDirectory();
+      final cachePath = '${directory.path}/catalog_cache_${category.title.replaceAll(' ', '_')}.json';
+      final file = File(cachePath);
+      final jsonList = _allSeries.map((s) => s.toJson()).toList();
+      final content = json.encode(jsonList);
+      await file.writeAsString(content);
+      Log.i('Saved catalog cache for category ${category.title} to $cachePath');
+    } catch (e, stack) {
+      Log.e('Failed to save catalog cache for ${category.title}', e, stack);
+    }
+  }
+
   Future<void> _syncFromNetwork() async {
     try {
       _hasMore = true; // Reset _hasMore to allow background network fetching
@@ -232,7 +294,10 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
             await Future.delayed(const Duration(seconds: 2));
           }
 
-          final networkMessages = await _fetchMessages(fromId: currentFromId, onlyLocal: false);
+          final networkMessages = _cacheLoadComplete
+              ? await _fetchMessages(fromId: currentFromId, onlyLocal: false)
+              : await _fetchMessagesParallel(fromId: currentFromId);
+
           if (networkMessages.isEmpty) {
             if (!_hasMore) {
               break; // Truly reached the end of history
@@ -269,6 +334,9 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
               _allSeries = _parseMessages(_rawMessages);
               state = AsyncValue.data(_applySearchAndSort(_allSeries));
               _triggerReleaseYearsSync();
+              if (_cacheLoadComplete) {
+                _saveCatalogCache();
+              }
               lastUiUpdateTime = now;
               changed = false; // Reset changed flag
             }
@@ -295,6 +363,9 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
       if (_rawMessages.isNotEmpty) {
         await storage.setLastIndexedMessageId(category.channelId, _rawMessages.first.id);
       }
+
+      _cacheLoadComplete = true;
+      _saveCatalogCache();
     } catch (e, stackTrace) {
       Log.e("Background sync error", e, stackTrace);
     }
@@ -395,6 +466,64 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
     }
 
     return fetchedBatch;
+  }
+
+  Future<List<td.Message>> _fetchMessagesParallel({required int fromId, int chunkCount = 5}) async {
+    final tdlibService = ref.read(tdlibServiceProvider);
+    bool hadError = false;
+    
+    final futures = List.generate(chunkCount, (i) {
+      final offset = i * 100;
+      return tdlibService.sendAsync(td.GetChatHistory(
+        chatId: category.channelId,
+        fromMessageId: fromId,
+        offset: offset,
+        limit: 100,
+        onlyLocal: false,
+      )).timeout(
+        const Duration(seconds: 12),
+        onTimeout: () => td.TdError(code: 408, message: "Request Timeout"),
+      ).then<List<td.Message>>((response) {
+        if (response is td.TdError) {
+          Log.w("Parallel GetChatHistory error for offset $offset: ${response.message}");
+          hadError = true;
+          return const <td.Message>[];
+        }
+        
+        List<td.Message> fetched = [];
+        if (response is td.Messages) {
+          fetched = response.messages;
+        } else if (response is td.FoundMessages) {
+          fetched = response.messages;
+        }
+        return fetched;
+      }).catchError((e, stack) {
+        Log.e("Parallel GetChatHistory failed for offset $offset", e, stack);
+        hadError = true;
+        return const <td.Message>[];
+      });
+    });
+
+    final results = await Future.wait(futures);
+    
+    final List<td.Message> combined = [];
+    final Set<int> seenIds = {};
+    for (final list in results) {
+      for (final msg in list) {
+        if (!seenIds.contains(msg.id)) {
+          combined.add(msg);
+          seenIds.add(msg.id);
+        }
+      }
+    }
+    
+    combined.sort((a, b) => b.id.compareTo(a.id));
+    
+    if (!hadError && combined.length < chunkCount * 100) {
+      _hasMore = false;
+    }
+    
+    return combined;
   }
 
   static String normalizeSeriesName(String name, {bool isMovie = false}) {

@@ -6,6 +6,18 @@ class AnimeSeries {
   final List<AnimeSeason> seasons;
 
   AnimeSeries({required this.coreName, required this.seasons});
+
+  Map<String, dynamic> toJson() => {
+        'coreName': coreName,
+        'seasons': seasons.map((s) => s.toJson()).toList(),
+      };
+
+  factory AnimeSeries.fromJson(Map<String, dynamic> json) => AnimeSeries(
+        coreName: json['coreName'] as String,
+        seasons: (json['seasons'] as List)
+            .map((s) => AnimeSeason.fromJson(s as Map<String, dynamic>))
+            .toList(),
+      );
 }
 
 class AnimeSeason {
@@ -20,6 +32,22 @@ class AnimeSeason {
     required this.posterMessage,
     required this.episodes,
   });
+
+  Map<String, dynamic> toJson() => {
+        'fullTitle': fullTitle,
+        'seasonName': seasonName,
+        'posterMessage': posterMessage.toJson(),
+        'episodes': episodes.map((e) => e.toJson()).toList(),
+      };
+
+  factory AnimeSeason.fromJson(Map<String, dynamic> json) => AnimeSeason(
+        fullTitle: json['fullTitle'] as String,
+        seasonName: json['seasonName'] as String,
+        posterMessage: td.Message.fromJson(json['posterMessage'] as Map<String, dynamic>),
+        episodes: (json['episodes'] as List)
+            .map((e) => td.Message.fromJson(e as Map<String, dynamic>))
+            .toList(),
+      );
 
   AnimeSeason copyWith({
     String? fullTitle,
