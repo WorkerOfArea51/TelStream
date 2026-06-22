@@ -56,3 +56,5 @@ keystore_base64.txt
 /android/app/src/main/jniLibs/x86/
 /android/app/src/main/jniLibs/x86_64/
 
+# Scratch files
+/scratch/
