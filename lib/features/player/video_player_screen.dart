@@ -654,9 +654,19 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
     final pipState = ref.watch(pipControllerProvider);
 
     ref.listen<VideoSettings>(videoSettingsProvider, (previous, next) {
+      bool needAudioFilterUpdate = false;
       if (previous?.subtitleRendererMode != next.subtitleRendererMode) {
         _settings = next;
         _updateBlendSubtitlesForTrack(player, player.state.track.subtitle);
+      }
+      if (previous?.dynamicRangeCompression != next.dynamicRangeCompression ||
+          previous?.equalizerEnabled != next.equalizerEnabled ||
+          previous?.equalizerBands != next.equalizerBands) {
+        _settings = next;
+        needAudioFilterUpdate = true;
+      }
+      if (needAudioFilterUpdate) {
+        _updateAudioFilters();
       }
     });
 
@@ -981,24 +991,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         }
 
         // Apply audio filters (DRC & Equalizer)
-        final filters = <String>[];
-        if (_settings.dynamicRangeCompression) {
-          filters.add('lavfi=[dynaudnorm]');
-        }
-        if (_settings.equalizerEnabled) {
-          final bands = _settings.equalizerBands;
-          filters.add('equalizer=f=100:width_type=o:w=2.0:g=${bands[0]}');
-          filters.add('equalizer=f=300:width_type=o:w=2.0:g=${bands[1]}');
-          filters.add('equalizer=f=1000:width_type=o:w=2.0:g=${bands[2]}');
-          filters.add('equalizer=f=3000:width_type=o:w=2.0:g=${bands[3]}');
-          filters.add('equalizer=f=10000:width_type=o:w=2.0:g=${bands[4]}');
-        }
-        if (filters.isNotEmpty) {
-          nativePlayer.setProperty('af', filters.join(','));
-          Log.i('Applied audio filters on init: ${filters.join(',')}');
-        } else {
-          nativePlayer.setProperty('af', '');
-        }
+        _updateAudioFilters();
 
         // Apply adaptive streaming profile
         _applyStreamingProfile();
@@ -1182,6 +1175,31 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         _cancelPreloadOfNextEpisode();
       }
     });
+  }
+
+  void _updateAudioFilters() {
+    if (player.platform is NativePlayer) {
+      final nativePlayer = player.platform as NativePlayer;
+      final filters = <String>[];
+      if (_settings.dynamicRangeCompression) {
+        filters.add('lavfi=[dynaudnorm]');
+      }
+      if (_settings.equalizerEnabled) {
+        final bands = _settings.equalizerBands;
+        filters.add('equalizer=f=100:width_type=o:w=2.0:g=${bands[0]}');
+        filters.add('equalizer=f=300:width_type=o:w=2.0:g=${bands[1]}');
+        filters.add('equalizer=f=1000:width_type=o:w=2.0:g=${bands[2]}');
+        filters.add('equalizer=f=3000:width_type=o:w=2.0:g=${bands[3]}');
+        filters.add('equalizer=f=10000:width_type=o:w=2.0:g=${bands[4]}');
+      }
+      if (filters.isNotEmpty) {
+        nativePlayer.setProperty('af', filters.join(','));
+        Log.i('Applied audio filters dynamically: ${filters.join(',')}');
+      } else {
+        nativePlayer.setProperty('af', '');
+        Log.i('Cleared audio filters dynamically');
+      }
+    }
   }
 
 }
