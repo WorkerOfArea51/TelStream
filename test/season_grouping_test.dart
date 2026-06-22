@@ -1,6 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:telstream/features/home/home_controller.dart';
 import 'package:telstream/services/storage_service.dart';
+import 'package:telstream/core/constants.dart';
+import 'package:telstream/models/anime_models.dart';
 import 'package:tdlib/td_api.dart' as td;
 
 class FakeStorageService implements StorageService {
@@ -20,7 +22,10 @@ class FakeStorageService implements StorageService {
 
 class FakeMessagePhoto implements td.MessagePhoto {
   @override
-  final td.FormattedText caption = const td.FormattedText(text: '', entities: []);
+  final td.FormattedText caption;
+
+  FakeMessagePhoto(String text)
+      : caption = td.FormattedText(text: text, entities: const []);
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
@@ -36,6 +41,19 @@ class FakeMessage implements td.Message {
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class TestHomeController extends HomeController {
+  @override
+  ChannelCategory get category => const ChannelCategory(
+        title: 'Anime',
+        channelId: 1,
+        inviteLink: '',
+      );
+
+  List<AnimeSeries> testParse(List<td.Message> raw) {
+    return parseMessagesForTesting(raw);
+  }
 }
 
 void main() {
@@ -63,6 +81,33 @@ void main() {
       expect(HomeController.normalizeSeriesName('Re:ZERO -Starting Life in Another World- Frozen Bond'), 'Re:ZERO -Starting Life in Another World');
     });
 
+    test('franchise grouping bypass separates Dragon Ball, Z, and Daima', () {
+      final controller = TestHomeController();
 
+      // We will parse messages in the correct sequence.
+      // E.g. we post Dragon Ball Daima, Dragon Ball Z, then Dragon Ball.
+      final messages = [
+        FakeMessage(
+          id: 3,
+          content: FakeMessagePhoto('Dragon Ball Daima : Episode 1'),
+        ),
+        FakeMessage(
+          id: 2,
+          content: FakeMessagePhoto('Dragon Ball Z : 1.Saiyan Saga'),
+        ),
+        FakeMessage(
+          id: 1,
+          content: FakeMessagePhoto('Dragon Ball : 1.Emperor Pilaf Saga'),
+        ),
+      ];
+
+      final seriesList = controller.testParse(messages);
+
+      // They should NOT be merged. We should get 3 separate series.
+      expect(seriesList.length, 3);
+      expect(seriesList[0].coreName, 'Dragon Ball Daima');
+      expect(seriesList[1].coreName, 'Dragon Ball Z');
+      expect(seriesList[2].coreName, 'Dragon Ball');
+    });
   });
 }

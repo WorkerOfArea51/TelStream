@@ -679,6 +679,10 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
     }).join(' ');
   }
 
+  List<AnimeSeries> parseMessagesForTesting(List<td.Message> raw) {
+    return _parseMessages(raw);
+  }
+
   List<AnimeSeries> _parseMessages(List<td.Message> raw) {
     List<AnimeSeries> seriesList = [];
     Map<String, AnimeSeries> seriesMap = {};
@@ -724,29 +728,41 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
           String matchedKey = isMovie ? '${canonicalKey}_${msg.id}' : canonicalKey;
           if (!isMovie) {
             for (final existingKey in seriesMap.keys) {
-            if (existingKey.length >= 7 && canonicalKey.length >= 7) {
-              if (canonicalKey.startsWith(existingKey)) {
-                matchedKey = existingKey;
-                break;
-              } else if (existingKey.startsWith(canonicalKey)) {
-                // If the new one is shorter, update the core name and key mapping
-                matchedKey = existingKey;
-                final existingSeries = seriesMap[existingKey]!;
-                if (baseName.length < existingSeries.coreName.length) {
-                  seriesMap[existingKey] = AnimeSeries(
-                    coreName: baseName,
-                    seasons: existingSeries.seasons,
-                  );
-                  final idx = seriesList.indexOf(existingSeries);
-                  if (idx != -1) {
-                    seriesList[idx] = seriesMap[existingKey]!;
+              if (existingKey.length >= 7 && canonicalKey.length >= 7) {
+                // Bypass prefix/substring grouping for franchise sequels/spinoffs
+                bool isFranchiseBypass = false;
+                const franchisePrefixes = ['dragonball', 'naruto', 'onepiece', 'bleach'];
+                for (final prefix in franchisePrefixes) {
+                  if ((canonicalKey.startsWith(prefix) || existingKey.startsWith(prefix)) &&
+                      canonicalKey != existingKey) {
+                    isFranchiseBypass = true;
+                    break;
                   }
+                }
+                if (isFranchiseBypass) continue;
+
+                if (canonicalKey.startsWith(existingKey)) {
+                  matchedKey = existingKey;
                   break;
+                } else if (existingKey.startsWith(canonicalKey)) {
+                  // If the new one is shorter, update the core name and key mapping
+                  matchedKey = existingKey;
+                  final existingSeries = seriesMap[existingKey]!;
+                  if (baseName.length < existingSeries.coreName.length) {
+                    seriesMap[existingKey] = AnimeSeries(
+                      coreName: baseName,
+                      seasons: existingSeries.seasons,
+                    );
+                    final idx = seriesList.indexOf(existingSeries);
+                    if (idx != -1) {
+                      seriesList[idx] = seriesMap[existingKey]!;
+                    }
+                    break;
+                  }
                 }
               }
             }
           }
-        }
           
           if (!seriesMap.containsKey(matchedKey)) {
             seriesMap[matchedKey] = AnimeSeries(coreName: baseName, seasons: []);

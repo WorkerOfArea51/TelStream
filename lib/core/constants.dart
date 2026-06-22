@@ -14,8 +14,12 @@ class ChannelCategory {
 }
 
 class Constants {
-  static const String currentVersion = '2.7.4';
+  static const String currentVersion = '2.7.5';
   static const String changelog = '''
+### 🚀 What's New in v2.7.5
+
+* **Franchise Grouping Separation**: Fixed an issue where separate series in the same franchise (e.g. Dragon Ball, Dragon Ball Z, and Dragon Ball Daima) were incorrectly merged under the base series card in the library. They now display as separate, independent titles.
+
 ### 🚀 What's New in v2.7.4
 
 * **Strict Chronological Franchise Sorting**: Changed season sorting within a franchise to be sorted strictly by Telegram upload/message ID order (ascending). This resolves sorting issues for Dragon Ball, Log Horizon, Mushoku Tensei, Dr. Stone, Re:ZERO, Sword Art Online, etc., aligning them exactly with the order they were posted on the channel.
