@@ -21,6 +21,20 @@ class AnimeSeason {
     required this.episodes,
   });
 
+  AnimeSeason copyWith({
+    String? fullTitle,
+    String? seasonName,
+    td.Message? posterMessage,
+    List<td.Message>? episodes,
+  }) {
+    return AnimeSeason(
+      fullTitle: fullTitle ?? this.fullTitle,
+      seasonName: seasonName ?? this.seasonName,
+      posterMessage: posterMessage ?? this.posterMessage,
+      episodes: episodes ?? this.episodes,
+    );
+  }
+
   int? getReleaseYear(StorageService storage) {
     final cached = storage.getSeasonReleaseYear(fullTitle);
     if (cached != null && cached > 0) return cached;

@@ -488,6 +488,17 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
     if (RegExp(r'^\d+$').hasMatch(diff)) {
       return 'Season $diff';
     }
+
+    // Check if diff is an ordinal season pattern like "2nd", "2nd Season", "Season 2nd"
+    final ordinalMatch = RegExp(r'^(\d+)(?:st|nd|rd|th)(?:\s+season)?$', caseSensitive: false).firstMatch(diff);
+    if (ordinalMatch != null) {
+      return 'Season ${ordinalMatch.group(1)}';
+    }
+    
+    final ordinalMatch2 = RegExp(r'^season\s+(\d+)(?:st|nd|rd|th)$', caseSensitive: false).firstMatch(diff);
+    if (ordinalMatch2 != null) {
+      return 'Season ${ordinalMatch2.group(1)}';
+    }
     
     // Check if diff starts with "Season" or "S" (case insensitive)
     final seasonNumMatch = RegExp(r'^(?:season\s*(\d+|[ivxIVX]+)|s\s*(\d+)|s\s+([ivxIVX]+))$', caseSensitive: false).firstMatch(diff);
@@ -669,6 +680,58 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
       series.seasons.sort((a, b) {
         return SeasonSortKey.fromSeason(a, storage).compareTo(SeasonSortKey.fromSeason(b, storage));
       });
+
+      // Group seasons of a franchise into distinct runs/reboots to consecutively number each run separately.
+      final List<List<int>> runs = [];
+      if (series.seasons.isNotEmpty) {
+        runs.add([0]);
+        for (int i = 1; i < series.seasons.length; i++) {
+          final prevSeason = series.seasons[i - 1];
+          final currSeason = series.seasons[i];
+
+          final prevName = prevSeason.seasonName;
+          final currName = currSeason.seasonName;
+
+          final prevYearMatch = RegExp(r'[\[\(](\d{4})[\]\)]').firstMatch(prevName);
+          final currYearMatch = RegExp(r'[\[\(](\d{4})[\]\)]').firstMatch(currName);
+
+          final prevSuffixYear = prevYearMatch?.group(1);
+          final currSuffixYear = currYearMatch?.group(1);
+
+          bool isNewRun = false;
+          if (prevSuffixYear != currSuffixYear) {
+            isNewRun = true;
+          } else {
+            final prevYear = prevSeason.getReleaseYear(storage) ?? 0;
+            final currYear = currSeason.getReleaseYear(storage) ?? 0;
+            if (prevYear > 0 && currYear > 0 && (currYear - prevYear).abs() > 3) {
+              isNewRun = true;
+            }
+          }
+
+          if (isNewRun) {
+            runs.add([i]);
+          } else {
+            runs.last.add(i);
+          }
+        }
+      }
+
+      // Consecutively number "Season X" matches within each individual run
+      for (final indices in runs) {
+        int currentSeasonNum = 1;
+        for (final idx in indices) {
+          final season = series.seasons[idx];
+          final name = season.seasonName;
+          final match = RegExp(r'^Season\s+(\d+|[ivxIVX]+)(.*)$').firstMatch(name);
+          if (match != null) {
+            final suffix = match.group(2) ?? '';
+            final newName = 'Season $currentSeasonNum$suffix';
+            series.seasons[idx] = season.copyWith(seasonName: newName);
+            currentSeasonNum++;
+          }
+        }
+      }
     }
     
     return sorted;
