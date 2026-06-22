@@ -14,15 +14,14 @@ class ChannelCategory {
 }
 
 class Constants {
-  static const String currentVersion = '2.7.3';
+  static const String currentVersion = '2.7.4';
   static const String changelog = '''
+### 🚀 What's New in v2.7.4
+
+* **Strict Chronological Franchise Sorting**: Changed season sorting within a franchise to be sorted strictly by Telegram upload/message ID order (ascending). This resolves sorting issues for Dragon Ball, Log Horizon, Mushoku Tensei, Dr. Stone, Re:ZERO, Sword Art Online, etc., aligning them exactly with the order they were posted on the channel.
+* **Restored Season Tabs**: Restored the segmented season ChoiceChip/tab navigation inside the episode list screen to keep franchise episodes cleanly divided by season.
+
 ### 🚀 What's New in v2.7.3
-
-* **Restored Season Tabs**: Restored the segmented season ChoiceChip/tab navigation inside the episode list screen to keep franchise episodes cleanly divided by season, while keeping the main catalog card simplified with total episode count.
-* **Franchise Grouping and Sorting Fixes**: Resolved Re:ZERO movie and OVA naming/grouping issues (Memory Snow, Frozen Bond) to ensure they are named correctly, sorted chronologically, and prevent shifted season numbers.
-* **Cached Database Pruning**: Invalidated legacy structured catalog cache to rebuild library from scratch with correct grouping.
-
-### 🚀 What's New in v2.7.1
 
 * **Airing Calendar Release Schedules**: Integrated a tabbed weekday release calendar fetching anime schedules from the public Jikan API with memory-caching protection.
 * **Downloads Queue Reordering**: Replaced active downloads queue with a drag-and-drop `ReorderableListView` to prioritize active TDLib download streams.

@@ -831,11 +831,9 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
         break;
     }
 
-    // 4. Sort seasons within each series chronologically (using hybrid parsed rules + message post date order)
+    // 4. Sort seasons within each series strictly chronologically by their Telegram message ID ascending (older/earlier posts first)
     for (var series in sorted) {
-      series.seasons.sort((a, b) {
-        return SeasonSortKey.fromSeason(a, storage).compareTo(SeasonSortKey.fromSeason(b, storage));
-      });
+      series.seasons.sort((a, b) => a.posterMessage.id.compareTo(b.posterMessage.id));
     }
     
     return sorted;
@@ -1159,22 +1157,6 @@ class SeasonSortKey implements Comparable<SeasonSortKey> {
 
   @override
   int compareTo(SeasonSortKey other) {
-    // 1. Compare season number
-    if (seasonNum != other.seasonNum) {
-      return seasonNum.compareTo(other.seasonNum);
-    }
-    
-    // 2. Compare part numbers
-    if (partNum != other.partNum) {
-      return partNum.compareTo(other.partNum);
-    }
-    
-    // 3. Fallback: Sort by Telegram message ID ascending (older/earlier posts first)
-    if (messageId != other.messageId) {
-      return messageId.compareTo(other.messageId);
-    }
-    
-    // 4. Ultimate fallback to alphabetical name
-    return original.compareTo(other.original);
+    return messageId.compareTo(other.messageId);
   }
 }
