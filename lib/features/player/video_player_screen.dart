@@ -849,12 +849,24 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
           nativePlayer.setProperty('blend-subtitles', 'no');
           return;
         }
-        
+
         final hwdec = _storageService.getHardwareDecoderMode();
         final isDirectHw = Platform.isAndroid && hwdec == 'mediacodec';
         
         final settings = ref.read(videoSettingsProvider);
         final targetLibass = settings.subtitleRendererMode == 'native';
+
+        // Dynamically shift decoder to mediacodec-copy if native subtitles are used on direct mediacodec
+        if (Platform.isAndroid && hwdec == 'mediacodec') {
+          if (targetLibass) {
+            nativePlayer.setProperty('hwdec', 'mediacodec-copy');
+            Log.i('Dynamic decode path: forced mediacodec-copy for active native subtitles');
+          } else {
+            nativePlayer.setProperty('hwdec', 'mediacodec');
+            Log.i('Dynamic decode path: restored direct mediacodec for flutter overlay subtitles');
+          }
+        }
+
         final useNativeBlending = !isDirectHw && targetLibass;
         
         if (useNativeBlending) {
@@ -905,10 +917,19 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         nativePlayer.setProperty('vd-lavc-skiploopfilter', 'all'); // Skip all loop filtering to keep up with 2x playback speed
         nativePlayer.setProperty('vd-lavc-threads', '0'); // Enable multi-threaded video decoding to prevent lag at 2x speed
 
+        final settings = ref.read(videoSettingsProvider);
+        final targetLibass = settings.subtitleRendererMode == 'native';
+
         final hwDecMode = _storageService.getHardwareDecoderMode();
         if (hwDecMode != 'no') {
           if (Platform.isAndroid) {
-            nativePlayer.setProperty('hwdec', hwDecMode);
+            // Force copy-back mediacodec-copy on init if using native subtitles to allow overlays to draw
+            if (hwDecMode == 'mediacodec' && targetLibass) {
+              nativePlayer.setProperty('hwdec', 'mediacodec-copy');
+              Log.i('Forced mediacodec-copy on player init for native subtitle rendering');
+            } else {
+              nativePlayer.setProperty('hwdec', hwDecMode);
+            }
           } else {
             nativePlayer.setProperty('hwdec', 'auto');
           }
@@ -921,7 +942,11 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         nativePlayer.setProperty('embeddedfonts', 'yes'); // Enable embedded fonts inside media containers (MKV, etc.)
         nativePlayer.setProperty('blend-subtitles', 'no'); // Set to 'no' so subtitles render independently and sync perfectly with the master audio clock
         nativePlayer.setProperty('demuxer-mkv-subtitle-preroll', 'yes');
+        nativePlayer.setProperty('demuxer-mkv-subtitle-preroll-secs', '10'); // Pre-roll/cache subtitles 10 seconds ahead
         nativePlayer.setProperty('sub-ass-override', 'scale');
+        nativePlayer.setProperty('sub-codepage', 'utf-8'); // Ensure non-Unicode text subtitles fall back to UTF-8
+        nativePlayer.setProperty('sub-scale-with-window', 'yes'); // Keep subtitles proportional to resizing
+        nativePlayer.setProperty('sub-ass-force-margins', 'yes'); // Ensure margins are utilized for ASS subtitles
 
         // Load subtitle customizations
         final subSize = _storageService.getSubtitleFontSize();

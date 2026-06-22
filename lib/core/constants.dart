@@ -14,8 +14,14 @@ class ChannelCategory {
 }
 
 class Constants {
-  static const String currentVersion = '2.7.6';
+  static const String currentVersion = '2.7.7';
   static const String changelog = '''
+### 🚀 What's New in v2.7.7
+
+* **Subtitle Rendering & Decoder Compatibility Optimizations**:
+  - Implemented dynamic hardware decoder switching: Automatically redirects direct hardware decoding (`mediacodec`) to copy-back decoding (`mediacodec-copy`) when the native subtitle renderer (`libass`) is selected. This ensures native subtitles always overlay and display correctly without screen overlays blocking them.
+  - Added subtitle parsing pre-roll and fallback optimizations: Embedded subtitles are parsed and cached further ahead (10s) to prevent delays on seek, non-Unicode subtitle encodings fall back to UTF-8, and ASS margins are utilized effectively.
+
 ### 🚀 What's New in v2.7.6
 
 * **Naruto Season Sorting Fix**: Resolved an issue where Naruto seasons sorted out of order (e.g. Season 4 showing after Season 9) due to accidental out-of-order Telegram uploads. Naruto seasons are now sorted strictly by season number ascending rather than by Telegram upload order.
