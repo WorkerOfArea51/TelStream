@@ -867,7 +867,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
           }
         }
 
-        final useNativeBlending = !isDirectHw && targetLibass;
+        final useNativeBlending = targetLibass;
         
         if (useNativeBlending) {
           nativePlayer.setProperty('blend-subtitles', 'yes');
@@ -916,6 +916,9 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         nativePlayer.setProperty('vd-lavc-fast', 'yes'); // Enable fast decoding optimizations
         nativePlayer.setProperty('vd-lavc-skiploopfilter', 'all'); // Skip all loop filtering to keep up with 2x playback speed
         nativePlayer.setProperty('vd-lavc-threads', '0'); // Enable multi-threaded video decoding to prevent lag at 2x speed
+        nativePlayer.setProperty('demuxer-max-bytes', '104857600'); // 100 MB forward cache buffer to smooth out variable bandwidth (WiFi/Cellular)
+        nativePlayer.setProperty('demuxer-readahead-secs', '60'); // Buffer up to 60 seconds ahead to guard against connection handovers
+        nativePlayer.setProperty('cache-pause-wait', '5'); // Buffer 5 seconds of stream before resuming after a buffer exhaustion to avoid start-stop stutters
 
         final settings = ref.read(videoSettingsProvider);
         final targetLibass = settings.subtitleRendererMode == 'native';

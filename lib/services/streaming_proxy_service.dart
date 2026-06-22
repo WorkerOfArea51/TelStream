@@ -291,7 +291,7 @@ class StreamingProxyService {
         td.File currentFile = _fileStates[fileId] ?? tdFile;
 
         while (sentBytes < responseLength) {
-          final chunkNeeded = (responseLength - sentBytes).clamp(0, 1048576);
+          final chunkNeeded = (responseLength - sentBytes).clamp(0, 131072); // Optimize chunk sizes to 128 KB for smooth streaming on 2.4GHz WiFi / mobile data
           if (chunkNeeded <= 0) break;
 
           final targetEndOffset = currentOffset + chunkNeeded;
@@ -358,49 +358,73 @@ class StreamingProxyService {
               }
             }
 
-            final completer = Completer<void>();
             bool waitSuccess = false;
             bool clientDisconnected = false;
 
             // Listen to client disconnect to abort waiting instantly and release resources
             request.response.done.then((_) {
               clientDisconnected = true;
-              if (!completer.isCompleted) {
-                completer.complete();
-              }
             });
 
-            final sub = _tdlibService.updates.listen((event) {
-              if (event is td.UpdateFile && event.file.id == fileId) {
-                currentFile = event.file;
-                _fileStates[fileId] = event.file; // Update cache
+            // Resilient retry loop: wait in increments of 1.5 seconds, re-triggering DownloadFile if network handovers or band switches occurred
+            int waitSeconds = 0;
+            const int maxWaitSeconds = 20;
+            bool available = false;
 
-                bool available = false;
-                if (currentOffset < activeOffset) {
-                  if (event.file.local.downloadedPrefixSize >= targetEndOffset) {
-                    available = true;
+            while (waitSeconds < maxWaitSeconds && !clientDisconnected) {
+              final waitCompleter = Completer<void>();
+              final sub = _tdlibService.updates.listen((event) {
+                if (event is td.UpdateFile && event.file.id == fileId) {
+                  currentFile = event.file;
+                  _fileStates[fileId] = event.file; // Update cache
+
+                  bool checkAvailable = false;
+                  if (currentOffset < activeOffset) {
+                    if (event.file.local.downloadedPrefixSize >= targetEndOffset) {
+                      checkAvailable = true;
+                    }
+                  } else {
+                    final downloadedDelta = event.file.local.downloadedSize - baseDownloaded;
+                    final availableRangeEnd = activeOffset + downloadedDelta;
+                    if (targetEndOffset <= availableRangeEnd) {
+                      checkAvailable = true;
+                    }
                   }
-                } else {
-                  final downloadedDelta = event.file.local.downloadedSize - baseDownloaded;
-                  final availableRangeEnd = activeOffset + downloadedDelta;
-                  if (targetEndOffset <= availableRangeEnd) {
+
+                  if (checkAvailable) {
                     available = true;
+                    if (!waitCompleter.isCompleted) {
+                      waitCompleter.complete();
+                    }
                   }
                 }
+              });
 
-                if (available && !completer.isCompleted) {
-                  waitSuccess = true;
-                  completer.complete();
+              try {
+                await waitCompleter.future.timeout(const Duration(milliseconds: 1500));
+              } catch (_) {
+                // Timeout on this step - let's send a kick/re-trigger download request to TDLib
+                // in case the network band switched (e.g. 5GHz to 2.4GHz) or carrier dropped connection
+                if (!currentFile.local.isDownloadingCompleted && !clientDisconnected) {
+                  Log.w('Streaming proxy: network band/switch kick for file $fileId at offset $activeOffset (waiting for $currentOffset)');
+                  _tdlibService.send(td.DownloadFile(
+                    fileId: fileId,
+                    priority: 32,
+                    offset: activeOffset,
+                    limit: 0,
+                    synchronous: false,
+                  ));
                 }
+              } finally {
+                await sub.cancel();
               }
-            });
 
-            try {
-              await completer.future.timeout(const Duration(seconds: 20));
-            } catch (_) {
-              // Timeout
-            } finally {
-              await sub.cancel();
+              if (available) {
+                waitSuccess = true;
+                break;
+              }
+
+              waitSeconds += 2;
             }
 
             if (clientDisconnected) {
