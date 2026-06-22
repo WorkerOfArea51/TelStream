@@ -46,9 +46,6 @@ class VideoPlayerScreen extends ConsumerStatefulWidget {
 class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with WidgetsBindingObserver {
   late Player player;
   late VideoController controller;
-  bool _currentLibass = false;
-  String? _openedMediaPath;
-  bool _isRecreatingPlayer = false;
   StreamSubscription? _updatesSubscription;
   bool _isPlaying = false;
   int _downloadedPrefixSize = 0;
@@ -89,9 +86,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
     
 
 
-    final initialLibass = _settings.subtitleRendererMode == 'native'; // For 'auto', start with false (overlay)
-    _currentLibass = initialLibass;
-    _initPlayerInstance(libass: initialLibass);
+    _initPlayerInstance();
     _setupPlayerListeners();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -207,7 +202,6 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
   DateTime? _lastUpdateTime;
 
   void _startPlayback(String localPath) {
-    _openedMediaPath = localPath;
     if (_isPlaying) return;
     _isPlaying = true;
     player.open(Media(localPath), play: true).then((_) {
@@ -860,15 +854,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         final isDirectHw = Platform.isAndroid && hwdec == 'mediacodec';
         
         final settings = ref.read(videoSettingsProvider);
-        
         final targetLibass = settings.subtitleRendererMode == 'native';
-                             
-        if (targetLibass != _currentLibass) {
-          Log.i('Subtitles Mode: Switching libass from $_currentLibass to $targetLibass. Recreating player.');
-          await _recreatePlayer(targetLibass, track);
-          return;
-        }
-        
         final useNativeBlending = !isDirectHw && targetLibass;
         
         if (useNativeBlending) {
@@ -884,11 +870,11 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
     }
   }
 
-  void _initPlayerInstance({required bool libass}) {
+  void _initPlayerInstance() {
     player = Player(
       configuration: PlayerConfiguration(
         pitch: _settings.pitchCorrection,
-        libass: libass,
+        libass: true,
         libassAndroidFont: 'assets/fonts/Roboto-Regular.ttf',
         libassAndroidFontName: 'Roboto',
       ),
@@ -1170,89 +1156,4 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
     });
   }
 
-  Future<void> _recreatePlayer(bool newLibass, SubtitleTrack targetTrack) async {
-    if (_isRecreatingPlayer || !mounted) return;
-    _isRecreatingPlayer = true;
-    
-    // Save current playback state
-    final savedPosition = player.state.position;
-    final wasPlaying = player.state.playing;
-    final volume = player.state.volume;
-    final rate = player.state.rate;
-    final currentAudioTrack = player.state.track.audio;
-    
-    Log.i('Recreating player dynamically: position=$savedPosition, playing=$wasPlaying, volume=$volume, rate=$rate, libass=$newLibass');
-    
-    setState(() {
-      _isPlaying = false;
-      _isBuffering = true;
-    });
-    
-    // Give the framework a short delay to completely unmount the old Video widget
-    // before we dispose the player, avoiding any "use of disposed player" crash.
-    await Future.delayed(const Duration(milliseconds: 100));
-    
-    _tracksSubscription?.cancel();
-    _bufferingSubscription?.cancel();
-    
-    try {
-      await player.dispose();
-    } catch (e) {
-      Log.e('Error disposing old player during recreation', e);
-    }
-    
-    _currentLibass = newLibass;
-    _initialTrackSelectionDone = false; // Allow track listener to run again
-    
-    _initPlayerInstance(libass: newLibass);
-    
-    // Set up new listeners for the new player instance
-    _setupPlayerListeners();
-    
-    // Set track selection listener to restore selected tracks on-the-fly
-    _tracksSubscription = player.stream.tracks.listen((tracks) {
-      if (tracks.audio.isEmpty && tracks.subtitle.isEmpty) return;
-      if (_initialTrackSelectionDone) return;
-      _initialTrackSelectionDone = true;
-      
-      // Restore audio track
-      if (currentAudioTrack.id != 'no' && currentAudioTrack.id != 'auto') {
-        final matchedAudio = tracks.audio.firstWhere(
-          (t) => t.id == currentAudioTrack.id,
-          orElse: () => tracks.audio.first,
-        );
-        player.setAudioTrack(matchedAudio);
-      }
-      
-      // Restore selected subtitle track
-      if (targetTrack.id != 'no' && targetTrack.id != 'auto') {
-        final matchedSub = tracks.subtitle.firstWhere(
-          (t) => t.id == targetTrack.id,
-          orElse: () => SubtitleTrack.no(),
-        );
-        player.setSubtitleTrack(matchedSub);
-      } else {
-        player.setSubtitleTrack(SubtitleTrack.no());
-      }
-      
-      _updateBlendSubtitlesForTrack(player, player.state.track.subtitle);
-    });
-    
-    // Start media playback at the saved position
-    if (_openedMediaPath != null) {
-      await player.open(Media(_openedMediaPath!), play: wasPlaying);
-      if (mounted) {
-        await player.seek(savedPosition);
-        await player.setVolume(volume);
-        await player.setRate(rate);
-      }
-    }
-    
-    _isRecreatingPlayer = false;
-    if (mounted) {
-      setState(() {
-        _isPlaying = true;
-      });
-    }
-  }
 }

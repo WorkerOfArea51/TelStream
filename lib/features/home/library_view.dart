@@ -1219,7 +1219,21 @@ class _LibraryListItemState extends ConsumerState<_LibraryListItem> {
     final storage = ref.read(storageServiceProvider);
 
     final totalEpisodes = widget.series.seasons.fold(0, (sum, s) => sum + s.episodes.length);
-    final seasonCount = widget.series.seasons.length;
+    final realSeasons = widget.series.seasons.where((s) => !s.seasonName.toLowerCase().contains('movie')).toList();
+    final realMovies = widget.series.seasons.where((s) => s.seasonName.toLowerCase().contains('movie')).toList();
+    final seasonCount = realSeasons.length;
+    final movieCount = realMovies.length;
+
+    String buildCountText(int seasons, int movies) {
+      List<String> parts = [];
+      if (seasons > 0 || movies == 0) {
+        parts.add('$seasons Season${seasons != 1 ? "s" : ""}');
+      }
+      if (movies > 0) {
+        parts.add('$movies Movie${movies != 1 ? "s" : ""}');
+      }
+      return parts.join(' • ');
+    }
 
     final years = widget.series.seasons
         .map((s) => s.getReleaseYear(storage))
@@ -1341,7 +1355,7 @@ class _LibraryListItemState extends ConsumerState<_LibraryListItem> {
                           Icon(Icons.video_library, size: 12, color: subTextColor),
                           const SizedBox(width: 4),
                           Text(
-                            '$seasonCount Season${seasonCount > 1 ? "s" : ""}',
+                            buildCountText(seasonCount, movieCount),
                             style: TextStyle(color: subTextColor, fontSize: 12),
                           ),
                           const SizedBox(width: 12),

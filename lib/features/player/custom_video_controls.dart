@@ -124,6 +124,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
   bool _showAutoNextCountdown = false;
   bool _blendSubtitlesChecked = false;
   Timer? _autoNextSlideInTimer;
+  Timer? _autoNextDismissTimer;
   Duration? _doubleTapStartPosition;
 
   StreamSubscription<Duration>? _positionSubscription;
@@ -830,6 +831,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
   void _startAutoNextCountdown() {
     _autoNextTimer?.cancel();
     _autoNextSlideInTimer?.cancel();
+    _autoNextDismissTimer?.cancel();
     
     final outroThreshold = ref.read(storageServiceProvider).getVideoSettings()['outro_threshold_seconds'] as int? ?? 45;
     final dur = widget.player.state.duration;
@@ -850,6 +852,15 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
       }
     });
     
+    // Automatically slide out the card to the right side after 3 seconds if controls are not showing
+    _autoNextDismissTimer = Timer(const Duration(seconds: 3), () {
+      if (mounted && _showAutoNextCountdown && !_showControls) {
+        setState(() {
+          _autoNextSlideIn = false;
+        });
+      }
+    });
+    
     _autoNextTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (mounted) {
         if (!widget.player.state.playing) return; // Pause countdown if video is paused!
@@ -859,6 +870,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
           } else {
             _autoNextTimer?.cancel();
             _autoNextSlideInTimer?.cancel();
+            _autoNextDismissTimer?.cancel();
             _showAutoNextCountdown = false;
             _autoNextSlideIn = false;
             if (widget.onNextEpisode != null) {
@@ -869,6 +881,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
       } else {
         _autoNextTimer?.cancel();
         _autoNextSlideInTimer?.cancel();
+        _autoNextDismissTimer?.cancel();
       }
     });
   }
@@ -876,6 +889,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
   void _cancelAutoNextCountdown() {
     _autoNextTimer?.cancel();
     _autoNextSlideInTimer?.cancel();
+    _autoNextDismissTimer?.cancel();
     setState(() {
       _autoNextSlideIn = false;
     });
@@ -917,7 +931,12 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     _hideTimer?.cancel();
     _hideTimer = Timer(const Duration(seconds: 4), () {
       if (mounted && _showControls) {
-        setState(() => _showControls = false);
+        setState(() {
+          _showControls = false;
+          if (_showAutoNextCountdown) {
+            _autoNextSlideIn = false;
+          }
+        });
       }
     });
   }
@@ -925,6 +944,9 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
   void _toggleControls() {
     setState(() {
       _showControls = !_showControls;
+      if (_showAutoNextCountdown) {
+        _autoNextSlideIn = _showControls;
+      }
     });
     if (_showControls) _startHideTimer();
   }

@@ -427,11 +427,17 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
       // Pattern F: trailing single letter "S" (case insensitive) preceded by space (e.g. "Dragon Maid S")
       normalized = normalized.replaceAll(RegExp(r'\s+\b[sS]\b$'), '');
 
-      // 3. Remove common trailing subtitles after a colon if it's left with something
+      // 3. Remove common trailing subtitles after a colon if the prefix has length > 3
       if (normalized.contains(':')) {
-        normalized = normalized.split(':')[0].trim();
+        final parts = normalized.split(':');
+        if (parts[0].trim().length > 3) {
+          normalized = parts[0].trim();
+        }
       }
     }
+
+    // 4. Remove bracketed text at the end again (e.g. if a year or tag was left trailing after season/part/colon stripping)
+    normalized = normalized.replaceAll(RegExp(r'\s*[\[\(].*?[\]\)]\s*$'), '');
 
     // Also clean up any trailing dashes, colons, or punctuation left over from the replacements
     normalized = normalized.replaceAll(RegExp(r'\s*[-–—:|]+\s*$'), '');
@@ -442,6 +448,19 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
   static String parseSeasonName(String fullTitle, String baseName) {
     final ft = fullTitle.trim();
     final bn = baseName.trim();
+    
+    // Extract year suffix (like (2024) or [2024]) from the full title to preserve and append it.
+    final yearMatch = RegExp(r'[\[\(](\d{4})[\]\)]').firstMatch(ft);
+    if (yearMatch != null) {
+      final year = yearMatch.group(1)!;
+      final cleanFullTitle = ft.replaceAll(RegExp(r'\s*[\[\(]\d{4}[\]\)]\s*'), ' ').trim();
+      final cleanSeason = parseSeasonName(cleanFullTitle, bn);
+      if (cleanSeason.contains(year)) {
+        return cleanSeason;
+      }
+      return '$cleanSeason ($year)';
+    }
+
     if (ft.toLowerCase() == bn.toLowerCase()) {
       return 'Season 1';
     }
@@ -469,7 +488,6 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
     }
     
     // Check if diff starts with "Season" or "S" (case insensitive)
-    // Note: We avoid matching "six" as "Season IX" by requiring a space when single-letter 's' is followed by a Roman numeral.
     final seasonNumMatch = RegExp(r'^(?:season\s*(\d+|[ivxIVX]+)|s\s*(\d+)|s\s+([ivxIVX]+))$', caseSensitive: false).firstMatch(diff);
     if (seasonNumMatch != null) {
       final val = seasonNumMatch.group(1) ?? seasonNumMatch.group(2) ?? seasonNumMatch.group(3)!;
@@ -534,12 +552,39 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
           );
           
           final canonicalKey = baseName.toLowerCase().replaceAll(RegExp(r'[^a-zA-Z0-9]'), '');
-          if (!seriesMap.containsKey(canonicalKey)) {
-            seriesMap[canonicalKey] = AnimeSeries(coreName: baseName, seasons: []);
-            seriesList.add(seriesMap[canonicalKey]!);
+          
+          // Prefix/substring grouping to merge movies and seasons under a clean core folder
+          String matchedKey = canonicalKey;
+          for (final existingKey in seriesMap.keys) {
+            if (existingKey.length >= 7 && canonicalKey.length >= 7) {
+              if (canonicalKey.startsWith(existingKey)) {
+                matchedKey = existingKey;
+                break;
+              } else if (existingKey.startsWith(canonicalKey)) {
+                // If the new one is shorter, update the core name and key mapping
+                matchedKey = existingKey;
+                final existingSeries = seriesMap[existingKey]!;
+                if (baseName.length < existingSeries.coreName.length) {
+                  seriesMap[existingKey] = AnimeSeries(
+                    coreName: baseName,
+                    seasons: existingSeries.seasons,
+                  );
+                  final idx = seriesList.indexOf(existingSeries);
+                  if (idx != -1) {
+                    seriesList[idx] = seriesMap[existingKey]!;
+                  }
+                }
+                break;
+              }
+            }
+          }
+
+          if (!seriesMap.containsKey(matchedKey)) {
+            seriesMap[matchedKey] = AnimeSeries(coreName: baseName, seasons: []);
+            seriesList.add(seriesMap[matchedKey]!);
           }
           
-          seriesMap[canonicalKey]!.seasons.insert(0, newSeason);
+          seriesMap[matchedKey]!.seasons.insert(0, newSeason);
           currentEpisodes = [];
         }
       }
