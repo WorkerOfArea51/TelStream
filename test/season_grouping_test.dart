@@ -109,5 +109,47 @@ void main() {
       expect(seriesList[1].coreName, 'Dragon Ball Z');
       expect(seriesList[2].coreName, 'Dragon Ball');
     });
+
+    test('Naruto seasons sort numerically even when message IDs are uploaded out-of-order', () {
+      final controller = TestHomeController();
+      final mockStorage = FakeStorageService();
+      controller.testStorage = mockStorage;
+
+      // We parse messages for Naruto. S4 is uploaded after S9 (higher message ID).
+      final messages = [
+        FakeMessage(
+          id: 4, // Uploaded last
+          content: FakeMessagePhoto('Naruto : Season 4'),
+        ),
+        FakeMessage(
+          id: 3, // Uploaded third
+          content: FakeMessagePhoto('Naruto : Season 9'),
+        ),
+        FakeMessage(
+          id: 2, // Uploaded second
+          content: FakeMessagePhoto('Naruto : Season 8'),
+        ),
+        FakeMessage(
+          id: 1, // Uploaded first
+          content: FakeMessagePhoto('Naruto : Season 7'),
+        ),
+      ];
+
+      // Parse the messages to build the series structures
+      final seriesList = controller.testParse(messages);
+      expect(seriesList.length, 1);
+      expect(seriesList[0].coreName, 'Naruto');
+
+      // Now apply the search and sort (which runs the numeric season sorting exception for Naruto)
+      final sortedSeries = controller.applySearchAndSortForTesting(seriesList);
+      final seasons = sortedSeries[0].seasons;
+
+      expect(seasons.length, 4);
+      // The seasons should be ordered strictly by season number ascending: Season 4, Season 7, Season 8, Season 9
+      expect(seasons[0].seasonName, 'Season 4');
+      expect(seasons[1].seasonName, 'Season 7');
+      expect(seasons[2].seasonName, 'Season 8');
+      expect(seasons[3].seasonName, 'Season 9');
+    });
   });
 }

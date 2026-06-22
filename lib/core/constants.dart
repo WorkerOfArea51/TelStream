@@ -14,8 +14,12 @@ class ChannelCategory {
 }
 
 class Constants {
-  static const String currentVersion = '2.7.5';
+  static const String currentVersion = '2.7.6';
   static const String changelog = '''
+### 🚀 What's New in v2.7.6
+
+* **Naruto Season Sorting Fix**: Resolved an issue where Naruto seasons sorted out of order (e.g. Season 4 showing after Season 9) due to accidental out-of-order Telegram uploads. Naruto seasons are now sorted strictly by season number ascending rather than by Telegram upload order.
+
 ### 🚀 What's New in v2.7.5
 
 * **Franchise Grouping Separation**: Fixed an issue where separate series in the same franchise (e.g. Dragon Ball, Dragon Ball Z, and Dragon Ball Daima) were incorrectly merged under the base series card in the library. They now display as separate, independent titles.

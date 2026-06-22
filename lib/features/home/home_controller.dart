@@ -40,6 +40,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
   bool _cacheLoadComplete = false;
   bool _isFetchingReleaseYears = false;
   Timer? _releaseYearsTimer;
+  StorageService? testStorage;
 
   @override
   FutureOr<List<AnimeSeries>> build() async {
@@ -683,6 +684,10 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
     return _parseMessages(raw);
   }
 
+  List<AnimeSeries> applySearchAndSortForTesting(List<AnimeSeries> list) {
+    return _applySearchAndSort(list);
+  }
+
   List<AnimeSeries> _parseMessages(List<td.Message> raw) {
     List<AnimeSeries> seriesList = [];
     Map<String, AnimeSeries> seriesMap = {};
@@ -777,9 +782,8 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
 
     return seriesList;
   }
-
   List<AnimeSeries> _applySearchAndSort(List<AnimeSeries> list) {
-    final storage = ref.read(storageServiceProvider);
+    final StorageService storage = testStorage ?? ref.read(storageServiceProvider);
     
     // 0. Apply Favorites Filter
     List<AnimeSeries> favoritesFiltered = list;
@@ -848,8 +852,22 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
     }
 
     // 4. Sort seasons within each series strictly chronologically by their Telegram message ID ascending (older/earlier posts first)
+    // Exception: For Naruto, sort by season number ascending to correct accidental out-of-order uploads.
     for (var series in sorted) {
-      series.seasons.sort((a, b) => a.posterMessage.id.compareTo(b.posterMessage.id));
+      final key = series.coreName.toLowerCase().replaceAll(RegExp(r'[^a-zA-Z0-9]'), '');
+      if (key == 'naruto') {
+        series.seasons.sort((a, b) {
+          final keyA = SeasonSortKey.fromSeason(a, storage);
+          final keyB = SeasonSortKey.fromSeason(b, storage);
+          int cmp = keyA.seasonNum.compareTo(keyB.seasonNum);
+          if (cmp != 0) return cmp;
+          cmp = keyA.partNum.compareTo(keyB.partNum);
+          if (cmp != 0) return cmp;
+          return keyA.messageId.compareTo(keyB.messageId);
+        });
+      } else {
+        series.seasons.sort((a, b) => a.posterMessage.id.compareTo(b.posterMessage.id));
+      }
     }
     
     return sorted;
