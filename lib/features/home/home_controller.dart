@@ -814,58 +814,6 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
       series.seasons.sort((a, b) {
         return SeasonSortKey.fromSeason(a, storage).compareTo(SeasonSortKey.fromSeason(b, storage));
       });
-
-      // Group seasons of a franchise into distinct runs/reboots to consecutively number each run separately.
-      final List<List<int>> runs = [];
-      if (series.seasons.isNotEmpty) {
-        runs.add([0]);
-        for (int i = 1; i < series.seasons.length; i++) {
-          final prevSeason = series.seasons[i - 1];
-          final currSeason = series.seasons[i];
-
-          final prevName = prevSeason.seasonName;
-          final currName = currSeason.seasonName;
-
-          final prevYearMatch = RegExp(r'[\[\(](\d{4})[\]\)]').firstMatch(prevName);
-          final currYearMatch = RegExp(r'[\[\(](\d{4})[\]\)]').firstMatch(currName);
-
-          final prevSuffixYear = prevYearMatch?.group(1);
-          final currSuffixYear = currYearMatch?.group(1);
-
-          bool isNewRun = false;
-          if (prevSuffixYear != currSuffixYear) {
-            isNewRun = true;
-          } else {
-            final prevYear = prevSeason.getReleaseYear(storage) ?? 0;
-            final currYear = currSeason.getReleaseYear(storage) ?? 0;
-            if (prevYear > 0 && currYear > 0 && (currYear - prevYear).abs() > 3) {
-              isNewRun = true;
-            }
-          }
-
-          if (isNewRun) {
-            runs.add([i]);
-          } else {
-            runs.last.add(i);
-          }
-        }
-      }
-
-      // Consecutively number "Season X" matches within each individual run
-      for (final indices in runs) {
-        int currentSeasonNum = 1;
-        for (final idx in indices) {
-          final season = series.seasons[idx];
-          final name = season.seasonName;
-          final match = RegExp(r'^Season\s+(\d+|[ivxIVX]+)(.*)$').firstMatch(name);
-          if (match != null) {
-            final suffix = match.group(2) ?? '';
-            final newName = 'Season $currentSeasonNum$suffix';
-            series.seasons[idx] = season.copyWith(seasonName: newName);
-            currentSeasonNum++;
-          }
-        }
-      }
     }
     
     return sorted;
@@ -1189,34 +1137,22 @@ class SeasonSortKey implements Comparable<SeasonSortKey> {
 
   @override
   int compareTo(SeasonSortKey other) {
-    // If both are explicitly numbered seasons, compare season number first
-    if (isExplicit && other.isExplicit) {
-      if (seasonNum != other.seasonNum) {
-        return seasonNum.compareTo(other.seasonNum);
-      }
-    }
-
-    // Otherwise, compare release year if both are > 0 and not equal
-    if (releaseYear > 0 && other.releaseYear > 0 && releaseYear != other.releaseYear) {
-      return releaseYear.compareTo(other.releaseYear);
-    }
-
-    // If release years are equal, or one is 0, check seasonNum
+    // 1. Compare season number
     if (seasonNum != other.seasonNum) {
       return seasonNum.compareTo(other.seasonNum);
     }
     
-    // 3. Compare part numbers
+    // 2. Compare part numbers
     if (partNum != other.partNum) {
       return partNum.compareTo(other.partNum);
     }
     
-    // 4. Fallback: Sort by Telegram message ID ascending (older/earlier posts first)
+    // 3. Fallback: Sort by Telegram message ID ascending (older/earlier posts first)
     if (messageId != other.messageId) {
       return messageId.compareTo(other.messageId);
     }
     
-    // 5. Ultimate fallback to alphabetical name
+    // 4. Ultimate fallback to alphabetical name
     return original.compareTo(other.original);
   }
 }
