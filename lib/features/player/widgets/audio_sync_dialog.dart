@@ -114,9 +114,9 @@ class _AudioSyncDialogState extends State<AudioSyncDialog> {
           const SizedBox(height: 8),
           Slider(
             value: _delay,
-            min: -2.0,
-            max: 2.0,
-            divisions: 40,
+            min: -5.0,
+            max: 5.0,
+            divisions: 100,
             activeColor: settingsAccent,
             inactiveColor: Colors.white24,
             onChanged: _updateDelay,

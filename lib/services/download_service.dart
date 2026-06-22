@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tdlib/td_api.dart' as td;
 import 'package:path_provider/path_provider.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'tdlib_service.dart';
 import 'storage_service.dart';
 import '../core/logger.dart';
@@ -74,6 +75,7 @@ class DownloadTask {
 class DownloadController extends Notifier<Map<int, DownloadTask>> {
   StreamSubscription? _subscription;
   StreamSubscription? _dirWatcherSubscription;
+  StreamSubscription? _connectivitySubscription;
   static const _channel = MethodChannel('com.darkmatter.telstream/downloads');
   final Map<int, int> _lastNotificationTimes = {};
   final List<int> _pausedForStreamingFileIds = [];
@@ -88,8 +90,10 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
       _subscription?.cancel();
       _dirWatcherSubscription?.cancel();
       _schedulerTimer?.cancel();
+      _connectivitySubscription?.cancel();
     });
     _init();
+    _setupConnectivityListener();
     return {};
   }
 
@@ -268,6 +272,56 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
     _schedulerTimer?.cancel();
     _schedulerTimer = Timer.periodic(const Duration(seconds: 15), (_) {
       checkScheduler();
+    });
+  }
+
+  void _setupConnectivityListener() {
+    _connectivitySubscription?.cancel();
+    _connectivitySubscription = Connectivity().onConnectivityChanged.listen((results) {
+      final hasConnection = results.any((result) => result != ConnectivityResult.none);
+      if (hasConnection) {
+        Log.i('Network connectivity restored: Auto-resuming active download queue.');
+        resumeActiveQueueDownloads();
+      }
+    });
+  }
+
+  void resumeActiveQueueDownloads() {
+    final tdlibService = ref.read(tdlibServiceProvider);
+    final settings = ref.read(videoSettingsProvider);
+    
+    // Check scheduler window if scheduler is enabled
+    bool schedulerAllows = true;
+    if (settings.downloadSchedulerEnabled) {
+      final now = DateTime.now();
+      final currentHour = now.hour;
+      final start = settings.downloadStartHour;
+      final end = settings.downloadEndHour;
+      if (start < end) {
+        schedulerAllows = currentHour >= start && currentHour < end;
+      } else if (start > end) {
+        schedulerAllows = currentHour >= start || currentHour < end;
+      } else {
+        schedulerAllows = true;
+      }
+    }
+    
+    if (!schedulerAllows) {
+      Log.i('Connectivity auto-resume: skipped because scheduler window is inactive');
+      return;
+    }
+
+    state.forEach((fileId, task) {
+      if (!task.isCompleted && !task.isScheduled && !_pausedForStreamingFileIds.contains(fileId)) {
+        tdlibService.send(td.DownloadFile(
+          fileId: fileId,
+          priority: 32,
+          offset: 0,
+          limit: 0,
+          synchronous: false,
+        ));
+        Log.i('Connectivity auto-resume: re-triggered download for ${task.title} (ID: $fileId)');
+      }
     });
   }
 
