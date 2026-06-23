@@ -569,9 +569,12 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
       ref.read(downloadControllerProvider.notifier).resumeDownloadsAfterStreaming();
     } catch (_) {}
 
-    // Pause the player immediately to stop audio/video output right away
+    // Pause and stop the player immediately to halt all decoding and audio output
     try {
       player.pause();
+    } catch (_) {}
+    try {
+      player.stop();
     } catch (_) {}
 
     // Reset PipController active state first. If this player is the active player,
@@ -588,11 +591,14 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
       }
     } catch (_) {}
 
-    // Disposing player asynchronously if not already handled by pip controller close
+    // Disposing player after a short delay if not already handled by pip controller close
     if (!isActive) {
-      try {
-        player.dispose();
-      } catch (_) {}
+      final playerToDispose = player;
+      Future.delayed(const Duration(milliseconds: 300), () {
+        try {
+          playerToDispose.dispose();
+        } catch (_) {}
+      });
     }
 
     try {
@@ -926,6 +932,12 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
       
       _pipController.clearActivePlayer(player);
       
+      try {
+        await player.pause();
+      } catch (_) {}
+      try {
+        await player.stop();
+      } catch (_) {}
       await player.dispose();
 
       _initialTrackSelectionDone = false;

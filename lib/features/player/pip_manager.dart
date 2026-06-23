@@ -100,9 +100,18 @@ class PipController extends Notifier<PipVideoState?> {
 
   void setActivePlayer(Player player) {
     if (_activePlayer != null && _activePlayer != player) {
+      final oldPlayer = _activePlayer!;
       try {
-        _activePlayer!.dispose();
+        oldPlayer.pause();
       } catch (_) {}
+      try {
+        oldPlayer.stop();
+      } catch (_) {}
+      Future.delayed(const Duration(milliseconds: 300), () {
+        try {
+          oldPlayer.dispose();
+        } catch (_) {}
+      });
     }
     _activePlayer = player;
   }
@@ -324,10 +333,19 @@ class PipController extends Notifier<PipVideoState?> {
   void close() {
     state = null;
     if (_activePlayer != null) {
-      try {
-        _activePlayer!.dispose();
-      } catch (_) {}
+      final playerToDispose = _activePlayer!;
       _activePlayer = null;
+      try {
+        playerToDispose.pause();
+      } catch (_) {}
+      try {
+        playerToDispose.stop();
+      } catch (_) {}
+      Future.delayed(const Duration(milliseconds: 300), () {
+        try {
+          playerToDispose.dispose();
+        } catch (_) {}
+      });
     }
   }
 }
