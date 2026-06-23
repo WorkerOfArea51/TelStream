@@ -193,8 +193,9 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
   void _startPlayback(String localPath) {
     if (_isPlaying) return;
     _isPlaying = true;
-    player.open(Media(localPath), play: true).then((_) {
+    player.open(Media(localPath), play: false).then((_) {
       if (!mounted) return;
+      player.play();
       final savedPos = _storageService.getWatchPosition(widget.messageId);
       if (savedPos > 0) {
         if (player.state.duration.inSeconds > 0) {
@@ -301,7 +302,10 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
           _isInitializing = false;
         });
       }
-      player.open(Media(widget.networkUrl!));
+      player.open(Media(widget.networkUrl!), play: false).then((_) {
+        if (!mounted) return;
+        player.play();
+      });
       player.setVolume(100.0);
       return;
     }
@@ -693,7 +697,11 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
 
     return PopScope(
       canPop: true,
-      onPopInvokedWithResult: (didPop, result) {},
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) {
+          _resetOrientationAndUI();
+        }
+      },
       child: Scaffold(
         backgroundColor: Colors.black,
         body: Center(
@@ -707,7 +715,10 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
                  expectedSize: _expectedSize,
                  activeDownloadOffset: _activeDownloadOffset,
                  activeDownloadedSize: _activeDownloadedSize,
-                 onBack: () => Navigator.of(context).pop(),
+                 onBack: () {
+                   _resetOrientationAndUI();
+                   Navigator.of(context).pop();
+                 },
                  hasPrevEpisode: pipState != null && pipState.currentIndex > 0,
                  hasNextEpisode: pipState != null && pipState.currentIndex + 1 < pipState.queue.length,
                  onPrevEpisode: _playPreviousEpisode,
@@ -923,26 +934,28 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
 
       final fileId = _resolvedVideoFileId ?? widget.videoFileId;
       if (widget.networkUrl != null && widget.networkUrl!.isNotEmpty) {
-        player.open(Media(widget.networkUrl!), play: isPlayingState).then((_) {
-          if (mounted) {
-            setState(() {
-              _isPlaying = true;
-              _isInitializing = false;
-            });
-            if (currentPos.inSeconds > 0) {
-              if (player.state.duration.inSeconds > 0) {
-                _handleCustomSeek(currentPos);
-              } else {
-                late final StreamSubscription<Duration> durSub;
-                durSub = player.stream.duration.listen((dur) {
-                  if (dur.inSeconds > 0) {
-                    durSub.cancel();
-                    if (mounted) {
-                      _handleCustomSeek(currentPos);
-                    }
+        player.open(Media(widget.networkUrl!), play: false).then((_) {
+          if (!mounted) return;
+          if (isPlayingState) {
+            player.play();
+          }
+          setState(() {
+            _isPlaying = true;
+            _isInitializing = false;
+          });
+          if (currentPos.inSeconds > 0) {
+            if (player.state.duration.inSeconds > 0) {
+              _handleCustomSeek(currentPos);
+            } else {
+              late final StreamSubscription<Duration> durSub;
+              durSub = player.stream.duration.listen((dur) {
+                if (dur.inSeconds > 0) {
+                  durSub.cancel();
+                  if (mounted) {
+                    _handleCustomSeek(currentPos);
                   }
-                });
-              }
+                }
+              });
             }
           }
         });
@@ -953,26 +966,28 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
             ? localPath
             : _proxyService.getProxyUrl(fileId, fileName: widget.videoTitle);
             
-        player.open(Media(mediaUrl), play: isPlayingState).then((_) {
-          if (mounted) {
-            setState(() {
-              _isPlaying = true;
-              _isInitializing = false;
-            });
-            if (currentPos.inSeconds > 0) {
-              if (player.state.duration.inSeconds > 0) {
-                _handleCustomSeek(currentPos);
-              } else {
-                late final StreamSubscription<Duration> durSub;
-                durSub = player.stream.duration.listen((dur) {
-                  if (dur.inSeconds > 0) {
-                    durSub.cancel();
-                    if (mounted) {
-                      _handleCustomSeek(currentPos);
-                    }
+        player.open(Media(mediaUrl), play: false).then((_) {
+          if (!mounted) return;
+          if (isPlayingState) {
+            player.play();
+          }
+          setState(() {
+            _isPlaying = true;
+            _isInitializing = false;
+          });
+          if (currentPos.inSeconds > 0) {
+            if (player.state.duration.inSeconds > 0) {
+              _handleCustomSeek(currentPos);
+            } else {
+              late final StreamSubscription<Duration> durSub;
+              durSub = player.stream.duration.listen((dur) {
+                if (dur.inSeconds > 0) {
+                  durSub.cancel();
+                  if (mounted) {
+                    _handleCustomSeek(currentPos);
                   }
-                });
-              }
+                }
+              });
             }
           }
         });
