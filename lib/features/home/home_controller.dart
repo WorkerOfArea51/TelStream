@@ -596,6 +596,9 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
       // Pattern G: trailing known OVA/Movie subtitles that do not contain standard keywords (e.g. "Memory Snow", "Frozen Bond", "Hyouketsu no Kizuna")
       normalized = normalized.replaceAll(RegExp(r'(?:\s*[-–—:|]\s*)?\b(?:Memory\s+Snow|Frozen\s+Bond|Hyouketsu\s+no\s+Kizuna)\b', caseSensitive: false), '');
 
+      // Pattern H: trailing Root A / √A indicators (e.g. "Root A", "√A")
+      normalized = normalized.replaceAll(RegExp(r'(?:\s*[-–—:|]\s*)?(?:root\s*a|root\s*alpha|√\s*a)\b', caseSensitive: false), '');
+
       // 3. Remove common trailing subtitles after a colon if the prefix has length > 3 and doesn't end with "Re"
       if (normalized.contains(':')) {
         final parts = normalized.split(':');
@@ -646,6 +649,11 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
     
     if (diff.isEmpty) {
       return 'Season 1';
+    }
+
+    // Check if diff is Root A or √A
+    if (RegExp(r'^(?:√\s*a|root\s*a|root\s*alpha)$', caseSensitive: false).hasMatch(diff)) {
+      return 'Season 2';
     }
     
     // Check if diff is a Roman numeral (e.g. "II", "III")

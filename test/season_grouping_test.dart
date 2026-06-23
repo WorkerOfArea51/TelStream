@@ -67,6 +67,8 @@ void main() {
       expect(HomeController.parseSeasonName('Ranma ½ - 2nd Season', 'Ranma ½'), 'Season 2');
       expect(HomeController.parseSeasonName('Re:ZERO -Starting Life in Another World- Memory Snow', 'Re:ZERO -Starting Life in Another World'), 'Memory Snow');
       expect(HomeController.parseSeasonName('Re:ZERO -Starting Life in Another World- Frozen Bond', 'Re:ZERO -Starting Life in Another World'), 'Frozen Bond');
+      expect(HomeController.parseSeasonName('Tokyo Ghoul √A', 'Tokyo Ghoul'), 'Season 2');
+      expect(HomeController.parseSeasonName('Tokyo Ghoul Root A', 'Tokyo Ghoul'), 'Season 2');
     });
 
     test('normalizeSeriesName normalizes series names correctly', () {
@@ -79,6 +81,10 @@ void main() {
       expect(HomeController.normalizeSeriesName('Re: Creators'), 'Re: Creators');
       expect(HomeController.normalizeSeriesName('Re:ZERO -Starting Life in Another World- Memory Snow'), 'Re:ZERO -Starting Life in Another World');
       expect(HomeController.normalizeSeriesName('Re:ZERO -Starting Life in Another World- Frozen Bond'), 'Re:ZERO -Starting Life in Another World');
+      expect(HomeController.normalizeSeriesName('Tokyo Ghoul'), 'Tokyo Ghoul');
+      expect(HomeController.normalizeSeriesName('Tokyo Ghoul √A'), 'Tokyo Ghoul');
+      expect(HomeController.normalizeSeriesName('Tokyo Ghoul Root A'), 'Tokyo Ghoul');
+      expect(HomeController.normalizeSeriesName('Tokyo Ghoul: Root A'), 'Tokyo Ghoul');
     });
 
     test('franchise grouping bypass separates Dragon Ball, Z, and Daima', () {
