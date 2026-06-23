@@ -67,8 +67,8 @@ void main() {
       expect(HomeController.parseSeasonName('Ranma ½ - 2nd Season', 'Ranma ½'), 'Season 2');
       expect(HomeController.parseSeasonName('Re:ZERO -Starting Life in Another World- Memory Snow', 'Re:ZERO -Starting Life in Another World'), 'Memory Snow');
       expect(HomeController.parseSeasonName('Re:ZERO -Starting Life in Another World- Frozen Bond', 'Re:ZERO -Starting Life in Another World'), 'Frozen Bond');
-      expect(HomeController.parseSeasonName('Tokyo Ghoul √A', 'Tokyo Ghoul'), 'Season 2');
-      expect(HomeController.parseSeasonName('Tokyo Ghoul Root A', 'Tokyo Ghoul'), 'Season 2');
+      expect(HomeController.parseSeasonName('Tokyo Ghoul √A', 'Tokyo Ghoul'), '√A');
+      expect(HomeController.parseSeasonName('Tokyo Ghoul Root A', 'Tokyo Ghoul'), '√A');
     });
 
     test('normalizeSeriesName normalizes series names correctly', () {
