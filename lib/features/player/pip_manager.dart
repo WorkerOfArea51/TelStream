@@ -102,6 +102,9 @@ class PipController extends Notifier<PipVideoState?> {
     if (_activePlayer != null && _activePlayer != player) {
       final oldPlayer = _activePlayer!;
       try {
+        oldPlayer.setVolume(0.0);
+      } catch (_) {}
+      try {
         oldPlayer.pause();
       } catch (_) {}
       try {
@@ -335,6 +338,9 @@ class PipController extends Notifier<PipVideoState?> {
     if (_activePlayer != null) {
       final playerToDispose = _activePlayer!;
       _activePlayer = null;
+      try {
+        playerToDispose.setVolume(0.0);
+      } catch (_) {}
       try {
         playerToDispose.pause();
       } catch (_) {}

@@ -569,7 +569,10 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
       ref.read(downloadControllerProvider.notifier).resumeDownloadsAfterStreaming();
     } catch (_) {}
 
-    // Pause and stop the player immediately to halt all decoding and audio output
+    // Silence, pause, and stop the player immediately to halt all decoding and audio output
+    try {
+      player.setVolume(0.0);
+    } catch (_) {}
     try {
       player.pause();
     } catch (_) {}
@@ -705,6 +708,11 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
       canPop: true,
       onPopInvokedWithResult: (didPop, result) {
         if (didPop) {
+          try {
+            player.setVolume(0.0);
+            player.pause();
+            player.stop();
+          } catch (_) {}
           _resetOrientationAndUI();
         }
       },
@@ -722,6 +730,11 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
                  activeDownloadOffset: _activeDownloadOffset,
                  activeDownloadedSize: _activeDownloadedSize,
                  onBack: () {
+                   try {
+                     player.setVolume(0.0);
+                     player.pause();
+                     player.stop();
+                   } catch (_) {}
                    _resetOrientationAndUI();
                    Navigator.of(context).pop();
                  },
@@ -932,6 +945,9 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
       
       _pipController.clearActivePlayer(player);
       
+      try {
+        await player.setVolume(0.0);
+      } catch (_) {}
       try {
         await player.pause();
       } catch (_) {}
