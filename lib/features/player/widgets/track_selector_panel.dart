@@ -123,15 +123,21 @@ class _TrackSelectorPanelState extends State<TrackSelectorPanel> {
               }
             }
 
+            final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
+
             return ClipRRect(
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+              borderRadius: isLandscape
+                  ? const BorderRadius.horizontal(left: Radius.circular(30))
+                  : const BorderRadius.vertical(top: Radius.circular(24)),
               child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 15.0, sigmaY: 15.0),
+                filter: ImageFilter.blur(sigmaX: 20.0, sigmaY: 20.0),
                 child: Container(
-                  height: widget.isSubtitle ? 500.0 : 340.0,
+                  height: isLandscape ? double.infinity : (widget.isSubtitle ? 500.0 : 340.0),
                   decoration: BoxDecoration(
-                    color: const Color(0xE60F172A), // Slate 900 with 90% opacity
-                    borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                    color: const Color(0x990A0F1D), // Slate 950 with 60% opacity for premium glassmorphism
+                    borderRadius: isLandscape
+                        ? const BorderRadius.horizontal(left: Radius.circular(30))
+                        : const BorderRadius.vertical(top: Radius.circular(24)),
                     border: Border.all(color: Colors.white10),
                     boxShadow: [
                       BoxShadow(

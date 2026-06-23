@@ -658,7 +658,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
       bool needSubUpdate = false;
       if (previous?.subtitleRendererMode != next.subtitleRendererMode) {
         _settings = next;
-        _updateBlendSubtitlesForTrack(player, player.state.track.subtitle);
+        _recreatePlayer();
       }
       if (previous?.dynamicRangeCompression != next.dynamicRangeCompression ||
           previous?.equalizerEnabled != next.equalizerEnabled ||
@@ -903,6 +903,72 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
     }
   }
 
+  Future<void> _recreatePlayer() async {
+    try {
+      final currentPos = player.state.position;
+      final isPlayingState = player.state.playing;
+      
+      if (_isInitializing) return;
+      
+      setState(() {
+        _isInitializing = true;
+        _isPlaying = false;
+      });
+
+      _tracksSubscription?.cancel();
+      _bufferingSubscription?.cancel();
+      
+      _pipController.clearActivePlayer(player);
+      
+      await player.dispose();
+
+      _initialTrackSelectionDone = false;
+      _initPlayerInstance();
+      _setupPlayerListeners();
+
+      final fileId = _resolvedVideoFileId ?? widget.videoFileId;
+      if (widget.networkUrl != null && widget.networkUrl!.isNotEmpty) {
+        player.open(Media(widget.networkUrl!), play: isPlayingState).then((_) {
+          if (mounted) {
+            setState(() {
+              _isPlaying = true;
+              _isInitializing = false;
+            });
+            if (currentPos.inSeconds > 0) {
+              _handleCustomSeek(currentPos);
+            }
+          }
+        });
+      } else {
+        final cachedFile = _proxyService.getCachedFile(fileId);
+        final localPath = cachedFile?.local.path ?? '';
+        final mediaUrl = (localPath.isNotEmpty && cachedFile?.local.isDownloadingCompleted == true)
+            ? localPath
+            : _proxyService.getProxyUrl(fileId, fileName: widget.videoTitle);
+            
+        player.open(Media(mediaUrl), play: isPlayingState).then((_) {
+          if (mounted) {
+            setState(() {
+              _isPlaying = true;
+              _isInitializing = false;
+            });
+            if (currentPos.inSeconds > 0) {
+              _handleCustomSeek(currentPos);
+            }
+          }
+        });
+      }
+      player.setVolume(100.0);
+    } catch (e, stack) {
+      Log.e('Failed to recreate player on subtitle mode switch', e, stack);
+      if (mounted) {
+        setState(() {
+          _isInitializing = false;
+        });
+      }
+    }
+  }
+
   void _initPlayerInstance() {
     final localFont = ref.read(storageServiceProvider).localFontPath;
     player = Player(
@@ -1089,11 +1155,13 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
       // 3. Select subtitle track based on the audio language preference
       final prefSub = _storageService.getPreferredSubtitleTrackForAudioLanguage(audioLangCategory);
       bool matchedSub = false;
+      SubtitleTrack? selectedTrack;
 
       if (prefSub != null) {
         if (prefSub == 'no') {
-          if (player.state.track.subtitle != SubtitleTrack.no()) {
-            player.setSubtitleTrack(SubtitleTrack.no());
+          selectedTrack = SubtitleTrack.no();
+          if (player.state.track.subtitle != selectedTrack) {
+            player.setSubtitleTrack(selectedTrack);
           }
           matchedSub = true;
         } else {
@@ -1102,6 +1170,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
             if (identifier == prefSub.toLowerCase() ||
                 (track.title != null && track.title!.toLowerCase().contains(prefSub.toLowerCase())) ||
                 (track.language != null && track.language!.toLowerCase().contains(prefSub.toLowerCase()))) {
+              selectedTrack = track;
               if (player.state.track.subtitle != track) {
                 player.setSubtitleTrack(track);
                 Log.i('Automatically applied preferred subtitle track ($prefSub) for audio language category ($audioLangCategory)');
@@ -1131,6 +1200,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
               }
             }
             final targetTrack = forcedTrack ?? SubtitleTrack.no();
+            selectedTrack = targetTrack;
             if (player.state.track.subtitle != targetTrack) {
               player.setSubtitleTrack(targetTrack);
               Log.i('Smart Sub/Dub default: English audio -> Target subtitle track: ${targetTrack.title ?? targetTrack.id}');
@@ -1150,7 +1220,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
                 (t) => t.id != 'no' && t.id != 'auto',
                 orElse: () => tracks.subtitle.first,
               );
-              
+              selectedTrack = targetSubTrack;
               if (player.state.track.subtitle != targetSubTrack) {
                 player.setSubtitleTrack(targetSubTrack);
                 Log.i('Smart Sub/Dub default: $audioLangCategory audio -> English/fallback subtitle: ${targetSubTrack.language ?? targetSubTrack.title ?? targetSubTrack.id}');
@@ -1161,7 +1231,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
       }
 
       // Update blend-subtitles based on selected track codec
-      _updateBlendSubtitlesForTrack(player, player.state.track.subtitle);
+      _updateBlendSubtitlesForTrack(player, selectedTrack ?? player.state.track.subtitle);
     });
 
     _bufferingSubscription = player.stream.buffering.listen((buffering) {

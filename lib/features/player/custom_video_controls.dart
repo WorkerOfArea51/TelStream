@@ -1538,15 +1538,21 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
         final currentPos = snapshot.data ?? widget.player.state.position;
         final activeIndex = _getActiveChapterIndex(currentPos);
 
+        final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
+
         return ClipRRect(
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          borderRadius: isLandscape
+              ? const BorderRadius.horizontal(left: Radius.circular(30))
+              : const BorderRadius.vertical(top: Radius.circular(24)),
           child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 15.0, sigmaY: 15.0),
+            filter: ImageFilter.blur(sigmaX: 20.0, sigmaY: 20.0),
             child: Container(
-              height: 340,
+              height: isLandscape ? double.infinity : 340,
               decoration: BoxDecoration(
-                color: const Color(0xE60F172A),
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                color: const Color(0x990A0F1D), // Slate 950 with 60% opacity for premium glassmorphism
+                borderRadius: isLandscape
+                    ? const BorderRadius.horizontal(left: Radius.circular(30))
+                    : const BorderRadius.vertical(top: Radius.circular(24)),
                 border: Border.all(color: Colors.white10),
                 boxShadow: [
                   BoxShadow(
@@ -2206,20 +2212,31 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
 
   Widget _buildRatioPanel() {
     final double screenHeight = MediaQuery.of(context).size.height;
-    return Container(
-      constraints: BoxConstraints(
-        maxHeight: screenHeight * 0.85,
-      ),
-      decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.92),
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-        border: Border.all(color: Colors.white10, width: 0.5),
-      ),
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+    final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
+
+    return ClipRRect(
+      borderRadius: isLandscape
+          ? const BorderRadius.horizontal(left: Radius.circular(30))
+          : const BorderRadius.vertical(top: Radius.circular(20)),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 20.0, sigmaY: 20.0),
+        child: Container(
+          constraints: BoxConstraints(
+            maxHeight: isLandscape ? double.infinity : screenHeight * 0.85,
+          ),
+          height: isLandscape ? double.infinity : null,
+          decoration: BoxDecoration(
+            color: const Color(0x990A0F1D), // Slate 950 with 60% opacity for premium glassmorphism
+            borderRadius: isLandscape
+                ? const BorderRadius.horizontal(left: Radius.circular(30))
+                : const BorderRadius.vertical(top: Radius.circular(20)),
+            border: Border.all(color: Colors.white10, width: 0.5),
+          ),
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+          child: Column(
+            mainAxisSize: isLandscape ? MainAxisSize.max : MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -2315,8 +2332,10 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
           ),
         ],
       ),
-    );
-  }
+    ),
+  ),
+);
+}
 
   Future<void> _loadTrackCodecs() async {
     try {
@@ -2467,25 +2486,8 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
       resolvedFontFamily = 'Roboto';
     }
 
-    final subtitleConfig = SubtitleViewConfiguration(
-      visible: !_isBlendingSubtitles,
-      style: TextStyle(
-        fontSize: subSize,
-        color: subColor,
-        fontFamily: resolvedFontFamily,
-        fontWeight: FontWeight.bold,
-        shadows: const [
-          Shadow(offset: Offset(-2.0, -2.0), color: Colors.black, blurRadius: 2.0),
-          Shadow(offset: Offset(2.0, -2.0), color: Colors.black, blurRadius: 2.0),
-          Shadow(offset: Offset(2.0, 2.0), color: Colors.black, blurRadius: 2.0),
-          Shadow(offset: Offset(-2.0, 2.0), color: Colors.black, blurRadius: 2.0),
-          Shadow(offset: Offset(0.0, -2.0), color: Colors.black, blurRadius: 2.0),
-          Shadow(offset: Offset(0.0, 2.0), color: Colors.black, blurRadius: 2.0),
-          Shadow(offset: Offset(-2.0, 0.0), color: Colors.black, blurRadius: 2.0),
-          Shadow(offset: Offset(2.0, 0.0), color: Colors.black, blurRadius: 2.0),
-          Shadow(offset: Offset(0.0, 4.0), color: Colors.black54, blurRadius: 6.0),
-        ],
-      ),
+    final subtitleConfig = const SubtitleViewConfiguration(
+      visible: false,
     );
 
     return GestureDetector(
@@ -2556,6 +2558,53 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
           if (!_isPhysicalBrightnessSupported && _currentBrightness < 1.0)
             IgnorePointer(
               child: Container(color: Colors.black.withValues(alpha: 1.0 - _currentBrightness)),
+            ),
+
+          // Custom Subtitle Overlay (Flutter Text Overlay Mode)
+          if (!_isBlendingSubtitles)
+            IgnorePointer(
+              child: StreamBuilder<List<String>>(
+                stream: widget.player.stream.subtitle,
+                builder: (context, snapshot) {
+                  final subtitleLines = snapshot.data;
+                  if (subtitleLines == null || subtitleLines.isEmpty) return const SizedBox.shrink();
+                  
+                  final subtitleText = subtitleLines.join('\n');
+                  // Strip any raw ASS/SSA tags (like {\an8}, {\pos(x,y)}, etc.) to keep plain text clean in overlay mode
+                  final cleanText = subtitleText.replaceAll(RegExp(r'\{[^}]*\}'), '').trim();
+                  if (cleanText.isEmpty) return const SizedBox.shrink();
+
+                  return Container(
+                    alignment: Alignment.bottomCenter,
+                    padding: const EdgeInsets.only(bottom: 84, left: 24, right: 24),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.35), // Sleek, semi-transparent background box for maximum legibility
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.white.withValues(alpha: 0.05), width: 0.5),
+                      ),
+                      child: Text(
+                        cleanText,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: subSize,
+                          color: subColor,
+                          fontFamily: resolvedFontFamily,
+                          fontWeight: FontWeight.bold,
+                          height: 1.2,
+                          shadows: const [
+                            Shadow(offset: Offset(-1.5, -1.5), color: Colors.black87, blurRadius: 1.0),
+                            Shadow(offset: Offset(1.5, -1.5), color: Colors.black87, blurRadius: 1.0),
+                            Shadow(offset: Offset(1.5, 1.5), color: Colors.black87, blurRadius: 1.0),
+                            Shadow(offset: Offset(-1.5, 1.5), color: Colors.black87, blurRadius: 1.0),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
             ),
 
           // Double Tap Seek Overlays
@@ -3364,9 +3413,11 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
           AnimatedPositioned(
             duration: const Duration(milliseconds: 300),
             curve: Curves.easeInOut,
-            left: 0,
-            right: 0,
-            bottom: _showTrackSelectorPanel ? 0 : -800,
+            left: isPortrait ? 0 : null,
+            right: isPortrait ? 0 : (_showTrackSelectorPanel ? 0 : -400),
+            top: isPortrait ? null : 0,
+            bottom: isPortrait ? (_showTrackSelectorPanel ? 0 : -800) : 0,
+            width: isPortrait ? null : 380,
             child: TrackSelectorPanel(
               player: widget.player,
               isSubtitle: _trackSelectorIsSubtitle,
@@ -3434,9 +3485,11 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
           AnimatedPositioned(
             duration: const Duration(milliseconds: 300),
             curve: Curves.easeInOut,
-            left: 0,
-            right: 0,
-            bottom: _showRatioPanel ? 0 : -800,
+            left: isPortrait ? 0 : null,
+            right: isPortrait ? 0 : (_showRatioPanel ? 0 : -400),
+            top: isPortrait ? null : 0,
+            bottom: isPortrait ? (_showRatioPanel ? 0 : -800) : 0,
+            width: isPortrait ? null : 380,
             child: _buildRatioPanel(),
           ),
 
@@ -3454,9 +3507,11 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
           AnimatedPositioned(
             duration: const Duration(milliseconds: 300),
             curve: Curves.easeInOut,
-            left: 0,
-            right: 0,
-            bottom: _showChaptersPanel ? 0 : -800,
+            left: isPortrait ? 0 : null,
+            right: isPortrait ? 0 : (_showChaptersPanel ? 0 : -400),
+            top: isPortrait ? null : 0,
+            bottom: isPortrait ? (_showChaptersPanel ? 0 : -800) : 0,
+            width: isPortrait ? null : 380,
             child: _buildCustomChaptersPanel(),
           ),
         ],
