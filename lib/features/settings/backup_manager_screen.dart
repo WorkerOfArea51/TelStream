@@ -6,6 +6,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import '../../services/storage_service.dart';
 import '../settings/settings_provider.dart';
+import '../../services/sync_service.dart';
 
 class BackupManagerScreen extends ConsumerStatefulWidget {
   const BackupManagerScreen({super.key});
@@ -17,8 +18,33 @@ class BackupManagerScreen extends ConsumerStatefulWidget {
 class _BackupManagerScreenState extends ConsumerState<BackupManagerScreen> {
   bool _isExporting = false;
   bool _isImporting = false;
+  bool _isSyncing = false;
   String? _statusMessage;
   Color _statusColor = Colors.green;
+
+  Future<void> _triggerManualSync() async {
+    setState(() {
+      _isSyncing = true;
+      _statusMessage = null;
+    });
+
+    try {
+      await ref.read(progressSyncServiceProvider.notifier).manualSync();
+      setState(() {
+        _statusMessage = 'Cloud progress sync completed successfully!';
+        _statusColor = Colors.green;
+      });
+    } catch (e) {
+      setState(() {
+        _statusMessage = 'Cloud progress sync failed: $e';
+        _statusColor = Colors.redAccent;
+      });
+    } finally {
+      setState(() {
+        _isSyncing = false;
+      });
+    }
+  }
 
   Future<void> _exportBackup() async {
     setState(() {
@@ -123,6 +149,15 @@ class _BackupManagerScreenState extends ConsumerState<BackupManagerScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final settings = ref.watch(videoSettingsProvider);
+    final notifier = ref.read(videoSettingsProvider.notifier);
+
+    String syncModeText = 'Disabled';
+    if (settings.progressSyncMode == 'pinned') {
+      syncModeText = 'Pinned Message (Clean)';
+    } else if (settings.progressSyncMode == 'sequential') {
+      syncModeText = 'Sequential Logs';
+    }
 
     return Scaffold(
       backgroundColor: Colors.black,
@@ -135,78 +170,139 @@ class _BackupManagerScreenState extends ConsumerState<BackupManagerScreen> {
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.white),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const Icon(
-              Icons.settings_backup_restore,
-              size: 80,
-              color: Colors.orange,
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'Manage Database Backups',
-              style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Export your settings, watch progress history, favorite list, and streams log to a file, or restore them from a previous backup.',
-              style: TextStyle(color: Colors.white54, fontSize: 13),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 32),
-            Card(
-              color: theme.cardColor,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
+      body: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Icon(
+                Icons.settings_backup_restore,
+                size: 80,
+                color: Colors.orange,
               ),
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  children: [
-                    ListTile(
-                      leading: const Icon(Icons.download_rounded, color: Colors.orange, size: 30),
-                      title: const Text('Export Backup', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                      subtitle: const Text('Save configuration and history to a JSON file', style: TextStyle(color: Colors.white54, fontSize: 12)),
-                      trailing: _isExporting 
-                          ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.orange))
-                          : const Icon(Icons.arrow_forward_ios, color: Colors.white24, size: 16),
-                      onTap: _isExporting || _isImporting ? null : _exportBackup,
-                    ),
-                    const Divider(color: Colors.white10),
-                    ListTile(
-                      leading: const Icon(Icons.upload_rounded, color: Colors.greenAccent, size: 30),
-                      title: const Text('Restore Backup', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                      subtitle: const Text('Load settings and history from a JSON file', style: TextStyle(color: Colors.white54, fontSize: 12)),
-                      trailing: _isImporting 
-                          ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.greenAccent))
-                          : const Icon(Icons.arrow_forward_ios, color: Colors.white24, size: 16),
-                      onTap: _isExporting || _isImporting ? null : _importBackup,
-                    ),
-                  ],
+              const SizedBox(height: 16),
+              const Text(
+                'Manage Database Backups',
+                style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Export your settings, watch progress history, favorite list, and streams log to a file, or restore them from a previous backup.',
+                style: TextStyle(color: Colors.white54, fontSize: 13),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 32),
+              Card(
+                color: theme.cardColor,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    children: [
+                      ListTile(
+                        leading: const Icon(Icons.download_rounded, color: Colors.orange, size: 30),
+                        title: const Text('Export Backup', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                        subtitle: const Text('Save configuration and history to a JSON file', style: TextStyle(color: Colors.white54, fontSize: 12)),
+                        trailing: _isExporting 
+                            ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.orange))
+                            : const Icon(Icons.arrow_forward_ios, color: Colors.white24, size: 16),
+                        onTap: _isExporting || _isImporting || _isSyncing ? null : _exportBackup,
+                      ),
+                      const Divider(color: Colors.white10),
+                      ListTile(
+                        leading: const Icon(Icons.upload_rounded, color: Colors.greenAccent, size: 30),
+                        title: const Text('Restore Backup', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                        subtitle: const Text('Load settings and history from a JSON file', style: TextStyle(color: Colors.white54, fontSize: 12)),
+                        trailing: _isImporting 
+                            ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.greenAccent))
+                            : const Icon(Icons.arrow_forward_ios, color: Colors.white24, size: 16),
+                        onTap: _isExporting || _isImporting || _isSyncing ? null : _importBackup,
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-            if (_statusMessage != null) ...[
               const SizedBox(height: 24),
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: _statusColor.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: _statusColor.withValues(alpha: 0.4)),
+              const Text(
+                'Cloud Synchronization',
+                style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold, fontSize: 14),
+              ),
+              const SizedBox(height: 12),
+              Card(
+                color: theme.cardColor,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
                 ),
-                child: Text(
-                  _statusMessage!,
-                  style: TextStyle(color: _statusColor, fontSize: 13, fontWeight: FontWeight.w500),
-                  textAlign: TextAlign.center,
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    children: [
+                      ListTile(
+                        leading: const Icon(Icons.cloud_sync, color: Colors.blueAccent, size: 30),
+                        title: const Text('Cloud Progress Sync', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                        subtitle: Text(syncModeText, style: const TextStyle(color: Colors.white54, fontSize: 12)),
+                        trailing: DropdownButton<String>(
+                          value: settings.progressSyncMode,
+                          dropdownColor: theme.cardColor,
+                          underline: const SizedBox(),
+                          style: const TextStyle(color: Colors.white),
+                          icon: const Icon(Icons.arrow_drop_down, color: Colors.white70),
+                          items: const [
+                            DropdownMenuItem(value: 'disabled', child: Text('Disabled')),
+                            DropdownMenuItem(value: 'pinned', child: Text('Pinned Message (Clean)')),
+                            DropdownMenuItem(value: 'sequential', child: Text('Sequential Logs')),
+                          ],
+                          onChanged: _isExporting || _isImporting || _isSyncing
+                              ? null
+                              : (String? val) {
+                                  if (val != null) {
+                                    notifier.updateSettings(settings.copyWith(progressSyncMode: val));
+                                    if (val != 'disabled') {
+                                      // Trigger initial sync to upload or merge
+                                      _triggerManualSync();
+                                    }
+                                  }
+                                },
+                        ),
+                      ),
+                      if (settings.progressSyncMode != 'disabled') ...[
+                        const Divider(color: Colors.white10),
+                        ListTile(
+                          leading: const Icon(Icons.sync, color: Colors.orangeAccent, size: 30),
+                          title: const Text('Sync Progress Now', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                          subtitle: const Text('Immediately upload local progress to Telegram', style: TextStyle(color: Colors.white54, fontSize: 12)),
+                          trailing: _isSyncing
+                              ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.orangeAccent))
+                              : const Icon(Icons.arrow_forward_ios, color: Colors.white24, size: 16),
+                          onTap: _isExporting || _isImporting || _isSyncing ? null : _triggerManualSync,
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
               ),
+              if (_statusMessage != null) ...[
+                const SizedBox(height: 24),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: _statusColor.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: _statusColor.withValues(alpha: 0.4)),
+                  ),
+                  child: Text(
+                    _statusMessage!,
+                    style: TextStyle(color: _statusColor, fontSize: 13, fontWeight: FontWeight.w500),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );

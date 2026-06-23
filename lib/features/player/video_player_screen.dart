@@ -143,17 +143,6 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         }
       }
 
-      // Check and trigger next episode preloading if progress >= 25% (Adaptive Preload Pipeline)
-      if (!_nextEpisodePreloaded && player.state.duration.inSeconds > 0) {
-        final position = player.state.position.inSeconds;
-        final duration = player.state.duration.inSeconds;
-        final progress = position / duration;
-        if (progress >= 0.25) {
-          _nextEpisodePreloaded = true;
-          _preloadNextEpisode();
-        }
-      }
-
       // Check and trigger tracker watch progress syncing if progress >= 80%
       if (!_hasUpdatedTracker && player.state.duration.inSeconds > 0) {
         final position = player.state.position.inSeconds;
@@ -256,6 +245,11 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
               nativePlayer.setProperty('demuxer-readahead-secs', '180');
             }
           } catch (_) {}
+
+          if (!_nextEpisodePreloaded) {
+            _nextEpisodePreloaded = true;
+            _preloadNextEpisode();
+          }
         }
 
         // If we are actively seeking, capture the start downloaded size
@@ -383,6 +377,10 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
       if (initialFileState.local.isDownloadingCompleted) {
         Log.i('Instant playback: playing cached completed file path: $localPath');
         _startPlayback(localPath);
+        if (!_nextEpisodePreloaded) {
+          _nextEpisodePreloaded = true;
+          _preloadNextEpisode();
+        }
       } else {
         Log.i('Instant playback: streaming active download via proxy: $localPath');
         _proxyService.setDownloadOffset(_resolvedVideoFileId!, _initialOffset, initialFileState.local.downloadedSize);
@@ -532,6 +530,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
 
   @override
   void dispose() {
+    _cancelPreloadOfNextEpisode();
     WidgetsBinding.instance.removeObserver(this);
     // Redundant pause/stop removed to prevent race conditions during player disposal
 
@@ -611,12 +610,12 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
     final nextFileId = nextItem.videoFileId;
 
     if (nextFileId != 0) {
-      Log.i('Preloading next episode (ID: $nextFileId) - downloading first 15MB');
+      Log.i('Preloading next episode (ID: $nextFileId) - downloading entire file');
       _tdlibService.send(td.DownloadFile(
         fileId: nextFileId,
         priority: 1, // Low priority for background preloading
         offset: 0,
-        limit: 15728640, // 15 MB limit (15 * 1024 * 1024)
+        limit: 0, // 0 means unlimited / entire file
         synchronous: false,
       ));
     }

@@ -619,6 +619,93 @@ class _EpisodeCardItem extends ConsumerStatefulWidget {
 class _EpisodeCardItemState extends ConsumerState<_EpisodeCardItem> {
   bool _isTapped = false;
 
+  Future<void> _toggleWatchStatus(td.Message msg, int index, String title) async {
+    final storage = ref.read(storageServiceProvider);
+    final savedPos = storage.getWatchPosition(msg.id);
+    
+    int duration = 0;
+    if (msg.content is td.MessageVideo) {
+      duration = (msg.content as td.MessageVideo).video.duration;
+    } else {
+      duration = storage.getVideoDuration(msg.id);
+    }
+    final resolvedDuration = duration > 0 ? duration : 1800;
+
+    final isWatched = (duration > 0) ? (savedPos / duration) > 0.9 : savedPos > 0;
+
+    if (isWatched) {
+      await storage.saveWatchPosition(msg.id, 0);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Marked as Unwatched: $title'),
+            backgroundColor: Colors.redAccent,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } else {
+      if (duration <= 0) {
+        await storage.saveVideoDuration(msg.id, resolvedDuration);
+      }
+      await storage.saveWatchPosition(msg.id, resolvedDuration);
+      
+      if (!storage.isIncognitoMode() && widget.series.coreName.isNotEmpty) {
+        await ref.read(historyLogProvider.notifier).addToHistory(
+          seriesName: widget.series.coreName,
+          messageId: msg.id,
+          episodeIndex: index,
+          episodeTitle: title.replaceFirst('${widget.series.coreName} - ', ''),
+          positionInSeconds: resolvedDuration,
+          videoFileId: msg.content is td.MessageVideo
+              ? (msg.content as td.MessageVideo).video.video.id
+              : (msg.content as td.MessageDocument).document.document.id,
+        );
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Marked as Watched: $title'),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    }
+    setState(() {});
+  }
+
+  void _toggleDownloadStatus(int fileId, String fileTitle, DownloadTask? task) {
+    if (task == null) {
+      ref.read(downloadControllerProvider.notifier).startDownload(fileId, fileTitle);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Starting download: $fileTitle'),
+          backgroundColor: Theme.of(context).primaryColor,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    } else if (!task.isCompleted) {
+      ref.read(downloadControllerProvider.notifier).cancelDownload(fileId);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Download cancelled'),
+          backgroundColor: Colors.redAccent,
+          duration: Duration(seconds: 2),
+        ),
+      );
+    } else {
+      ref.read(downloadControllerProvider.notifier).deleteDownloadedFile(fileId);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Deleted download: $fileTitle'),
+          backgroundColor: Colors.orangeAccent,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     String fileTitle = 'Episode ${widget.index + 1}';
@@ -713,141 +800,146 @@ class _EpisodeCardItemState extends ConsumerState<_EpisodeCardItem> {
     final double progressValue = (duration > 0) ? (savedPos / duration).clamp(0.0, 1.0) : 0.0;
     final isCompleted = progressValue > 0.9;
 
-    return GestureDetector(
-      onTapDown: (_) => setState(() => _isTapped = true),
-      onTapUp: (_) => setState(() => _isTapped = false),
-      onTapCancel: () => setState(() => _isTapped = false),
-      onTap: () {
-        ref.read(pipControllerProvider.notifier).playVideo(
-          context,
-          messageId: widget.msg.id,
-          videoFileId: fileId!,
-          videoTitle: '${widget.series.coreName} - $fileTitle',
-          episodeList: widget.season.episodes,
-          currentEpisodeIndex: widget.index,
-          seriesName: widget.series.coreName,
-          networkUrl: isDownloaded ? task.localPath : null,
-        );
-      },
-      onLongPress: () {
-        widget.onLongPress(context, widget.msg, widget.index, fileTitle);
-      },
-      child: AnimatedScale(
-        scale: _isTapped ? 0.97 : 1.0,
-        duration: const Duration(milliseconds: 100),
-        curve: Curves.easeOut,
-        child: Container(
-          margin: const EdgeInsets.only(bottom: 12),
-          decoration: BoxDecoration(
-            color: theme.cardColor,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: theme.colorScheme.onSurface.withValues(alpha: _isTapped ? 0.16 : 0.08),
-              width: _isTapped ? 1.5 : 1.0,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: _isTapped ? 0.15 : 0.08),
-                blurRadius: _isTapped ? 3 : 6,
-                offset: Offset(0, _isTapped ? 1.5 : 3),
+    return _SwipeToAction(
+      onSwipeRight: () => _toggleWatchStatus(widget.msg, widget.index, fileTitle),
+      onSwipeLeft: () => _toggleDownloadStatus(fileId!, fileTitle, task),
+      accentColor: settingsAccent,
+      child: GestureDetector(
+        onTapDown: (_) => setState(() => _isTapped = true),
+        onTapUp: (_) => setState(() => _isTapped = false),
+        onTapCancel: () => setState(() => _isTapped = false),
+        onTap: () {
+          ref.read(pipControllerProvider.notifier).playVideo(
+            context,
+            messageId: widget.msg.id,
+            videoFileId: fileId!,
+            videoTitle: '${widget.series.coreName} - $fileTitle',
+            episodeList: widget.season.episodes,
+            currentEpisodeIndex: widget.index,
+            seriesName: widget.series.coreName,
+            networkUrl: isDownloaded ? task.localPath : null,
+          );
+        },
+        onLongPress: () {
+          widget.onLongPress(context, widget.msg, widget.index, fileTitle);
+        },
+        child: AnimatedScale(
+          scale: _isTapped ? 0.97 : 1.0,
+          duration: const Duration(milliseconds: 100),
+          curve: Curves.easeOut,
+          child: Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            decoration: BoxDecoration(
+              color: theme.cardColor,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: theme.colorScheme.onSurface.withValues(alpha: _isTapped ? 0.16 : 0.08),
+                width: _isTapped ? 1.5 : 1.0,
               ),
-            ],
-          ),
-          clipBehavior: Clip.antiAlias,
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                // Episode Thumbnail/Still preview
-                Container(
-                  width: 105,
-                  height: 65,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.white10),
-                  ),
-                  clipBehavior: Clip.antiAlias,
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      _buildEpisodePlaceholder(widget.msg),
-                      Container(color: Colors.black26),
-                      Center(
-                        child: Container(
-                          padding: const EdgeInsets.all(4),
-                          decoration: BoxDecoration(
-                            color: Colors.black54,
-                            shape: BoxShape.circle,
-                            border: Border.all(color: Colors.white24, width: 0.5),
-                          ),
-                          child: Icon(
-                            isDownloaded ? Icons.download_done_rounded : Icons.play_arrow_rounded,
-                            color: isDownloaded ? Colors.green : Colors.white,
-                            size: 16,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: _isTapped ? 0.15 : 0.08),
+                  blurRadius: _isTapped ? 3 : 6,
+                  offset: Offset(0, _isTapped ? 1.5 : 3),
+                ),
+              ],
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  // Episode Thumbnail/Still preview
+                  Container(
+                    width: 105,
+                    height: 65,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.white10),
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        _buildEpisodePlaceholder(widget.msg),
+                        Container(color: Colors.black26),
+                        Center(
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              color: Colors.black54,
+                              shape: BoxShape.circle,
+                              border: Border.all(color: Colors.white24, width: 0.5),
+                            ),
+                            child: Icon(
+                              isDownloaded ? Icons.download_done_rounded : Icons.play_arrow_rounded,
+                              color: isDownloaded ? Colors.green : Colors.white,
+                              size: 16,
+                            ),
                           ),
                         ),
-                      ),
-                      if (progressValue > 0.0)
-                        Positioned(
-                          left: 0,
-                          right: 0,
-                          bottom: 0,
-                          child: Container(
-                            height: 3,
-                            color: Colors.black38,
-                            child: Align(
-                              alignment: Alignment.centerLeft,
-                              child: FractionallySizedBox(
-                                widthFactor: progressValue,
-                                child: Container(
-                                  color: settingsAccent,
+                        if (progressValue > 0.0)
+                          Positioned(
+                            left: 0,
+                            right: 0,
+                            bottom: 0,
+                            child: Container(
+                              height: 3,
+                              color: Colors.black38,
+                              child: Align(
+                                alignment: Alignment.centerLeft,
+                                child: FractionallySizedBox(
+                                  widthFactor: progressValue,
+                                  child: Container(
+                                    color: settingsAccent,
+                                  ),
                                 ),
                               ),
                             ),
                           ),
-                        ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(width: 12),
-                // Episode information details
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '${widget.index + 1}. $epTitle',
-                        style: TextStyle(
-                          color: isDark ? Colors.white : Colors.black87,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 13,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          if (isCompleted) ...[
-                            const Icon(Icons.check_circle, color: Colors.green, size: 12),
-                            const SizedBox(width: 4),
-                          ],
-                          Text(
-                            isDownloaded ? '$metadata • Downloaded' : metadata,
-                            style: TextStyle(
-                              color: isDark ? Colors.white30 : Colors.black38,
-                              fontSize: 10,
-                            ),
+                  const SizedBox(width: 12),
+                  // Episode information details
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '${widget.index + 1}. $epTitle',
+                          style: TextStyle(
+                            color: isDark ? Colors.white : Colors.black87,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
                           ),
-                        ],
-                      ),
-                    ],
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            if (isCompleted) ...[
+                              const Icon(Icons.check_circle, color: Colors.green, size: 12),
+                              const SizedBox(width: 4),
+                            ],
+                            Text(
+                              isDownloaded ? '$metadata • Downloaded' : metadata,
+                              style: TextStyle(
+                                color: isDark ? Colors.white30 : Colors.black38,
+                                fontSize: 10,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(width: 8),
-                trailingWidget,
-              ],
+                  const SizedBox(width: 8),
+                  trailingWidget,
+                ],
+              ),
             ),
           ),
         ),
@@ -904,6 +996,144 @@ class _TouchScaleState extends State<_TouchScale> {
         curve: Curves.easeOut,
         child: widget.child,
       ),
+    );
+  }
+}
+
+class _SwipeToAction extends StatefulWidget {
+  final Widget child;
+  final VoidCallback onSwipeRight;
+  final VoidCallback onSwipeLeft;
+  final Color accentColor;
+
+  const _SwipeToAction({
+    required this.child,
+    required this.onSwipeRight,
+    required this.onSwipeLeft,
+    required this.accentColor,
+  });
+
+  @override
+  State<_SwipeToAction> createState() => _SwipeToActionState();
+}
+
+class _SwipeToActionState extends State<_SwipeToAction> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  double _dragOffset = 0.0;
+  static const double _threshold = 80.0;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 350),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _onHorizontalDragUpdate(DragUpdateDetails details) {
+    setState(() {
+      _dragOffset += details.primaryDelta!;
+      if (_dragOffset.abs() > _threshold) {
+        final over = _dragOffset.abs() - _threshold;
+        _dragOffset = _dragOffset.sign * (_threshold + over * 0.3);
+      }
+    });
+  }
+
+  void _onHorizontalDragEnd(DragEndDetails details) {
+    if (_dragOffset > _threshold) {
+      widget.onSwipeRight();
+    } else if (_dragOffset < -_threshold) {
+      widget.onSwipeLeft();
+    }
+
+    final start = _dragOffset;
+    final curve = CurvedAnimation(parent: _controller, curve: Curves.easeOutBack);
+    
+    late VoidCallback listener;
+    listener = () {
+      setState(() {
+        _dragOffset = start * (1.0 - curve.value);
+      });
+    };
+    _controller.addListener(listener);
+    _controller.forward(from: 0.0).then((_) {
+      _controller.removeListener(listener);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final showRightIcon = _dragOffset > 10;
+    final showLeftIcon = _dragOffset < -10;
+
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              color: Colors.transparent,
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                AnimatedOpacity(
+                  opacity: showRightIcon ? 1.0 : 0.0,
+                  duration: const Duration(milliseconds: 150),
+                  child: Container(
+                    padding: const EdgeInsets.only(left: 20),
+                    alignment: Alignment.centerLeft,
+                    child: AnimatedScale(
+                      scale: _dragOffset > _threshold ? 1.2 : 1.0,
+                      duration: const Duration(milliseconds: 200),
+                      child: const Icon(
+                        Icons.check_circle_outline,
+                        color: Colors.green,
+                        size: 28,
+                      ),
+                    ),
+                  ),
+                ),
+                AnimatedOpacity(
+                  opacity: showLeftIcon ? 1.0 : 0.0,
+                  duration: const Duration(milliseconds: 150),
+                  child: Container(
+                    padding: const EdgeInsets.only(right: 20),
+                    alignment: Alignment.centerRight,
+                    child: AnimatedScale(
+                      scale: _dragOffset < -_threshold ? 1.2 : 1.0,
+                      duration: const Duration(milliseconds: 200),
+                      child: Icon(
+                        Icons.download_rounded,
+                        color: widget.accentColor,
+                        size: 28,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        GestureDetector(
+          onHorizontalDragUpdate: _onHorizontalDragUpdate,
+          onHorizontalDragEnd: _onHorizontalDragEnd,
+          behavior: HitTestBehavior.opaque,
+          child: Transform.translate(
+            offset: Offset(_dragOffset, 0.0),
+            child: widget.child,
+          ),
+        ),
+      ],
     );
   }
 }

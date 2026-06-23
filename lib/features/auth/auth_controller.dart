@@ -5,6 +5,8 @@ import '../../core/constants.dart';
 import '../../services/tdlib_service.dart';
 import '../../services/storage_service.dart';
 import '../settings/settings_provider.dart';
+import '../../services/sync_service.dart';
+import '../../core/logger.dart';
 
 enum AuthStep { loading, waitingForNumber, waitingForCode, waitingForPassword, authenticated, error }
 
@@ -95,6 +97,13 @@ class AuthController extends Notifier<AuthState> {
       _isResetting = false;
       state = state.copyWith(step: AuthStep.authenticated, errorMessage: null);
       ref.read(tdlibServiceProvider).loadChatsInBackground();
+      
+      // Restore cloud progress sync data on successful login/ready
+      Future.delayed(const Duration(seconds: 2), () {
+        ref.read(progressSyncServiceProvider.notifier).restoreFromCloud().catchError((e) {
+          Log.e('Auto cloud sync restore failed', e);
+        });
+      });
     } else if (authState is td.AuthorizationStateClosed) {
       if (!_isResetting) {
         // Automatically re-initialize TDLib to allow logging in again immediately

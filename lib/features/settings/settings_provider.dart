@@ -41,6 +41,7 @@ class VideoSettings {
   final double subtitleDelay;
   final String subtitleFont;
   final String downloadSpeedLimit;
+  final String progressSyncMode;
 
   const VideoSettings({
     this.doubleTapSeekDuration = 10,
@@ -82,6 +83,7 @@ class VideoSettings {
     this.subtitleDelay = 0.0,
     this.subtitleFont = 'Roboto',
     this.downloadSpeedLimit = 'Unlimited',
+    this.progressSyncMode = 'disabled',
   });
 
   String getLayoutForCategory(String categoryTitle) {
@@ -150,6 +152,7 @@ class VideoSettings {
     double? subtitleDelay,
     String? subtitleFont,
     String? downloadSpeedLimit,
+    String? progressSyncMode,
   }) {
     return VideoSettings(
       doubleTapSeekDuration: doubleTapSeekDuration ?? this.doubleTapSeekDuration,
@@ -191,6 +194,7 @@ class VideoSettings {
       subtitleDelay: subtitleDelay ?? this.subtitleDelay,
       subtitleFont: subtitleFont ?? this.subtitleFont,
       downloadSpeedLimit: downloadSpeedLimit ?? this.downloadSpeedLimit,
+      progressSyncMode: progressSyncMode ?? this.progressSyncMode,
     );
   }
 
@@ -235,6 +239,7 @@ class VideoSettings {
       'subtitleDelay': subtitleDelay,
       'subtitleFont': subtitleFont,
       'downloadSpeedLimit': downloadSpeedLimit,
+      'progressSyncMode': progressSyncMode,
     };
   }
 
@@ -279,6 +284,7 @@ class VideoSettings {
       subtitleDelay: (json['subtitleDelay'] as num?)?.toDouble() ?? 0.0,
       subtitleFont: json['subtitleFont'] ?? 'Roboto',
       downloadSpeedLimit: json['downloadSpeedLimit'] ?? 'Unlimited',
+      progressSyncMode: json['progressSyncMode'] ?? 'disabled',
     );
   }
 }
@@ -305,6 +311,9 @@ class VideoSettingsNotifier extends Notifier<VideoSettings> {
       if (!updatedJson.containsKey('downloadSpeedLimit')) {
         updatedJson['downloadSpeedLimit'] = 'Unlimited';
       }
+      if (!updatedJson.containsKey('progressSyncMode')) {
+        updatedJson['progressSyncMode'] = 'disabled';
+      }
       return VideoSettings.fromJson(updatedJson);
     }
     return VideoSettings(
@@ -313,6 +322,7 @@ class VideoSettingsNotifier extends Notifier<VideoSettings> {
       subtitleDelay: storageService.getSubtitleDelay(),
       subtitleFont: storageService.getSubtitleFont(),
       downloadSpeedLimit: 'Unlimited',
+      progressSyncMode: 'disabled',
     );
   }
 
