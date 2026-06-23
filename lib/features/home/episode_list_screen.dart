@@ -190,22 +190,8 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
       padding: const EdgeInsets.only(top: 16),
       child: SizedBox(
         width: double.infinity,
-        child: ElevatedButton.icon(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: accentColor,
-            foregroundColor: accentColor.computeLuminance() > 0.5 ? Colors.black : Colors.white,
-            padding: const EdgeInsets.symmetric(vertical: 14),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            elevation: 2,
-          ),
-          icon: const Icon(Icons.play_arrow_rounded, size: 28),
-          label: Text(
-            btnText,
-            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, letterSpacing: 0.5),
-          ),
-          onPressed: () {
+        child: _TouchScale(
+          onTap: () {
             final msg = _selectedSeason.episodes[resumeIndex];
             int? fileId;
             String title = 'Episode ${resumeIndex + 1}';
@@ -235,6 +221,23 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
               );
             }
           },
+          child: ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: accentColor,
+              foregroundColor: accentColor.computeLuminance() > 0.5 ? Colors.black : Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              elevation: 2,
+            ),
+            icon: const Icon(Icons.play_arrow_rounded, size: 28),
+            label: Text(
+              btnText,
+              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, letterSpacing: 0.5),
+            ),
+            onPressed: () {},
+          ),
         ),
       ),
     );
@@ -450,298 +453,68 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
                 ),
               ),
             ),
-          if (_isLoadingEpisodes)
-            SliverList(
-              delegate: SliverChildBuilderDelegate(
-                (context, index) => const ShimmerEpisodeCard(),
-                childCount: 4,
-              ),
-            )
-          else if (_errorMessage != null)
-            SliverFillRemaining(
-              child: Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text('Error: $_errorMessage', style: TextStyle(color: theme.colorScheme.error)),
-                      const SizedBox(height: 12),
-                      ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: theme.primaryColor,
-                          foregroundColor: theme.primaryColor.computeLuminance() > 0.5 ? Colors.black : Colors.white,
+          SliverToBoxAdapter(
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 300),
+              switchInCurve: Curves.easeOut,
+              switchOutCurve: Curves.easeIn,
+              child: _isLoadingEpisodes
+                  ? ListView.builder(
+                      key: const ValueKey('loading'),
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      padding: const EdgeInsets.all(16),
+                      itemCount: 4,
+                      itemBuilder: (context, index) => const ShimmerEpisodeCard(),
+                    )
+                  : _errorMessage != null
+                      ? Center(
+                          key: const ValueKey('error'),
+                          child: Padding(
+                            padding: const EdgeInsets.all(32.0),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text('Error: $_errorMessage', style: TextStyle(color: theme.colorScheme.error)),
+                                const SizedBox(height: 12),
+                                ElevatedButton(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: theme.primaryColor,
+                                    foregroundColor: theme.primaryColor.computeLuminance() > 0.5 ? Colors.black : Colors.white,
+                                  ),
+                                  onPressed: _loadEpisodesDynamically,
+                                  child: const Text('Retry'),
+                                ),
+                              ],
+                            ),
+                          ),
+                        )
+                      : ListView.builder(
+                          key: ValueKey('${_selectedSeason.seasonName}_${_selectedSeason.episodes.length}'),
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          padding: const EdgeInsets.all(16),
+                          itemCount: _selectedSeason.episodes.length,
+                          itemBuilder: (context, index) {
+                            final msg = _selectedSeason.episodes[index];
+                            return _EpisodeCardItem(
+                              key: ValueKey(msg.id),
+                              msg: msg,
+                              index: index,
+                              season: _selectedSeason,
+                              series: widget.series,
+                              onLongPress: _showMarkWatchedDialog,
+                            );
+                          },
                         ),
-                        onPressed: _loadEpisodesDynamically,
-                        child: const Text('Retry'),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            )
-          else
-            SliverPadding(
-              padding: const EdgeInsets.all(16),
-              sliver: SliverList(
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) {
-                    final msg = _selectedSeason.episodes[index];
-                    return _buildEpisodeCardItem(context, msg, index);
-                  },
-                  childCount: _selectedSeason.episodes.length,
-                ),
-              ),
             ),
+          ),
           const SliverToBoxAdapter(child: SizedBox(height: 120)),
         ],
       ),
     ),
   );
 }
-
-  Widget _buildEpisodeCardItem(BuildContext context, td.Message msg, int index) {
-    String fileTitle = 'Episode ${index + 1}';
-    String metadata = '';
-    int? fileId;
-
-    if (msg.content is td.MessageVideo) {
-      final video = msg.content as td.MessageVideo;
-      fileTitle = video.video.fileName;
-      fileId = video.video.video.id;
-      final sizeMb = (video.video.video.expectedSize / 1024 / 1024).toStringAsFixed(1);
-      final duration = Duration(seconds: video.video.duration);
-      final minutes = duration.inMinutes.remainder(60).toString().padLeft(2, '0');
-      final seconds = duration.inSeconds.remainder(60).toString().padLeft(2, '0');
-      metadata = '$minutes:$seconds • $sizeMb MB';
-    } else if (msg.content is td.MessageDocument) {
-      final doc = msg.content as td.MessageDocument;
-      fileTitle = doc.document.fileName;
-      fileId = doc.document.document.id;
-      final sizeMb = (doc.document.document.expectedSize / 1024 / 1024).toStringAsFixed(1);
-      metadata = '$sizeMb MB';
-    }
-
-    if (fileId == null) return const SizedBox.shrink();
-
-    final epTitle = fileTitle;
-
-    final downloadTasks = ref.watch(downloadControllerProvider);
-    final task = downloadTasks[fileId];
-
-    final theme = Theme.of(context);
-    final customTheme = theme.extension<AppThemeExtension>();
-    final settingsAccent = customTheme?.settingsAccent ?? theme.primaryColor;
-    final isDark = theme.brightness == Brightness.dark;
-
-    Widget trailingWidget;
-    if (task == null) {
-      trailingWidget = IconButton(
-        icon: Icon(Icons.download, color: settingsAccent, size: 22),
-        onPressed: () {
-          ref.read(downloadControllerProvider.notifier).startDownload(fileId!, fileTitle);
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Starting download: $fileTitle'),
-              backgroundColor: theme.primaryColor,
-              duration: const Duration(seconds: 2),
-            ),
-          );
-        },
-      );
-    } else if (!task.isCompleted) {
-      trailingWidget = GestureDetector(
-        onTap: () {
-          ref.read(downloadControllerProvider.notifier).cancelDownload(fileId!);
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Download cancelled'),
-              backgroundColor: Colors.redAccent,
-              duration: Duration(seconds: 2),
-            ),
-          );
-        },
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            SizedBox(
-              width: 24,
-              height: 24,
-              child: WavyCircularProgressIndicator(
-                value: task.progress,
-                strokeWidth: 2.0,
-                color: settingsAccent,
-                backgroundColor: isDark ? Colors.white12 : Colors.black12,
-              ),
-            ),
-            Icon(Icons.close, size: 12, color: settingsAccent),
-          ],
-        ),
-      );
-    } else {
-      trailingWidget = const Icon(Icons.check_circle, color: Colors.green, size: 22);
-    }
-
-    final isDownloaded = task != null && task.isCompleted && task.localPath != null;
-    final storage = ref.read(storageServiceProvider);
-    final savedPos = storage.getWatchPosition(msg.id);
-    int duration = 0;
-    if (msg.content is td.MessageVideo) {
-      duration = (msg.content as td.MessageVideo).video.duration;
-    } else {
-      duration = storage.getVideoDuration(msg.id);
-    }
-    final double progressValue = (duration > 0) ? (savedPos / duration).clamp(0.0, 1.0) : 0.0;
-    final isCompleted = progressValue > 0.9;
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: theme.cardColor,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: theme.colorScheme.onSurface.withValues(alpha: 0.08), width: 1),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: () {
-          ref.read(pipControllerProvider.notifier).playVideo(
-            context,
-            messageId: msg.id,
-            videoFileId: fileId!,
-            videoTitle: '${widget.series.coreName} - $fileTitle',
-            episodeList: _selectedSeason.episodes,
-            currentEpisodeIndex: index,
-            seriesName: widget.series.coreName,
-            networkUrl: isDownloaded ? task.localPath : null,
-          );
-        },
-        onLongPress: () {
-          _showMarkWatchedDialog(context, msg, index, fileTitle);
-        },
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  // Episode Thumbnail/Still preview
-                  Container(
-                    width: 105,
-                    height: 65,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.white10),
-                    ),
-                    clipBehavior: Clip.antiAlias,
-                    child: Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        _buildEpisodePlaceholder(msg),
-                        Container(color: Colors.black26),
-                        Center(
-                          child: Container(
-                            padding: const EdgeInsets.all(4),
-                            decoration: BoxDecoration(
-                              color: Colors.black54,
-                              shape: BoxShape.circle,
-                              border: Border.all(color: Colors.white24, width: 0.5),
-                            ),
-                            child: Icon(
-                              isDownloaded ? Icons.download_done_rounded : Icons.play_arrow_rounded,
-                              color: isDownloaded ? Colors.green : Colors.white,
-                              size: 16,
-                            ),
-                          ),
-                        ),
-                        if (progressValue > 0.0)
-                          Positioned(
-                            left: 0,
-                            right: 0,
-                            bottom: 0,
-                            child: Container(
-                              height: 3,
-                              color: Colors.black38,
-                              child: Align(
-                                alignment: Alignment.centerLeft,
-                                child: FractionallySizedBox(
-                                  widthFactor: progressValue,
-                                  child: Container(
-                                    color: settingsAccent,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  // Episode information details
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          '${index + 1}. $epTitle',
-                          style: TextStyle(
-                            color: isDark ? Colors.white : Colors.black87,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 13,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 4),
-                        Row(
-                          children: [
-                            if (isCompleted) ...[
-                              const Icon(Icons.check_circle, color: Colors.green, size: 12),
-                              const SizedBox(width: 4),
-                            ],
-                            Text(
-                              isDownloaded ? '$metadata • Downloaded' : metadata,
-                              style: TextStyle(
-                                color: isDark ? Colors.white30 : Colors.black38,
-                                fontSize: 10,
-                              ),
-                            ),
-                          ],
-                        ),
-
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  trailingWidget,
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildEpisodePlaceholder(td.Message msg) {
-    td.File? previewFile;
-    td.Minithumbnail? mini;
-    if (msg.content is td.MessageVideo) {
-      final video = msg.content as td.MessageVideo;
-      if (video.video.thumbnail != null) {
-        previewFile = video.video.thumbnail!.file;
-      }
-      mini = video.video.minithumbnail;
-    }
-    return TdThumbnail(
-      file: previewFile,
-      minithumbnail: mini,
-      autoDownload: true,
-      width: double.infinity,
-      height: double.infinity,
-    );
-  }
 
   void _showMarkWatchedDialog(BuildContext context, td.Message msg, int index, String title) {
     final storage = ref.read(storageServiceProvider);
@@ -819,6 +592,318 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
           ),
         );
       },
+    );
+  }
+}
+
+class _EpisodeCardItem extends ConsumerStatefulWidget {
+  final td.Message msg;
+  final int index;
+  final AnimeSeason season;
+  final AnimeSeries series;
+  final Function(BuildContext, td.Message, int, String) onLongPress;
+
+  const _EpisodeCardItem({
+    super.key,
+    required this.msg,
+    required this.index,
+    required this.season,
+    required this.series,
+    required this.onLongPress,
+  });
+
+  @override
+  ConsumerState<_EpisodeCardItem> createState() => _EpisodeCardItemState();
+}
+
+class _EpisodeCardItemState extends ConsumerState<_EpisodeCardItem> {
+  bool _isTapped = false;
+
+  @override
+  Widget build(BuildContext context) {
+    String fileTitle = 'Episode ${widget.index + 1}';
+    String metadata = '';
+    int? fileId;
+
+    if (widget.msg.content is td.MessageVideo) {
+      final video = widget.msg.content as td.MessageVideo;
+      fileTitle = video.video.fileName;
+      fileId = video.video.video.id;
+      final sizeMb = (video.video.video.expectedSize / 1024 / 1024).toStringAsFixed(1);
+      final duration = Duration(seconds: video.video.duration);
+      final minutes = duration.inMinutes.remainder(60).toString().padLeft(2, '0');
+      final seconds = duration.inSeconds.remainder(60).toString().padLeft(2, '0');
+      metadata = '$minutes:$seconds • $sizeMb MB';
+    } else if (widget.msg.content is td.MessageDocument) {
+      final doc = widget.msg.content as td.MessageDocument;
+      fileTitle = doc.document.fileName;
+      fileId = doc.document.document.id;
+      final sizeMb = (doc.document.document.expectedSize / 1024 / 1024).toStringAsFixed(1);
+      metadata = '$sizeMb MB';
+    }
+
+    if (fileId == null) return const SizedBox.shrink();
+
+    final epTitle = fileTitle;
+    final downloadTasks = ref.watch(downloadControllerProvider);
+    final task = downloadTasks[fileId];
+
+    final theme = Theme.of(context);
+    final customTheme = theme.extension<AppThemeExtension>();
+    final settingsAccent = customTheme?.settingsAccent ?? theme.primaryColor;
+    final isDark = theme.brightness == Brightness.dark;
+
+    Widget trailingWidget;
+    if (task == null) {
+      trailingWidget = IconButton(
+        icon: Icon(Icons.download, color: settingsAccent, size: 22),
+        onPressed: () {
+          ref.read(downloadControllerProvider.notifier).startDownload(fileId!, fileTitle);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Starting download: $fileTitle'),
+              backgroundColor: theme.primaryColor,
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        },
+      );
+    } else if (!task.isCompleted) {
+      trailingWidget = GestureDetector(
+        onTap: () {
+          ref.read(downloadControllerProvider.notifier).cancelDownload(fileId!);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Download cancelled'),
+              backgroundColor: Colors.redAccent,
+              duration: Duration(seconds: 2),
+            ),
+          );
+        },
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            SizedBox(
+              width: 24,
+              height: 24,
+              child: WavyCircularProgressIndicator(
+                value: task.progress,
+                strokeWidth: 2.0,
+                color: settingsAccent,
+                backgroundColor: isDark ? Colors.white12 : Colors.black12,
+              ),
+            ),
+            Icon(Icons.close, size: 12, color: settingsAccent),
+          ],
+        ),
+      );
+    } else {
+      trailingWidget = const Icon(Icons.check_circle, color: Colors.green, size: 22);
+    }
+
+    final isDownloaded = task != null && task.isCompleted && task.localPath != null;
+    final storage = ref.read(storageServiceProvider);
+    final savedPos = storage.getWatchPosition(widget.msg.id);
+    int duration = 0;
+    if (widget.msg.content is td.MessageVideo) {
+      duration = (widget.msg.content as td.MessageVideo).video.duration;
+    } else {
+      duration = storage.getVideoDuration(widget.msg.id);
+    }
+    final double progressValue = (duration > 0) ? (savedPos / duration).clamp(0.0, 1.0) : 0.0;
+    final isCompleted = progressValue > 0.9;
+
+    return GestureDetector(
+      onTapDown: (_) => setState(() => _isTapped = true),
+      onTapUp: (_) => setState(() => _isTapped = false),
+      onTapCancel: () => setState(() => _isTapped = false),
+      onTap: () {
+        ref.read(pipControllerProvider.notifier).playVideo(
+          context,
+          messageId: widget.msg.id,
+          videoFileId: fileId!,
+          videoTitle: '${widget.series.coreName} - $fileTitle',
+          episodeList: widget.season.episodes,
+          currentEpisodeIndex: widget.index,
+          seriesName: widget.series.coreName,
+          networkUrl: isDownloaded ? task.localPath : null,
+        );
+      },
+      onLongPress: () {
+        widget.onLongPress(context, widget.msg, widget.index, fileTitle);
+      },
+      child: AnimatedScale(
+        scale: _isTapped ? 0.97 : 1.0,
+        duration: const Duration(milliseconds: 100),
+        curve: Curves.easeOut,
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          decoration: BoxDecoration(
+            color: theme.cardColor,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: theme.colorScheme.onSurface.withValues(alpha: _isTapped ? 0.16 : 0.08),
+              width: _isTapped ? 1.5 : 1.0,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: _isTapped ? 0.15 : 0.08),
+                blurRadius: _isTapped ? 3 : 6,
+                offset: Offset(0, _isTapped ? 1.5 : 3),
+              ),
+            ],
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                // Episode Thumbnail/Still preview
+                Container(
+                  width: 105,
+                  height: 65,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.white10),
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      _buildEpisodePlaceholder(widget.msg),
+                      Container(color: Colors.black26),
+                      Center(
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                            color: Colors.black54,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.white24, width: 0.5),
+                          ),
+                          child: Icon(
+                            isDownloaded ? Icons.download_done_rounded : Icons.play_arrow_rounded,
+                            color: isDownloaded ? Colors.green : Colors.white,
+                            size: 16,
+                          ),
+                        ),
+                      ),
+                      if (progressValue > 0.0)
+                        Positioned(
+                          left: 0,
+                          right: 0,
+                          bottom: 0,
+                          child: Container(
+                            height: 3,
+                            color: Colors.black38,
+                            child: Align(
+                              alignment: Alignment.centerLeft,
+                              child: FractionallySizedBox(
+                                widthFactor: progressValue,
+                                child: Container(
+                                  color: settingsAccent,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                // Episode information details
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '${widget.index + 1}. $epTitle',
+                        style: TextStyle(
+                          color: isDark ? Colors.white : Colors.black87,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          if (isCompleted) ...[
+                            const Icon(Icons.check_circle, color: Colors.green, size: 12),
+                            const SizedBox(width: 4),
+                          ],
+                          Text(
+                            isDownloaded ? '$metadata • Downloaded' : metadata,
+                            style: TextStyle(
+                              color: isDark ? Colors.white30 : Colors.black38,
+                              fontSize: 10,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                trailingWidget,
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEpisodePlaceholder(td.Message msg) {
+    td.File? previewFile;
+    td.Minithumbnail? mini;
+    if (msg.content is td.MessageVideo) {
+      final video = msg.content as td.MessageVideo;
+      if (video.video.thumbnail != null) {
+        previewFile = video.video.thumbnail!.file;
+      }
+      mini = video.video.minithumbnail;
+    }
+    return TdThumbnail(
+      file: previewFile,
+      minithumbnail: mini,
+      autoDownload: true,
+      width: double.infinity,
+      height: double.infinity,
+    );
+  }
+}
+
+class _TouchScale extends StatefulWidget {
+  final Widget child;
+  final VoidCallback onTap;
+
+  const _TouchScale({
+    required this.child,
+    required this.onTap,
+  });
+
+  @override
+  State<_TouchScale> createState() => _TouchScaleState();
+}
+
+class _TouchScaleState extends State<_TouchScale> {
+  bool _isTapped = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown: (_) => setState(() => _isTapped = true),
+      onTapUp: (_) => setState(() => _isTapped = false),
+      onTapCancel: () => setState(() => _isTapped = false),
+      onTap: widget.onTap,
+      child: AnimatedScale(
+        scale: _isTapped ? 0.96 : 1.0,
+        duration: const Duration(milliseconds: 100),
+        curve: Curves.easeOut,
+        child: widget.child,
+      ),
     );
   }
 }
