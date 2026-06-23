@@ -904,11 +904,12 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
   }
 
   void _initPlayerInstance() {
+    final localFont = ref.read(storageServiceProvider).localFontPath;
     player = Player(
       configuration: PlayerConfiguration(
         pitch: _settings.pitchCorrection,
         libass: true,
-        libassAndroidFont: 'assets/fonts/Roboto-Regular.ttf',
+        libassAndroidFont: localFont ?? 'assets/fonts/Roboto-Regular.ttf',
         libassAndroidFontName: 'Roboto',
       ),
     );

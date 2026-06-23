@@ -388,30 +388,55 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     required bool isActive,
     required VoidCallback onTap,
   }) {
+    final theme = Theme.of(context);
+    final customTheme = theme.extension<AppThemeExtension>();
+    final accentColor = customTheme?.settingsAccent ?? theme.primaryColor;
+
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 8),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: isActive ? Colors.white24 : Colors.black38,
-              shape: BoxShape.circle,
-              border: Border.all(color: Colors.white24, width: 1),
-            ),
-            child: IconButton(
-              iconSize: 20,
-              padding: EdgeInsets.zero,
-              icon: Icon(icon, color: Colors.white),
-              onPressed: onTap,
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: onTap,
+              customBorder: const CircleBorder(),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: isActive ? accentColor.withValues(alpha: 0.18) : Colors.black.withValues(alpha: 0.4),
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: isActive ? accentColor : Colors.white12,
+                    width: isActive ? 1.5 : 1.0,
+                  ),
+                  boxShadow: isActive ? [
+                    BoxShadow(
+                      color: accentColor.withValues(alpha: 0.25),
+                      blurRadius: 6,
+                      spreadRadius: 0.5,
+                    )
+                  ] : null,
+                ),
+                child: Icon(
+                  icon,
+                  color: isActive ? accentColor : Colors.white.withValues(alpha: 0.9),
+                  size: 20,
+                ),
+              ),
             ),
           ),
           const SizedBox(height: 6),
           Text(
             label,
-            style: const TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.w500),
+            style: TextStyle(
+              color: isActive ? accentColor : Colors.white70,
+              fontSize: 10,
+              fontWeight: isActive ? FontWeight.bold : FontWeight.w500,
+            ),
           ),
         ],
       ),
@@ -2702,11 +2727,34 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
           if (_isLocked && _showControls)
             Positioned(
               left: 16,
-              bottom: 40,
-              child: _buildActionButton(Icons.lock, 'Unlock', () {
-                setState(() => _isLocked = false);
-                _startHideTimer();
-              }),
+              top: 0,
+              bottom: 0,
+              child: Center(
+                child: ClipOval(
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 5.0, sigmaY: 5.0),
+                    child: Container(
+                      width: 50,
+                      height: 50,
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.45),
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white12, width: 1.0),
+                      ),
+                      child: IconButton(
+                        icon: const Icon(Icons.lock, color: Colors.white),
+                        iconSize: 22,
+                        padding: EdgeInsets.zero,
+                        onPressed: () {
+                          setState(() => _isLocked = false);
+                          _startHideTimer();
+                        },
+                        tooltip: 'Unlock Screen',
+                      ),
+                    ),
+                  ),
+                ),
+              ),
             ),
 
 
@@ -2796,15 +2844,25 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
               top: 0,
               bottom: 0,
               child: Center(
-                child: Container(
-                  decoration: const BoxDecoration(
-                    color: Colors.black38,
-                    shape: BoxShape.circle,
-                  ),
-                  child: IconButton(
-                    icon: const Icon(Icons.camera_alt_outlined, color: Colors.white),
-                    iconSize: 28,
-                    onPressed: _takeScreenshot,
+                child: ClipOval(
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 5.0, sigmaY: 5.0),
+                    child: Container(
+                      width: 50,
+                      height: 50,
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.45),
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white12, width: 1.0),
+                      ),
+                      child: IconButton(
+                        icon: const Icon(Icons.camera_alt_outlined, color: Colors.white),
+                        iconSize: 22,
+                        padding: EdgeInsets.zero,
+                        onPressed: _takeScreenshot,
+                        tooltip: 'Take Screenshot',
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -2837,7 +2895,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                       ? Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            // Row 1: Playback Controls (Previous, Play/Pause, Next, 90s+)
+                            // Row 1: Playback Controls (Previous, Play/Pause, Next, +90s capsule)
                             Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
@@ -2849,19 +2907,23 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                                   ),
                                   onPressed: widget.hasPrevEpisode ? widget.onPrevEpisode : null,
                                 ),
-                                const SizedBox(width: 24),
+                                const SizedBox(width: 16),
                                 StreamBuilder<bool>(
                                   stream: widget.player.stream.playing,
                                   builder: (context, snapshot) {
                                     final playing = snapshot.data ?? widget.player.state.playing;
                                     return Container(
+                                      width: 52,
+                                      height: 52,
                                       decoration: BoxDecoration(
                                         shape: BoxShape.circle,
-                                        border: Border.all(color: Colors.white, width: 1.5),
+                                        border: Border.all(color: Colors.white, width: 2),
+                                        color: Colors.white.withValues(alpha: 0.1),
                                       ),
                                       child: IconButton(
                                         icon: Icon(playing ? Icons.pause : Icons.play_arrow, color: Colors.white),
-                                        iconSize: 32,
+                                        iconSize: 30,
+                                        padding: EdgeInsets.zero,
                                         onPressed: () {
                                           if (playing) {
                                             widget.player.pause();
@@ -2873,7 +2935,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                                     );
                                   },
                                 ),
-                                const SizedBox(width: 24),
+                                const SizedBox(width: 16),
                                 IconButton(
                                   iconSize: 28,
                                   icon: Icon(
@@ -2882,19 +2944,40 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                                   ),
                                   onPressed: widget.hasNextEpisode ? widget.onNextEpisode : null,
                                 ),
-                                const SizedBox(width: 24),
-                                TextButton(
-                                  onPressed: () {
-                                    final target = widget.player.state.position + const Duration(seconds: 90);
-                                    final safeTarget = _clampSeekTarget(target, showMessage: false);
-                                    _performSeek(safeTarget);
-                                  },
-                                  child: const Text(
-                                    '90s+',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 14,
+                                const SizedBox(width: 20),
+                                Material(
+                                  color: Colors.transparent,
+                                  child: InkWell(
+                                    onTap: () {
+                                      final target = widget.player.state.position + const Duration(seconds: 90);
+                                      final safeTarget = _clampSeekTarget(target, showMessage: false);
+                                      _performSeek(safeTarget);
+                                    },
+                                    borderRadius: BorderRadius.circular(20),
+                                    child: Container(
+                                      height: 36,
+                                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(18),
+                                        border: Border.all(color: Colors.white24, width: 1),
+                                        color: Colors.white.withValues(alpha: 0.08),
+                                      ),
+                                      child: const Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(Icons.fast_forward, color: Colors.white, size: 14),
+                                          SizedBox(width: 4),
+                                          Text(
+                                            '+90s',
+                                            style: TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.bold,
+                                              letterSpacing: 0.5,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
                                     ),
                                   ),
                                 ),
@@ -2936,7 +3019,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                         )
                       : SizedBox(
                           width: double.infinity,
-                          height: 48,
+                          height: 56,
                           child: Stack(
                             alignment: Alignment.center,
                             children: [
@@ -2958,21 +3041,6 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                               Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Visibility(
-                                    visible: false,
-                                    maintainSize: true,
-                                    child: TextButton(
-                                      onPressed: null,
-                                      child: const Text(
-                                        '90s+',
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 14,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 16),
                                   IconButton(
                                     iconSize: 28,
                                     icon: Icon(
@@ -2981,19 +3049,23 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                                     ),
                                     onPressed: widget.hasPrevEpisode ? widget.onPrevEpisode : null,
                                   ),
-                                  const SizedBox(width: 16),
+                                  const SizedBox(width: 20),
                                   StreamBuilder<bool>(
                                     stream: widget.player.stream.playing,
                                     builder: (context, snapshot) {
                                       final playing = snapshot.data ?? widget.player.state.playing;
                                       return Container(
+                                        width: 52,
+                                        height: 52,
                                         decoration: BoxDecoration(
                                           shape: BoxShape.circle,
-                                          border: Border.all(color: Colors.white, width: 1.5),
+                                          border: Border.all(color: Colors.white, width: 2),
+                                          color: Colors.white.withValues(alpha: 0.1),
                                         ),
                                         child: IconButton(
                                           icon: Icon(playing ? Icons.pause : Icons.play_arrow, color: Colors.white),
-                                          iconSize: 32,
+                                          iconSize: 30,
+                                          padding: EdgeInsets.zero,
                                           onPressed: () {
                                             if (playing) {
                                               widget.player.pause();
@@ -3005,7 +3077,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                                       );
                                     },
                                   ),
-                                  const SizedBox(width: 16),
+                                  const SizedBox(width: 20),
                                   IconButton(
                                     iconSize: 28,
                                     icon: Icon(
@@ -3014,19 +3086,40 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                                     ),
                                     onPressed: widget.hasNextEpisode ? widget.onNextEpisode : null,
                                   ),
-                                  const SizedBox(width: 16),
-                                  TextButton(
-                                    onPressed: () {
-                                      final target = widget.player.state.position + const Duration(seconds: 90);
-                                      final safeTarget = _clampSeekTarget(target, showMessage: false);
-                                      _performSeek(safeTarget);
-                                    },
-                                    child: const Text(
-                                      '90s+',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 14,
+                                  const SizedBox(width: 24),
+                                  Material(
+                                    color: Colors.transparent,
+                                    child: InkWell(
+                                      onTap: () {
+                                        final target = widget.player.state.position + const Duration(seconds: 90);
+                                        final safeTarget = _clampSeekTarget(target, showMessage: false);
+                                        _performSeek(safeTarget);
+                                      },
+                                      borderRadius: BorderRadius.circular(20),
+                                      child: Container(
+                                        height: 36,
+                                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                                        decoration: BoxDecoration(
+                                          borderRadius: BorderRadius.circular(18),
+                                          border: Border.all(color: Colors.white24, width: 1),
+                                          color: Colors.white.withValues(alpha: 0.08),
+                                        ),
+                                        child: const Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(Icons.fast_forward, color: Colors.white, size: 14),
+                                            SizedBox(width: 4),
+                                            Text(
+                                              '+90s',
+                                              style: TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.bold,
+                                                letterSpacing: 0.5,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
                                       ),
                                     ),
                                   ),
@@ -3167,7 +3260,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
           // Stats for Nerds Overlay
           if (settings.showStatsForNerds && _nerdStats.isNotEmpty)
             Positioned(
-              top: 100,
+              top: 185,
               left: 16,
               child: IgnorePointer(
                 child: Container(
@@ -3269,6 +3362,27 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
               onPickLocalSubtitle: _pickLocalSubtitleFile,
               onOpenSubtitleDownloader: _showSubtitleDownloaderDialog,
               onClose: () => setState(() => _showTrackSelectorPanel = false),
+              currentFontSize: settings.subtitleFontSize,
+              onFontSizeChanged: (val) {
+                ref.read(storageServiceProvider).setSubtitleFontSize(val);
+                ref.read(videoSettingsProvider.notifier).updateSettings(
+                  settings.copyWith(subtitleFontSize: val),
+                );
+              },
+              currentFontColor: settings.subtitleColor,
+              onFontColorChanged: (val) {
+                ref.read(storageServiceProvider).setSubtitleColor(val);
+                ref.read(videoSettingsProvider.notifier).updateSettings(
+                  settings.copyWith(subtitleColor: val),
+                );
+              },
+              currentFontFamily: settings.subtitleFont,
+              onFontFamilyChanged: (val) {
+                ref.read(storageServiceProvider).setSubtitleFont(val);
+                ref.read(videoSettingsProvider.notifier).updateSettings(
+                  settings.copyWith(subtitleFont: val),
+                );
+              },
             ),
           ),
 
@@ -3348,24 +3462,6 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
             ),
           ],
         ],
-      ),
-    );
-  }
-
-  Widget _buildActionButton(IconData icon, String label, VoidCallback onTap, {VoidCallback? onLongPress}) {
-    return InkWell(
-      onTap: onTap,
-      onLongPress: onLongPress,
-      borderRadius: BorderRadius.circular(8),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        child: Column(
-          children: [
-            Icon(icon, color: Colors.white, size: 24),
-            const SizedBox(height: 4),
-            Text(label, style: const TextStyle(color: Colors.white70, fontSize: 10)),
-          ],
-        ),
       ),
     );
   }
