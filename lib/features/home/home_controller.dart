@@ -452,7 +452,9 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
       if (!gotNewMessages) {
         // If we got a completely empty list, it means the server has no more messages (end of history).
         if (fetched.isEmpty) {
-          _hasMore = false;
+          if (!onlyLocal && fromId != 0) {
+            _hasMore = false;
+          }
           break;
         }
 
@@ -472,7 +474,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
           // do NOT set _hasMore = false (unless currentFromId is very small).
           // Just break the batch loop so we return empty, allowing the background sync
           // to try again after a pause.
-          if (currentFromId <= 5) {
+          if (currentFromId <= 5 && !onlyLocal) {
             _hasMore = false;
           }
           break;
@@ -555,7 +557,11 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
     combined.sort((a, b) => b.id.compareTo(a.id));
     
     if (!hadError && combined.length < chunkCount * 100) {
-      _hasMore = false;
+      // If we got an empty list on startup (fromId == 0), don't set _hasMore to false
+      // to allow the sync loop to retry when the network is connected.
+      if (fromId != 0 || combined.isNotEmpty) {
+        _hasMore = false;
+      }
     }
     
     return combined;
