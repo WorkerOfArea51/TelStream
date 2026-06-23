@@ -871,23 +871,8 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
           return;
         }
 
-        final hwdec = _storageService.getHardwareDecoderMode();
-        final isDirectHw = Platform.isAndroid && hwdec == 'mediacodec';
-        
         final settings = ref.read(videoSettingsProvider);
         final targetLibass = settings.subtitleRendererMode == 'native';
-
-        // Dynamically shift decoder to mediacodec-copy if native subtitles are used on direct mediacodec
-        if (isDirectHw) {
-          if (targetLibass) {
-            nativePlayer.setProperty('hwdec', 'mediacodec-copy');
-            Log.i('Dynamic decode path: forced mediacodec-copy for active native subtitles');
-          } else {
-            nativePlayer.setProperty('hwdec', 'mediacodec');
-            Log.i('Dynamic decode path: restored direct mediacodec for flutter overlay subtitles');
-          }
-        }
-
         final useNativeBlending = targetLibass;
         
         if (useNativeBlending) {
@@ -935,7 +920,19 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
               _isInitializing = false;
             });
             if (currentPos.inSeconds > 0) {
-              _handleCustomSeek(currentPos);
+              if (player.state.duration.inSeconds > 0) {
+                _handleCustomSeek(currentPos);
+              } else {
+                late final StreamSubscription<Duration> durSub;
+                durSub = player.stream.duration.listen((dur) {
+                  if (dur.inSeconds > 0) {
+                    durSub.cancel();
+                    if (mounted) {
+                      _handleCustomSeek(currentPos);
+                    }
+                  }
+                });
+              }
             }
           }
         });
@@ -953,7 +950,19 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
               _isInitializing = false;
             });
             if (currentPos.inSeconds > 0) {
-              _handleCustomSeek(currentPos);
+              if (player.state.duration.inSeconds > 0) {
+                _handleCustomSeek(currentPos);
+              } else {
+                late final StreamSubscription<Duration> durSub;
+                durSub = player.stream.duration.listen((dur) {
+                  if (dur.inSeconds > 0) {
+                    durSub.cancel();
+                    if (mounted) {
+                      _handleCustomSeek(currentPos);
+                    }
+                  }
+                });
+              }
             }
           }
         });
@@ -1012,20 +1021,23 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         final targetLibass = settings.subtitleRendererMode == 'native';
 
         final hwDecMode = _storageService.getHardwareDecoderMode();
-        if (hwDecMode != 'no') {
-          if (Platform.isAndroid) {
-            // Force copy-back mediacodec-copy on init if using native subtitles to allow overlays to draw
-            if (hwDecMode == 'mediacodec' && targetLibass) {
-              nativePlayer.setProperty('hwdec', 'mediacodec-copy');
-              Log.i('Forced mediacodec-copy on player init for native subtitle rendering');
-            } else {
-              nativePlayer.setProperty('hwdec', hwDecMode);
-            }
+        if (Platform.isAndroid) {
+          if (targetLibass) {
+            // Force software decoding for native subtitles to allow libass blending to work
+            nativePlayer.setProperty('hwdec', 'no');
+            Log.i('Forced software decoding (hwdec=no) on player init for native subtitle rendering');
+          } else if (hwDecMode != 'no') {
+            nativePlayer.setProperty('hwdec', hwDecMode);
+            Log.i('Set hardware decoder mode to $hwDecMode on player init');
           } else {
-            nativePlayer.setProperty('hwdec', 'auto');
+            nativePlayer.setProperty('hwdec', 'no');
           }
         } else {
-          nativePlayer.setProperty('hwdec', 'no');
+          if (hwDecMode != 'no') {
+            nativePlayer.setProperty('hwdec', 'auto');
+          } else {
+            nativePlayer.setProperty('hwdec', 'no');
+          }
         }
         // Always configure native subtitle rendering (libass)
         if (localFont != null) {
@@ -1044,7 +1056,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         nativePlayer.setProperty('blend-subtitles', 'no'); // Set to 'no' so subtitles render independently and sync perfectly with the master audio clock
         nativePlayer.setProperty('demuxer-mkv-subtitle-preroll', 'yes');
         nativePlayer.setProperty('demuxer-mkv-subtitle-preroll-secs', '10'); // Pre-roll/cache subtitles 10 seconds ahead
-        nativePlayer.setProperty('sub-ass-override', 'scale');
+        nativePlayer.setProperty('sub-ass-override', 'force');
         nativePlayer.setProperty('sub-codepage', 'utf-8'); // Ensure non-Unicode text subtitles fall back to UTF-8
         nativePlayer.setProperty('sub-scale-with-window', 'yes'); // Keep subtitles proportional to resizing
         nativePlayer.setProperty('sub-ass-force-margins', 'yes'); // Ensure margins are utilized for ASS subtitles

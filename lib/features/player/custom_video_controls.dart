@@ -3898,23 +3898,8 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
           return;
         }
         
-        final hwdec = ref.read(storageServiceProvider).getHardwareDecoderMode();
-        final isDirectHw = Platform.isAndroid && hwdec == 'mediacodec';
-        
         final settings = ref.read(videoSettingsProvider);
         final targetLibass = settings.subtitleRendererMode == 'native';
-
-        // Dynamically shift decoder to mediacodec-copy if native subtitles are used on direct mediacodec
-        if (isDirectHw) {
-          if (targetLibass) {
-            nativePlayer.setProperty('hwdec', 'mediacodec-copy');
-            Log.i('Dynamic decode path (controls): forced mediacodec-copy for active native subtitles');
-          } else {
-            nativePlayer.setProperty('hwdec', 'mediacodec');
-            Log.i('Dynamic decode path (controls): restored direct mediacodec for flutter overlay subtitles');
-          }
-        }
-
         final useNativeBlending = targetLibass;
         
         if (useNativeBlending) {
