@@ -565,20 +565,31 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
       ref.read(downloadControllerProvider.notifier).resumeDownloadsAfterStreaming();
     } catch (_) {}
 
+    // Pause the player immediately to stop audio/video output right away
     try {
-      player.dispose();
+      player.pause();
     } catch (_) {}
 
-    if (_pipController.activePlayer == player) {
-      _pipController.clearActivePlayer(player);
+    // Reset PipController active state first. If this player is the active player,
+    // we call close() to clean up the state and set activePlayer to null.
+    final isActive = _pipController.activePlayer == player;
+    if (isActive) {
+      _pipController.close();
     }
-    
+
     try {
       if (_pipController.activePlayer == null) {
         SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp, DeviceOrientation.portraitDown]);
         SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
       }
     } catch (_) {}
+
+    // Disposing player asynchronously if not already handled by pip controller close
+    if (!isActive) {
+      try {
+        player.dispose();
+      } catch (_) {}
+    }
 
     try {
       final fileId = _resolvedVideoFileId ?? widget.videoFileId;
