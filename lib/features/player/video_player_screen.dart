@@ -962,6 +962,16 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
           nativePlayer.setProperty('hwdec', 'no');
         }
         // Always configure native subtitle rendering (libass)
+        if (localFont != null) {
+          try {
+            final fontDir = File(localFont).parent.path;
+            nativePlayer.setProperty('sub-fonts-dir', fontDir);
+            Log.i('Native fonts directory set to: $fontDir');
+          } catch (e) {
+            Log.e('Failed to parse font parent directory', e);
+          }
+        }
+        nativePlayer.setProperty('sub-font', 'Roboto');
         nativePlayer.setProperty('sub-visibility', 'yes');
         nativePlayer.setProperty('sub-auto', 'all');
         nativePlayer.setProperty('embeddedfonts', 'yes'); // Enable embedded fonts inside media containers (MKV, etc.)

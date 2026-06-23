@@ -2763,7 +2763,23 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
 
           // Controls UI Overlay
           if (_showControls && !_isLocked)
-            Container(color: Colors.black54),
+            IgnorePointer(
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      Colors.black.withValues(alpha: 0.65),
+                      Colors.black.withValues(alpha: 0.0),
+                      Colors.black.withValues(alpha: 0.0),
+                      Colors.black.withValues(alpha: 0.65),
+                    ],
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    stops: const [0.0, 0.22, 0.78, 1.0],
+                  ),
+                ),
+              ),
+            ),
 
           if (_showControls && !_isLocked && !_showTrackSelectorPanel && !_showRatioPanel) ...[
             // Top Bar & Quick Actions
@@ -2895,7 +2911,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                       ? Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            // Row 1: Playback Controls (Previous, Play/Pause, Next, +90s capsule)
+                            // Row 1: Playback Controls (Previous, Play/Pause, Next) - STRICTLY CENTERED
                             Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
@@ -2907,7 +2923,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                                   ),
                                   onPressed: widget.hasPrevEpisode ? widget.onPrevEpisode : null,
                                 ),
-                                const SizedBox(width: 16),
+                                const SizedBox(width: 24),
                                 StreamBuilder<bool>(
                                   stream: widget.player.stream.playing,
                                   builder: (context, snapshot) {
@@ -2935,7 +2951,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                                     );
                                   },
                                 ),
-                                const SizedBox(width: 16),
+                                const SizedBox(width: 24),
                                 IconButton(
                                   iconSize: 28,
                                   icon: Icon(
@@ -2944,47 +2960,10 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                                   ),
                                   onPressed: widget.hasNextEpisode ? widget.onNextEpisode : null,
                                 ),
-                                const SizedBox(width: 20),
-                                Material(
-                                  color: Colors.transparent,
-                                  child: InkWell(
-                                    onTap: () {
-                                      final target = widget.player.state.position + const Duration(seconds: 90);
-                                      final safeTarget = _clampSeekTarget(target, showMessage: false);
-                                      _performSeek(safeTarget);
-                                    },
-                                    borderRadius: BorderRadius.circular(20),
-                                    child: Container(
-                                      height: 36,
-                                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                                      decoration: BoxDecoration(
-                                        borderRadius: BorderRadius.circular(18),
-                                        border: Border.all(color: Colors.white24, width: 1),
-                                        color: Colors.white.withValues(alpha: 0.08),
-                                      ),
-                                      child: const Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Icon(Icons.fast_forward, color: Colors.white, size: 14),
-                                          SizedBox(width: 4),
-                                          Text(
-                                            '+90s',
-                                            style: TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.bold,
-                                              letterSpacing: 0.5,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ),
                               ],
                             ),
                             const SizedBox(height: 4),
-                            // Row 2: Utility Controls (Lock, Spacer, Speed, Aspect Ratio)
+                            // Row 2: Utility Controls (Lock, Spacer, +90s, Speed, Aspect Ratio)
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
@@ -2999,6 +2978,43 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                                 Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
+                                    Material(
+                                      color: Colors.transparent,
+                                      child: InkWell(
+                                        onTap: () {
+                                          final target = widget.player.state.position + const Duration(seconds: 90);
+                                          final safeTarget = _clampSeekTarget(target, showMessage: false);
+                                          _performSeek(safeTarget);
+                                        },
+                                        borderRadius: BorderRadius.circular(20),
+                                        child: Container(
+                                          height: 32,
+                                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                          decoration: BoxDecoration(
+                                            borderRadius: BorderRadius.circular(16),
+                                            border: Border.all(color: Colors.white24, width: 1),
+                                            color: Colors.white.withValues(alpha: 0.08),
+                                          ),
+                                          child: const Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Icon(Icons.fast_forward, color: Colors.white, size: 12),
+                                              SizedBox(width: 4),
+                                              Text(
+                                                '+90s',
+                                                style: TextStyle(
+                                                  color: Colors.white,
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.bold,
+                                                  letterSpacing: 0.5,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
                                     TextButton(
                                       onPressed: _showSpeedSelectorDialog,
                                       child: Text(
@@ -3019,7 +3035,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                         )
                       : SizedBox(
                           width: double.infinity,
-                          height: 56,
+                          height: 60,
                           child: Stack(
                             alignment: Alignment.center,
                             children: [
@@ -3028,102 +3044,83 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                                 top: 0,
                                 bottom: 0,
                                 child: Center(
-                                  child: IconButton(
-                                    icon: const Icon(Icons.lock_open_outlined, color: Colors.white70),
-                                    iconSize: 24,
-                                    onPressed: () {
-                                      setState(() => _isLocked = true);
-                                      _startHideTimer();
-                                    },
-                                  ),
-                                ),
-                              ),
-                              Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  IconButton(
-                                    iconSize: 28,
-                                    icon: Icon(
-                                      Icons.skip_previous,
-                                      color: widget.hasPrevEpisode ? Colors.white : Colors.white24,
-                                    ),
-                                    onPressed: widget.hasPrevEpisode ? widget.onPrevEpisode : null,
-                                  ),
-                                  const SizedBox(width: 20),
-                                  StreamBuilder<bool>(
-                                    stream: widget.player.stream.playing,
-                                    builder: (context, snapshot) {
-                                      final playing = snapshot.data ?? widget.player.state.playing;
-                                      return Container(
-                                        width: 52,
-                                        height: 52,
+                                  child: ClipOval(
+                                    child: BackdropFilter(
+                                      filter: ImageFilter.blur(sigmaX: 5.0, sigmaY: 5.0),
+                                      child: Container(
+                                        width: 50,
+                                        height: 50,
                                         decoration: BoxDecoration(
+                                          color: Colors.black.withValues(alpha: 0.45),
                                           shape: BoxShape.circle,
-                                          border: Border.all(color: Colors.white, width: 2),
-                                          color: Colors.white.withValues(alpha: 0.1),
+                                          border: Border.all(color: Colors.white12, width: 1.0),
                                         ),
                                         child: IconButton(
-                                          icon: Icon(playing ? Icons.pause : Icons.play_arrow, color: Colors.white),
-                                          iconSize: 30,
+                                          icon: const Icon(Icons.lock_open_outlined, color: Colors.white),
+                                          iconSize: 22,
                                           padding: EdgeInsets.zero,
                                           onPressed: () {
-                                            if (playing) {
-                                              widget.player.pause();
-                                            } else {
-                                              widget.player.play();
-                                            }
+                                            setState(() => _isLocked = true);
+                                            _startHideTimer();
                                           },
-                                        ),
-                                      );
-                                    },
-                                  ),
-                                  const SizedBox(width: 20),
-                                  IconButton(
-                                    iconSize: 28,
-                                    icon: Icon(
-                                      Icons.skip_next,
-                                      color: widget.hasNextEpisode ? Colors.white : Colors.white24,
-                                    ),
-                                    onPressed: widget.hasNextEpisode ? widget.onNextEpisode : null,
-                                  ),
-                                  const SizedBox(width: 24),
-                                  Material(
-                                    color: Colors.transparent,
-                                    child: InkWell(
-                                      onTap: () {
-                                        final target = widget.player.state.position + const Duration(seconds: 90);
-                                        final safeTarget = _clampSeekTarget(target, showMessage: false);
-                                        _performSeek(safeTarget);
-                                      },
-                                      borderRadius: BorderRadius.circular(20),
-                                      child: Container(
-                                        height: 36,
-                                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                                        decoration: BoxDecoration(
-                                          borderRadius: BorderRadius.circular(18),
-                                          border: Border.all(color: Colors.white24, width: 1),
-                                          color: Colors.white.withValues(alpha: 0.08),
-                                        ),
-                                        child: const Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            Icon(Icons.fast_forward, color: Colors.white, size: 14),
-                                            SizedBox(width: 4),
-                                            Text(
-                                              '+90s',
-                                              style: TextStyle(
-                                                color: Colors.white,
-                                                fontSize: 12,
-                                                fontWeight: FontWeight.bold,
-                                                letterSpacing: 0.5,
-                                              ),
-                                            ),
-                                          ],
+                                          tooltip: 'Lock Screen',
                                         ),
                                       ),
                                     ),
                                   ),
-                                ],
+                                ),
+                              ),
+                              Center(
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    IconButton(
+                                      iconSize: 28,
+                                      icon: Icon(
+                                        Icons.skip_previous,
+                                        color: widget.hasPrevEpisode ? Colors.white : Colors.white24,
+                                      ),
+                                      onPressed: widget.hasPrevEpisode ? widget.onPrevEpisode : null,
+                                    ),
+                                    const SizedBox(width: 24),
+                                    StreamBuilder<bool>(
+                                      stream: widget.player.stream.playing,
+                                      builder: (context, snapshot) {
+                                        final playing = snapshot.data ?? widget.player.state.playing;
+                                        return Container(
+                                          width: 52,
+                                          height: 52,
+                                          decoration: BoxDecoration(
+                                            shape: BoxShape.circle,
+                                            border: Border.all(color: Colors.white, width: 2),
+                                            color: Colors.white.withValues(alpha: 0.1),
+                                          ),
+                                          child: IconButton(
+                                            icon: Icon(playing ? Icons.pause : Icons.play_arrow, color: Colors.white),
+                                            iconSize: 30,
+                                            padding: EdgeInsets.zero,
+                                            onPressed: () {
+                                              if (playing) {
+                                                widget.player.pause();
+                                              } else {
+                                                widget.player.play();
+                                              }
+                                            },
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                    const SizedBox(width: 24),
+                                    IconButton(
+                                      iconSize: 28,
+                                      icon: Icon(
+                                        Icons.skip_next,
+                                        color: widget.hasNextEpisode ? Colors.white : Colors.white24,
+                                      ),
+                                      onPressed: widget.hasNextEpisode ? widget.onNextEpisode : null,
+                                    ),
+                                  ],
+                                ),
                               ),
                               Positioned(
                                 right: 0,
@@ -3133,6 +3130,43 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                                   child: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
+                                      Material(
+                                        color: Colors.transparent,
+                                        child: InkWell(
+                                          onTap: () {
+                                            final target = widget.player.state.position + const Duration(seconds: 90);
+                                            final safeTarget = _clampSeekTarget(target, showMessage: false);
+                                            _performSeek(safeTarget);
+                                          },
+                                          borderRadius: BorderRadius.circular(20),
+                                          child: Container(
+                                            height: 36,
+                                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                                            decoration: BoxDecoration(
+                                              borderRadius: BorderRadius.circular(18),
+                                              border: Border.all(color: Colors.white24, width: 1),
+                                              color: Colors.white.withValues(alpha: 0.08),
+                                            ),
+                                            child: const Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Icon(Icons.fast_forward, color: Colors.white, size: 14),
+                                                SizedBox(width: 4),
+                                                Text(
+                                                  '+90s',
+                                                  style: TextStyle(
+                                                    color: Colors.white,
+                                                    fontSize: 12,
+                                                    fontWeight: FontWeight.bold,
+                                                    letterSpacing: 0.5,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
                                       TextButton(
                                         onPressed: _showSpeedSelectorDialog,
                                         child: Text(
