@@ -261,6 +261,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 controller: _phoneController,
                 keyboardType: TextInputType.phone,
                 style: const TextStyle(color: Colors.white, fontSize: 16),
+                onSubmitted: (val) {
+                  final phoneText = val.trim();
+                  if (phoneText.isNotEmpty) {
+                    controller.setPhoneNumber(phoneText);
+                  }
+                },
                 decoration: InputDecoration(
                   labelText: 'Phone number',
                   labelStyle: TextStyle(color: Colors.white.withValues(alpha: 0.6)),
@@ -346,6 +352,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 controller: _codeController,
                 keyboardType: TextInputType.number,
                 style: const TextStyle(color: Colors.white, fontSize: 16),
+                onSubmitted: (val) {
+                  final code = val.trim();
+                  if (code.isNotEmpty) {
+                    controller.checkCode(code);
+                  }
+                },
                 decoration: InputDecoration(
                   labelText: 'Code',
                   labelStyle: TextStyle(color: Colors.white.withValues(alpha: 0.6)),
@@ -433,6 +445,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 controller: _passwordController,
                 obscureText: !_isPasswordVisible,
                 style: const TextStyle(color: Colors.white, fontSize: 16),
+                onSubmitted: (val) {
+                  final pwd = val.trim();
+                  if (pwd.isNotEmpty) {
+                    controller.checkPassword(pwd);
+                  }
+                },
                 decoration: InputDecoration(
                   labelText: 'Password',
                   labelStyle: TextStyle(color: Colors.white.withValues(alpha: 0.6)),

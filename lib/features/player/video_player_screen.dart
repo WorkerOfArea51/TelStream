@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
@@ -718,54 +719,119 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
       },
       child: Scaffold(
         backgroundColor: Colors.black,
-        body: Center(
-          child: _isPlaying 
-             ? CustomVideoControls(
-                 player: player,
-                 controller: controller,
-                 videoTitle: pipState?.queue[pipState.currentIndex].videoTitle ?? widget.videoTitle,
-                 isPip: false,
-                 downloadedPrefixSize: _downloadedPrefixSize,
-                 expectedSize: _expectedSize,
-                 activeDownloadOffset: _activeDownloadOffset,
-                 activeDownloadedSize: _activeDownloadedSize,
-                 onBack: () {
-                   try {
-                     player.setVolume(0.0);
-                     player.pause();
-                     player.stop();
-                   } catch (_) {}
-                   _resetOrientationAndUI();
-                   Navigator.of(context).pop();
-                 },
-                 hasPrevEpisode: pipState != null && pipState.currentIndex > 0,
-                 hasNextEpisode: pipState != null && pipState.currentIndex + 1 < pipState.queue.length,
-                 onPrevEpisode: _playPreviousEpisode,
-                 onNextEpisode: _playNextEpisode,
-                 onSeek: _handleCustomSeek,
-                 customBuffering: _isBuffering,
-                 seriesName: pipState?.queue[pipState.currentIndex].seriesName ?? widget.seriesName,
-                 currentEpisodeIndex: pipState?.currentIndex ?? widget.currentEpisodeIndex ?? 0,
-               )
-            : _isInitializing
-                ? Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: const [
-                      CircularProgressIndicator(color: Colors.blueAccent),
-                      SizedBox(height: 16),
-                      Text('Resolving video stream from Telegram...', style: TextStyle(color: Colors.white70)),
-                    ],
-                  )
-                : Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const CircularProgressIndicator(color: Colors.blueAccent),
-                      const SizedBox(height: 16),
-                      const Text('Buffering stream from Telegram...', style: TextStyle(color: Colors.white70)),
-                      if (_expectedSize > 0)
-                        Text('${(_downloadedPrefixSize / 1024 / 1024).toStringAsFixed(1)} MB / ${(_expectedSize / 1024 / 1024).toStringAsFixed(1)} MB', style: const TextStyle(color: Colors.white54)),
-                    ],
-                  ),
+        body: Focus(
+          autofocus: true,
+          onKeyEvent: (node, event) {
+            if (event is KeyDownEvent || event is KeyRepeatEvent) {
+              final key = event.logicalKey;
+              if (key == LogicalKeyboardKey.space || key == LogicalKeyboardKey.keyK) {
+                if (player.state.playing) {
+                  player.pause();
+                } else {
+                  player.play();
+                }
+                return KeyEventResult.handled;
+              } else if (key == LogicalKeyboardKey.arrowRight || key == LogicalKeyboardKey.keyL) {
+                final seekTarget = player.state.position + Duration(seconds: _settings.doubleTapSeekDuration);
+                _handleCustomSeek(seekTarget);
+                return KeyEventResult.handled;
+              } else if (key == LogicalKeyboardKey.arrowLeft || key == LogicalKeyboardKey.keyJ) {
+                final seekTarget = player.state.position - Duration(seconds: _settings.doubleTapSeekDuration);
+                _handleCustomSeek(seekTarget);
+                return KeyEventResult.handled;
+              } else if (key == LogicalKeyboardKey.arrowUp) {
+                final newVol = (player.state.volume + 5.0).clamp(0.0, 100.0);
+                player.setVolume(newVol);
+                return KeyEventResult.handled;
+              } else if (key == LogicalKeyboardKey.arrowDown) {
+                final newVol = (player.state.volume - 5.0).clamp(0.0, 100.0);
+                player.setVolume(newVol);
+                return KeyEventResult.handled;
+              } else if (key == LogicalKeyboardKey.keyM) {
+                if (player.state.volume > 0.0) {
+                  player.setVolume(0.0);
+                } else {
+                  player.setVolume(100.0);
+                }
+                return KeyEventResult.handled;
+              } else if (key == LogicalKeyboardKey.escape) {
+                try {
+                  player.setVolume(0.0);
+                  player.pause();
+                  player.stop();
+                } catch (_) {}
+                _resetOrientationAndUI();
+                Navigator.of(context).pop();
+                return KeyEventResult.handled;
+              }
+            }
+            return KeyEventResult.ignored;
+          },
+          child: Listener(
+            onPointerSignal: (pointerSignal) {
+              if (pointerSignal is PointerScrollEvent) {
+                final dy = pointerSignal.scrollDelta.dy;
+                if (dy < 0) {
+                  // Scrolled up
+                  final newVol = (player.state.volume + 5.0).clamp(0.0, 100.0);
+                  player.setVolume(newVol);
+                } else if (dy > 0) {
+                  // Scrolled down
+                  final newVol = (player.state.volume - 5.0).clamp(0.0, 100.0);
+                  player.setVolume(newVol);
+                }
+              }
+            },
+            child: Center(
+              child: _isPlaying 
+                 ? CustomVideoControls(
+                     player: player,
+                     controller: controller,
+                     videoTitle: pipState?.queue[pipState.currentIndex].videoTitle ?? widget.videoTitle,
+                     isPip: false,
+                     downloadedPrefixSize: _downloadedPrefixSize,
+                     expectedSize: _expectedSize,
+                     activeDownloadOffset: _activeDownloadOffset,
+                     activeDownloadedSize: _activeDownloadedSize,
+                     onBack: () {
+                       try {
+                         player.setVolume(0.0);
+                         player.pause();
+                         player.stop();
+                       } catch (_) {}
+                       _resetOrientationAndUI();
+                       Navigator.of(context).pop();
+                     },
+                     hasPrevEpisode: pipState != null && pipState.currentIndex > 0,
+                     hasNextEpisode: pipState != null && pipState.currentIndex + 1 < pipState.queue.length,
+                     onPrevEpisode: _playPreviousEpisode,
+                     onNextEpisode: _playNextEpisode,
+                     onSeek: _handleCustomSeek,
+                     customBuffering: _isBuffering,
+                     seriesName: pipState?.queue[pipState.currentIndex].seriesName ?? widget.seriesName,
+                     currentEpisodeIndex: pipState?.currentIndex ?? widget.currentEpisodeIndex ?? 0,
+                   )
+                : _isInitializing
+                    ? Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: const [
+                          CircularProgressIndicator(color: Colors.blueAccent),
+                          SizedBox(height: 16),
+                          Text('Resolving video stream from Telegram...', style: TextStyle(color: Colors.white70)),
+                        ],
+                      )
+                    : Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const CircularProgressIndicator(color: Colors.blueAccent),
+                          const SizedBox(height: 16),
+                          const Text('Buffering stream from Telegram...', style: TextStyle(color: Colors.white70)),
+                          if (_expectedSize > 0)
+                            Text('${(_downloadedPrefixSize / 1024 / 1024).toStringAsFixed(1)} MB / ${(_expectedSize / 1024 / 1024).toStringAsFixed(1)} MB', style: const TextStyle(color: Colors.white54)),
+                        ],
+                      ),
+            ),
+          ),
         ),
       ),
     );
