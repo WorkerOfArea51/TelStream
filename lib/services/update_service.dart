@@ -62,31 +62,43 @@ class UpdateService {
         final latestName = json['name'] as String? ?? latestTagName;
 
         final assets = json['assets'] as List<dynamic>? ?? [];
-        String apkDownloadUrl = htmlUrl;
+        String downloadUrl = htmlUrl;
 
-        // Auto-select the correct APK based on device architecture
-        final isArm64 = Platform.version.toLowerCase().contains('arm64') ||
-            Platform.version.toLowerCase().contains('aarch64');
-        final targetAssetName = isArm64 ? 'telstream-arm64.apk' : 'telstream-arm32.apk';
-
-        for (final asset in assets) {
-          if (asset is Map<String, dynamic>) {
-            final assetName = asset['name'] as String? ?? '';
-            if (assetName == targetAssetName) {
-              apkDownloadUrl = asset['browser_download_url'] as String? ?? apkDownloadUrl;
-              break;
-            }
-          }
-        }
-
-        // Fallback to any APK if architecture specific asset wasn't found
-        if (apkDownloadUrl == htmlUrl) {
+        if (Platform.isWindows) {
           for (final asset in assets) {
             if (asset is Map<String, dynamic>) {
               final assetName = asset['name'] as String? ?? '';
-              if (assetName.endsWith('.apk')) {
-                apkDownloadUrl = asset['browser_download_url'] as String? ?? apkDownloadUrl;
+              if (assetName == 'telstream-windows.zip') {
+                downloadUrl = asset['browser_download_url'] as String? ?? downloadUrl;
                 break;
+              }
+            }
+          }
+        } else {
+          // Auto-select the correct APK based on device architecture
+          final isArm64 = Platform.version.toLowerCase().contains('arm64') ||
+              Platform.version.toLowerCase().contains('aarch64');
+          final targetAssetName = isArm64 ? 'telstream-arm64.apk' : 'telstream-arm32.apk';
+
+          for (final asset in assets) {
+            if (asset is Map<String, dynamic>) {
+              final assetName = asset['name'] as String? ?? '';
+              if (assetName == targetAssetName) {
+                downloadUrl = asset['browser_download_url'] as String? ?? downloadUrl;
+                break;
+              }
+            }
+          }
+
+          // Fallback to any APK if architecture specific asset wasn't found
+          if (downloadUrl == htmlUrl) {
+            for (final asset in assets) {
+              if (asset is Map<String, dynamic>) {
+                final assetName = asset['name'] as String? ?? '';
+                if (assetName.endsWith('.apk')) {
+                  downloadUrl = asset['browser_download_url'] as String? ?? downloadUrl;
+                  break;
+                }
               }
             }
           }
@@ -100,7 +112,7 @@ class UpdateService {
             isUpdateAvailable: true,
             latestVersion: latestName,
             releaseNotes: releaseNotes,
-            releaseUrl: apkDownloadUrl,
+            releaseUrl: downloadUrl,
           );
         }
         
@@ -108,7 +120,7 @@ class UpdateService {
           isUpdateAvailable: false,
           latestVersion: latestName,
           releaseNotes: releaseNotes,
-          releaseUrl: apkDownloadUrl,
+          releaseUrl: downloadUrl,
         );
       }
     } catch (e) {
@@ -154,6 +166,11 @@ class _UpdateDialogContentState extends State<UpdateDialogContent> {
   }
 
   Future<void> _startDownload() async {
+    if (Platform.isWindows) {
+      await _fallbackBrowserDownload();
+      return;
+    }
+
     setState(() {
       _isDownloading = true;
       _hasError = false;
