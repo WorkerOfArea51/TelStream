@@ -14,8 +14,19 @@ class ChannelCategory {
 }
 
 class Constants {
-  static const String currentVersion = '2.8.0';
+  static const String currentVersion = '2.9.0';
   static const String changelog = '''
+### 🚀 What's New in v2.9.0
+
+* **PC / Windows Platform Support**:
+  - Configured project CMake build targets and optimized dependencies to compile natively on Windows.
+* **Material 3 Expressive Animated UI**:
+  - Integrated interactive list tiles with custom micro-animations (spinning settings gear, counter-rotating history clock, and elastic pulsing shapes).
+* **Subtitle Compatibility Alerts**:
+  - Embedded warning banners for PGS/VobSub formats with quick actions to switch between Native/Flutter rendering or toggle HW+ decoders.
+* **Streaming Proxy Range fixes**:
+  - Corrected seek range boundaries (`end + 1`) to conform with strict HTTP Content-Length expectations.
+
 ### 🚀 What's New in v2.8.0
 
 * **Stats for Nerds & Real-time Media Analytics**:
