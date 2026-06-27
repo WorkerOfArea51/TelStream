@@ -306,16 +306,41 @@ class StreamingProxyService {
             currentFile = _fileStates[fileId]!;
           }
 
-          if (currentOffset < activeOffset) {
-            if (currentFile.local.downloadedPrefixSize >= targetEndOffset) {
-              isAvailable = true;
-            }
-          } else {
+          // Global check: if the chunk lies entirely within the contiguous downloaded prefix, it is definitely available
+          if (currentFile.local.downloadedPrefixSize >= targetEndOffset) {
+            isAvailable = true;
+          } else if (currentOffset >= activeOffset) {
+            // Check active download delta
             final downloadedDelta = currentFile.local.downloadedSize - baseDownloaded;
             final availableRangeEnd = activeOffset + downloadedDelta;
             if (targetEndOffset <= availableRangeEnd) {
               isAvailable = true;
             }
+          }
+
+          List<int>? preReadBytes;
+          
+          // Fast content-level cache check: if metadata is inconclusive, inspect file directly.
+          // Since TDLib pre-allocates files with zeroes, if we find any non-zero byte in this chunk on disk,
+          // it means this chunk was already successfully downloaded from a previous session and is ready.
+          if (!isAvailable) {
+            try {
+              await raf.setPosition(currentOffset);
+              final checkBytes = await raf.read(chunkNeeded);
+              if (checkBytes.isNotEmpty) {
+                bool hasData = false;
+                for (int i = 0; i < checkBytes.length; i++) {
+                  if (checkBytes[i] != 0) {
+                    hasData = true;
+                    break;
+                  }
+                }
+                if (hasData) {
+                  isAvailable = true;
+                  preReadBytes = checkBytes;
+                }
+              }
+            } catch (_) {}
           }
 
           // If not ready, wait event-driven without polling TDLib
@@ -366,7 +391,7 @@ class StreamingProxyService {
               clientDisconnected = true;
             });
 
-            // Resilient retry loop: wait in increments of 1.5 seconds, re-triggering DownloadFile if network handovers or band switches occurred
+            // Resilient retry loop: wait in increments of 1.5 seconds, re-triggering DownloadFile if network handovers occurred
             int waitSeconds = 0;
             const int maxWaitSeconds = 20;
             bool available = false;
@@ -379,11 +404,9 @@ class StreamingProxyService {
                   _fileStates[fileId] = event.file; // Update cache
 
                   bool checkAvailable = false;
-                  if (currentOffset < activeOffset) {
-                    if (event.file.local.downloadedPrefixSize >= targetEndOffset) {
-                      checkAvailable = true;
-                    }
-                  } else {
+                  if (event.file.local.downloadedPrefixSize >= targetEndOffset) {
+                    checkAvailable = true;
+                  } else if (currentOffset >= activeOffset) {
                     final downloadedDelta = event.file.local.downloadedSize - baseDownloaded;
                     final availableRangeEnd = activeOffset + downloadedDelta;
                     if (targetEndOffset <= availableRangeEnd) {
@@ -403,8 +426,6 @@ class StreamingProxyService {
               try {
                 await waitCompleter.future.timeout(const Duration(milliseconds: 1500));
               } catch (_) {
-                // Timeout on this step - let's send a kick/re-trigger download request to TDLib
-                // in case the network band switched (e.g. 5GHz to 2.4GHz) or carrier dropped connection
                 if (!currentFile.local.isDownloadingCompleted && !clientDisconnected) {
                   Log.w('Streaming proxy: network band/switch kick for file $fileId at offset $activeOffset (waiting for $currentOffset)');
                   _tdlibService.send(td.DownloadFile(
@@ -438,9 +459,15 @@ class StreamingProxyService {
             }
           }
 
-          // Read and write chunk using persistent RandomAccessFile
-          await raf.setPosition(currentOffset);
-          final bytes = await raf.read(chunkNeeded);
+          // Read and write chunk using persistent RandomAccessFile or reuse pre-read bytes
+          final List<int> bytes;
+          if (preReadBytes != null) {
+            bytes = preReadBytes;
+            preReadBytes = null;
+          } else {
+            await raf.setPosition(currentOffset);
+            bytes = await raf.read(chunkNeeded);
+          }
           if (bytes.isEmpty) break;
 
           request.response.add(bytes);

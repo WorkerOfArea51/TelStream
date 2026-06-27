@@ -2,6 +2,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:media_kit/media_kit.dart';
 import '../../../core/theme/app_theme.dart';
+import 'subtitle_styling_tab.dart';
 
 class TrackSelectorPanel extends StatefulWidget {
   final Player player;
@@ -9,6 +10,8 @@ class TrackSelectorPanel extends StatefulWidget {
   final Map<String, String> trackCodecs;
   final String currentRendererMode;
   final ValueChanged<String> onRendererModeChanged;
+  final String currentDecoderMode;
+  final ValueChanged<String> onDecoderModeChanged;
   final double currentSubtitleDelay;
   final ValueChanged<double> onSubtitleDelayChanged;
   final ValueChanged<dynamic> onTrackSelected;
@@ -31,6 +34,8 @@ class TrackSelectorPanel extends StatefulWidget {
     required this.trackCodecs,
     required this.currentRendererMode,
     required this.onRendererModeChanged,
+    required this.currentDecoderMode,
+    required this.onDecoderModeChanged,
     required this.currentSubtitleDelay,
     required this.onSubtitleDelayChanged,
     required this.onTrackSelected,
@@ -51,30 +56,6 @@ class TrackSelectorPanel extends StatefulWidget {
 
 class _TrackSelectorPanelState extends State<TrackSelectorPanel> {
   int _activeTab = 0; // 0: Tracks, 1: Style
-
-  static const List<Map<String, String>> _colors = [
-    {'name': 'White', 'hex': '#FFFFFF'},
-    {'name': 'Black', 'hex': '#000000'},
-    {'name': 'Yellow', 'hex': '#FFFF00'},
-    {'name': 'Green', 'hex': '#00FF00'},
-    {'name': 'Red', 'hex': '#FF0000'},
-    {'name': 'Cyan', 'hex': '#00FFFF'},
-    {'name': 'Blue', 'hex': '#0000FF'},
-    {'name': 'Orange', 'hex': '#FFA500'},
-    {'name': 'Magenta', 'hex': '#FF00FF'},
-  ];
-
-  Color _parseColor(String hex) {
-    try {
-      final cleanHex = hex.replaceAll('#', '');
-      if (cleanHex.length == 6) {
-        return Color(int.parse('FF$cleanHex', radix: 16));
-      } else if (cleanHex.length == 8) {
-        return Color(int.parse(cleanHex, radix: 16));
-      }
-    } catch (_) {}
-    return Colors.white;
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -114,12 +95,23 @@ class _TrackSelectorPanelState extends State<TrackSelectorPanel> {
               }
             }
             
-            // Check if current track is ASS to show a recommended mode banner
+            // Check if current track is ASS or PGS/Graphical to show recommended mode banners
             bool isAssCodecSelected = false;
+            bool isGraphicalCodecSelected = false;
             if (widget.isSubtitle && currentTrack != null && currentTrack.id != 'no' && currentTrack.id != 'auto') {
               final codec = widget.trackCodecs['sub/${currentTrack.id}'];
-              if (codec != null && (codec.toLowerCase().contains('ass') || codec.toLowerCase().contains('ssa') || codec.toLowerCase().contains('substation'))) {
-                isAssCodecSelected = true;
+              if (codec != null) {
+                final codecLower = codec.toLowerCase();
+                if (codecLower.contains('ass') || codecLower.contains('ssa') || codecLower.contains('substation')) {
+                  isAssCodecSelected = true;
+                } else if (codecLower.contains('pgs') || 
+                           codecLower.contains('hdmv') || 
+                           codecLower.contains('dvd') || 
+                           codecLower.contains('vob') || 
+                           codecLower.contains('dvb') || 
+                           codecLower == 'xsub') {
+                  isGraphicalCodecSelected = true;
+                }
               }
             }
 
@@ -225,7 +217,16 @@ class _TrackSelectorPanelState extends State<TrackSelectorPanel> {
                           Expanded(
                             child: SingleChildScrollView(
                               padding: const EdgeInsets.symmetric(vertical: 8),
-                              child: _buildStyleTab(settingsAccent),
+                              child: SubtitleStylingTab(
+                                currentFontSize: widget.currentFontSize,
+                                onFontSizeChanged: widget.onFontSizeChanged,
+                                currentFontColor: widget.currentFontColor,
+                                onFontColorChanged: widget.onFontColorChanged,
+                                currentFontFamily: widget.currentFontFamily,
+                                onFontFamilyChanged: widget.onFontFamilyChanged,
+                                currentRendererMode: widget.currentRendererMode,
+                                settingsAccent: settingsAccent,
+                              ),
                             ),
                           )
                         else
@@ -296,6 +297,90 @@ class _TrackSelectorPanelState extends State<TrackSelectorPanel> {
                                                 ),
                                               ),
                                             ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  if (isGraphicalCodecSelected)
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                        decoration: BoxDecoration(
+                                          color: widget.currentRendererMode == 'flutter'
+                                              ? Colors.redAccent.withValues(alpha: 0.1)
+                                              : (widget.currentDecoderMode == 'mediacodec'
+                                                  ? Colors.orange.withValues(alpha: 0.1)
+                                                  : settingsAccent.withValues(alpha: 0.1)),
+                                          borderRadius: BorderRadius.circular(8),
+                                          border: Border.all(
+                                            color: widget.currentRendererMode == 'flutter'
+                                                ? Colors.redAccent.withValues(alpha: 0.3)
+                                                : (widget.currentDecoderMode == 'mediacodec'
+                                                    ? Colors.orange.withValues(alpha: 0.3)
+                                                    : settingsAccent.withValues(alpha: 0.3)),
+                                          ),
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            Icon(
+                                              widget.currentRendererMode == 'flutter'
+                                                  ? Icons.error_outline
+                                                  : (widget.currentDecoderMode == 'mediacodec'
+                                                      ? Icons.warning_amber_rounded
+                                                      : Icons.info_outline),
+                                              color: widget.currentRendererMode == 'flutter'
+                                                  ? Colors.redAccent
+                                                  : (widget.currentDecoderMode == 'mediacodec'
+                                                      ? Colors.orangeAccent
+                                                      : settingsAccent),
+                                              size: 16,
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Expanded(
+                                              child: Text(
+                                                widget.currentRendererMode == 'flutter'
+                                                    ? 'PGS/VobSub subtitles cannot render in Overlay mode.'
+                                                    : (widget.currentDecoderMode == 'mediacodec'
+                                                        ? 'PGS subtitles require HW+ or SW decoder to render natively.'
+                                                        : 'Native rendering active with compatible decoder.'),
+                                                style: TextStyle(
+                                                  color: widget.currentRendererMode == 'flutter'
+                                                      ? Colors.redAccent
+                                                      : (widget.currentDecoderMode == 'mediacodec'
+                                                          ? Colors.orangeAccent
+                                                          : Colors.white70),
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.w500,
+                                                ),
+                                              ),
+                                            ),
+                                            if (widget.currentRendererMode == 'flutter')
+                                              TextButton(
+                                                style: TextButton.styleFrom(
+                                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                                  minimumSize: Size.zero,
+                                                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                                ),
+                                                onPressed: () => widget.onRendererModeChanged('native'),
+                                                child: Text(
+                                                  'Use Native',
+                                                  style: TextStyle(color: settingsAccent, fontSize: 11, fontWeight: FontWeight.bold),
+                                                ),
+                                              )
+                                            else if (widget.currentDecoderMode == 'mediacodec')
+                                              TextButton(
+                                                style: TextButton.styleFrom(
+                                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                                  minimumSize: Size.zero,
+                                                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                                ),
+                                                onPressed: () => widget.onDecoderModeChanged('mediacodec-copy'),
+                                                child: Text(
+                                                  'Use HW+',
+                                                  style: TextStyle(color: settingsAccent, fontSize: 11, fontWeight: FontWeight.bold),
+                                                ),
+                                              ),
                                           ],
                                         ),
                                       ),
@@ -576,237 +661,6 @@ class _TrackSelectorPanelState extends State<TrackSelectorPanel> {
             ),
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildPresetCard(String sampleText, String colorHex, String fontFamily, Color activeColor) {
-    final isSelected = widget.currentFontColor.toUpperCase() == colorHex.toUpperCase();
-    final textColor = _parseColor(colorHex);
-
-    return InkWell(
-      onTap: () => widget.onFontColorChanged(colorHex),
-      borderRadius: BorderRadius.circular(10),
-      child: Container(
-        width: 68,
-        height: 38,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: isSelected ? activeColor.withValues(alpha: 0.15) : Colors.white.withValues(alpha: 0.03),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: isSelected ? activeColor : Colors.white10,
-            width: 1.5,
-          ),
-        ),
-        child: Text(
-          sampleText,
-          style: TextStyle(
-            color: textColor,
-            fontFamily: fontFamily,
-            fontSize: 14,
-            fontWeight: FontWeight.bold,
-            shadows: const [
-              Shadow(offset: Offset(-1.0, -1.0), color: Colors.black, blurRadius: 1.0),
-              Shadow(offset: Offset(1.0, -1.0), color: Colors.black, blurRadius: 1.0),
-              Shadow(offset: Offset(1.0, 1.0), color: Colors.black, blurRadius: 1.0),
-              Shadow(offset: Offset(-1.0, 1.0), color: Colors.black, blurRadius: 1.0),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildStyleTab(Color settingsAccent) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // 1. Live Preview
-          const Text(
-            'Live Preview',
-            style: TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 6),
-          Container(
-            height: 52,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: Colors.black38,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.white10),
-            ),
-            child: Text(
-              'Sample Subtitle',
-              style: TextStyle(
-                color: _parseColor(widget.currentFontColor),
-                fontSize: (widget.currentFontSize * 0.45).clamp(12.0, 24.0),
-                fontFamily: widget.currentFontFamily,
-                fontWeight: FontWeight.bold,
-                shadows: const [
-                  Shadow(offset: Offset(-1.5, -1.5), color: Colors.black, blurRadius: 1.0),
-                  Shadow(offset: Offset(1.5, -1.5), color: Colors.black, blurRadius: 1.0),
-                  Shadow(offset: Offset(1.5, 1.5), color: Colors.black, blurRadius: 1.0),
-                  Shadow(offset: Offset(-1.5, 1.5), color: Colors.black, blurRadius: 1.0),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-
-          // Warning if native is selected that it has limited styling on some ASS tracks
-          if (widget.currentRendererMode == 'native')
-            Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(
-                  color: Colors.blueAccent.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.blueAccent.withValues(alpha: 0.2)),
-                ),
-                child: const Text(
-                  'Note: Font style customization works fully on Overlay mode. Native mode styling is dependent on the video file track settings.',
-                  style: TextStyle(color: Colors.white54, fontSize: 10),
-                ),
-              ),
-            ),
-
-          // 2. Preset styles
-          const Text(
-            'Preset Styles',
-            style: TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 6),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _buildPresetCard('Aa', '#FFFFFF', 'Roboto', settingsAccent),
-              _buildPresetCard('Aa', '#00FFFF', 'Roboto', settingsAccent),
-              _buildPresetCard('Aa', '#FFFF00', 'Roboto', settingsAccent),
-              _buildPresetCard('Aa', '#00FF00', 'Roboto', settingsAccent),
-            ],
-          ),
-          const SizedBox(height: 12),
-
-          // 3. Color Selection
-          const Text(
-            'Font Color',
-            style: TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 6),
-          SizedBox(
-            height: 36,
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              itemCount: _colors.length,
-              itemBuilder: (context, idx) {
-                final colorInfo = _colors[idx];
-                final colorHex = colorInfo['hex']!;
-                final isSelected = widget.currentFontColor.toUpperCase() == colorHex.toUpperCase();
-                final colorVal = _parseColor(colorHex);
-
-                return Padding(
-                  padding: const EdgeInsets.only(right: 10),
-                  child: GestureDetector(
-                    onTap: () => widget.onFontColorChanged(colorHex),
-                    child: Container(
-                      width: 32,
-                      height: 32,
-                      decoration: BoxDecoration(
-                        color: colorVal,
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: isSelected ? settingsAccent : Colors.white24,
-                          width: isSelected ? 2.5 : 1.0,
-                        ),
-                      ),
-                      child: isSelected
-                          ? Icon(
-                              Icons.check,
-                              color: colorVal.computeLuminance() > 0.5 ? Colors.black : Colors.white,
-                              size: 16,
-                            )
-                          : null,
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-          const SizedBox(height: 12),
-
-          // 4. Font Size
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                'Font Size',
-                style: TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold),
-              ),
-              Text(
-                '${widget.currentFontSize.round()}px',
-                style: TextStyle(color: settingsAccent, fontSize: 12, fontWeight: FontWeight.bold),
-              ),
-            ],
-          ),
-          SliderTheme(
-            data: SliderTheme.of(context).copyWith(
-              trackHeight: 2,
-              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
-              overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
-            ),
-            child: Slider(
-              value: widget.currentFontSize,
-              min: 16.0,
-              max: 72.0,
-              divisions: 56, // 1px steps
-              activeColor: settingsAccent,
-              inactiveColor: Colors.white24,
-              onChanged: widget.onFontSizeChanged,
-            ),
-          ),
-          const SizedBox(height: 4),
-
-          // 5. Font Family
-          const Text(
-            'Font Family',
-            style: TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 6),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: ['Roboto', 'Arial', 'sans-serif', 'DejaVuSans'].map((font) {
-              final isSelected = widget.currentFontFamily.toLowerCase() == font.toLowerCase();
-              return InkWell(
-                onTap: () => widget.onFontFamilyChanged(font),
-                borderRadius: BorderRadius.circular(8),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: isSelected ? settingsAccent.withValues(alpha: 0.15) : Colors.white.withValues(alpha: 0.03),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: isSelected ? settingsAccent : Colors.white10,
-                      width: 1.5,
-                    ),
-                  ),
-                  child: Text(
-                    font,
-                    style: TextStyle(
-                      color: isSelected ? settingsAccent : Colors.white70,
-                      fontFamily: font,
-                      fontSize: 10,
-                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                    ),
-                  ),
-                ),
-              );
-            }).toList(),
-          ),
-        ],
       ),
     );
   }
