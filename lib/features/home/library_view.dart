@@ -61,6 +61,24 @@ class _LibraryViewState extends ConsumerState<LibraryView> with SingleTickerProv
     });
   }
 
+  int _getCrossAxisCount(BuildContext context, String layout) {
+    final width = MediaQuery.of(context).size.width;
+    final isCompact = layout == 'Compact';
+    final isList = layout == 'List';
+    
+    if (isList) return 1;
+    
+    if (width > 1600) {
+      return isCompact ? 10 : 8;
+    } else if (width > 1200) {
+      return isCompact ? 8 : 6;
+    } else if (width > 800) {
+      return isCompact ? 6 : 4;
+    } else {
+      return isCompact ? 3 : 2; // Mobile fallback
+    }
+  }
+
   @override
   void dispose() {
     _subTabController.dispose();
@@ -300,7 +318,7 @@ class _LibraryViewState extends ConsumerState<LibraryView> with SingleTickerProv
                         )
                       : SliverGrid(
                           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: layout == 'Compact' ? 3 : 2,
+                            crossAxisCount: _getCrossAxisCount(context, layout),
                             childAspectRatio: layout == 'Compact' ? 0.7 : 0.72,
                             crossAxisSpacing: 12,
                             mainAxisSpacing: 12,
@@ -347,7 +365,7 @@ class _LibraryViewState extends ConsumerState<LibraryView> with SingleTickerProv
           return GridView.builder(
             padding: const EdgeInsets.only(left: 12, right: 12, top: 12, bottom: 96),
             gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: isCompact ? 3 : 2,
+              crossAxisCount: _getCrossAxisCount(context, layout),
               childAspectRatio: isCompact ? 0.7 : 0.72,
               crossAxisSpacing: 12,
               mainAxisSpacing: 12,

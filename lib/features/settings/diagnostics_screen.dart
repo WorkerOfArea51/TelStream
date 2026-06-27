@@ -1,9 +1,9 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:path_provider/path_provider.dart';
 import '../../services/storage_service.dart';
 import '../settings/settings_provider.dart';
+import '../../core/utils/path_helper.dart';
 
 class DiagnosticsScreen extends ConsumerStatefulWidget {
   const DiagnosticsScreen({super.key});
@@ -24,7 +24,7 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
 
   Future<void> _loadDiagnosticsInfo() async {
     try {
-      final docDir = await getApplicationDocumentsDirectory();
+      final docDir = await getAppDirectory();
       int cacheBytes = 0;
       if (await docDir.exists()) {
         await for (final entity in docDir.list(recursive: true, followLinks: false)) {

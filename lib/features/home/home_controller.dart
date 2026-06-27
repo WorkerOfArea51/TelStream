@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'package:path_provider/path_provider.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tdlib/td_api.dart' as td;
@@ -11,6 +10,7 @@ import '../../services/storage_service.dart';
 import '../../models/anime_models.dart';
 import '../../core/logger.dart';
 import '../player/pip_manager.dart';
+import '../../core/utils/path_helper.dart';
 
 enum SortOrder { newest, oldest, aToZ, zToA }
 
@@ -48,7 +48,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
     final lastSeen = storage.getLastSeenVersion();
     if (lastSeen != Constants.currentVersion) {
       try {
-        final directory = await getApplicationDocumentsDirectory();
+        final directory = await getAppDirectory();
         for (final cat in Constants.categories) {
           final cachePath = '${directory.path}/catalog_cache_${cat.title.replaceAll(' ', '_')}.json';
           final file = File(cachePath);
@@ -239,7 +239,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
 
     // 1. Try loading catalog cache first
     try {
-      final directory = await getApplicationDocumentsDirectory();
+      final directory = await getAppDirectory();
       final cachePath = '${directory.path}/catalog_cache_${category.title.replaceAll(' ', '_')}.json';
       final file = File(cachePath);
       if (await file.exists()) {
@@ -299,7 +299,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
 
   Future<void> _saveCatalogCache() async {
     try {
-      final directory = await getApplicationDocumentsDirectory();
+      final directory = await getAppDirectory();
       final cachePath = '${directory.path}/catalog_cache_${category.title.replaceAll(' ', '_')}.json';
       final file = File(cachePath);
       final jsonList = _allSeries.map((s) => s.toJson()).toList();

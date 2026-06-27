@@ -34,201 +34,206 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-          children: [
-            // Centered App Logo & Branding
-            Column(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 800),
+            child: ListView(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
               children: [
-                Container(
-                  width: 90,
-                  height: 90,
-                  decoration: BoxDecoration(
-                    color: isDark ? Colors.black : Colors.white,
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: theme.primaryColor.withValues(alpha: 0.4),
-                        blurRadius: 20,
-                        spreadRadius: 2,
-                      )
-                    ],
+                // Centered App Logo & Branding
+                Column(
+                  children: [
+                    Container(
+                      width: 90,
+                      height: 90,
+                      decoration: BoxDecoration(
+                        color: isDark ? Colors.black : Colors.white,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: theme.primaryColor.withValues(alpha: 0.4),
+                            blurRadius: 20,
+                            spreadRadius: 2,
+                          )
+                        ],
+                      ),
+                      clipBehavior: Clip.hardEdge,
+                      child: Image.asset(
+                        'assets/icon.png',
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Icon(Icons.play_circle_fill, size: 60, color: theme.primaryColor);
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'TelStream',
+                      style: TextStyle(
+                        color: textColor,
+                        fontSize: 26,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1.2,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'v${Constants.currentVersion} • Fairy Tail (${Secrets.buildTag})',
+                      style: TextStyle(
+                        color: subTextColor,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+
+                // General Preferences Card
+                Card(
+                  elevation: 0,
+                  color: theme.cardColor,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                    side: BorderSide(color: theme.colorScheme.onSurface.withValues(alpha: 0.08), width: 1),
                   ),
-                  clipBehavior: Clip.hardEdge,
-                  child: Image.asset(
-                    'assets/icon.png',
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) {
-                      return Icon(Icons.play_circle_fill, size: 60, color: theme.primaryColor);
-                    },
+                  clipBehavior: Clip.antiAlias,
+                  child: Column(
+                    children: [
+                      _buildSwitchTile(
+                        title: 'Downloaded only',
+                        subtitle: 'Filters libraries to only show watched/local episodes',
+                        value: isDownloadedOnly,
+                        onChanged: (val) {
+                          ref.read(downloadedOnlyProvider.notifier).toggle(val);
+                        },
+                      ),
+                      Divider(color: theme.dividerColor, height: 1, indent: 16, endIndent: 16),
+                      _buildSwitchTile(
+                        title: 'Incognito mode',
+                        subtitle: 'Pauses watch history and progress logging',
+                        value: isIncognitoMode,
+                        onChanged: (val) {
+                          ref.read(incognitoModeProvider.notifier).toggle(val);
+                        },
+                      ),
+                    ],
                   ),
                 ),
                 const SizedBox(height: 16),
-                Text(
-                  'TelStream',
-                  style: TextStyle(
-                    color: textColor,
-                    fontSize: 26,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 1.2,
+
+                // Navigation Items Card
+                Card(
+                  elevation: 0,
+                  color: theme.cardColor,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                    side: BorderSide(color: theme.colorScheme.onSurface.withValues(alpha: 0.08), width: 1),
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: Column(
+                    children: [
+                      M3AnimatedMenuTile(
+                        icon: Icons.history,
+                        title: 'History',
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (context) => const HistoryScreen()),
+                          );
+                        },
+                      ),
+                      Divider(color: theme.dividerColor, height: 1, indent: 56, endIndent: 16),
+                      M3AnimatedMenuTile(
+                        icon: Icons.download_done_rounded,
+                        title: 'Downloads',
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (context) => const DownloadsScreen(initialIndex: 1)),
+                          );
+                        },
+                      ),
+                      Divider(color: theme.dividerColor, height: 1, indent: 56, endIndent: 16),
+                      M3AnimatedMenuTile(
+                        icon: Icons.link,
+                        title: 'Network stream',
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (context) => const NetworkStreamScreen()),
+                          );
+                        },
+                      ),
+                      Divider(color: theme.dividerColor, height: 1, indent: 56, endIndent: 16),
+                      M3AnimatedMenuTile(
+                        icon: Icons.search_rounded,
+                        title: 'Global Search',
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (context) => const GlobalSearchScreen()),
+                          );
+                        },
+                      ),
+                      Divider(color: theme.dividerColor, height: 1, indent: 56, endIndent: 16),
+                      M3AnimatedMenuTile(
+                        icon: Icons.calendar_month_rounded,
+                        title: 'Airing Calendar',
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (context) => const AiringCalendarScreen()),
+                          );
+                        },
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  'v${Constants.currentVersion} • Fairy Tail (${Secrets.buildTag})',
-                  style: TextStyle(
-                    color: subTextColor,
-                    fontSize: 13,
+                const SizedBox(height: 16),
+
+                // Settings & System Card
+                Card(
+                  elevation: 0,
+                  color: theme.cardColor,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                    side: BorderSide(color: theme.colorScheme.onSurface.withValues(alpha: 0.08), width: 1),
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: Column(
+                    children: [
+                      M3AnimatedMenuTile(
+                        icon: Icons.settings,
+                        title: 'Settings',
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (context) => const SettingsScreen()),
+                          );
+                        },
+                      ),
+                      Divider(color: theme.dividerColor, height: 1, indent: 56, endIndent: 16),
+                      M3AnimatedMenuTile(
+                        icon: Icons.system_update_alt_rounded,
+                        title: 'Check for update',
+                        onTap: () {
+                          _manuallyCheckForUpdate(context);
+                        },
+                      ),
+                      Divider(color: theme.dividerColor, height: 1, indent: 56, endIndent: 16),
+                      M3AnimatedMenuTile(
+                        icon: Icons.info_outline,
+                        title: 'About',
+                        onTap: () {
+                          _showAboutDialog(context);
+                        },
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 24),
-
-            // General Preferences Card
-            Card(
-              elevation: 0,
-              color: theme.cardColor,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
-                side: BorderSide(color: theme.colorScheme.onSurface.withValues(alpha: 0.08), width: 1),
-              ),
-              clipBehavior: Clip.antiAlias,
-              child: Column(
-                children: [
-                  _buildSwitchTile(
-                    title: 'Downloaded only',
-                    subtitle: 'Filters libraries to only show watched/local episodes',
-                    value: isDownloadedOnly,
-                    onChanged: (val) {
-                      ref.read(downloadedOnlyProvider.notifier).toggle(val);
-                    },
-                  ),
-                  Divider(color: theme.dividerColor, height: 1, indent: 16, endIndent: 16),
-                  _buildSwitchTile(
-                    title: 'Incognito mode',
-                    subtitle: 'Pauses watch history and progress logging',
-                    value: isIncognitoMode,
-                    onChanged: (val) {
-                      ref.read(incognitoModeProvider.notifier).toggle(val);
-                    },
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            // Navigation Items Card
-            Card(
-              elevation: 0,
-              color: theme.cardColor,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
-                side: BorderSide(color: theme.colorScheme.onSurface.withValues(alpha: 0.08), width: 1),
-              ),
-              clipBehavior: Clip.antiAlias,
-              child: Column(
-                children: [
-                  M3AnimatedMenuTile(
-                    icon: Icons.history,
-                    title: 'History',
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (context) => const HistoryScreen()),
-                      );
-                    },
-                  ),
-                  Divider(color: theme.dividerColor, height: 1, indent: 56, endIndent: 16),
-                  M3AnimatedMenuTile(
-                    icon: Icons.download_done_rounded,
-                    title: 'Downloads',
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (context) => const DownloadsScreen(initialIndex: 1)),
-                      );
-                    },
-                  ),
-                  Divider(color: theme.dividerColor, height: 1, indent: 56, endIndent: 16),
-                  M3AnimatedMenuTile(
-                    icon: Icons.link,
-                    title: 'Network stream',
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (context) => const NetworkStreamScreen()),
-                      );
-                    },
-                  ),
-                  Divider(color: theme.dividerColor, height: 1, indent: 56, endIndent: 16),
-                  M3AnimatedMenuTile(
-                    icon: Icons.search_rounded,
-                    title: 'Global Search',
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (context) => const GlobalSearchScreen()),
-                      );
-                    },
-                  ),
-                  Divider(color: theme.dividerColor, height: 1, indent: 56, endIndent: 16),
-                  M3AnimatedMenuTile(
-                    icon: Icons.calendar_month_rounded,
-                    title: 'Airing Calendar',
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (context) => const AiringCalendarScreen()),
-                      );
-                    },
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            // Settings & System Card
-            Card(
-              elevation: 0,
-              color: theme.cardColor,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
-                side: BorderSide(color: theme.colorScheme.onSurface.withValues(alpha: 0.08), width: 1),
-              ),
-              clipBehavior: Clip.antiAlias,
-              child: Column(
-                children: [
-                  M3AnimatedMenuTile(
-                    icon: Icons.settings,
-                    title: 'Settings',
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (context) => const SettingsScreen()),
-                      );
-                    },
-                  ),
-                  Divider(color: theme.dividerColor, height: 1, indent: 56, endIndent: 16),
-                  M3AnimatedMenuTile(
-                    icon: Icons.system_update_alt_rounded,
-                    title: 'Check for update',
-                    onTap: () {
-                      _manuallyCheckForUpdate(context);
-                    },
-                  ),
-                  Divider(color: theme.dividerColor, height: 1, indent: 56, endIndent: 16),
-                  M3AnimatedMenuTile(
-                    icon: Icons.info_outline,
-                    title: 'About',
-                    onTap: () {
-                      _showAboutDialog(context);
-                    },
-                  ),
-                ],
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );

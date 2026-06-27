@@ -355,7 +355,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         elevation: 0,
         iconTheme: IconThemeData(color: isDark ? Colors.white : Colors.black87),
       ),
-      body: ListView(
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 800),
+          child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
           Text('Storage Management', style: TextStyle(color: settingsAccent, fontWeight: FontWeight.bold, fontSize: 16)),
@@ -651,6 +654,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
         ],
       ),
-    );
+    ),
+  ),
+);
   }
 }

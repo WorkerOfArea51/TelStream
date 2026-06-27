@@ -3,8 +3,8 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:path_provider/path_provider.dart';
 import '../core/logger.dart';
+import '../core/utils/path_helper.dart';
 
 final storageServiceProvider = Provider<StorageService>((ref) {
   return StorageService();
@@ -23,7 +23,7 @@ class StorageService {
   String? get localFontPath => _localFontPath;
 
   Future<void> init() async {
-    final directory = await getApplicationDocumentsDirectory();
+    final directory = await getAppDirectory();
     final primaryPath = '${directory.path}/user_storage.json';
     final backupPath = '$primaryPath.bak';
     _file = File(primaryPath);

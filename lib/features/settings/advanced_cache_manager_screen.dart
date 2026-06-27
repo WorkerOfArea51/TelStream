@@ -2,13 +2,13 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:tdlib/td_api.dart' as td;
 import '../../services/tdlib_service.dart';
 import '../../services/storage_service.dart';
 import '../../services/download_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/logger.dart';
+import '../../core/utils/path_helper.dart';
 
 class SeriesCacheInfo {
   final String seriesName;
@@ -52,7 +52,7 @@ class _AdvancedCacheManagerScreenState extends ConsumerState<AdvancedCacheManage
     setState(() => _isLoading = true);
 
     try {
-      final docDir = await getApplicationDocumentsDirectory();
+      final docDir = await getAppDirectory();
       
       // Calculate directory sizes in the background to avoid locking UI
       final dirSizes = await compute(_getDirSizesIsolate, docDir.path);

@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -58,6 +59,58 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDesktop = Platform.isWindows;
+
+    Widget mainBody = IndexedStack(
+      index: _currentIndex,
+      children: _screens,
+    );
+
+    if (isDesktop) {
+      mainBody = Row(
+        children: [
+          NavigationRail(
+            selectedIndex: _currentIndex,
+            onDestinationSelected: (index) {
+              setState(() {
+                _currentIndex = index;
+              });
+            },
+            labelType: NavigationRailLabelType.all,
+            backgroundColor: theme.cardColor,
+            indicatorColor: theme.primaryColor,
+            selectedIconTheme: IconThemeData(
+              color: theme.primaryColor.computeLuminance() > 0.5 ? Colors.black : Colors.white,
+            ),
+            destinations: const [
+              NavigationRailDestination(
+                icon: Icon(Icons.tv_outlined),
+                selectedIcon: Icon(Icons.tv),
+                label: Text('Anime'),
+              ),
+              NavigationRailDestination(
+                icon: Icon(Icons.movie_outlined),
+                selectedIcon: Icon(Icons.movie),
+                label: Text('Movies'),
+              ),
+              NavigationRailDestination(
+                icon: Icon(Icons.video_collection_outlined),
+                selectedIcon: Icon(Icons.video_collection),
+                label: Text('Web Series'),
+              ),
+              NavigationRailDestination(
+                icon: Icon(Icons.more_horiz_outlined),
+                selectedIcon: Icon(Icons.more_horiz),
+                label: Text('More'),
+              ),
+            ],
+          ),
+          const VerticalDivider(thickness: 1, width: 1, color: Colors.white10),
+          Expanded(child: mainBody),
+        ],
+      );
+    }
+
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, result) {
@@ -67,40 +120,39 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       },
       child: Scaffold(
         backgroundColor: theme.scaffoldBackgroundColor,
-        body: IndexedStack(
-          index: _currentIndex,
-          children: _screens,
-        ),
-        bottomNavigationBar: NavigationBar(
-          selectedIndex: _currentIndex,
-          onDestinationSelected: (index) {
-            setState(() {
-              _currentIndex = index;
-            });
-          },
-          destinations: const [
-            NavigationDestination(
-              icon: Icon(Icons.tv_outlined),
-              selectedIcon: Icon(Icons.tv),
-              label: 'Anime',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.movie_outlined),
-              selectedIcon: Icon(Icons.movie),
-              label: 'Movies',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.video_collection_outlined),
-              selectedIcon: Icon(Icons.video_collection),
-              label: 'Web Series',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.more_horiz_outlined),
-              selectedIcon: Icon(Icons.more_horiz),
-              label: 'More',
-            ),
-          ],
-        ),
+        body: mainBody,
+        bottomNavigationBar: isDesktop
+            ? null
+            : NavigationBar(
+                selectedIndex: _currentIndex,
+                onDestinationSelected: (index) {
+                  setState(() {
+                    _currentIndex = index;
+                  });
+                },
+                destinations: const [
+                  NavigationDestination(
+                    icon: Icon(Icons.tv_outlined),
+                    selectedIcon: Icon(Icons.tv),
+                    label: 'Anime',
+                  ),
+                  NavigationDestination(
+                    icon: Icon(Icons.movie_outlined),
+                    selectedIcon: Icon(Icons.movie),
+                    label: 'Movies',
+                  ),
+                  NavigationDestination(
+                    icon: Icon(Icons.video_collection_outlined),
+                    selectedIcon: Icon(Icons.video_collection),
+                    label: 'Web Series',
+                  ),
+                  NavigationDestination(
+                    icon: Icon(Icons.more_horiz_outlined),
+                    selectedIcon: Icon(Icons.more_horiz),
+                    label: 'More',
+                  ),
+                ],
+              ),
       ),
     );
   }

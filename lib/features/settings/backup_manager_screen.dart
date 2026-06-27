@@ -3,10 +3,10 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:path_provider/path_provider.dart';
 import '../../services/storage_service.dart';
 import '../settings/settings_provider.dart';
 import '../../services/sync_service.dart';
+import '../../core/utils/path_helper.dart';
 
 class BackupManagerScreen extends ConsumerStatefulWidget {
   const BackupManagerScreen({super.key});
@@ -66,7 +66,7 @@ class _BackupManagerScreenState extends ConsumerState<BackupManagerScreen> {
       String? selectedDirectory = await FilePicker.platform.getDirectoryPath();
       if (selectedDirectory == null) {
         // Fallback to Application Documents directory if canceled
-        final appDir = await getApplicationDocumentsDirectory();
+        final appDir = await getAppDirectory();
         selectedDirectory = appDir.path;
       }
 

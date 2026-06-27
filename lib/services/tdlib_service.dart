@@ -5,6 +5,7 @@ import 'package:tdlib/td_client.dart';
 import 'package:tdlib/td_api.dart' as td;
 import 'package:path_provider/path_provider.dart';
 import '../core/logger.dart';
+import '../core/utils/path_helper.dart';
 
 final tdlibServiceProvider = Provider<TdlibService>((ref) {
   final service = TdlibService();
@@ -71,7 +72,7 @@ class TdlibService {
     send(const td.SetLogVerbosityLevel(newVerbosityLevel: 1));
     _startEventLoop();
 
-    final appDocDir = await getApplicationDocumentsDirectory();
+    final appDocDir = await getAppDirectory();
     final params = td.SetTdlibParameters(
       useTestDc: false,
       databaseDirectory: appDocDir.path,
@@ -108,7 +109,7 @@ class TdlibService {
     int? ttlDays,
   }) async {
     try {
-      final appDocDir = await getApplicationDocumentsDirectory();
+      final appDocDir = await getAppDirectory();
       final targetDirs = [
         'videos',
         'documents',
@@ -254,7 +255,7 @@ class TdlibService {
     } catch (_) {}
 
     try {
-      final appDocDir = await getApplicationDocumentsDirectory();
+      final appDocDir = await getAppDirectory();
       final targetDirs = [
         'videos',
         'documents',

@@ -3,12 +3,12 @@ import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tdlib/td_api.dart' as td;
-import 'package:path_provider/path_provider.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'tdlib_service.dart';
 import 'storage_service.dart';
 import '../core/logger.dart';
 import '../features/settings/settings_provider.dart';
+import '../core/utils/path_helper.dart';
 
 class DownloadTask {
   final int fileId;
@@ -142,7 +142,7 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
         return dir;
       }
     }
-    final appDocDir = await getApplicationDocumentsDirectory();
+    final appDocDir = await getAppDirectory();
     final defaultDir = Directory('${appDocDir.path}/downloads');
     if (!await defaultDir.exists()) {
       await defaultDir.create(recursive: true);
