@@ -123,11 +123,22 @@ jobs:
         run: |
           Compress-Archive -Path ./build/windows/x64/runner/Release/* -DestinationPath ./build/telstream-windows.zip
 
+      - name: Build Windows Installer (EXE)
+        shell: pwsh
+        run: |
+          & "C:\Program Files (x86)\Inno Setup 6\iscc.exe" windows/runner/installer.iss
+
       - name: Upload Windows ZIP as Artifact
         uses: actions/upload-artifact@v4
         with:
           name: windows-zip
           path: ./build/telstream-windows.zip
+
+      - name: Upload Windows Installer as Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-setup
+          path: ./build/telstream-setup.exe
 
   create-release:
     runs-on: ubuntu-latest
@@ -171,6 +182,7 @@ jobs:
             ./release_assets/telstream-arm64.apk
             ./release_assets/telstream-arm32.apk
             ./release_assets/telstream-windows.zip
+            ./release_assets/telstream-setup.exe
           draft: false
           prerelease: false
         env:
