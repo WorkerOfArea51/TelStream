@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../core/logger.dart';
 import '../core/secrets.dart';
 import '../core/widgets/wavy_progress_indicators.dart';
 import '../core/widgets/changelog_parser.dart';
@@ -123,8 +124,8 @@ class UpdateService {
           releaseUrl: downloadUrl,
         );
       }
-    } catch (e) {
-      // Fail silently
+    } catch (e, stack) {
+      Log.e("Failed to check for updates", e, stack);
     } finally {
       client.close();
     }
