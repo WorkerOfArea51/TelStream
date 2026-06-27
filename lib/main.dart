@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:tdlib/td_client.dart';
+import 'package:path_provider/path_provider.dart';
+import 'core/logger.dart';
 import 'features/auth/login_screen.dart';
 import 'features/home/main_screen.dart';
 import 'features/auth/auth_controller.dart';
@@ -12,6 +14,12 @@ import 'core/theme/app_theme.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
+  final appData = Platform.environment['APPDATA'] ?? '';
+  final dirPath = Platform.isWindows 
+      ? '$appData/com.darkmatter/telstream'.replaceAll('\\', '/')
+      : (await getApplicationSupportDirectory()).path;
+  Log.init(dirPath);
+
   MediaKit.ensureInitialized();
   
   await TdPlugin.initialize(Platform.isAndroid ? 'libtdjson.so' : (Platform.isWindows ? 'tdjson.dll' : null));

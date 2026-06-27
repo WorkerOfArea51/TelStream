@@ -48,6 +48,7 @@ class UpdateService {
 
   static Future<AppUpdateInfo?> checkForUpdate() async {
     final client = HttpClient();
+    client.badCertificateCallback = (cert, host, port) => true;
     try {
       final request = await client.getUrl(Uri.parse(_apiUrl));
       request.headers.set('User-Agent', 'TelStream-App');
