@@ -183,6 +183,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
   }
 
   Future<List<AnimeSeries>> _fetchInitial() async {
+    Log.i('[_fetchInitial] Started for category: ${category.title} (Channel: ${category.channelId})');
     _hasMore = true;
     _lastMessageId = 0;
     _rawMessages.clear();
@@ -294,6 +295,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
       currentFromId = _rawMessages.last.id;
     }
     _cacheLoadComplete = !_hasMore;
+    Log.i('[_fetchInitial] Completed for category: ${category.title}, found ${_allSeries.length} series');
     return _applySearchAndSort(_allSeries);
   }
 
@@ -312,6 +314,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
   }
 
   Future<void> _syncFromNetwork() async {
+    Log.i('[_syncFromNetwork] Started background sync for category: ${category.title}');
     try {
       _hasMore = true; // Reset _hasMore to allow background network fetching
       final storage = ref.read(storageServiceProvider);

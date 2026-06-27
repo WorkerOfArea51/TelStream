@@ -69,14 +69,24 @@ class TdlibService {
       await _saveCurrentClient(_clientId!);
     }
     
-    send(const td.SetLogVerbosityLevel(newVerbosityLevel: 1));
+    final appDocDir = await getAppDirectory();
+    final safePath = appDocDir.path.replaceAll('\\', '/');
+    final logPath = '$safePath/tdlib.log';
+
+    send(td.SetLogStream(
+      logStream: td.LogStreamFile(
+        path: logPath,
+        maxFileSize: 10 * 1024 * 1024,
+        redirectStderr: true,
+      ),
+    ));
+    send(const td.SetLogVerbosityLevel(newVerbosityLevel: 2));
     _startEventLoop();
 
-    final appDocDir = await getAppDirectory();
     final params = td.SetTdlibParameters(
       useTestDc: false,
-      databaseDirectory: appDocDir.path,
-      filesDirectory: appDocDir.path,
+      databaseDirectory: safePath,
+      filesDirectory: safePath,
       useFileDatabase: true,
       useChatInfoDatabase: true,
       useMessageDatabase: true,
@@ -84,7 +94,7 @@ class TdlibService {
       apiId: apiId,
       apiHash: apiHash,
       systemLanguageCode: 'en',
-      deviceModel: 'Android',
+      deviceModel: 'Windows',
       systemVersion: '10',
       applicationVersion: '1.0',
       enableStorageOptimizer: true,
