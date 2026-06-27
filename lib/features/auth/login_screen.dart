@@ -165,7 +165,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             )
           : null,
       body: SafeArea(
-        child: _buildForm(authState, authController),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 420),
+            child: _buildForm(authState, authController),
+          ),
+        ),
       ),
     );
   }
