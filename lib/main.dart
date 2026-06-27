@@ -14,7 +14,7 @@ void main() async {
   
   MediaKit.ensureInitialized();
   
-  await TdPlugin.initialize(Platform.isAndroid ? 'libtdjson.so' : null);
+  await TdPlugin.initialize(Platform.isAndroid ? 'libtdjson.so' : (Platform.isWindows ? 'tdjson.dll' : null));
   
   final container = ProviderContainer();
   await container.read(storageServiceProvider).init();
