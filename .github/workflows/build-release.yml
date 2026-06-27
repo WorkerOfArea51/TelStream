@@ -100,13 +100,17 @@ jobs:
           # Rename the wheel to .zip to extract it
           Rename-Item $wheel.FullName ($wheel.BaseName + ".zip")
           Expand-Archive -Path ./tdjson_temp/*.zip -DestinationPath ./tdjson_extracted
-          # Copy tdjson.dll to release folder
-          Copy-Item ./tdjson_extracted/tdjson/tdjson.dll -Destination ./build/windows/x64/runner/Release/tdjson.dll
+          # Dynamically search recursively for tdjson.dll in the extracted files and copy it
+          $dll = Get-ChildItem -Path ./tdjson_extracted -Filter tdjson.dll -Recurse | Select-Object -First 1
+          if ($dll -eq $null) {
+            throw "Failed to locate tdjson.dll inside the downloaded wheel"
+          }
+          Copy-Item $dll.FullName -Destination ./build/windows/x64/runner/Release/tdjson.dll
           # Confirm it exists
           if (Test-Path ./build/windows/x64/runner/Release/tdjson.dll) {
             Write-Host "Successfully bundled tdjson.dll!"
           } else {
-            throw "Failed to locate or bundle tdjson.dll"
+            throw "Failed to copy or bundle tdjson.dll"
           }
 
       - name: Package Windows Release (ZIP)
