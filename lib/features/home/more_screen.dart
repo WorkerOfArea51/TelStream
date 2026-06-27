@@ -6,6 +6,7 @@ import '../../core/secrets.dart';
 import '../../services/storage_service.dart';
 import '../../services/update_service.dart';
 import '../../core/widgets/whats_new_dialog.dart';
+import '../../core/widgets/m3_animated_menu_tile.dart';
 import '../settings/settings_screen.dart';
 import 'history_screen.dart';
 import 'network_stream_screen.dart';
@@ -128,7 +129,7 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
               clipBehavior: Clip.antiAlias,
               child: Column(
                 children: [
-                  _buildMenuTile(
+                  M3AnimatedMenuTile(
                     icon: Icons.history,
                     title: 'History',
                     onTap: () {
@@ -139,7 +140,7 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
                     },
                   ),
                   Divider(color: theme.dividerColor, height: 1, indent: 56, endIndent: 16),
-                  _buildMenuTile(
+                  M3AnimatedMenuTile(
                     icon: Icons.download_done_rounded,
                     title: 'Downloads',
                     onTap: () {
@@ -150,7 +151,7 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
                     },
                   ),
                   Divider(color: theme.dividerColor, height: 1, indent: 56, endIndent: 16),
-                  _buildMenuTile(
+                  M3AnimatedMenuTile(
                     icon: Icons.link,
                     title: 'Network stream',
                     onTap: () {
@@ -161,7 +162,7 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
                     },
                   ),
                   Divider(color: theme.dividerColor, height: 1, indent: 56, endIndent: 16),
-                  _buildMenuTile(
+                  M3AnimatedMenuTile(
                     icon: Icons.search_rounded,
                     title: 'Global Search',
                     onTap: () {
@@ -172,7 +173,7 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
                     },
                   ),
                   Divider(color: theme.dividerColor, height: 1, indent: 56, endIndent: 16),
-                  _buildMenuTile(
+                  M3AnimatedMenuTile(
                     icon: Icons.calendar_month_rounded,
                     title: 'Airing Calendar',
                     onTap: () {
@@ -198,7 +199,7 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
               clipBehavior: Clip.antiAlias,
               child: Column(
                 children: [
-                  _buildMenuTile(
+                  M3AnimatedMenuTile(
                     icon: Icons.settings,
                     title: 'Settings',
                     onTap: () {
@@ -209,7 +210,7 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
                     },
                   ),
                   Divider(color: theme.dividerColor, height: 1, indent: 56, endIndent: 16),
-                  _buildMenuTile(
+                  M3AnimatedMenuTile(
                     icon: Icons.system_update_alt_rounded,
                     title: 'Check for update',
                     onTap: () {
@@ -217,7 +218,7 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
                     },
                   ),
                   Divider(color: theme.dividerColor, height: 1, indent: 56, endIndent: 16),
-                  _buildMenuTile(
+                  M3AnimatedMenuTile(
                     icon: Icons.info_outline,
                     title: 'About',
                     onTap: () {
@@ -609,30 +610,7 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
     );
   }
 
-  Widget _buildMenuTile({
-    required IconData icon,
-    required String title,
-    String? subtitle,
-    required VoidCallback onTap,
-  }) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final textColor = isDark ? Colors.white : Colors.black87;
-    final subTextColor = isDark ? Colors.white38 : Colors.black54;
 
-    return ListTile(
-      leading: Icon(icon, color: theme.primaryColor, size: 24),
-      title: Text(
-        title,
-        style: TextStyle(color: textColor, fontWeight: FontWeight.w500, fontSize: 15),
-      ),
-      subtitle: subtitle != null
-          ? Text(subtitle, style: TextStyle(color: subTextColor, fontSize: 12))
-          : null,
-      trailing: Icon(Icons.chevron_right, color: subTextColor.withValues(alpha: 0.5), size: 20),
-      onTap: onTap,
-    );
-  }
 }
 
 class _TechRow extends StatelessWidget {

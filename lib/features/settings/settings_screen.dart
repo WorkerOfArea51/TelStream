@@ -13,6 +13,7 @@ import '../auth/auth_controller.dart';
 import '../auth/login_screen.dart';
 import '../player/pip_manager.dart';
 import 'settings_provider.dart';
+import '../../core/widgets/m3_animated_menu_tile.dart';
 import 'video_settings_screen.dart';
 import 'advanced_cache_manager_screen.dart';
 import 'tracker_settings_screen.dart';
@@ -371,11 +372,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             clipBehavior: Clip.antiAlias,
             child: Column(
               children: [
-                ListTile(
-                  leading: const Icon(Icons.cleaning_services, color: Colors.redAccent),
-                  title: const Text('Advanced Cache Manager'),
-                  subtitle: Text('View detailed storage cache breakdown and clear cache per series.', style: TextStyle(color: isDark ? Colors.white54 : Colors.black54, fontSize: 12)),
-                  trailing: Icon(Icons.chevron_right, color: isDark ? Colors.white54 : Colors.black54),
+                M3AnimatedMenuTile(
+                  icon: Icons.cleaning_services,
+                  iconColor: Colors.redAccent,
+                  title: 'Advanced Cache Manager',
+                  subtitle: 'View detailed storage cache breakdown and clear cache per series.',
                   onTap: () {
                     Navigator.push(
                       context,
@@ -455,11 +456,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               side: BorderSide(color: theme.colorScheme.onSurface.withValues(alpha: 0.08), width: 1),
             ),
             clipBehavior: Clip.antiAlias,
-            child: ListTile(
-              leading: Icon(Icons.video_settings, color: isDark ? Colors.white70 : Colors.black54),
-              title: const Text('Video Player Preferences'),
-              subtitle: Text('Gestures, audio, subtitles, and player UI', style: TextStyle(color: isDark ? Colors.white54 : Colors.black54, fontSize: 12)),
-              trailing: Icon(Icons.chevron_right, color: isDark ? Colors.white54 : Colors.black54),
+            child: M3AnimatedMenuTile(
+              icon: Icons.video_settings,
+              title: 'Video Player Preferences',
+              subtitle: 'Gestures, audio, subtitles, and player UI',
               onTap: () {
                 Navigator.push(context, MaterialPageRoute(builder: (_) => const VideoSettingsScreen()));
               },
@@ -566,11 +566,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               side: BorderSide(color: theme.colorScheme.onSurface.withValues(alpha: 0.08), width: 1),
             ),
             clipBehavior: Clip.antiAlias,
-            child: ListTile(
-              leading: Icon(Icons.sync_alt, color: isDark ? Colors.white70 : Colors.black54),
-              title: const Text('Tracker Accounts'),
-              subtitle: Text('MyAnimeList, AniList, and Trakt.tv syncing preferences.', style: TextStyle(color: isDark ? Colors.white54 : Colors.black54, fontSize: 12)),
-              trailing: Icon(Icons.chevron_right, color: isDark ? Colors.white54 : Colors.black54),
+            child: M3AnimatedMenuTile(
+              icon: Icons.sync_alt,
+              title: 'Tracker Accounts',
+              subtitle: 'MyAnimeList, AniList, and Trakt.tv syncing preferences.',
               onTap: () {
                 Navigator.push(
                   context,
@@ -593,11 +592,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             clipBehavior: Clip.antiAlias,
             child: Column(
               children: [
-                ListTile(
-                  leading: Icon(Icons.build_circle_rounded, color: isDark ? Colors.white70 : Colors.black54),
-                  title: const Text('Troubleshooting & Diagnostics'),
-                  subtitle: Text('Diagnose hardware decoding and subtitle rendering issues.', style: TextStyle(color: isDark ? Colors.white54 : Colors.black54, fontSize: 12)),
-                  trailing: Icon(Icons.chevron_right, color: isDark ? Colors.white54 : Colors.black54),
+                 M3AnimatedMenuTile(
+                  icon: Icons.build_circle_rounded,
+                  title: 'Troubleshooting & Diagnostics',
+                  subtitle: 'Diagnose hardware decoding and subtitle rendering issues.',
                   onTap: () {
                     Navigator.push(
                       context,
@@ -606,11 +604,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   },
                 ),
                 Divider(color: theme.dividerColor, height: 1, indent: 56, endIndent: 16),
-                ListTile(
-                  leading: Icon(Icons.settings_backup_restore_rounded, color: isDark ? Colors.white70 : Colors.black54),
-                  title: const Text('Backup & Restore'),
-                  subtitle: Text('Export or import settings and watch history.', style: TextStyle(color: isDark ? Colors.white54 : Colors.black54, fontSize: 12)),
-                  trailing: Icon(Icons.chevron_right, color: isDark ? Colors.white54 : Colors.black54),
+                M3AnimatedMenuTile(
+                  icon: Icons.settings_backup_restore_rounded,
+                  title: 'Backup & Restore',
+                  subtitle: 'Export or import settings and watch history.',
                   onTap: () {
                     Navigator.push(
                       context,
@@ -635,17 +632,18 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             clipBehavior: Clip.antiAlias,
             child: Column(
               children: [
-                ListTile(
-                  leading: Icon(Icons.history_edu_rounded, color: isDark ? Colors.white70 : Colors.black54),
-                  title: const Text("What's New / Changelog"),
-                  subtitle: Text("View release notes for this version", style: TextStyle(color: isDark ? Colors.white54 : Colors.black54, fontSize: 12)),
-                  trailing: Icon(Icons.chevron_right, color: isDark ? Colors.white54 : Colors.black54),
+                M3AnimatedMenuTile(
+                  icon: Icons.history_edu_rounded,
+                  title: "What's New / Changelog",
+                  subtitle: "View release notes for this version",
                   onTap: () => WhatsNewDialog.show(context),
                 ),
                 Divider(color: theme.dividerColor, height: 1, indent: 56, endIndent: 16),
-                ListTile(
-                  leading: const Icon(Icons.logout, color: Colors.redAccent),
-                  title: const Text('Logout from TelStream'),
+                M3AnimatedMenuTile(
+                  icon: Icons.logout,
+                  iconColor: Colors.redAccent,
+                  title: 'Logout from TelStream',
+                  trailing: const SizedBox.shrink(), // No chevron for logout action
                   onTap: _logout,
                 ),
               ],
