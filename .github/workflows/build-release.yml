@@ -1,4 +1,4 @@
-name: Build & Release Android App
+name: Build & Release App
 
 permissions:
   contents: write
@@ -11,7 +11,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-and-release:
+  build-android:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -45,11 +45,6 @@ jobs:
       - name: Run unit tests
         run: flutter test
 
-      - name: Extract App Version from pubspec.yaml
-        run: |
-          VERSION=$(grep '^version: ' pubspec.yaml | cut -d ' ' -f 2 | cut -d '+' -f 1)
-          echo "APP_VERSION=$VERSION" >> $GITHUB_ENV
-
       - name: Decode Keystore
         run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/upload-keystore.jks
 
@@ -64,6 +59,91 @@ jobs:
           cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk build/app/outputs/flutter-apk/telstream-arm64.apk
           cp build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk build/app/outputs/flutter-apk/telstream-arm32.apk
 
+      - name: Upload Android APKs as Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-apks
+          path: |
+            build/app/outputs/flutter-apk/telstream-arm64.apk
+            build/app/outputs/flutter-apk/telstream-arm32.apk
+
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Create Secrets file
+        shell: bash
+        run: |
+          mkdir -p lib/core
+          echo "class Secrets { static const int apiId = ${{ secrets.TELEGRAM_API_ID }}; static const String apiHash = '${{ secrets.TELEGRAM_API_HASH }}'; static const String buildTag = 'Build #${{ github.run_number }}'; static const int animeChannelId = ${{ secrets.ANIME_CHANNEL_ID || -1002633457020 }}; static const String animeInviteLink = '${{ secrets.ANIME_INVITE_LINK || 'https://t.me/+AkdK7gDbYWRmZTc1' }}'; static const int movieChannelId = ${{ secrets.MOVIE_CHANNEL_ID || -1004421932120 }}; static const String movieInviteLink = '${{ secrets.MOVIE_INVITE_LINK || 'https://t.me/+dx2YihneVQczNTM1' }}'; static const int webSeriesChannelId = ${{ secrets.WEBSERIES_CHANNEL_ID || -1004440703680 }}; static const String webSeriesInviteLink = '${{ secrets.WEBSERIES_INVITE_LINK || 'https://t.me/+FiQ7kG8Ofh5jMDU1' }}'; }" > lib/core/secrets.dart
+
+      - name: Build Windows Application
+        run: flutter build windows --release
+
+      - name: Fetch prebuilt Windows tdjson.dll
+        shell: pwsh
+        run: |
+          # Use pip to download the Windows x64 wheel of tdjson which bundles the DLL securely
+          pip download tdjson --only-binary=:all: --platform win_amd64 --dest ./tdjson_temp
+          $wheel = Get-ChildItem ./tdjson_temp/*.whl | Select-Object -First 1
+          # Rename the wheel to .zip to extract it
+          Rename-Item $wheel.FullName ($wheel.BaseName + ".zip")
+          Expand-Archive -Path ./tdjson_temp/*.zip -DestinationPath ./tdjson_extracted
+          # Copy tdjson.dll to release folder
+          Copy-Item ./tdjson_extracted/tdjson/tdjson.dll -Destination ./build/windows/x64/runner/Release/tdjson.dll
+          # Confirm it exists
+          if (Test-Path ./build/windows/x64/runner/Release/tdjson.dll) {
+            Write-Host "Successfully bundled tdjson.dll!"
+          } else {
+            throw "Failed to locate or bundle tdjson.dll"
+          }
+
+      - name: Package Windows Release (ZIP)
+        shell: pwsh
+        run: |
+          Compress-Archive -Path ./build/windows/x64/runner/Release/* -DestinationPath ./build/telstream-windows.zip
+
+      - name: Upload Windows ZIP as Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-zip
+          path: ./build/telstream-windows.zip
+
+  create-release:
+    runs-on: ubuntu-latest
+    needs: [build-android, build-windows]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+          path: ./release_assets
+
+      - name: Set up Flutter (for version parsing helper)
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Extract App Version from pubspec.yaml
+        run: |
+          VERSION=$(grep '^version: ' pubspec.yaml | cut -d ' ' -f 2 | cut -d '+' -f 1)
+          echo "APP_VERSION=$VERSION" >> $GITHUB_ENV
+
       - name: Generate Changelog
         env:
           APP_VERSION: ${{ env.APP_VERSION }}
@@ -72,15 +152,16 @@ jobs:
           GITHUB_SHA: ${{ github.sha }}
         run: python build_changelog.py
 
-      - name: Create Release and Upload Assets
+      - name: Create Unified GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ env.APP_VERSION }}-build.${{ github.run_number }}
           name: TelStream Release v${{ env.APP_VERSION }} #${{ github.run_number }}
           body_path: ./extracted_changelog.md
           files: |
-            build/app/outputs/flutter-apk/telstream-arm64.apk
-            build/app/outputs/flutter-apk/telstream-arm32.apk
+            ./release_assets/telstream-arm64.apk
+            ./release_assets/telstream-arm32.apk
+            ./release_assets/telstream-windows.zip
           draft: false
           prerelease: false
         env:
