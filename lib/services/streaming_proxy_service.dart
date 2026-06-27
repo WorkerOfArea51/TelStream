@@ -95,7 +95,8 @@ class StreamingProxyService {
   }
 
   Future<void> _handleRequest(HttpRequest request) async {
-    if (request.uri.path != '/stream') {
+    try {
+      if (request.uri.path != '/stream') {
       request.response.statusCode = HttpStatus.notFound;
       await request.response.close();
       return;
@@ -251,7 +252,7 @@ class StreamingProxyService {
         final file = File(tdFile.local.path);
         if (await file.exists()) {
           try {
-            await request.response.addStream(file.openRead(start, end));
+            await request.response.addStream(file.openRead(start, end + 1));
           } catch (e) {
             Log.w('Proxy direct completed streaming error for file $fileId: $e');
           } finally {
@@ -503,6 +504,13 @@ class StreamingProxyService {
           _requestLastActive.remove(fileId);
         }
       }
+    }
+    } catch (e, stack) {
+      Log.e('Proxy unhandled exception in request handler', e, stack);
+      try {
+        request.response.statusCode = HttpStatus.internalServerError;
+        await request.response.close();
+      } catch (_) {}
     }
   }
 }

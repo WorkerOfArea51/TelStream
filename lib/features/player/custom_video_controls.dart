@@ -25,6 +25,7 @@ import 'widgets/subtitle_downloader_dialog.dart';
 import 'widgets/audio_sync_dialog.dart';
 import 'widgets/player_playback_bar.dart';
 import 'widgets/flashing_chevrons.dart';
+import 'widgets/player_header_bar.dart';
 
 class CustomVideoControls extends ConsumerStatefulWidget {
   final Player player;
@@ -2835,72 +2836,24 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
             // Top Bar & Quick Actions
             Positioned(
               top: 40, left: 16, right: 16,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Row(
-                    children: [
-                      IconButton(icon: const Icon(Icons.arrow_back, color: Colors.white), onPressed: widget.onBack),
-                      Expanded(
-                        child: Text(widget.videoTitle, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis),
-                      ),
-                      if (_sleepTimerSecondsRemaining != null)
-                        Padding(
-                          padding: const EdgeInsets.only(right: 4.0),
-                          child: Text(
-                            _formatSleepTimeRemaining(_sleepTimerSecondsRemaining!),
-                            style: TextStyle(
-                              color: settingsAccent,
-                              fontSize: 13,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      Container(
-                        margin: const EdgeInsets.symmetric(horizontal: 4),
-                        decoration: BoxDecoration(
-                          border: Border.all(color: Colors.white54, width: 1.5),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: InkWell(
-                          onTap: _toggleDecoderMode,
-                          borderRadius: BorderRadius.circular(4),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                            child: Text(
-                              _getDecoderModeLabel(),
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 11,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.closed_caption_outlined, color: Colors.white), 
-                        onPressed: () => _showTrackSelector(
-                          title: 'Subtitles',
-                          isSubtitle: true,
-                        ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.music_note_outlined, color: Colors.white), 
-                        onPressed: () => _showTrackSelector(
-                          title: 'Audio Tracks',
-                          isSubtitle: false,
-                        ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.playlist_play_outlined, color: Colors.white),
-                        onPressed: _showQueueManagerSheet,
-                      ),
-                    ],
-                  ),
-                  _buildQuickActionRow(),
-                ],
+              child: PlayerHeaderBar(
+                videoTitle: widget.videoTitle,
+                onBack: widget.onBack,
+                sleepTimerSecondsRemaining: _sleepTimerSecondsRemaining,
+                formatSleepTimeRemaining: _formatSleepTimeRemaining,
+                decoderModeLabel: _getDecoderModeLabel(),
+                onToggleDecoderMode: _toggleDecoderMode,
+                onShowSubtitles: () => _showTrackSelector(
+                  title: 'Subtitles',
+                  isSubtitle: true,
+                ),
+                onShowAudioTracks: () => _showTrackSelector(
+                  title: 'Audio Tracks',
+                  isSubtitle: false,
+                ),
+                onShowQueue: _showQueueManagerSheet,
+                quickActionRow: _buildQuickActionRow(),
+                settingsAccent: settingsAccent,
               ),
             ),
             
