@@ -189,6 +189,15 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
   }
 
   Future<List<AnimeSeries>> _fetchInitial() async {
+    // Stagger startup requests to prevent concurrent connection sessions to TDLib
+    if (category.title == 'Movies') {
+      Log.i('[_fetchInitial] Staggering Movies startup by 3s...');
+      await Future.delayed(const Duration(seconds: 3));
+    } else if (category.title == 'Web Series') {
+      Log.i('[_fetchInitial] Staggering Web Series startup by 6s...');
+      await Future.delayed(const Duration(seconds: 6));
+    }
+
     Log.i('[_fetchInitial] Started for category: ${category.title} (Channel: ${category.channelId})');
     _hasMore = true;
     _lastMessageId = 0;
@@ -321,17 +330,6 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
 
   Future<void> _syncFromNetwork() async {
     Log.i('[_syncFromNetwork] Started background sync for category: ${category.title}');
-    
-    // Stagger the initial background sync to prevent hitting Telegram servers with concurrent category requests
-    int delaySec = 0;
-    if (category.title == 'Movies') {
-      delaySec = 3;
-    } else if (category.title == 'Web Series') {
-      delaySec = 6;
-    }
-    if (delaySec > 0) {
-      await Future.delayed(Duration(seconds: delaySec));
-    }
 
     try {
       _hasMore = true; // Reset _hasMore to allow background network fetching
