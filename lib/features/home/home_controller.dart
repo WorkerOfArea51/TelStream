@@ -315,6 +315,18 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
 
   Future<void> _syncFromNetwork() async {
     Log.i('[_syncFromNetwork] Started background sync for category: ${category.title}');
+    
+    // Stagger the initial background sync to prevent hitting Telegram servers with concurrent category requests
+    int delaySec = 0;
+    if (category.title == 'Movies') {
+      delaySec = 3;
+    } else if (category.title == 'Web Series') {
+      delaySec = 6;
+    }
+    if (delaySec > 0) {
+      await Future.delayed(Duration(seconds: delaySec));
+    }
+
     try {
       _hasMore = true; // Reset _hasMore to allow background network fetching
       final storage = ref.read(storageServiceProvider);
@@ -508,66 +520,9 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
     return fetchedBatch;
   }
 
-  Future<List<td.Message>> _fetchMessagesParallel({required int fromId, int chunkCount = 5}) async {
-    final tdlibService = ref.read(tdlibServiceProvider);
-    bool hadError = false;
-    
-    final futures = List.generate(chunkCount, (i) {
-      final offset = i * 100;
-      return tdlibService.sendAsync(td.GetChatHistory(
-        chatId: category.channelId,
-        fromMessageId: fromId,
-        offset: offset,
-        limit: 100,
-        onlyLocal: false,
-      )).timeout(
-        const Duration(seconds: 12),
-        onTimeout: () => td.TdError(code: 408, message: "Request Timeout"),
-      ).then<List<td.Message>>((response) {
-        if (response is td.TdError) {
-          Log.w("Parallel GetChatHistory error for offset $offset: ${response.message}");
-          hadError = true;
-          return const <td.Message>[];
-        }
-        
-        List<td.Message> fetched = [];
-        if (response is td.Messages) {
-          fetched = response.messages;
-        } else if (response is td.FoundMessages) {
-          fetched = response.messages;
-        }
-        return fetched;
-      }).catchError((e, stack) {
-        Log.e("Parallel GetChatHistory failed for offset $offset", e, stack);
-        hadError = true;
-        return const <td.Message>[];
-      });
-    });
-
-    final results = await Future.wait(futures);
-    
-    final List<td.Message> combined = [];
-    final Set<int> seenIds = {};
-    for (final list in results) {
-      for (final msg in list) {
-        if (!seenIds.contains(msg.id)) {
-          combined.add(msg);
-          seenIds.add(msg.id);
-        }
-      }
-    }
-    
-    combined.sort((a, b) => b.id.compareTo(a.id));
-    
-    if (!hadError && combined.length < chunkCount * 100) {
-      // If we got an empty list on startup (fromId == 0), don't set _hasMore to false
-      // to allow the sync loop to retry when the network is connected.
-      if (fromId != 0 || combined.isNotEmpty) {
-        _hasMore = false;
-      }
-    }
-    
-    return combined;
+  Future<List<td.Message>> _fetchMessagesParallel({required int fromId}) async {
+    // Sequentially fetch messages to prevent Telegram rate-limiting / FLOOD_WAIT blocks
+    return _fetchMessages(fromId: fromId, onlyLocal: false);
   }
 
   static String normalizeSeriesName(String name, {bool isMovie = false}) {
