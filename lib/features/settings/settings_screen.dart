@@ -22,6 +22,7 @@ import 'backup_manager_screen.dart';
 import '../../core/widgets/whats_new_dialog.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/logger.dart';
+import '../../core/utils/path_helper.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -70,10 +71,22 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           }
         }
       } else if (Platform.isWindows) {
+        final customPath = ref.read(storageServiceProvider).getCustomDownloadDirectory();
+        String path = customPath ?? '';
+        if (path.isEmpty) {
+          final appDir = await getAppDirectory();
+          path = appDir.path;
+        }
+        String driveLetter = 'C';
+        final driveMatch = RegExp(r'^([a-zA-Z]):').firstMatch(path);
+        if (driveMatch != null) {
+          driveLetter = driveMatch.group(1)!;
+        }
+
         final res = await Process.run('powershell', [
           '-NoProfile',
           '-Command',
-          'Get-Volume -DriveLetter C | Select-Object Size, SizeRemaining | ConvertTo-Json'
+          'Get-Volume -DriveLetter $driveLetter | Select-Object Size, SizeRemaining | ConvertTo-Json'
         ]);
         if (res.exitCode == 0) {
           final data = json.decode(res.stdout);
@@ -127,6 +140,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         });
         await ref.read(downloadControllerProvider.notifier).reloadDownloads();
         await _calculateCacheSize();
+        await _loadStorageSpace(); // Re-load storage space for the new drive!
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
