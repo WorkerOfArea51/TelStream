@@ -68,7 +68,7 @@ class UpdateService {
           for (final asset in assets) {
             if (asset is Map<String, dynamic>) {
               final assetName = asset['name'] as String? ?? '';
-              if (assetName == 'telstream-windows.zip') {
+              if (assetName == 'telstream-setup.exe') {
                 downloadUrl = asset['browser_download_url'] as String? ?? downloadUrl;
                 break;
               }
@@ -166,11 +166,6 @@ class _UpdateDialogContentState extends State<UpdateDialogContent> {
   }
 
   Future<void> _startDownload() async {
-    if (Platform.isWindows) {
-      await _fallbackBrowserDownload();
-      return;
-    }
-
     setState(() {
       _isDownloading = true;
       _hasError = false;
@@ -181,7 +176,7 @@ class _UpdateDialogContentState extends State<UpdateDialogContent> {
     });
 
     final client = HttpClient();
-    File? apkFile;
+    File? tempFile;
     try {
       final url = widget.updateInfo.releaseUrl;
       final request = await client.getUrl(Uri.parse(url));
@@ -193,12 +188,17 @@ class _UpdateDialogContentState extends State<UpdateDialogContent> {
       }
 
       final tempDir = await getTemporaryDirectory();
-      apkFile = File('${tempDir.path}/telstream_update.apk');
-      if (await apkFile.exists()) {
-        await apkFile.delete();
+      if (Platform.isWindows) {
+        tempFile = File('${tempDir.path}/telstream-setup.exe');
+      } else {
+        tempFile = File('${tempDir.path}/telstream_update.apk');
+      }
+      
+      if (await tempFile.exists()) {
+        await tempFile.delete();
       }
 
-      final fileSink = apkFile.openWrite();
+      final fileSink = tempFile.openWrite();
       final totalBytes = response.contentLength;
       int downloadedBytes = 0;
 
@@ -231,12 +231,17 @@ class _UpdateDialogContentState extends State<UpdateDialogContent> {
         _progress = 1.0;
       });
 
-      // Invoke Method Channel
-      const channel = MethodChannel('com.darkmatter.telstream/updater');
-      await channel.invokeMethod('installApk', {'filePath': apkFile.path});
-      
-      if (mounted) {
-        Navigator.pop(context);
+      if (Platform.isWindows) {
+        // Run the downloaded installer executable in detached mode and terminate the current app
+        await Process.start(tempFile.path, [], mode: ProcessStartMode.detached);
+        exit(0);
+      } else {
+        // Invoke Method Channel for Android APK installation
+        const channel = MethodChannel('com.darkmatter.telstream/updater');
+        await channel.invokeMethod('installApk', {'filePath': tempFile.path});
+        if (mounted) {
+          Navigator.pop(context);
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -247,9 +252,9 @@ class _UpdateDialogContentState extends State<UpdateDialogContent> {
           _statusText = "Failed to download update.";
         });
       }
-      if (apkFile != null && await apkFile.exists()) {
+      if (tempFile != null && await tempFile.exists()) {
         try {
-          await apkFile.delete();
+          await tempFile.delete();
         } catch (_) {}
       }
     } finally {
