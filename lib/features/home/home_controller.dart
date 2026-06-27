@@ -97,16 +97,22 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
     });
 
     _triggerReleaseYearsSync();
-
-    final initialList = await _fetchInitial();
     
-    // Schedule background sync to start in the next event loop tick,
-    // ensuring the provider is fully built and state is set before updating it.
-    Future.delayed(const Duration(milliseconds: 200), () {
-      _syncFromNetwork();
-    });
-    
-    return initialList;
+    Log.i('Initializing HomeController for category: ${category.title}');
+    try {
+      final initialList = await _fetchInitial();
+      
+      // Schedule background sync to start in the next event loop tick,
+      // ensuring the provider is fully built and state is set before updating it.
+      Future.delayed(const Duration(milliseconds: 200), () {
+        _syncFromNetwork();
+      });
+      
+      return initialList;
+    } catch (e, stack) {
+      Log.e('HomeController initialization failed for category: ${category.title}', e, stack);
+      rethrow;
+    }
   }
 
   void setSortOrder(SortOrder order) {
