@@ -399,6 +399,8 @@ class TdlibService {
         json['first_name'] ??= '';
         json['last_name'] ??= '';
         json['phone_number'] ??= '';
+        json['status'] ??= {'@type': 'userStatusEmpty'};
+        json['type'] ??= {'@type': 'userTypeRegular'};
         break;
       case 'chatPermissions':
         json['can_send_messages'] ??= false;
@@ -442,12 +444,31 @@ class TdlibService {
         break;
       case 'scopeNotificationSettings':
         json['mute_for'] ??= 0;
-        json['sound'] ??= '';
+        json['sound_id'] = json['sound_id']?.toString() ?? '0';
         json['show_preview'] ??= false;
-        json['use_default_mute_for'] ??= false;
-        json['use_default_sound'] ??= false;
-        json['use_default_show_preview'] ??= false;
+        json['use_default_mute_stories'] ??= false;
+        json['mute_stories'] ??= false;
+        json['story_sound_id'] = json['story_sound_id']?.toString() ?? '0';
+        json['show_story_sender'] ??= false;
         json['disable_pinned_message_notifications'] ??= false;
+        json['disable_mention_notifications'] ??= false;
+        break;
+      case 'chatNotificationSettings':
+        json['use_default_mute_for'] ??= false;
+        json['mute_for'] ??= 0;
+        json['use_default_sound'] ??= false;
+        json['sound_id'] = json['sound_id']?.toString() ?? '0';
+        json['use_default_show_preview'] ??= false;
+        json['show_preview'] ??= false;
+        json['use_default_mute_stories'] ??= false;
+        json['mute_stories'] ??= false;
+        json['use_default_story_sound'] ??= false;
+        json['story_sound_id'] = json['story_sound_id']?.toString() ?? '0';
+        json['use_default_show_story_sender'] ??= false;
+        json['show_story_sender'] ??= false;
+        json['use_default_disable_pinned_message_notifications'] ??= false;
+        json['disable_pinned_message_notifications'] ??= false;
+        json['use_default_disable_mention_notifications'] ??= false;
         json['disable_mention_notifications'] ??= false;
         break;
       case 'chat':
@@ -465,16 +486,50 @@ class TdlibService {
         json['last_read_outbox_message_id'] ??= 0;
         json['unread_mention_count'] ??= 0;
         json['unread_reaction_count'] ??= 0;
+        json['has_protected_content'] ??= false;
+        json['is_translatable'] ??= false;
+        json['permissions'] ??= {'@type': 'chatPermissions'};
+        json['notification_settings'] ??= {'@type': 'chatNotificationSettings'};
+        json['available_reactions'] ??= {'@type': 'chatAvailableReactionsAll'};
+        json['video_chat'] ??= {'@type': 'videoChat', 'group_call_id': 0, 'has_participants': false};
+        break;
+      case 'videoChat':
+        json['group_call_id'] ??= 0;
+        json['has_participants'] ??= false;
+        break;
+      case 'chatMemberStatusCreator':
+        json['custom_title'] ??= '';
+        json['is_anonymous'] ??= false;
+        json['is_member'] ??= false;
+        break;
+      case 'chatMemberStatusAdministrator':
+        json['custom_title'] ??= '';
+        json['can_be_edited'] ??= false;
+        json['rights'] ??= {
+          '@type': 'chatAdministratorRights',
+          'can_post_messages': false,
+          'can_edit_messages': false,
+          'can_delete_messages': false,
+          'can_restrict_members': false,
+          'can_promote_members': false,
+          'can_change_info': false,
+          'can_invite_users': false,
+          'can_pin_messages': false,
+          'can_manage_topics': false,
+          'can_manage_video_chats': false,
+          'is_anonymous': false
+        };
         break;
       case 'userFullInfo':
         json['is_blocked'] ??= false;
         json['can_be_called'] ??= false;
         json['supports_video_calls'] ??= false;
         json['has_private_calls'] ??= false;
-        json['has_private_link'] ??= false;
+        json['has_private_forwards'] ??= false;
+        json['has_restricted_voice_and_video_note_messages'] ??= false;
         json['has_pinned_stories'] ??= false;
         json['need_phone_number_privacy_exception'] ??= false;
-        json['bio'] ??= '';
+        json['group_in_common_count'] ??= 0;
         break;
       case 'supergroup':
         json['username'] ??= '';
@@ -489,6 +544,14 @@ class TdlibService {
         json['join_to_send_messages'] ??= false;
         json['join_by_request'] ??= false;
         json['is_broadcast_group'] ??= false;
+        json['is_channel'] ??= false;
+        json['is_slow_mode_enabled'] ??= false;
+        json['has_location'] ??= false;
+        json['has_linked_chat'] ??= false;
+        json['member_count'] ??= 0;
+        json['date'] ??= 0;
+        json['restriction_reason'] ??= '';
+        json['status'] ??= {'@type': 'chatMemberStatusMember'};
         break;
       case 'message':
         json['is_outgoing'] ??= false;
@@ -499,13 +562,16 @@ class TdlibService {
         json['can_be_deleted_only_for_self'] ??= false;
         json['can_be_deleted_for_all_users'] ??= false;
         json['can_get_added_reactions'] ??= false;
+        json['can_get_statistics'] ??= false;
         json['can_get_message_thread'] ??= false;
         json['can_get_viewers'] ??= false;
         json['can_get_media_timestamp_links'] ??= false;
-        json['has_timestamp_arguments'] ??= false;
+        json['can_report_reactions'] ??= false;
+        json['has_timestamped_media'] ??= false;
         json['is_channel_post'] ??= false;
         json['is_topic_message'] ??= false;
         json['contains_unread_mention'] ??= false;
+        json['media_album_id'] = json['media_album_id']?.toString() ?? '0';
         json['date'] ??= 0;
         json['edit_date'] ??= 0;
         break;
