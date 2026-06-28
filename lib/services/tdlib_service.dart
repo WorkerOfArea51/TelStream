@@ -21,7 +21,7 @@ class TdlibService {
   bool _isDestroyed = false;
   
   late final DynamicLibrary _lib;
-  late final Pointer<Utf8> Function(Pointer<Void> client, double timeout) _nativeReceive;
+  late final Pointer<Utf8> Function(double timeout) _nativeReceive;
   bool _libInitialized = false;
   
   final _updatesController = StreamController<td.TdObject>.broadcast();
@@ -352,8 +352,8 @@ class TdlibService {
     try {
       final libName = Platform.isWindows ? 'tdjson.dll' : (Platform.isAndroid ? 'libtdjson.so' : 'libtdjson.so');
       _lib = DynamicLibrary.open(libName);
-      final receivePtr = _lib.lookup<NativeFunction<Pointer<Utf8> Function(Pointer<Void>, Double)>>('td_json_client_receive');
-      _nativeReceive = receivePtr.asFunction<Pointer<Utf8> Function(Pointer<Void>, double)>();
+      final receivePtr = _lib.lookup<NativeFunction<Pointer<Utf8> Function(Double)>>('td_json_client_receive');
+      _nativeReceive = receivePtr.asFunction<Pointer<Utf8> Function(double)>();
       _libInitialized = true;
       Log.i('TDLib direct FFI receive library loaded successfully.');
     } catch (e, stack) {
@@ -519,7 +519,7 @@ class TdlibService {
       try {
         td.TdObject? event;
         if (_libInitialized && _clientId != null) {
-          final rawPtr = _nativeReceive(Pointer<Void>.fromAddress(_clientId!), 0.0);
+          final rawPtr = _nativeReceive(0.0);
           if (rawPtr != nullptr) {
             final jsonStr = rawPtr.toDartString();
             final Map<String, dynamic> jsonMap = jsonDecode(jsonStr);
