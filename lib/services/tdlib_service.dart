@@ -488,6 +488,10 @@ class TdlibService {
         json['unread_reaction_count'] ??= 0;
         json['has_protected_content'] ??= false;
         json['is_translatable'] ??= false;
+        json['message_auto_delete_time'] ??= 0;
+        json['theme_name'] ??= '';
+        json['reply_markup_message_id'] ??= 0;
+        json['client_data'] ??= '';
         json['permissions'] ??= {'@type': 'chatPermissions'};
         json['notification_settings'] ??= {'@type': 'chatNotificationSettings'};
         json['available_reactions'] ??= {'@type': 'chatAvailableReactionsAll'};
@@ -530,6 +534,13 @@ class TdlibService {
         json['has_pinned_stories'] ??= false;
         json['need_phone_number_privacy_exception'] ??= false;
         json['group_in_common_count'] ??= 0;
+        if (json['bio'] is String) {
+          json['bio'] = {
+            '@type': 'formattedText',
+            'text': json['bio'],
+            'entities': []
+          };
+        }
         break;
       case 'supergroup':
         json['username'] ??= '';
@@ -571,7 +582,14 @@ class TdlibService {
         json['is_channel_post'] ??= false;
         json['is_topic_message'] ??= false;
         json['contains_unread_mention'] ??= false;
+        json['message_thread_id'] ??= 0;
+        json['self_destruct_time'] ??= 0;
+        json['self_destruct_in'] ??= 0.0;
+        json['auto_delete_in'] ??= 0.0;
+        json['via_bot_user_id'] ??= 0;
+        json['author_signature'] ??= '';
         json['media_album_id'] = json['media_album_id']?.toString() ?? '0';
+        json['restriction_reason'] ??= '';
         json['date'] ??= 0;
         json['edit_date'] ??= 0;
         break;
