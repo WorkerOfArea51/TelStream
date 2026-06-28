@@ -194,9 +194,8 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
   void _startPlayback(String localPath) {
     if (_isPlaying) return;
     _isPlaying = true;
-    player.open(Media(localPath), play: false).then((_) {
+    player.open(Media(localPath), play: true).then((_) {
       if (!mounted) return;
-      player.play();
       final savedPos = _storageService.getWatchPosition(widget.messageId);
       if (savedPos > 0) {
         if (player.state.duration.inSeconds > 0) {
@@ -303,10 +302,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
           _isInitializing = false;
         });
       }
-      player.open(Media(widget.networkUrl!), play: false).then((_) {
-        if (!mounted) return;
-        player.play();
-      });
+      player.open(Media(widget.networkUrl!), play: true);
       player.setVolume(100.0);
       return;
     }
@@ -1028,11 +1024,8 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
 
       final fileId = _resolvedVideoFileId ?? widget.videoFileId;
       if (widget.networkUrl != null && widget.networkUrl!.isNotEmpty) {
-        player.open(Media(widget.networkUrl!), play: false).then((_) {
+        player.open(Media(widget.networkUrl!), play: isPlayingState).then((_) {
           if (!mounted) return;
-          if (isPlayingState) {
-            player.play();
-          }
           setState(() {
             _isPlaying = true;
             _isInitializing = false;
@@ -1060,11 +1053,8 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
             ? localPath
             : _proxyService.getProxyUrl(fileId, fileName: widget.videoTitle);
             
-        player.open(Media(mediaUrl), play: false).then((_) {
+        player.open(Media(mediaUrl), play: isPlayingState).then((_) {
           if (!mounted) return;
-          if (isPlayingState) {
-            player.play();
-          }
           setState(() {
             _isPlaying = true;
             _isInitializing = false;
