@@ -1153,7 +1153,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
           }
         } else {
           if (hwDecMode != 'no') {
-            nativePlayer.setProperty('hwdec', 'auto');
+            nativePlayer.setProperty('hwdec', 'd3d11va');
           } else {
             nativePlayer.setProperty('hwdec', 'no');
           }

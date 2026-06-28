@@ -3959,6 +3959,8 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     final mode = ref.read(storageServiceProvider).getHardwareDecoderMode();
     if (mode == 'no') {
       return 'SW';
+    } else if (mode == 'd3d11va') {
+      return 'HW';
     } else if (mode == 'mediacodec') {
       return 'HW';
     } else if (mode == 'mediacodec-copy') {
@@ -3973,15 +3975,25 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     String nextMode;
     String toastText;
 
-    if (currentMode == 'mediacodec') {
-      nextMode = 'mediacodec-copy';
-      toastText = 'Hardware Decoder: HW+ (Compatible)';
-    } else if (currentMode == 'mediacodec-copy') {
-      nextMode = 'no';
-      toastText = 'Hardware Decoder: SW (Software)';
+    if (Platform.isWindows) {
+      if (currentMode == 'no') {
+        nextMode = 'd3d11va';
+        toastText = 'Hardware Decoder: HW (d3d11va)';
+      } else {
+        nextMode = 'no';
+        toastText = 'Hardware Decoder: SW (Software)';
+      }
     } else {
-      nextMode = 'mediacodec';
-      toastText = 'Hardware Decoder: HW (Direct)';
+      if (currentMode == 'mediacodec') {
+        nextMode = 'mediacodec-copy';
+        toastText = 'Hardware Decoder: HW+ (Compatible)';
+      } else if (currentMode == 'mediacodec-copy') {
+        nextMode = 'no';
+        toastText = 'Hardware Decoder: SW (Software)';
+      } else {
+        nextMode = 'mediacodec';
+        toastText = 'Hardware Decoder: HW (Direct)';
+      }
     }
 
     await storage.setHardwareDecoderMode(nextMode);
@@ -3993,7 +4005,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
           if (Platform.isAndroid) {
             nativePlayer.setProperty('hwdec', nextMode);
           } else {
-            nativePlayer.setProperty('hwdec', 'auto');
+            nativePlayer.setProperty('hwdec', 'd3d11va');
           }
         } else {
           nativePlayer.setProperty('hwdec', 'no');
@@ -4006,6 +4018,5 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     _showSkipToast(toastText);
     setState(() {});
   }
-
 
 }
