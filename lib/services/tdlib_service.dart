@@ -359,7 +359,9 @@ class TdlibService {
           _updatesController.add(event);
           continue;
         }
-      } catch (_) {}
+      } catch (e, stack) {
+        Log.e("Exception inside TDLib event loop", e, stack);
+      }
       await Future.delayed(const Duration(milliseconds: 5));
     }
   }
