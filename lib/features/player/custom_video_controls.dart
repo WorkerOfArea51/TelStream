@@ -2377,7 +2377,9 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     final storage = ref.read(storageServiceProvider);
     if (_trackSelectorIsSubtitle) {
       widget.player.setSubtitleTrack(track);
-      _applySubtitleProperty('sub-visibility', track.id == 'no' ? 'no' : 'yes');
+      final settings = ref.read(videoSettingsProvider);
+      final isNativeSub = settings.subtitleRendererMode == 'native';
+      _applySubtitleProperty('sub-visibility', (track.id == 'no' || !isNativeSub) ? 'no' : 'yes');
       _updateBlendSubtitlesForTrack(widget.player, track);
       
       final activeAudio = widget.player.state.track.audio;

@@ -1092,7 +1092,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
     player = Player(
       configuration: PlayerConfiguration(
         pitch: _settings.pitchCorrection,
-        libass: true,
+        libass: _settings.subtitleRendererMode == 'native',
         libassAndroidFont: localFont ?? 'assets/fonts/Roboto-Regular.ttf',
         libassAndroidFontName: 'Roboto',
       ),
@@ -1159,7 +1159,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
           }
         }
         nativePlayer.setProperty('sub-font', 'Roboto');
-        nativePlayer.setProperty('sub-visibility', 'yes');
+        nativePlayer.setProperty('sub-visibility', _settings.subtitleRendererMode == 'native' ? 'yes' : 'no');
         nativePlayer.setProperty('sub-auto', 'all');
         nativePlayer.setProperty('embeddedfonts', 'yes'); // Enable embedded fonts inside media containers (MKV, etc.)
         nativePlayer.setProperty('blend-subtitles', 'no'); // Set to 'no' so subtitles render independently and sync perfectly with the master audio clock
