@@ -42,6 +42,8 @@ class VideoSettings {
   final String subtitleFont;
   final String downloadSpeedLimit;
   final String progressSyncMode;
+  final double subtitleBottomMargin;
+  final double subtitleHorizontalOffset;
 
   const VideoSettings({
     this.doubleTapSeekDuration = 10,
@@ -84,6 +86,8 @@ class VideoSettings {
     this.subtitleFont = 'Roboto',
     this.downloadSpeedLimit = 'Unlimited',
     this.progressSyncMode = 'disabled',
+    this.subtitleBottomMargin = 84.0,
+    this.subtitleHorizontalOffset = 0.0,
   });
 
   String getLayoutForCategory(String categoryTitle) {
@@ -153,6 +157,8 @@ class VideoSettings {
     String? subtitleFont,
     String? downloadSpeedLimit,
     String? progressSyncMode,
+    double? subtitleBottomMargin,
+    double? subtitleHorizontalOffset,
   }) {
     return VideoSettings(
       doubleTapSeekDuration: doubleTapSeekDuration ?? this.doubleTapSeekDuration,
@@ -195,6 +201,8 @@ class VideoSettings {
       subtitleFont: subtitleFont ?? this.subtitleFont,
       downloadSpeedLimit: downloadSpeedLimit ?? this.downloadSpeedLimit,
       progressSyncMode: progressSyncMode ?? this.progressSyncMode,
+      subtitleBottomMargin: subtitleBottomMargin ?? this.subtitleBottomMargin,
+      subtitleHorizontalOffset: subtitleHorizontalOffset ?? this.subtitleHorizontalOffset,
     );
   }
 
@@ -240,6 +248,8 @@ class VideoSettings {
       'subtitleFont': subtitleFont,
       'downloadSpeedLimit': downloadSpeedLimit,
       'progressSyncMode': progressSyncMode,
+      'subtitleBottomMargin': subtitleBottomMargin,
+      'subtitleHorizontalOffset': subtitleHorizontalOffset,
     };
   }
 
@@ -285,6 +295,8 @@ class VideoSettings {
       subtitleFont: json['subtitleFont'] ?? 'Roboto',
       downloadSpeedLimit: json['downloadSpeedLimit'] ?? 'Unlimited',
       progressSyncMode: json['progressSyncMode'] ?? 'disabled',
+      subtitleBottomMargin: (json['subtitleBottomMargin'] as num?)?.toDouble() ?? 84.0,
+      subtitleHorizontalOffset: (json['subtitleHorizontalOffset'] as num?)?.toDouble() ?? 0.0,
     );
   }
 }

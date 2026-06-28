@@ -90,6 +90,8 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
   bool _isBlendingSubtitles = false;
   StreamSubscription<Track>? _trackSubscription;
   StreamSubscription? _tracksListSubscription;
+  double? _dragBottomMargin;
+  double? _dragHorizontalOffset;
   
   bool _showTrackSelectorPanel = false;
   String _trackSelectorTitle = '';
@@ -2566,49 +2568,83 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
 
           // Custom Subtitle Overlay (Flutter Text Overlay Mode)
           if (!_isBlendingSubtitles)
-            IgnorePointer(
-              child: StreamBuilder<List<String>>(
-                stream: widget.player.stream.subtitle,
-                builder: (context, snapshot) {
-                  final subtitleLines = snapshot.data;
-                  if (subtitleLines == null || subtitleLines.isEmpty) return const SizedBox.shrink();
-                  
-                  final subtitleText = subtitleLines.join('\n');
-                  // Strip any raw ASS/SSA tags (like {\an8}, {\pos(x,y)}, etc.) to keep plain text clean in overlay mode
-                  final cleanText = subtitleText.replaceAll(RegExp(r'\{[^}]*\}'), '').trim();
-                  if (cleanText.isEmpty) return const SizedBox.shrink();
+            StreamBuilder<List<String>>(
+              stream: widget.player.stream.subtitle,
+              builder: (context, snapshot) {
+                final subtitleLines = snapshot.data;
+                if (subtitleLines == null || subtitleLines.isEmpty) return const Positioned(child: SizedBox.shrink());
+                
+                final subtitleText = subtitleLines.join('\n');
+                // Strip any raw ASS/SSA tags (like {\an8}, {\pos(x,y)}, etc.) to keep plain text clean in overlay mode
+                final cleanText = subtitleText.replaceAll(RegExp(r'\{[^}]*\}'), '').trim();
+                if (cleanText.isEmpty) return const Positioned(child: SizedBox.shrink());
 
-                  return Container(
+                final activeBottomMargin = _dragBottomMargin ?? settings.subtitleBottomMargin;
+                final activeHorizontalOffset = _dragHorizontalOffset ?? settings.subtitleHorizontalOffset;
+                final screenHeight = MediaQuery.of(context).size.height;
+                final screenWidth = MediaQuery.of(context).size.width;
+
+                return Positioned(
+                  bottom: activeBottomMargin,
+                  left: 24.0 + activeHorizontalOffset,
+                  right: 24.0 - activeHorizontalOffset,
+                  child: Align(
                     alignment: Alignment.bottomCenter,
-                    padding: const EdgeInsets.only(bottom: 84, left: 24, right: 24),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.35), // Sleek, semi-transparent background box for maximum legibility
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.white.withValues(alpha: 0.05), width: 0.5),
-                      ),
-                      child: Text(
-                        cleanText,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: subSize,
-                          color: subColor,
-                          fontFamily: resolvedFontFamily,
-                          fontWeight: FontWeight.bold,
-                          height: 1.2,
-                          shadows: const [
-                            Shadow(offset: Offset(-1.5, -1.5), color: Colors.black87, blurRadius: 1.0),
-                            Shadow(offset: Offset(1.5, -1.5), color: Colors.black87, blurRadius: 1.0),
-                            Shadow(offset: Offset(1.5, 1.5), color: Colors.black87, blurRadius: 1.0),
-                            Shadow(offset: Offset(-1.5, 1.5), color: Colors.black87, blurRadius: 1.0),
-                          ],
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onPanStart: (_) {
+                        _dragBottomMargin = settings.subtitleBottomMargin;
+                        _dragHorizontalOffset = settings.subtitleHorizontalOffset;
+                      },
+                      onPanUpdate: (details) {
+                        setState(() {
+                          _dragBottomMargin = (_dragBottomMargin! - details.delta.dy).clamp(10.0, screenHeight - 120.0);
+                          _dragHorizontalOffset = (_dragHorizontalOffset! + details.delta.dx).clamp(-screenWidth / 2 + 50.0, screenWidth / 2 - 50.0);
+                        });
+                      },
+                      onPanEnd: (_) {
+                        if (_dragBottomMargin != null && _dragHorizontalOffset != null) {
+                          ref.read(videoSettingsProvider.notifier).updateSettings(
+                            settings.copyWith(
+                              subtitleBottomMargin: _dragBottomMargin,
+                              subtitleHorizontalOffset: _dragHorizontalOffset,
+                            ),
+                          );
+                        }
+                        setState(() {
+                          _dragBottomMargin = null;
+                          _dragHorizontalOffset = null;
+                        });
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.35),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.white.withValues(alpha: 0.05), width: 0.5),
+                        ),
+                        child: Text(
+                          cleanText,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: subSize,
+                            color: subColor,
+                            fontFamily: resolvedFontFamily,
+                            fontWeight: FontWeight.bold,
+                            height: 1.2,
+                            shadows: const [
+                              Shadow(offset: Offset(-1.5, -1.5), color: Colors.black87, blurRadius: 1.0),
+                              Shadow(offset: Offset(1.5, -1.5), color: Colors.black87, blurRadius: 1.0),
+                              Shadow(offset: Offset(1.5, 1.5), color: Colors.black87, blurRadius: 1.0),
+                              Shadow(offset: Offset(-1.5, 1.5), color: Colors.black87, blurRadius: 1.0),
+                            ],
+                          ),
                         ),
                       ),
                     ),
-                  );
-                },
-              ),
+                  ),
+                );
+              },
             ),
 
           // Double Tap Seek Overlays
