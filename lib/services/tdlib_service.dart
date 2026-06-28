@@ -1,5 +1,8 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:ffi';
+import 'dart:convert';
+import 'package:ffi/ffi.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tdlib/td_client.dart';
 import 'package:tdlib/td_api.dart' as td;
@@ -16,6 +19,10 @@ final tdlibServiceProvider = Provider<TdlibService>((ref) {
 class TdlibService {
   int? _clientId;
   bool _isDestroyed = false;
+  
+  late final DynamicLibrary _lib;
+  late final Pointer<Utf8> Function(Pointer<Void> client, double timeout) _nativeReceive;
+  bool _libInitialized = false;
   
   final _updatesController = StreamController<td.TdObject>.broadcast();
   Stream<td.TdObject> get updates => _updatesController.stream;
@@ -81,6 +88,7 @@ class TdlibService {
       ),
     ));
     send(const td.SetLogVerbosityLevel(newVerbosityLevel: 2));
+    _initNativeLibrary();
     _startEventLoop();
 
     final params = td.SetTdlibParameters(
@@ -339,10 +347,189 @@ class TdlibService {
   final Map<int, Completer<td.TdObject>> _pendingRequests = {};
   int _requestId = 0;
 
+  void _initNativeLibrary() {
+    if (_libInitialized) return;
+    try {
+      final libName = Platform.isWindows ? 'tdjson.dll' : (Platform.isAndroid ? 'libtdjson.so' : 'libtdjson.so');
+      _lib = DynamicLibrary.open(libName);
+      final receivePtr = _lib.lookup<NativeFunction<Pointer<Utf8> Function(Pointer<Void>, Double)>>('td_json_client_receive');
+      _nativeReceive = receivePtr.asFunction<Pointer<Utf8> Function(Pointer<Void>, double)>();
+      _libInitialized = true;
+      Log.i('TDLib direct FFI receive library loaded successfully.');
+    } catch (e, stack) {
+      Log.e('Failed to load native library for custom FFI receive', e, stack);
+    }
+  }
+
+  Map<String, dynamic> _sanitizeJson(Map<String, dynamic> json) {
+    // 1. Recursively sanitize all children first
+    json.forEach((key, value) {
+      if (value is Map<String, dynamic>) {
+        json[key] = _sanitizeJson(value);
+      } else if (value is List) {
+        json[key] = value.map((item) {
+          if (item is Map<String, dynamic>) {
+            return _sanitizeJson(item);
+          }
+          return item;
+        }).toList();
+      }
+    });
+
+    // 2. Perform target type-sanitization based on @type to prevent Dart null-safety TypeErrors
+    final type = json['@type'];
+    if (type == null) return json;
+
+    switch (type) {
+      case 'user':
+        json['is_contact'] ??= false;
+        json['is_mutual_contact'] ??= false;
+        json['is_close_friend'] ??= false;
+        json['is_verified'] ??= false;
+        json['is_premium'] ??= false;
+        json['is_support'] ??= false;
+        json['is_scam'] ??= false;
+        json['is_fake'] ??= false;
+        json['has_active_stories'] ??= false;
+        json['has_unread_active_stories'] ??= false;
+        json['have_access'] ??= false;
+        json['added_to_attachment_menu'] ??= false;
+        json['restriction_reason'] ??= '';
+        json['language_code'] ??= '';
+        json['first_name'] ??= '';
+        json['last_name'] ??= '';
+        json['phone_number'] ??= '';
+        break;
+      case 'chatPermissions':
+        json['can_send_messages'] ??= false;
+        json['can_send_media_messages'] ??= false;
+        json['can_send_polls'] ??= false;
+        json['can_send_other_messages'] ??= false;
+        json['can_add_web_page_previews'] ??= false;
+        json['can_change_info'] ??= false;
+        json['can_invite_users'] ??= false;
+        json['can_pin_messages'] ??= false;
+        json['can_manage_topics'] ??= false;
+        break;
+      case 'attachmentMenuBot':
+        json['supports_self_audios'] ??= false;
+        json['supports_self_videos'] ??= false;
+        json['supports_self_documents'] ??= false;
+        json['supports_self_animations'] ??= false;
+        json['supports_self_photos'] ??= false;
+        json['supports_self_voice_notes'] ??= false;
+        json['supports_self_video_notes'] ??= false;
+        json['supports_self_locations'] ??= false;
+        json['supports_self_contacts'] ??= false;
+        json['supports_channel_chats'] ??= false;
+        json['supports_group_chats'] ??= false;
+        json['supports_private_chats'] ??= false;
+        json['supports_bot_chats'] ??= false;
+        json['supports_attachment_menu'] ??= false;
+        json['supports_side_menu'] ??= false;
+        json['supports_inline_queries'] ??= false;
+        json['supports_settings'] ??= false;
+        json['is_added'] ??= false;
+        json['show_in_attachment_menu'] ??= false;
+        json['show_in_side_menu'] ??= false;
+        json['show_in_editor'] ??= false;
+        break;
+      case 'chatFolderInfo':
+        json['title'] ??= '';
+        json['icon_name'] ??= '';
+        json['is_shareable'] ??= false;
+        json['has_my_invitation_links'] ??= false;
+        break;
+      case 'scopeNotificationSettings':
+        json['mute_for'] ??= 0;
+        json['sound'] ??= '';
+        json['show_preview'] ??= false;
+        json['use_default_mute_for'] ??= false;
+        json['use_default_sound'] ??= false;
+        json['use_default_show_preview'] ??= false;
+        json['disable_pinned_message_notifications'] ??= false;
+        json['disable_mention_notifications'] ??= false;
+        break;
+      case 'chat':
+        json['title'] ??= '';
+        json['is_blocked'] ??= false;
+        json['is_marked_as_unread'] ??= false;
+        json['is_sponsor'] ??= false;
+        json['has_scheduled_messages'] ??= false;
+        json['can_be_deleted_only_for_self'] ??= false;
+        json['can_be_deleted_for_all_users'] ??= false;
+        json['can_be_reported'] ??= false;
+        json['default_disable_notification'] ??= false;
+        json['unread_count'] ??= 0;
+        json['last_read_inbox_message_id'] ??= 0;
+        json['last_read_outbox_message_id'] ??= 0;
+        json['unread_mention_count'] ??= 0;
+        json['unread_reaction_count'] ??= 0;
+        break;
+      case 'userFullInfo':
+        json['is_blocked'] ??= false;
+        json['can_be_called'] ??= false;
+        json['supports_video_calls'] ??= false;
+        json['has_private_calls'] ??= false;
+        json['has_private_link'] ??= false;
+        json['has_pinned_stories'] ??= false;
+        json['need_phone_number_privacy_exception'] ??= false;
+        json['bio'] ??= '';
+        break;
+      case 'supergroup':
+        json['username'] ??= '';
+        json['is_verified'] ??= false;
+        json['has_sensitive_content'] ??= false;
+        json['is_scam'] ??= false;
+        json['is_fake'] ??= false;
+        json['is_forum'] ??= false;
+        json['has_active_stories'] ??= false;
+        json['has_unread_active_stories'] ??= false;
+        json['sign_messages'] ??= false;
+        json['join_to_send_messages'] ??= false;
+        json['join_by_request'] ??= false;
+        json['is_broadcast_group'] ??= false;
+        break;
+      case 'message':
+        json['is_outgoing'] ??= false;
+        json['is_pinned'] ??= false;
+        json['can_be_edited'] ??= false;
+        json['can_be_forwarded'] ??= false;
+        json['can_be_saved'] ??= false;
+        json['can_be_deleted_only_for_self'] ??= false;
+        json['can_be_deleted_for_all_users'] ??= false;
+        json['can_get_added_reactions'] ??= false;
+        json['can_get_message_thread'] ??= false;
+        json['can_get_viewers'] ??= false;
+        json['can_get_media_timestamp_links'] ??= false;
+        json['has_timestamp_arguments'] ??= false;
+        json['is_channel_post'] ??= false;
+        json['is_topic_message'] ??= false;
+        json['contains_unread_mention'] ??= false;
+        json['date'] ??= 0;
+        json['edit_date'] ??= 0;
+        break;
+    }
+
+    return json;
+  }
+
   void _startEventLoop() async {
     while (!_isDestroyed) {
       try {
-        final event = tdReceive(0.0);
+        td.TdObject? event;
+        if (_libInitialized && _clientId != null) {
+          final rawPtr = _nativeReceive(Pointer<Void>.fromAddress(_clientId!), 0.0);
+          if (rawPtr != nullptr) {
+            final jsonStr = rawPtr.toDartString();
+            final Map<String, dynamic> jsonMap = jsonDecode(jsonStr);
+            final sanitized = _sanitizeJson(jsonMap);
+            event = td.convertToObject(jsonEncode(sanitized));
+          }
+        } else {
+          event = tdReceive(0.0);
+        }
+
         if (event != null) {
           // Filter out false-positive TdError events caused by closing inactive client IDs on startup
           if (event is td.TdError && (event.message == "Invalid TDLib instance specified" || event.message.contains("Invalid TDLib instance"))) {
