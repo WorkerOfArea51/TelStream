@@ -88,7 +88,6 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
   bool _showRatioPanel = false;
   bool _showSpeedPanel = false;
   bool _showMoreOptionsPanel = false;
-  bool _visualEnhancer = false;
   
   StreamSubscription<bool>? _bufferingSubscription;
   bool _isBuffering = false;
@@ -3694,58 +3693,6 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Grid of 4 actions: AB Repeat, Equalizer, Timer, Visual Enhancer
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [
-                        _buildQuickActionItem(
-                          label: 'AB Repeat',
-                          icon: _abRepeatA != null ? Icons.repeat_on_rounded : Icons.repeat_one_rounded,
-                          isActive: _abRepeatA != null,
-                          settingsAccent: settingsAccent,
-                          onTap: () {
-                            _toggleAbRepeat();
-                            setState(() {}); // refresh AB repeat state indicator
-                          },
-                        ),
-                        _buildQuickActionItem(
-                          label: 'Equalizer',
-                          icon: Icons.tune_rounded,
-                          isActive: false,
-                          settingsAccent: settingsAccent,
-                          onTap: () {
-                            setState(() => _showMoreOptionsPanel = false);
-                            _showEqualizerDialog();
-                          },
-                        ),
-                        _buildQuickActionItem(
-                          label: 'Timer',
-                          icon: _sleepTimerSecondsRemaining != null ? Icons.timer_rounded : Icons.timer_outlined,
-                          isActive: _sleepTimerSecondsRemaining != null,
-                          settingsAccent: settingsAccent,
-                          onTap: () {
-                            setState(() => _showMoreOptionsPanel = false);
-                            _showSleepTimerSelector();
-                          },
-                        ),
-                        _buildQuickActionItem(
-                          label: 'Visual Enhancer',
-                          icon: _visualEnhancer ? Icons.video_settings_rounded : Icons.video_settings_outlined,
-                          isActive: _visualEnhancer,
-                          settingsAccent: settingsAccent,
-                          onTap: () {
-                            setState(() {
-                              _visualEnhancer = !_visualEnhancer;
-                            });
-                            _showSkipToast(_visualEnhancer ? 'Visual Enhancer: Enabled' : 'Visual Enhancer: Disabled');
-                          },
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 24),
-                    const Divider(color: Colors.white10, height: 1),
-                    const SizedBox(height: 16),
-                    
                     // Repeat Mode Selector
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -3816,83 +3763,6 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                         }),
                       ),
                     ),
-                    const SizedBox(height: 24),
-                    
-                    // Brightness slider
-                    Text(
-                      'Brightness',
-                      style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 13, fontWeight: FontWeight.bold),
-                    ),
-                    Row(
-                      children: [
-                        Icon(Icons.light_mode, color: Colors.white.withValues(alpha: 0.6), size: 18),
-                        Expanded(
-                          child: Slider(
-                            value: _currentBrightness,
-                            activeColor: settingsAccent,
-                            inactiveColor: Colors.white24,
-                            onChanged: (val) {
-                              setState(() {
-                                _currentBrightness = val;
-                              });
-                              try {
-                                ScreenBrightness().setApplicationScreenBrightness(val);
-                                _isPhysicalBrightnessSupported = true;
-                              } catch (_) {
-                                _isPhysicalBrightnessSupported = false;
-                              }
-                              _saveBrightnessDebounced(val);
-                            },
-                          ),
-                        ),
-                        SizedBox(
-                          width: 30,
-                          child: Text(
-                            '${(_currentBrightness * 100).toInt()}',
-                            style: const TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.bold),
-                            textAlign: TextAlign.end,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    
-                    // Volume slider
-                    Text(
-                      'Volume',
-                      style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 13, fontWeight: FontWeight.bold),
-                    ),
-                    Row(
-                      children: [
-                        Icon(Icons.volume_up, color: Colors.white.withValues(alpha: 0.6), size: 18),
-                        Expanded(
-                          child: Slider(
-                            value: _currentVolume,
-                            min: 0.0,
-                            max: ref.read(storageServiceProvider).getVolumeBoostEnabled() ? 200.0 : 100.0,
-                            activeColor: settingsAccent,
-                            inactiveColor: Colors.white24,
-                            onChanged: (val) {
-                              setState(() {
-                                _currentVolume = val;
-                              });
-                              try {
-                                FlutterVolumeController.setVolume((val / 100.0).clamp(0.0, 1.0));
-                              } catch (_) {}
-                              widget.player.setVolume(val);
-                            },
-                          ),
-                        ),
-                        SizedBox(
-                          width: 30,
-                          child: Text(
-                            '${_currentVolume.toInt()}',
-                            style: const TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.bold),
-                            textAlign: TextAlign.end,
-                          ),
-                        ),
-                      ],
-                    ),
                   ],
                 ),
               ),
@@ -3941,46 +3811,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     });
   }
 
-  Widget _buildQuickActionItem({
-    required String label,
-    required IconData icon,
-    required bool isActive,
-    required Color settingsAccent,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 250),
-            curve: Curves.easeInOut,
-            width: 54, height: 54,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: isActive ? settingsAccent : Colors.white.withValues(alpha: 0.08),
-              border: Border.all(color: isActive ? settingsAccent : Colors.white12, width: 1.5),
-            ),
-            child: Icon(
-              icon,
-              color: isActive ? Colors.black : Colors.white,
-              size: 24,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            label,
-            style: TextStyle(
-              color: isActive ? settingsAccent : Colors.white70,
-              fontSize: 11,
-              fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+
 
   Future<void> _pickLocalSubtitleFile() async {
     try {

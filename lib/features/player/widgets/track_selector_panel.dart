@@ -59,7 +59,6 @@ class TrackSelectorPanel extends StatefulWidget {
 
 class _TrackSelectorPanelState extends State<TrackSelectorPanel> {
   int _activeTab = 0; // 0: Tracks, 1: Style
-  String _currentScreen = 'main'; // 'main', 'mode'
 
   static const List<Map<String, String>> _colors = [
     {'name': 'White', 'hex': '#FFFFFF'},
@@ -185,71 +184,33 @@ class _TrackSelectorPanelState extends State<TrackSelectorPanel> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const SizedBox(height: 12),
-                    Center(
-                      child: Container(
-                        width: 45,
-                        height: 4,
-                        decoration: BoxDecoration(
-                          color: Colors.white30,
-                          borderRadius: BorderRadius.circular(2),
+                  const SizedBox(height: 12),
+                  
+                  // Left arrow back and Title layout
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    child: Row(
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.arrow_back, color: Colors.white),
+                          onPressed: widget.onClose,
                         ),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    
-                    // Conditionally show Back Button or title
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-                      child: Row(
-                        children: [
-                          if (widget.isSubtitle && _activeTab == 1 && _currentScreen == 'mode') ...[
-                            IconButton(
-                              icon: const Icon(Icons.arrow_back, color: Colors.white),
-                              onPressed: () {
-                                setState(() {
-                                  _currentScreen = 'main';
-                                });
-                              },
-                            ),
-                            const SizedBox(width: 8),
-                            const Text(
-                              'Subtitle mode',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 18,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: 0.5,
-                              ),
-                            ),
-                          ] else ...[
-                            Icon(
-                              widget.isSubtitle ? Icons.subtitles : Icons.headphones,
-                              color: settingsAccent,
-                              size: 24,
-                            ),
-                            const SizedBox(width: 12),
-                            Text(
-                              widget.isSubtitle ? 'Subtitles' : 'Audio Tracks',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 18,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: 0.5,
-                              ),
-                            ),
-                          ],
-                          const Spacer(),
-                          IconButton(
-                            icon: const Icon(Icons.close, color: Colors.white60),
-                            onPressed: widget.onClose,
+                        const SizedBox(width: 8),
+                        Text(
+                          widget.isSubtitle ? 'Subtitles' : 'Audio Tracks',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.5,
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
+                  ),
 
                     // Dual tab switcher (Tracks vs Style)
-                    if (widget.isSubtitle && _currentScreen == 'main') ...[
+                    if (widget.isSubtitle) ...[
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
                         child: Row(
@@ -265,79 +226,30 @@ class _TrackSelectorPanelState extends State<TrackSelectorPanel> {
 
                     const Divider(color: Colors.white10, height: 1),
 
-                    // Subtitle Mode Screen
-                    if (widget.isSubtitle && _activeTab == 1 && _currentScreen == 'mode')
-                      Expanded(
-                        child: ListView(
-                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                          children: [
-                            _buildModeRadioTile(
-                              title: 'Built-in mode',
-                              subtitle: 'Original subtitle style. Customization (color, size, position, etc.) is not supported.',
-                              isSelected: widget.currentRendererMode == 'native',
-                              onTap: () {
-                                widget.onRendererModeChanged('native');
-                                setState(() => _currentScreen = 'main');
-                              },
-                              settingsAccent: settingsAccent,
-                            ),
-                            const SizedBox(height: 16),
-                            _buildModeRadioTile(
-                              title: 'Custom mode',
-                              subtitle: 'You can customize subtitle color, size, position, etc., but it may cause display issues.',
-                              isSelected: widget.currentRendererMode == 'flutter',
-                              onTap: () {
-                                widget.onRendererModeChanged('flutter');
-                                setState(() => _currentScreen = 'main');
-                              },
-                              settingsAccent: settingsAccent,
-                            ),
-                          ],
-                        ),
-                      )
                     // Subtitle Style Tab Main Screen
-                    else if (widget.isSubtitle && _activeTab == 1)
+                    if (widget.isSubtitle && _activeTab == 1)
                       Expanded(
                         child: ListView(
                           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                           children: [
-                            // 1. Mode Select Row
+                            // 1. Mode Select Bar
+                            const Text(
+                              'Mode',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 15,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
                             Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                const Text(
-                                  'Mode',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                InkWell(
-                                  onTap: () {
-                                    setState(() {
-                                      _currentScreen = 'mode';
-                                    });
-                                  },
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Text(
-                                        widget.currentRendererMode == 'native' ? 'Built-in' : 'Custom',
-                                        style: TextStyle(
-                                          color: settingsAccent,
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 4),
-                                      Icon(Icons.chevron_right_rounded, color: settingsAccent, size: 18),
-                                    ],
-                                  ),
-                                ),
+                                _buildRendererModeButton('native', 'Built-in', settingsAccent),
+                                const SizedBox(width: 12),
+                                _buildRendererModeButton('flutter', 'Custom', settingsAccent),
                               ],
                             ),
-                            const SizedBox(height: 8),
+                            const SizedBox(height: 12),
 
                             // Helper text or custom styles depending on active Mode
                             if (widget.currentRendererMode == 'native') ...[
@@ -877,79 +789,34 @@ class _TrackSelectorPanelState extends State<TrackSelectorPanel> {
     );
   }
 
-  Widget _buildModeRadioTile({
-    required String title,
-    required String subtitle,
-    required bool isSelected,
-    required VoidCallback onTap,
-    required Color settingsAccent,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: isSelected ? settingsAccent.withValues(alpha: 0.12) : Colors.white.withValues(alpha: 0.04),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: isSelected ? settingsAccent.withValues(alpha: 0.4) : Colors.white.withValues(alpha: 0.05),
-            width: 1,
+  Widget _buildRendererModeButton(String modeId, String label, Color settingsAccent) {
+    final isSelected = widget.currentRendererMode == modeId;
+    return Expanded(
+      child: InkWell(
+        onTap: () {
+          widget.onRendererModeChanged(modeId);
+        },
+        borderRadius: BorderRadius.circular(10),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: isSelected ? settingsAccent.withValues(alpha: 0.15) : Colors.white.withValues(alpha: 0.03),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: isSelected ? settingsAccent : Colors.white10,
+              width: 1.5,
+            ),
           ),
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              margin: const EdgeInsets.only(top: 2),
-              width: 18,
-              height: 18,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: isSelected ? settingsAccent : Colors.white30,
-                  width: 2,
-                ),
-              ),
-              child: isSelected
-                  ? Center(
-                      child: Container(
-                        width: 10,
-                        height: 10,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: settingsAccent,
-                        ),
-                      ),
-                    )
-                  : null,
+          child: Text(
+            label,
+            style: TextStyle(
+              color: isSelected ? settingsAccent : Colors.white70,
+              fontSize: 13,
+              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      color: isSelected ? settingsAccent : Colors.white,
-                      fontSize: 15,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    subtitle,
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.45),
-                      fontSize: 12,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );
