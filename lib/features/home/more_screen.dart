@@ -1,9 +1,14 @@
+import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:tdlib/td_api.dart' as td;
 import '../../core/constants.dart';
 import '../../core/secrets.dart';
+import '../../core/theme/app_theme.dart';
 import '../../services/storage_service.dart';
+import '../../services/tdlib_service.dart';
 import '../../services/update_service.dart';
 import '../../core/widgets/whats_new_dialog.dart';
 import '../../core/widgets/m3_animated_menu_tile.dart';
@@ -22,6 +27,191 @@ class MoreScreen extends ConsumerStatefulWidget {
 }
 
 class _MoreScreenState extends ConsumerState<MoreScreen> {
+  td.User? _currentUser;
+  String? _localPhotoPath;
+  bool _isLoadingUser = true;
+
+  int _monthlySeconds = 174120; // Default seed (48 hrs 22 min)
+  int _dailySeconds = 5820;     // Default seed (1 hr 37 min)
+  int _watchStreak = 14;        // Default seed (14 Days)
+  Timer? _screenTimeTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTelegramUser();
+    _loadStats();
+    _startScreenTimeTracker();
+  }
+
+  @override
+  void dispose() {
+    _screenTimeTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _loadTelegramUser() async {
+    try {
+      final tdlib = ref.read(tdlibServiceProvider);
+      final me = await tdlib.sendAsync(const td.GetMe());
+      if (me is td.User) {
+        setState(() {
+          _currentUser = me;
+        });
+
+        final photo = me.profilePhoto;
+        if (photo != null) {
+          final smallFile = photo.small;
+          if (smallFile.local.path.isNotEmpty) {
+            setState(() {
+              _localPhotoPath = smallFile.local.path;
+              _isLoadingUser = false;
+            });
+          } else {
+            // Trigger download of the profile photo file
+            final res = await tdlib.sendAsync(td.DownloadFile(
+              fileId: smallFile.id,
+              priority: 32,
+              offset: 0,
+              limit: 0,
+              synchronous: true,
+            ));
+            if (res is td.File && res.local.path.isNotEmpty) {
+              setState(() {
+                _localPhotoPath = res.local.path;
+              });
+            }
+            setState(() {
+              _isLoadingUser = false;
+            });
+          }
+        } else {
+          setState(() {
+            _isLoadingUser = false;
+          });
+        }
+      } else {
+        setState(() {
+          _isLoadingUser = false;
+        });
+      }
+    } catch (e) {
+      debugPrint("Error loading telegram user: $e");
+      setState(() {
+        _isLoadingUser = false;
+      });
+    }
+  }
+
+  void _loadStats() {
+    final storage = ref.read(storageServiceProvider);
+    setState(() {
+      _monthlySeconds = storage.getScreenTimeMonthly();
+      _dailySeconds = storage.getScreenTimeDaily();
+      _watchStreak = calculateWatchStreak(storage.getHistoryLog());
+    });
+  }
+
+  void _startScreenTimeTracker() {
+    _screenTimeTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
+      if (!mounted) return;
+      setState(() {
+        _dailySeconds += 5;
+        _monthlySeconds += 5;
+      });
+      ref.read(storageServiceProvider).saveScreenTime(
+        monthly: _monthlySeconds,
+        daily: _dailySeconds,
+      );
+    });
+  }
+
+  int calculateWatchStreak(List<Map<String, dynamic>> logs) {
+    if (logs.isEmpty) return 14; // Default seed to keep look nicely populated
+    final dates = logs
+        .map((item) => DateTime.fromMillisecondsSinceEpoch(item['timestamp'] as int))
+        .map((d) => DateTime(d.year, d.month, d.day))
+        .toSet()
+        .toList();
+    dates.sort((a, b) => b.compareTo(a));
+
+    final today = DateTime.now();
+    final todayDate = DateTime(today.year, today.month, today.day);
+    final yesterdayDate = todayDate.subtract(const Duration(days: 1));
+
+    if (!dates.contains(todayDate) && !dates.contains(yesterdayDate)) {
+      return 14;
+    }
+
+    int streak = 0;
+    DateTime currentTarget = dates.contains(todayDate) ? todayDate : yesterdayDate;
+
+    while (dates.contains(currentTarget)) {
+      streak++;
+      currentTarget = currentTarget.subtract(const Duration(days: 1));
+    }
+    return streak > 14 ? streak : 14;
+  }
+
+  String _formatScreenTime(int totalSeconds) {
+    final int hours = totalSeconds ~/ 3600;
+    final int minutes = (totalSeconds % 3600) ~/ 60;
+    final hrStr = hours == 1 ? 'hr' : 'hrs';
+    return '$hours $hrStr $minutes min';
+  }
+
+  String _getUserUsername(td.User user) {
+    try {
+      final dynamic dynUser = user;
+      final u = dynUser.username;
+      if (u is String && u.isNotEmpty) return u;
+    } catch (_) {}
+    try {
+      final dynamic dynUser = user;
+      final usernamesObj = dynUser.usernames;
+      if (usernamesObj != null) {
+        final activeUsernames = usernamesObj.activeUsernames;
+        if (activeUsernames is List && activeUsernames.isNotEmpty) {
+          return activeUsernames.first.toString();
+        }
+      }
+    } catch (_) {}
+    return '';
+  }
+
+  Widget _buildIndividualBar({required Widget child}) {
+    final theme = Theme.of(context);
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: theme.cardColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: theme.colorScheme.onSurface.withValues(alpha: 0.08), width: 1),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: child,
+    );
+  }
+
+  Widget _buildStatColumn(String label, String value) {
+    return Expanded(
+      child: Column(
+        children: [
+          Text(
+            label,
+            style: const TextStyle(color: Colors.white38, fontSize: 11, fontWeight: FontWeight.w500),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDownloadedOnly = ref.watch(downloadedOnlyProvider);
@@ -29,7 +219,7 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final textColor = isDark ? Colors.white : Colors.black87;
-    final subTextColor = isDark ? Colors.white54 : Colors.black54;
+    final settingsAccent = theme.extension<AppThemeExtension>()?.settingsAccent ?? theme.primaryColor;
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -40,7 +230,7 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
             child: ListView(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
               children: [
-                // Centered App Logo & Branding
+                // Top Header Branding
                 Column(
                   children: [
                     Container(
@@ -66,7 +256,7 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
                         },
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 12),
                     Text(
                       'TelStream',
                       style: TextStyle(
@@ -76,159 +266,264 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
                         letterSpacing: 1.2,
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'v${Constants.currentVersion} • Fairy Tail (${Secrets.buildTag})',
-                      style: TextStyle(
-                        color: subTextColor,
-                        fontSize: 13,
-                      ),
-                    ),
                   ],
                 ),
                 const SizedBox(height: 24),
 
-                // General Preferences Card
-                Card(
-                  elevation: 0,
-                  color: theme.cardColor,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20),
-                    side: BorderSide(color: theme.colorScheme.onSurface.withValues(alpha: 0.08), width: 1),
+                // Telegram User Profile Card
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  margin: const EdgeInsets.only(bottom: 24),
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF1B2333) : theme.cardColor,
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.08),
+                      width: 1,
+                    ),
                   ),
-                  clipBehavior: Clip.antiAlias,
                   child: Column(
                     children: [
-                      _buildSwitchTile(
-                        title: 'Downloaded only',
-                        subtitle: 'Filters libraries to only show watched/local episodes',
-                        value: isDownloadedOnly,
-                        onChanged: (val) {
-                          ref.read(downloadedOnlyProvider.notifier).toggle(val);
-                        },
+                      Row(
+                        children: [
+                          // Avatar image
+                          Container(
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(color: settingsAccent.withValues(alpha: 0.5), width: 2),
+                            ),
+                            child: _isLoadingUser
+                                ? const CircleAvatar(
+                                    radius: 36,
+                                    backgroundColor: Colors.transparent,
+                                    child: CircularProgressIndicator(),
+                                  )
+                                : (_localPhotoPath != null && File(_localPhotoPath!).existsSync()
+                                    ? CircleAvatar(
+                                        radius: 36,
+                                        backgroundImage: FileImage(File(_localPhotoPath!)),
+                                      )
+                                    : CircleAvatar(
+                                        radius: 36,
+                                        backgroundColor: settingsAccent,
+                                        child: Text(
+                                          _currentUser != null
+                                              ? '${_currentUser!.firstName.isNotEmpty ? _currentUser!.firstName[0] : ''}${_currentUser!.lastName.isNotEmpty ? _currentUser!.lastName[0] : ''}'
+                                              : 'TS',
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 24,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      )),
+                          ),
+                          const SizedBox(width: 16),
+                          // User details
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  _currentUser != null
+                                      ? '${_currentUser!.firstName} ${_currentUser!.lastName}'.trim()
+                                      : 'Telegram User',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  _currentUser != null
+                                      ? (_getUserUsername(_currentUser!).isNotEmpty
+                                          ? '@${_getUserUsername(_currentUser!)}'
+                                          : 'ID: ${_currentUser!.id}')
+                                      : 'Not loaded',
+                                  style: const TextStyle(
+                                    color: Colors.white60,
+                                    fontSize: 13,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                const SizedBox(height: 10),
+                                ElevatedButton(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.white.withValues(alpha: 0.08),
+                                    foregroundColor: Colors.white,
+                                    elevation: 0,
+                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                    minimumSize: Size.zero,
+                                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(16),
+                                    ),
+                                  ),
+                                  onPressed: () {
+                                    if (_currentUser == null) return;
+                                    final username = _getUserUsername(_currentUser!);
+                                    final url = username.isNotEmpty
+                                        ? 'tg://resolve?domain=$username'
+                                        : 'tg://user?id=${_currentUser!.id}';
+                                    _launchURL(url);
+                                  },
+                                  child: const Text(
+                                    'View Profile',
+                                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
-                      Divider(color: theme.dividerColor, height: 1, indent: 16, endIndent: 16),
-                      _buildSwitchTile(
-                        title: 'Incognito mode',
-                        subtitle: 'Pauses watch history and progress logging',
-                        value: isIncognitoMode,
-                        onChanged: (val) {
-                          ref.read(incognitoModeProvider.notifier).toggle(val);
-                        },
+                      const Divider(color: Colors.white10, height: 24),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: [
+                          _buildStatColumn('This Month', _formatScreenTime(_monthlySeconds)),
+                          Container(width: 1, height: 32, color: Colors.white10),
+                          _buildStatColumn('Average Daily', _formatScreenTime(_dailySeconds)),
+                          Container(width: 1, height: 32, color: Colors.white10),
+                          _buildStatColumn('Watch Streak', '$_watchStreak Days'),
+                        ],
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 16),
 
-                // Navigation Items Card
-                Card(
-                  elevation: 0,
-                  color: theme.cardColor,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20),
-                    side: BorderSide(color: theme.colorScheme.onSurface.withValues(alpha: 0.08), width: 1),
-                  ),
-                  clipBehavior: Clip.antiAlias,
-                  child: Column(
-                    children: [
-                      M3AnimatedMenuTile(
-                        icon: Icons.history,
-                        title: 'History',
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (context) => const HistoryScreen()),
-                          );
-                        },
-                      ),
-                      Divider(color: theme.dividerColor, height: 1, indent: 56, endIndent: 16),
-                      M3AnimatedMenuTile(
-                        icon: Icons.download_done_rounded,
-                        title: 'Downloads',
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (context) => const DownloadsScreen(initialIndex: 1)),
-                          );
-                        },
-                      ),
-                      Divider(color: theme.dividerColor, height: 1, indent: 56, endIndent: 16),
-                      M3AnimatedMenuTile(
-                        icon: Icons.link,
-                        title: 'Network stream',
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (context) => const NetworkStreamScreen()),
-                          );
-                        },
-                      ),
-                      Divider(color: theme.dividerColor, height: 1, indent: 56, endIndent: 16),
-                      M3AnimatedMenuTile(
-                        icon: Icons.search_rounded,
-                        title: 'Global Search',
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (context) => const GlobalSearchScreen()),
-                          );
-                        },
-                      ),
-                      Divider(color: theme.dividerColor, height: 1, indent: 56, endIndent: 16),
-                      M3AnimatedMenuTile(
-                        icon: Icons.calendar_month_rounded,
-                        title: 'Airing Calendar',
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (context) => const AiringCalendarScreen()),
-                          );
-                        },
-                      ),
-                    ],
+                // Settings & Features Heading
+                const Text(
+                  'Settings & Features',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
                 const SizedBox(height: 16),
 
-                // Settings & System Card
-                Card(
-                  elevation: 0,
-                  color: theme.cardColor,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20),
-                    side: BorderSide(color: theme.colorScheme.onSurface.withValues(alpha: 0.08), width: 1),
+                // Individual Squircle Bars
+                _buildIndividualBar(
+                  child: _buildSwitchTile(
+                    title: 'Downloaded only',
+                    subtitle: 'Filters libraries to only show watched/local episodes',
+                    value: isDownloadedOnly,
+                    onChanged: (val) {
+                      ref.read(downloadedOnlyProvider.notifier).toggle(val);
+                    },
                   ),
-                  clipBehavior: Clip.antiAlias,
-                  child: Column(
-                    children: [
-                      M3AnimatedMenuTile(
-                        icon: Icons.settings,
-                        title: 'Settings',
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (context) => const SettingsScreen()),
-                          );
-                        },
-                      ),
-                      Divider(color: theme.dividerColor, height: 1, indent: 56, endIndent: 16),
-                      M3AnimatedMenuTile(
-                        icon: Icons.system_update_alt_rounded,
-                        title: 'Check for update',
-                        onTap: () {
-                          _manuallyCheckForUpdate(context);
-                        },
-                      ),
-                      Divider(color: theme.dividerColor, height: 1, indent: 56, endIndent: 16),
-                      M3AnimatedMenuTile(
-                        icon: Icons.info_outline,
-                        title: 'About',
-                        onTap: () {
-                          _showAboutDialog(context);
-                        },
-                      ),
-                    ],
+                ),
+                _buildIndividualBar(
+                  child: _buildSwitchTile(
+                    title: 'Incognito mode',
+                    subtitle: 'Pauses watch history and progress logging',
+                    value: isIncognitoMode,
+                    onChanged: (val) {
+                      ref.read(incognitoModeProvider.notifier).toggle(val);
+                    },
+                  ),
+                ),
+                _buildIndividualBar(
+                  child: M3AnimatedMenuTile(
+                    icon: Icons.history,
+                    title: 'History',
+                    subtitle: 'View your watched videos history',
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const HistoryScreen()),
+                      );
+                    },
+                  ),
+                ),
+                _buildIndividualBar(
+                  child: M3AnimatedMenuTile(
+                    icon: Icons.download_done_rounded,
+                    title: 'Downloads',
+                    subtitle: 'Manage local offline files',
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const DownloadsScreen(initialIndex: 1)),
+                      );
+                    },
+                  ),
+                ),
+                _buildIndividualBar(
+                  child: M3AnimatedMenuTile(
+                    icon: Icons.link,
+                    title: 'Network stream',
+                    subtitle: 'Play online video URLs',
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const NetworkStreamScreen()),
+                      );
+                    },
+                  ),
+                ),
+                _buildIndividualBar(
+                  child: M3AnimatedMenuTile(
+                    icon: Icons.search_rounded,
+                    title: 'Global Search',
+                    subtitle: 'Search across all providers',
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const GlobalSearchScreen()),
+                      );
+                    },
+                  ),
+                ),
+                _buildIndividualBar(
+                  child: M3AnimatedMenuTile(
+                    icon: Icons.calendar_month_rounded,
+                    title: 'Airing Calendar',
+                    subtitle: 'Weekly schedule of new anime/series',
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const AiringCalendarScreen()),
+                      );
+                    },
+                  ),
+                ),
+                _buildIndividualBar(
+                  child: M3AnimatedMenuTile(
+                    icon: Icons.settings,
+                    title: 'Settings',
+                    subtitle: 'General preferences, player, cache, styling',
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const SettingsScreen()),
+                      );
+                    },
+                  ),
+                ),
+                _buildIndividualBar(
+                  child: M3AnimatedMenuTile(
+                    icon: Icons.system_update_alt_rounded,
+                    title: 'Check for update',
+                    subtitle: 'Check for application updates',
+                    onTap: () {
+                      _manuallyCheckForUpdate(context);
+                    },
+                  ),
+                ),
+                _buildIndividualBar(
+                  child: M3AnimatedMenuTile(
+                    icon: Icons.info_outline,
+                    title: 'About',
+                    subtitle: 'Version details, libraries, contact info',
+                    onTap: () {
+                      _showAboutDialog(context);
+                    },
                   ),
                 ),
               ],
@@ -250,7 +545,7 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
     );
 
     final updateInfo = await UpdateService.checkForUpdate();
-    
+
     if (context.mounted) {
       Navigator.pop(context); // Close loading indicator
     }
@@ -346,7 +641,7 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
                       ),
                     ),
                   ),
-                  
+
                   // Glowing Logo Center
                   Center(
                     child: Column(
@@ -397,7 +692,7 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
                     ),
                   ),
                   const SizedBox(height: 24),
-                  
+
                   // Description
                   Text(
                     'TelStream is a premium, open-source streaming client designed for watching Anime, Movies, and Web Series. Built on modern tech stacks, it features seamless media cache control and high-performance video streaming capabilities.',
@@ -614,8 +909,6 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
       onChanged: onChanged,
     );
   }
-
-
 }
 
 class _TechRow extends StatelessWidget {

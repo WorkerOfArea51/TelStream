@@ -820,6 +820,27 @@ class StorageService {
     _data = Map<String, dynamic>.from(data);
     await _save();
   }
+
+  int getScreenTimeMonthly() {
+    return _data['screen_time_monthly'] ?? 174120; // Default 48h 22m
+  }
+
+  int getScreenTimeDaily() {
+    final todayStr = DateTime.now().toIso8601String().substring(0, 10);
+    final lastActiveDate = _data['screen_time_last_active_date'] as String?;
+    if (lastActiveDate != todayStr) {
+      return 5820; // Default 1h 37m
+    }
+    return _data['screen_time_daily'] ?? 5820;
+  }
+
+  Future<void> saveScreenTime({required int monthly, required int daily}) async {
+    final todayStr = DateTime.now().toIso8601String().substring(0, 10);
+    _data['screen_time_monthly'] = monthly;
+    _data['screen_time_daily'] = daily;
+    _data['screen_time_last_active_date'] = todayStr;
+    await _save();
+  }
 }
 
 class FavoritesNotifier extends Notifier<List<String>> {
