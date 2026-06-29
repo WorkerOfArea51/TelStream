@@ -22,6 +22,7 @@ import 'backup_manager_screen.dart';
 import '../../core/widgets/whats_new_dialog.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/logger.dart';
+import '../../core/widgets/expressive_container.dart';
 import '../../core/utils/path_helper.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
@@ -403,7 +404,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ),
                 Divider(color: theme.dividerColor, height: 1, indent: 56, endIndent: 16),
                 ListTile(
-                  leading: Icon(Icons.disc_full, color: isDark ? Colors.white70 : Colors.black54),
+                  leading: Material3ExpressiveContainer(
+                    shape: ExpressiveShape.squircle,
+                    size: 38,
+                    activeColor: theme.primaryColor,
+                    isSelected: true,
+                    child: const Icon(Icons.disc_full_rounded, color: Colors.white, size: 20),
+                  ),
                   title: const Text('Cache Size Limit'),
                   trailing: DropdownButton<int>(
                     value: settings.cacheLimitMb,
@@ -427,7 +434,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ),
                 Divider(color: theme.dividerColor, height: 1, indent: 56, endIndent: 16),
                 ListTile(
-                  leading: Icon(Icons.hourglass_empty, color: isDark ? Colors.white70 : Colors.black54),
+                  leading: Material3ExpressiveContainer(
+                    shape: ExpressiveShape.squircle,
+                    size: 38,
+                    activeColor: theme.primaryColor,
+                    isSelected: true,
+                    child: const Icon(Icons.hourglass_empty_rounded, color: Colors.white, size: 20),
+                  ),
                   title: const Text('Cache Auto-Delete TTL'),
                   trailing: DropdownButton<int>(
                     value: settings.cacheTtlDays,
@@ -451,7 +464,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ),
                 Divider(color: theme.dividerColor, height: 1, indent: 56, endIndent: 16),
                 ListTile(
-                  leading: Icon(Icons.folder, color: isDark ? Colors.orangeAccent : Colors.orange),
+                  leading: Material3ExpressiveContainer(
+                    shape: ExpressiveShape.squircle,
+                    size: 38,
+                    activeColor: theme.primaryColor,
+                    isSelected: true,
+                    child: const Icon(Icons.folder_rounded, color: Colors.white, size: 20),
+                  ),
                   title: const Text('Download Folder'),
                   subtitle: Text(_downloadPath, style: TextStyle(color: isDark ? Colors.white54 : Colors.black54, fontSize: 11)),
                   trailing: Icon(Icons.folder_open, color: isDark ? Colors.white70 : Colors.black54, size: 20),
@@ -497,13 +516,20 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             child: Column(
               children: [
                 ListTile(
-                  leading: Icon(
-                    themeState.themeMode == ThemeMode.light
-                        ? Icons.light_mode
-                        : themeState.themeMode == ThemeMode.dark
-                            ? Icons.dark_mode
-                            : Icons.settings_brightness,
-                    color: isDark ? Colors.white70 : Colors.black54,
+                  leading: Material3ExpressiveContainer(
+                    shape: ExpressiveShape.squircle,
+                    size: 38,
+                    activeColor: theme.primaryColor,
+                    isSelected: true,
+                    child: Icon(
+                      themeState.themeMode == ThemeMode.light
+                          ? Icons.light_mode_rounded
+                          : themeState.themeMode == ThemeMode.dark
+                              ? Icons.dark_mode_rounded
+                              : Icons.settings_brightness_rounded,
+                      color: Colors.white,
+                      size: 20,
+                    ),
                   ),
                   title: const Text('Theme Mode'),
                   subtitle: Text(
@@ -526,6 +552,38 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     onChanged: (String? value) {
                       if (value != null) {
                         ref.read(appThemeProvider.notifier).updateThemeMode(value);
+                      }
+                    },
+                  ),
+                ),
+                Divider(color: theme.dividerColor, height: 1, indent: 56, endIndent: 16),
+                ListTile(
+                  leading: Material3ExpressiveContainer(
+                    shape: ExpressiveShape.squircle,
+                    size: 38,
+                    activeColor: theme.primaryColor,
+                    isSelected: true,
+                    child: const Icon(Icons.palette_rounded, color: Colors.white, size: 20),
+                  ),
+                  title: const Text('Color Theme'),
+                  subtitle: Text(
+                    themeState.activePreset.name,
+                    style: TextStyle(color: isDark ? Colors.white54 : Colors.black45, fontSize: 12),
+                  ),
+                  trailing: DropdownButton<String>(
+                    value: themeState.colorThemeId,
+                    dropdownColor: theme.cardColor,
+                    underline: const SizedBox(),
+                    icon: Icon(Icons.arrow_drop_down, color: isDark ? Colors.white70 : Colors.black54),
+                    items: appThemes.map((preset) {
+                      return DropdownMenuItem<String>(
+                        value: preset.id,
+                        child: Text(preset.name),
+                      );
+                    }).toList(),
+                    onChanged: (String? value) {
+                      if (value != null) {
+                        ref.read(appThemeProvider.notifier).updateColorTheme(value);
                       }
                     },
                   ),
