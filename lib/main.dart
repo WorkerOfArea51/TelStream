@@ -10,6 +10,7 @@ import 'features/home/main_screen.dart';
 import 'features/auth/auth_controller.dart';
 import 'features/auth/splash_screen.dart';
 import 'services/storage_service.dart';
+import 'services/streaming_proxy_service.dart';
 import 'core/theme/app_theme.dart';
 
 void main() async {
@@ -27,6 +28,9 @@ void main() async {
   
   final container = ProviderContainer();
   await container.read(storageServiceProvider).init();
+  
+  // Pre-warm the streaming proxy provider to start the HTTP server early
+  container.read(streamingProxyServiceProvider);
   
   runApp(
     UncontrolledProviderScope(

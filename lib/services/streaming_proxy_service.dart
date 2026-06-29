@@ -19,6 +19,9 @@ class StreamingProxyService {
   final TdlibService _tdlibService;
   HttpServer? _server;
   int _port = 0;
+  final Completer<void> _startCompleter = Completer<void>();
+
+  Future<void> get onReady => _startCompleter.future;
 
   // Track active download offset state per fileId
   final Map<int, int> _activeDownloadOffsets = {};
@@ -68,8 +71,14 @@ class StreamingProxyService {
       _server!.listen(_handleRequest, onError: (e) {
         Log.e('HTTP Proxy server error', e);
       });
+      if (!_startCompleter.isCompleted) {
+        _startCompleter.complete();
+      }
     } catch (e, stack) {
       Log.e('Failed to start HTTP Proxy server', e, stack);
+      if (!_startCompleter.isCompleted) {
+        _startCompleter.completeError(e, stack);
+      }
     }
   }
 

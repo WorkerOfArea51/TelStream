@@ -191,10 +191,24 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
 
   DateTime? _lastUpdateTime;
 
-  void _startPlayback(String localPath) {
+  Future<void> _startPlayback(String localPath) async {
     if (_isPlaying) return;
     _isPlaying = true;
-    player.open(Media(localPath), play: true).then((_) {
+
+    String finalPath = localPath;
+    if (localPath.startsWith('http://127.0.0.1')) {
+      try {
+        await _proxyService.onReady.timeout(const Duration(seconds: 3));
+      } catch (e) {
+        Log.w('Proxy service ready await timed out or failed: $e');
+      }
+      finalPath = _proxyService.getProxyUrl(
+        _resolvedVideoFileId ?? widget.videoFileId,
+        fileName: widget.videoTitle,
+      );
+    }
+
+    player.open(Media(finalPath), play: true).then((_) {
       if (!mounted) return;
       final savedPos = _storageService.getWatchPosition(widget.messageId);
       if (savedPos > 0) {
@@ -1049,10 +1063,17 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
       } else {
         final cachedFile = _proxyService.getCachedFile(fileId);
         final localPath = cachedFile?.local.path ?? '';
-        final mediaUrl = (localPath.isNotEmpty && cachedFile?.local.isDownloadingCompleted == true)
+        String mediaUrl = (localPath.isNotEmpty && cachedFile?.local.isDownloadingCompleted == true)
             ? localPath
             : _proxyService.getProxyUrl(fileId, fileName: widget.videoTitle);
             
+        if (mediaUrl.startsWith('http://127.0.0.1')) {
+          try {
+            await _proxyService.onReady.timeout(const Duration(seconds: 3));
+          } catch (_) {}
+          mediaUrl = _proxyService.getProxyUrl(fileId, fileName: widget.videoTitle);
+        }
+
         player.open(Media(mediaUrl), play: isPlayingState).then((_) {
           if (!mounted) return;
           setState(() {
@@ -1120,7 +1141,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         nativePlayer.setProperty('sub-fix-timing', 'yes');
         nativePlayer.setProperty('stream-buffer-size', '8388608'); // 8 MB stream buffer for high-throughput network reading
         nativePlayer.setProperty('vd-lavc-fast', 'yes'); // Enable fast decoding optimizations
-        nativePlayer.setProperty('vd-lavc-skiploopfilter', 'all'); // Skip all loop filtering to keep up with 2x playback speed
+        nativePlayer.setProperty('vd-lavc-skiploopfilter', 'none'); // Do not skip loop filtering to prevent blocky pixelation/glitching
         nativePlayer.setProperty('vd-lavc-threads', '0'); // Enable multi-threaded video decoding to prevent lag at 2x speed
         nativePlayer.setProperty('demuxer-max-bytes', '104857600'); // 100 MB forward cache buffer to smooth out variable bandwidth (WiFi/Cellular)
         nativePlayer.setProperty('demuxer-readahead-secs', '60'); // Buffer up to 60 seconds ahead to guard against connection handovers
