@@ -2662,13 +2662,8 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                           _dragHorizontalOffset = null;
                         });
                       },
-                      child: Container(
+                      child: Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.35),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.white.withValues(alpha: 0.05), width: 0.5),
-                        ),
                         child: Text(
                           cleanText,
                           textAlign: TextAlign.center,
@@ -2679,10 +2674,14 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                             fontWeight: FontWeight.bold,
                             height: 1.2,
                             shadows: const [
-                              Shadow(offset: Offset(-1.5, -1.5), color: Colors.black87, blurRadius: 1.0),
-                              Shadow(offset: Offset(1.5, -1.5), color: Colors.black87, blurRadius: 1.0),
-                              Shadow(offset: Offset(1.5, 1.5), color: Colors.black87, blurRadius: 1.0),
-                              Shadow(offset: Offset(-1.5, 1.5), color: Colors.black87, blurRadius: 1.0),
+                              Shadow(offset: Offset(-1.5, -1.5), color: Colors.black, blurRadius: 2.0),
+                              Shadow(offset: Offset(1.5, -1.5), color: Colors.black, blurRadius: 2.0),
+                              Shadow(offset: Offset(1.5, 1.5), color: Colors.black, blurRadius: 2.0),
+                              Shadow(offset: Offset(-1.5, 1.5), color: Colors.black, blurRadius: 2.0),
+                              Shadow(offset: Offset(-1.5, 0.0), color: Colors.black, blurRadius: 2.0),
+                              Shadow(offset: Offset(1.5, 0.0), color: Colors.black, blurRadius: 2.0),
+                              Shadow(offset: Offset(0.0, -1.5), color: Colors.black, blurRadius: 2.0),
+                              Shadow(offset: Offset(0.0, 1.5), color: Colors.black, blurRadius: 2.0),
                             ],
                           ),
                         ),
