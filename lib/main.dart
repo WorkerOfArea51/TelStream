@@ -8,6 +8,7 @@ import 'core/logger.dart';
 import 'features/auth/login_screen.dart';
 import 'features/home/main_screen.dart';
 import 'features/auth/auth_controller.dart';
+import 'features/auth/splash_screen.dart';
 import 'services/storage_service.dart';
 import 'core/theme/app_theme.dart';
 
@@ -56,13 +57,36 @@ class TelStreamApp extends ConsumerWidget {
   }
 }
 
-class AuthWrapper extends ConsumerWidget {
+class AuthWrapper extends ConsumerStatefulWidget {
   const AuthWrapper({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<AuthWrapper> createState() => _AuthWrapperState();
+}
+
+class _AuthWrapperState extends ConsumerState<AuthWrapper> {
+  bool _splashCompleted = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Keep splash animation showing for at least 2.5 seconds
+    Future.delayed(const Duration(milliseconds: 2500), () {
+      if (mounted) {
+        setState(() {
+          _splashCompleted = true;
+        });
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_splashCompleted) {
+      return const SplashScreen();
+    }
+
     final authState = ref.watch(authControllerProvider);
-    
     if (authState.step == AuthStep.authenticated) {
       return const MainScreen();
     }

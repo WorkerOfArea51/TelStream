@@ -310,6 +310,33 @@ class StorageService {
     await _save();
   }
 
+  String getAnimeLayout() {
+    return _data['anime_layout_preference'] as String? ?? 'Grid';
+  }
+
+  Future<void> setAnimeLayout(String layout) async {
+    _data['anime_layout_preference'] = layout;
+    await _save();
+  }
+
+  String getMoviesLayout() {
+    return _data['movies_layout_preference'] as String? ?? 'Grid';
+  }
+
+  Future<void> setMoviesLayout(String layout) async {
+    _data['movies_layout_preference'] = layout;
+    await _save();
+  }
+
+  String getWebSeriesLayout() {
+    return _data['web_series_layout_preference'] as String? ?? 'Grid';
+  }
+
+  Future<void> setWebSeriesLayout(String layout) async {
+    _data['web_series_layout_preference'] = layout;
+    await _save();
+  }
+
   // --- Download Directory ---
 
   String? getCustomDownloadDirectory() {

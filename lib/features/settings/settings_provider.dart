@@ -306,6 +306,10 @@ class VideoSettingsNotifier extends Notifier<VideoSettings> {
   VideoSettings build() {
     final storageService = ref.read(storageServiceProvider);
     final rawSettings = storageService.getVideoSettings();
+    final animeLayout = storageService.getAnimeLayout();
+    final moviesLayout = storageService.getMoviesLayout();
+    final webSeriesLayout = storageService.getWebSeriesLayout();
+
     if (rawSettings.isNotEmpty) {
       final updatedJson = Map<String, dynamic>.from(rawSettings);
       if (!updatedJson.containsKey('subtitleFontSize')) {
@@ -326,6 +330,9 @@ class VideoSettingsNotifier extends Notifier<VideoSettings> {
       if (!updatedJson.containsKey('progressSyncMode')) {
         updatedJson['progressSyncMode'] = 'disabled';
       }
+      updatedJson['animeLayout'] = animeLayout;
+      updatedJson['moviesLayout'] = moviesLayout;
+      updatedJson['webSeriesLayout'] = webSeriesLayout;
       return VideoSettings.fromJson(updatedJson);
     }
     return VideoSettings(
@@ -335,12 +342,19 @@ class VideoSettingsNotifier extends Notifier<VideoSettings> {
       subtitleFont: storageService.getSubtitleFont(),
       downloadSpeedLimit: 'Unlimited',
       progressSyncMode: 'disabled',
+      animeLayout: animeLayout,
+      moviesLayout: moviesLayout,
+      webSeriesLayout: webSeriesLayout,
     );
   }
 
   void updateSettings(VideoSettings newSettings) {
     state = newSettings;
-    ref.read(storageServiceProvider).updateVideoSettings(state.toJson());
+    final storage = ref.read(storageServiceProvider);
+    storage.setAnimeLayout(state.animeLayout);
+    storage.setMoviesLayout(state.moviesLayout);
+    storage.setWebSeriesLayout(state.webSeriesLayout);
+    storage.updateVideoSettings(state.toJson());
   }
 }
 

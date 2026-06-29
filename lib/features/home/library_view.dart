@@ -10,7 +10,6 @@ import '../../core/widgets/aligned_name_text.dart';
 import '../../core/widgets/shimmer_card.dart';
 import 'home_controller.dart';
 import 'episode_list_screen.dart';
-import '../player/pip_manager.dart';
 import '../settings/settings_provider.dart';
 
 class LibraryView extends ConsumerStatefulWidget {
@@ -406,6 +405,7 @@ class _LibraryViewState extends ConsumerState<LibraryView> with SingleTickerProv
         items: continueWatchingItems,
         seriesList: seriesList,
         ref: ref,
+        categoryTitle: widget.category.title,
       ),
     );
   }
@@ -853,12 +853,14 @@ class ContinueWatchingShelf extends StatelessWidget {
   final List<Map<String, dynamic>> items;
   final List<AnimeSeries> seriesList;
   final WidgetRef ref;
+  final String categoryTitle;
 
   const ContinueWatchingShelf({
     super.key,
     required this.items,
     required this.seriesList,
     required this.ref,
+    required this.categoryTitle,
   });
 
   @override
@@ -941,45 +943,26 @@ class ContinueWatchingShelf extends StatelessWidget {
                 clipBehavior: Clip.antiAlias,
                 child: InkWell(
                   onTap: () {
-                    // Play video
-                    List<td.Message>? episodeList;
-                    int? episodeIndex;
-                    int? videoFileId;
-
                     if (matchedSeries != null) {
+                      AnimeSeason selectedSeason = matchedSeries.seasons.first;
                       for (final season in matchedSeries.seasons) {
-                        if (season.episodes.isNotEmpty) {
-                          final idx = season.episodes.indexWhere((ep) => ep.id == msgId);
-                          if (idx != -1) {
-                            episodeList = season.episodes;
-                            episodeIndex = idx;
-                            break;
-                          }
+                        if (season.episodes.any((ep) => ep.id == msgId)) {
+                          selectedSeason = season;
+                          break;
                         }
                       }
-                    }
 
-                    if (episodeList != null && episodeIndex != null) {
-                      final msg = episodeList[episodeIndex];
-                      if (msg.content is td.MessageVideo) {
-                        videoFileId = (msg.content as td.MessageVideo).video.video.id;
-                      } else if (msg.content is td.MessageDocument) {
-                        videoFileId = (msg.content as td.MessageDocument).document.document.id;
-                      }
-                    }
-
-                    // Fallback to stored id if we couldn't resolve it from active episodes
-                    videoFileId ??= item['videoFileId'] as int?;
-
-                    if (videoFileId != null) {
-                      ref.read(pipControllerProvider.notifier).playVideo(
+                      Navigator.push(
                         context,
-                        messageId: msgId,
-                        videoFileId: videoFileId,
-                        videoTitle: '$seriesName - $episodeTitle',
-                        episodeList: episodeList,
-                        currentEpisodeIndex: episodeIndex,
-                        seriesName: seriesName,
+                        PremiumPageRoute(
+                          child: EpisodeListScreen(
+                            season: selectedSeason,
+                            series: matchedSeries,
+                            heroTag: 'hero_continue_watching_${categoryTitle}_${matchedSeries.coreName}',
+                            categoryTitle: categoryTitle,
+                            highlightMessageId: msgId,
+                          ),
+                        ),
                       );
                     }
                   },

@@ -18,21 +18,23 @@ class Constants {
   static const String changelog = '''
 ### 🚀 What's New in v2.9.0
 
-* **PC / Windows Platform Support**:
-  - Configured project CMake build targets and optimized dependencies to compile natively on Windows.
-* **Material 3 Expressive Animated UI**:
-  - Integrated interactive list tiles with custom micro-animations (spinning settings gear, counter-rotating history clock, and elastic pulsing shapes).
-* **Subtitle Compatibility Alerts**:
-  - Embedded warning banners for PGS/VobSub formats with quick actions to switch between Native/Flutter rendering or toggle HW+ decoders.
-* **Streaming Proxy Range fixes**:
-  - Corrected seek range boundaries (`end + 1`) to conform with strict HTTP Content-Length expectations.
-
-### 🚀 What's New in v2.8.0
-
-* **Stats for Nerds & Real-time Media Analytics**:
-  - Added a "Show Stats for Nerds" overlay during video playback displaying real-time video resolution, framerate, video/audio codec, active hardware decoder, active download byte offsets, buffering rate, and network prefetch cache parameters.
-* **Database Maintenance & Defragmentation**:
-  - Integrated a manual "Defragment & Compact Database" action in the Advanced Cache screen to optimize SQLite databases and TDLib storage, reclaiming disk space safely without clearing history or active login sessions.
+* **Draggable Subtitle Position Overlay (Phone & PC)**:
+  - Drag the custom subtitle overlay anywhere on the screen (supports finger drag on phones and mouse drag on PC).
+  - The app automatically remembers and saves your custom position.
+* **Telegram-style Startup Jet Animation**:
+  - Replaced the initial loading screen with a smooth Telegram-style logo fly-in animation (flying jet effect inside a blue gradient circle) on app launch.
+* **Continue Watching Screen Redirection & Glow Highlights**:
+  - Tapping a Continue Watching item now navigates to the series detail screen, selects the correct season, scrolls to the last watched episode, and highlights it with a 5-second glowing outline.
+* **Telegram Document Video Thumbnail Support**:
+  - Video files uploaded as Document attachments (.mkv, .mp4, etc.) will now parse and render their original video thumbnails instead of showing generic grey icons.
+* **Persistent Layout View Preferences**:
+  - Saved layout preferences (`Grid`, `Compact`, `List`) separately so they never reset during app updates, logouts, or cloud merges.
+* **Playback Stability & Double Subtitle Fixes**:
+  - Mapped default Windows hardware decoding to Direct3D 11 (`d3d11va`) to resolve grey video macroblock glitching.
+  - Dynamically toggle sub-visibility to completely prevent double-rendering subtitle layers on PC.
+  - Solved loopback proxy header timeouts that caused video playback to freeze at `0:00` on startup.
+* **Removed Swipe Gestures**:
+  - Removed swiping gesture shortcuts in the episode list to prevent accidental downloads or watch status edits during scrolling.
 ''';
 
   // Telegram API Credentials from secrets.dart

@@ -22,6 +22,7 @@ class EpisodeListScreen extends ConsumerStatefulWidget {
   final AnimeSeries series;
   final String? heroTag;
   final String? categoryTitle;
+  final int? highlightMessageId;
 
   const EpisodeListScreen({
     super.key,
@@ -29,6 +30,7 @@ class EpisodeListScreen extends ConsumerStatefulWidget {
     required this.series,
     this.heroTag,
     this.categoryTitle,
+    this.highlightMessageId,
   });
 
   @override
@@ -39,13 +41,42 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
   late AnimeSeason _selectedSeason;
   bool _isLoadingEpisodes = false;
   String? _errorMessage;
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
     _selectedSeason = widget.season;
+
+    if (widget.highlightMessageId != null) {
+      for (final season in widget.series.seasons) {
+        if (season.episodes.any((ep) => ep.id == widget.highlightMessageId)) {
+          _selectedSeason = season;
+          break;
+        }
+      }
+    }
+
     if (_selectedSeason.episodes.isEmpty) {
       _loadEpisodesDynamically();
+    } else {
+      _scrollToHighlightedEpisode();
+    }
+  }
+
+  void _scrollToHighlightedEpisode() {
+    if (widget.highlightMessageId == null) return;
+    final idx = _selectedSeason.episodes.indexWhere((ep) => ep.id == widget.highlightMessageId);
+    if (idx != -1) {
+      Future.delayed(const Duration(milliseconds: 400), () {
+        if (!mounted || !_scrollController.hasClients) return;
+        final targetOffset = 280.0 + (idx * 104.0);
+        _scrollController.animateTo(
+          targetOffset.clamp(0.0, _scrollController.position.maxScrollExtent),
+          duration: const Duration(milliseconds: 600),
+          curve: Curves.easeInOut,
+        );
+      });
     }
   }
 
@@ -121,6 +152,7 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
           );
           _isLoadingEpisodes = false;
         });
+        _scrollToHighlightedEpisode();
       }
     } catch (e) {
       if (mounted) {
@@ -134,6 +166,7 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
 
   @override
   void dispose() {
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -284,6 +317,7 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
         ),
       ),
       body: CustomScrollView(
+        controller: _scrollController,
         slivers: [
           SliverAppBar(
             expandedHeight: 250,
@@ -497,6 +531,7 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
                           itemCount: _selectedSeason.episodes.length,
                           itemBuilder: (context, index) {
                             final msg = _selectedSeason.episodes[index];
+                            final isHighlighted = widget.highlightMessageId == msg.id;
                             return _EpisodeCardItem(
                               key: ValueKey(msg.id),
                               msg: msg,
@@ -504,6 +539,7 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
                               season: _selectedSeason,
                               series: widget.series,
                               onLongPress: _showMarkWatchedDialog,
+                              isHighlighted: isHighlighted,
                             );
                           },
                         ),
@@ -602,6 +638,7 @@ class _EpisodeCardItem extends ConsumerStatefulWidget {
   final AnimeSeason season;
   final AnimeSeries series;
   final Function(BuildContext, td.Message, int, String) onLongPress;
+  final bool isHighlighted;
 
   const _EpisodeCardItem({
     super.key,
@@ -610,6 +647,7 @@ class _EpisodeCardItem extends ConsumerStatefulWidget {
     required this.season,
     required this.series,
     required this.onLongPress,
+    this.isHighlighted = false,
   });
 
   @override
@@ -618,93 +656,49 @@ class _EpisodeCardItem extends ConsumerStatefulWidget {
 
 class _EpisodeCardItemState extends ConsumerState<_EpisodeCardItem> {
   bool _isTapped = false;
+  bool _isGlowing = false;
+  Timer? _glowTimer;
 
-  Future<void> _toggleWatchStatus(td.Message msg, int index, String title) async {
-    final storage = ref.read(storageServiceProvider);
-    final savedPos = storage.getWatchPosition(msg.id);
-    
-    int duration = 0;
-    if (msg.content is td.MessageVideo) {
-      duration = (msg.content as td.MessageVideo).video.duration;
-    } else {
-      duration = storage.getVideoDuration(msg.id);
-    }
-    final resolvedDuration = duration > 0 ? duration : 1800;
-
-    final isWatched = (duration > 0) ? (savedPos / duration) > 0.9 : savedPos > 0;
-
-    if (isWatched) {
-      await storage.saveWatchPosition(msg.id, 0);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Marked as Unwatched: $title'),
-            backgroundColor: Colors.redAccent,
-            duration: const Duration(seconds: 2),
-          ),
-        );
-      }
-    } else {
-      if (duration <= 0) {
-        await storage.saveVideoDuration(msg.id, resolvedDuration);
-      }
-      await storage.saveWatchPosition(msg.id, resolvedDuration);
-      
-      if (!storage.isIncognitoMode() && widget.series.coreName.isNotEmpty) {
-        await ref.read(historyLogProvider.notifier).addToHistory(
-          seriesName: widget.series.coreName,
-          messageId: msg.id,
-          episodeIndex: index,
-          episodeTitle: title.replaceFirst('${widget.series.coreName} - ', ''),
-          positionInSeconds: resolvedDuration,
-          videoFileId: msg.content is td.MessageVideo
-              ? (msg.content as td.MessageVideo).video.video.id
-              : (msg.content as td.MessageDocument).document.document.id,
-        );
-      }
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Marked as Watched: $title'),
-            backgroundColor: Colors.green,
-            duration: const Duration(seconds: 2),
-          ),
-        );
-      }
-    }
-    setState(() {});
-  }
-
-  void _toggleDownloadStatus(int fileId, String fileTitle, DownloadTask? task) {
-    if (task == null) {
-      ref.read(downloadControllerProvider.notifier).startDownload(fileId, fileTitle);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Starting download: $fileTitle'),
-          backgroundColor: Theme.of(context).primaryColor,
-          duration: const Duration(seconds: 2),
-        ),
-      );
-    } else if (!task.isCompleted) {
-      ref.read(downloadControllerProvider.notifier).cancelDownload(fileId);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Download cancelled'),
-          backgroundColor: Colors.redAccent,
-          duration: Duration(seconds: 2),
-        ),
-      );
-    } else {
-      ref.read(downloadControllerProvider.notifier).deleteDownloadedFile(fileId);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Deleted download: $fileTitle'),
-          backgroundColor: Colors.orangeAccent,
-          duration: const Duration(seconds: 2),
-        ),
-      );
+  @override
+  void initState() {
+    super.initState();
+    _isGlowing = widget.isHighlighted;
+    if (_isGlowing) {
+      _glowTimer = Timer(const Duration(seconds: 5), () {
+        if (mounted) {
+          setState(() {
+            _isGlowing = false;
+          });
+        }
+      });
     }
   }
+
+  @override
+  void didUpdateWidget(_EpisodeCardItem oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.isHighlighted && !oldWidget.isHighlighted) {
+      _glowTimer?.cancel();
+      setState(() {
+        _isGlowing = true;
+      });
+      _glowTimer = Timer(const Duration(seconds: 5), () {
+        if (mounted) {
+          setState(() {
+            _isGlowing = false;
+          });
+        }
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _glowTimer?.cancel();
+    super.dispose();
+  }
+
+
 
   @override
   Widget build(BuildContext context) {
@@ -800,50 +794,55 @@ class _EpisodeCardItemState extends ConsumerState<_EpisodeCardItem> {
     final double progressValue = (duration > 0) ? (savedPos / duration).clamp(0.0, 1.0) : 0.0;
     final isCompleted = progressValue > 0.9;
 
-    return _SwipeToAction(
-      onSwipeRight: () => _toggleWatchStatus(widget.msg, widget.index, fileTitle),
-      onSwipeLeft: () => _toggleDownloadStatus(fileId!, fileTitle, task),
-      accentColor: settingsAccent,
-      child: GestureDetector(
-        onTapDown: (_) => setState(() => _isTapped = true),
-        onTapUp: (_) => setState(() => _isTapped = false),
-        onTapCancel: () => setState(() => _isTapped = false),
-        onTap: () {
-          ref.read(pipControllerProvider.notifier).playVideo(
-            context,
-            messageId: widget.msg.id,
-            videoFileId: fileId!,
-            videoTitle: '${widget.series.coreName} - $fileTitle',
-            episodeList: widget.season.episodes,
-            currentEpisodeIndex: widget.index,
-            seriesName: widget.series.coreName,
-            networkUrl: isDownloaded ? task.localPath : null,
-          );
-        },
-        onLongPress: () {
-          widget.onLongPress(context, widget.msg, widget.index, fileTitle);
-        },
-        child: AnimatedScale(
-          scale: _isTapped ? 0.97 : 1.0,
-          duration: const Duration(milliseconds: 100),
-          curve: Curves.easeOut,
-          child: Container(
-            margin: const EdgeInsets.only(bottom: 12),
-            decoration: BoxDecoration(
-              color: theme.cardColor,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: theme.colorScheme.onSurface.withValues(alpha: _isTapped ? 0.16 : 0.08),
-                width: _isTapped ? 1.5 : 1.0,
-              ),
-              boxShadow: [
+    return GestureDetector(
+      onTapDown: (_) => setState(() => _isTapped = true),
+      onTapUp: (_) => setState(() => _isTapped = false),
+      onTapCancel: () => setState(() => _isTapped = false),
+      onTap: () {
+        ref.read(pipControllerProvider.notifier).playVideo(
+          context,
+          messageId: widget.msg.id,
+          videoFileId: fileId!,
+          videoTitle: '${widget.series.coreName} - $fileTitle',
+          episodeList: widget.season.episodes,
+          currentEpisodeIndex: widget.index,
+          seriesName: widget.series.coreName,
+          networkUrl: isDownloaded ? task.localPath : null,
+        );
+      },
+      onLongPress: () {
+        widget.onLongPress(context, widget.msg, widget.index, fileTitle);
+      },
+      child: AnimatedScale(
+        scale: _isTapped ? 0.97 : 1.0,
+        duration: const Duration(milliseconds: 100),
+        curve: Curves.easeOut,
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          decoration: BoxDecoration(
+            color: theme.cardColor,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: _isGlowing
+                  ? settingsAccent
+                  : theme.colorScheme.onSurface.withValues(alpha: _isTapped ? 0.16 : 0.08),
+              width: _isGlowing || _isTapped ? 1.8 : 1.0,
+            ),
+            boxShadow: [
+              if (_isGlowing)
+                BoxShadow(
+                  color: settingsAccent.withValues(alpha: 0.4),
+                  blurRadius: 10,
+                  spreadRadius: 1.5,
+                )
+              else
                 BoxShadow(
                   color: Colors.black.withValues(alpha: _isTapped ? 0.15 : 0.08),
                   blurRadius: _isTapped ? 3 : 6,
                   offset: Offset(0, _isTapped ? 1.5 : 3),
                 ),
-              ],
-            ),
+            ],
+          ),
             clipBehavior: Clip.antiAlias,
             child: Padding(
               padding: const EdgeInsets.all(12),
@@ -943,8 +942,7 @@ class _EpisodeCardItemState extends ConsumerState<_EpisodeCardItem> {
             ),
           ),
         ),
-      ),
-    );
+      );
   }
 
   Widget _buildEpisodePlaceholder(td.Message msg) {
@@ -956,6 +954,12 @@ class _EpisodeCardItemState extends ConsumerState<_EpisodeCardItem> {
         previewFile = video.video.thumbnail!.file;
       }
       mini = video.video.minithumbnail;
+    } else if (msg.content is td.MessageDocument) {
+      final doc = msg.content as td.MessageDocument;
+      if (doc.document.thumbnail != null) {
+        previewFile = doc.document.thumbnail!.file;
+      }
+      mini = doc.document.minithumbnail;
     }
     return TdThumbnail(
       file: previewFile,
