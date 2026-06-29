@@ -1,6 +1,9 @@
 package com.darkmatter.telstream
 
+import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
@@ -12,11 +15,56 @@ import io.flutter.plugin.common.MethodChannel
 import java.io.File
 
 class MainActivity : FlutterActivity() {
+    private var downloadReceiver: BroadcastReceiver? = null
     private val CHANNEL = "com.darkmatter.telstream/updater"
     private val DOWNLOAD_CHANNEL = "com.darkmatter.telstream/downloads"
 
+    override fun onDestroy() {
+        downloadReceiver?.let {
+            try {
+                unregisterReceiver(it)
+            } catch (e: Exception) {
+                // Ignore if not registered
+            }
+        }
+        super.onDestroy()
+    }
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+
+        val methodChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, DOWNLOAD_CHANNEL)
+        
+        val filter = IntentFilter("com.darkmatter.telstream.DOWNLOAD_ACTION")
+        val receiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                intent?.let {
+                    val action = it.getStringExtra("action") ?: ""
+                    val fileId = it.getIntExtra("fileId", -1)
+                    if (action.isNotEmpty() && fileId != -1) {
+                        val flutterAction = when (action) {
+                            "com.darkmatter.telstream.action.PAUSE" -> "pause"
+                            "com.darkmatter.telstream.action.RESUME" -> "resume"
+                            "com.darkmatter.telstream.action.CANCEL" -> "cancel"
+                            else -> ""
+                        }
+                        if (flutterAction.isNotEmpty()) {
+                            methodChannel.invokeMethod("onNotificationAction", mapOf(
+                                "action" to flutterAction,
+                                "fileId" to fileId
+                            ))
+                        }
+                    }
+                }
+            }
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(receiver, filter, Context.RECEIVER_EXPORTED)
+        } else {
+            registerReceiver(receiver, filter)
+        }
+        downloadReceiver = receiver
         
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
             when (call.method) {

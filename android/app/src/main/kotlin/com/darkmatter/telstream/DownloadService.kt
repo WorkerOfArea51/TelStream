@@ -18,9 +18,16 @@ class DownloadService : Service() {
     private val NOTIFICATION_ID = 2001
     private val CHANNEL_ID = "telstream_downloads"
     private val CHANNEL_NAME = "Active Downloads"
+
+    companion object {
+        const val ACTION_PAUSE = "com.darkmatter.telstream.action.PAUSE"
+        const val ACTION_RESUME = "com.darkmatter.telstream.action.RESUME"
+        const val ACTION_CANCEL = "com.darkmatter.telstream.action.CANCEL"
+        const val NOTIFICATION_ACTION = "com.darkmatter.telstream.DOWNLOAD_ACTION"
+    }
     
-    // Store active download titles and progress values
-    private val activeDownloads = mutableMapOf<Int, Pair<String, Double>>()
+    // Store active download titles, progress values, and paused states
+    private val activeDownloads = mutableMapOf<Int, Triple<String, Double, Boolean>>()
 
     inner class LocalBinder : Binder() {
         fun getService(): DownloadService = this@DownloadService
@@ -39,17 +46,35 @@ class DownloadService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         intent?.let {
+            val action = it.action
             val fileId = it.getIntExtra("fileId", -1)
-            val title = it.getStringExtra("title") ?: "Download"
-            val progress = it.getDoubleExtra("progress", 0.0)
-            val isCompleted = it.getBooleanExtra("isCompleted", false)
-            val isCancelled = it.getBooleanExtra("isCancelled", false)
 
-            if (fileId != -1) {
-                if (isCancelled || isCompleted) {
+            if (action != null && fileId != -1) {
+                // Send broadcast to MainActivity to forward to Flutter
+                val broadcastIntent = Intent(NOTIFICATION_ACTION).apply {
+                    putExtra("action", action)
+                    putExtra("fileId", fileId)
+                    setPackage(packageName)
+                }
+                sendBroadcast(broadcastIntent)
+
+                // If it is cancel, remove from activeDownloads immediately
+                if (action == ACTION_CANCEL) {
                     activeDownloads.remove(fileId)
-                } else {
-                    activeDownloads[fileId] = Pair(title, progress)
+                }
+            } else {
+                val title = it.getStringExtra("title") ?: "Download"
+                val progress = it.getDoubleExtra("progress", 0.0)
+                val isCompleted = it.getBooleanExtra("isCompleted", false)
+                val isCancelled = it.getBooleanExtra("isCancelled", false)
+                val isPaused = it.getBooleanExtra("isPaused", false)
+
+                if (fileId != -1) {
+                    if (isCancelled || isCompleted) {
+                        activeDownloads.remove(fileId)
+                    } else {
+                        activeDownloads[fileId] = Triple(title, progress, isPaused)
+                    }
                 }
             }
 
@@ -96,7 +121,8 @@ class DownloadService : Service() {
         val avgProgress = if (count > 0) totalProgress / count else 0.0
         val progressPercent = (avgProgress * 100).toInt()
 
-        val contentText = "${progressPercent}% completed"
+        val anyPaused = activeDownloads.values.any { it.third }
+        val contentText = if (anyPaused) "Paused" else "${progressPercent}% completed"
 
         // Open app when notification clicked
         val intent = packageManager.getLaunchIntentForPackage(packageName)
@@ -115,6 +141,50 @@ class DownloadService : Service() {
             .setOnlyAlertOnce(true)
             .setContentIntent(pendingIntent)
             .setProgress(100, progressPercent, false)
+
+        if (count == 1) {
+            val fileId = activeDownloads.keys.first()
+            val download = activeDownloads.values.first()
+            val isPaused = download.third
+
+            val flag = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            } else {
+                PendingIntent.FLAG_UPDATE_CURRENT
+            }
+
+            // Pause/Resume action button
+            val actionIntent = Intent(this, DownloadService::class.java).apply {
+                action = if (isPaused) ACTION_RESUME else ACTION_PAUSE
+                putExtra("fileId", fileId)
+            }
+            val actionPendingIntent = PendingIntent.getService(
+                this,
+                1001,
+                actionIntent,
+                flag
+            )
+            val actionTitle = if (isPaused) "Resume" else "Pause"
+            val actionIcon = if (isPaused) android.R.drawable.ic_media_play else android.R.drawable.ic_media_pause
+            notificationBuilder.addAction(actionIcon, actionTitle, actionPendingIntent)
+
+            // Cancel action button
+            val cancelIntent = Intent(this, DownloadService::class.java).apply {
+                action = ACTION_CANCEL
+                putExtra("fileId", fileId)
+            }
+            val cancelPendingIntent = PendingIntent.getService(
+                this,
+                1002,
+                cancelIntent,
+                flag
+            )
+            notificationBuilder.addAction(
+                android.R.drawable.ic_menu_close_clear_cancel,
+                "Cancel",
+                cancelPendingIntent
+            )
+        }
 
         val notification = notificationBuilder.build()
 

@@ -417,13 +417,6 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> with SingleTi
                                         overflow: TextOverflow.ellipsis,
                                       ),
                                     ),
-                                    const SizedBox(width: 12),
-                                    IconButton(
-                                      icon: const Icon(Icons.close_rounded, color: Colors.redAccent),
-                                      onPressed: () {
-                                        ref.read(downloadControllerProvider.notifier).cancelDownload(fileId);
-                                      },
-                                    ),
                                   ],
                                 ),
                                 const SizedBox(height: 8),
@@ -431,7 +424,9 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> with SingleTi
                                   value: task.progress,
                                   backgroundColor: isDark ? Colors.white12 : Colors.black12,
                                   valueColor: AlwaysStoppedAnimation<Color>(
-                                    task.isScheduled ? theme.disabledColor : settingsAccent,
+                                    task.isPaused
+                                        ? theme.disabledColor
+                                        : (task.isScheduled ? theme.disabledColor : settingsAccent),
                                   ),
                                   borderRadius: BorderRadius.circular(4),
                                   minHeight: 6,
@@ -440,61 +435,120 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> with SingleTi
                                 Row(
                                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
-                                    Text(
-                                      '${(task.progress * 100).toStringAsFixed(1)}%',
-                                      style: TextStyle(
-                                        color: task.isScheduled ? theme.disabledColor : settingsAccent,
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    Row(
+                                    Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
-                                        if (task.isScheduled) ...[
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                            decoration: BoxDecoration(
-                                              color: theme.disabledColor.withValues(alpha: 0.12),
-                                              borderRadius: BorderRadius.circular(12),
-                                            ),
-                                            child: Text(
-                                              'Scheduled (Off-Peak)',
+                                        Row(
+                                          children: [
+                                            Text(
+                                              '${(task.progress * 100).toStringAsFixed(1)}%',
                                               style: TextStyle(
-                                                color: isDark ? Colors.white60 : Colors.black54,
-                                                fontSize: 10,
+                                                color: task.isPaused
+                                                    ? theme.disabledColor
+                                                    : (task.isScheduled ? theme.disabledColor : settingsAccent),
+                                                fontSize: 12,
                                                 fontWeight: FontWeight.bold,
                                               ),
                                             ),
-                                          ),
-                                        ] else ...[
-                                          Text(
-                                            task.speedString,
-                                            style: TextStyle(
-                                              color: isDark ? Colors.white70 : Colors.black87,
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.w500,
-                                            ),
-                                          ),
-                                          if (task.etaString.isNotEmpty && task.etaString != 'Calculating...') ...[
                                             const SizedBox(width: 8),
-                                            Container(
-                                              width: 4,
-                                              height: 4,
-                                              decoration: BoxDecoration(
-                                                color: isDark ? Colors.white30 : Colors.black26,
-                                                shape: BoxShape.circle,
+                                            if (task.isPaused)
+                                              Text(
+                                                'Paused',
+                                                style: TextStyle(
+                                                  color: theme.disabledColor,
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              )
+                                            else if (task.isScheduled)
+                                              Text(
+                                                'Scheduled (Off-Peak)',
+                                                style: TextStyle(
+                                                  color: theme.disabledColor,
+                                                  fontSize: 10,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              )
+                                            else ...[
+                                              Text(
+                                                task.speedString,
+                                                style: TextStyle(
+                                                  color: isDark ? Colors.white70 : Colors.black87,
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.w500,
+                                                ),
                                               ),
-                                            ),
-                                            const SizedBox(width: 8),
-                                            Text(
-                                              task.etaString,
+                                            ],
+                                          ],
+                                        ),
+                                        if (!task.isPaused && !task.isScheduled && task.etaString.isNotEmpty && task.etaString != 'Calculating...')
+                                          Padding(
+                                            padding: const EdgeInsets.only(top: 2),
+                                            child: Text(
+                                              'ETA: ${task.etaString}',
                                               style: TextStyle(
                                                 color: isDark ? Colors.white54 : Colors.black54,
-                                                fontSize: 12,
+                                                fontSize: 10,
                                               ),
                                             ),
-                                          ],
-                                        ],
+                                          ),
+                                      ],
+                                    ),
+                                    Row(
+                                      children: [
+                                        ElevatedButton.icon(
+                                          onPressed: () {
+                                            if (task.isPaused) {
+                                              ref.read(downloadControllerProvider.notifier).resumeDownload(fileId);
+                                            } else {
+                                              ref.read(downloadControllerProvider.notifier).pauseDownload(fileId);
+                                            }
+                                          },
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: settingsAccent.withValues(alpha: 0.12),
+                                            foregroundColor: settingsAccent,
+                                            elevation: 0,
+                                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius: BorderRadius.circular(12),
+                                            ),
+                                            minimumSize: Size.zero,
+                                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                          ),
+                                          icon: Icon(
+                                            task.isPaused ? Icons.play_arrow_rounded : Icons.pause_rounded,
+                                            size: 16,
+                                          ),
+                                          label: Text(
+                                            task.isPaused ? 'Resume' : 'Pause',
+                                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        ElevatedButton.icon(
+                                          onPressed: () {
+                                            ref.read(downloadControllerProvider.notifier).cancelDownload(fileId);
+                                          },
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: Colors.redAccent.withValues(alpha: 0.12),
+                                            foregroundColor: Colors.redAccent,
+                                            elevation: 0,
+                                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius: BorderRadius.circular(12),
+                                            ),
+                                            minimumSize: Size.zero,
+                                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                          ),
+                                          icon: const Icon(
+                                            Icons.close_rounded,
+                                            size: 16,
+                                          ),
+                                          label: const Text(
+                                            'Cancel',
+                                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                                          ),
+                                        ),
                                       ],
                                     ),
                                   ],

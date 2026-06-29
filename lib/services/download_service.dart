@@ -19,6 +19,7 @@ class DownloadTask {
   final double speedBytesPerSecond;
   final int etaSeconds;
   final bool isScheduled;
+  final bool isPaused;
 
   DownloadTask({
     required this.fileId,
@@ -29,6 +30,7 @@ class DownloadTask {
     this.speedBytesPerSecond = 0.0,
     this.etaSeconds = 0,
     this.isScheduled = false,
+    this.isPaused = false,
   });
 
   DownloadTask copyWith({
@@ -38,6 +40,7 @@ class DownloadTask {
     double? speedBytesPerSecond,
     int? etaSeconds,
     bool? isScheduled,
+    bool? isPaused,
   }) {
     return DownloadTask(
       fileId: fileId,
@@ -48,6 +51,7 @@ class DownloadTask {
       speedBytesPerSecond: speedBytesPerSecond ?? this.speedBytesPerSecond,
       etaSeconds: etaSeconds ?? this.etaSeconds,
       isScheduled: isScheduled ?? this.isScheduled,
+      isPaused: isPaused ?? this.isPaused,
     );
   }
 
@@ -108,16 +112,31 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
       }
     });
 
+    _channel.setMethodCallHandler((call) async {
+      if (call.method == 'onNotificationAction') {
+        final args = call.arguments as Map;
+        final action = args['action'] as String;
+        final fileId = args['fileId'] as int;
+        if (action == 'pause') {
+          await pauseDownload(fileId);
+        } else if (action == 'resume') {
+          await resumeDownload(fileId);
+        } else if (action == 'cancel') {
+          await cancelDownload(fileId);
+        }
+      }
+    });
+
     return {};
   }
 
-  Future<void> _updateNativeNotification(int fileId, String title, double progress, {bool isCompleted = false, bool isCancelled = false}) async {
+  Future<void> _updateNativeNotification(int fileId, String title, double progress, {bool isCompleted = false, bool isCancelled = false, bool isPaused = false}) async {
     if (!Platform.isAndroid) return;
     
     final now = DateTime.now().millisecondsSinceEpoch;
     final lastTime = _lastNotificationTimes[fileId] ?? 0;
     
-    if (isCompleted || isCancelled || progress == 0.0 || (now - lastTime) >= 800) {
+    if (isCompleted || isCancelled || isPaused || progress == 0.0 || (now - lastTime) >= 800) {
       _lastNotificationTimes[fileId] = now;
       try {
         await _channel.invokeMethod('updateDownloadNotification', {
@@ -126,6 +145,7 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
           'progress': progress,
           'isCompleted': isCompleted,
           'isCancelled': isCancelled,
+          'isPaused': isPaused,
         });
       } catch (e, stackTrace) {
         Log.e('Failed to update native notification', e, stackTrace);
@@ -272,9 +292,10 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
                 isCompleted: false,
                 speedBytesPerSecond: speed > 0 ? speed : task.speedBytesPerSecond,
                 etaSeconds: eta > 0 ? eta : task.etaSeconds,
+                isPaused: false,
               ),
             };
-            _updateNativeNotification(fileId, task.title, progress);
+            _updateNativeNotification(fileId, task.title, progress, isPaused: false);
           }
         }
       }
@@ -516,6 +537,50 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
         synchronous: false,
       ));
     }
+    _updatePwmState();
+  }
+
+  Future<void> pauseDownload(int fileId) async {
+    final task = state[fileId];
+    if (task == null || task.isPaused) return;
+
+    ref.read(tdlibServiceProvider).send(td.CancelDownloadFile(
+      fileId: fileId,
+      onlyIfPending: false,
+    ));
+
+    state = {
+      ...state,
+      fileId: task.copyWith(
+        isPaused: true,
+        speedBytesPerSecond: 0.0,
+      ),
+    };
+
+    _updateNativeNotification(fileId, task.title, task.progress, isPaused: true);
+    _updatePwmState();
+  }
+
+  Future<void> resumeDownload(int fileId) async {
+    final task = state[fileId];
+    if (task == null || !task.isPaused) return;
+
+    state = {
+      ...state,
+      fileId: task.copyWith(
+        isPaused: false,
+      ),
+    };
+
+    ref.read(tdlibServiceProvider).send(td.DownloadFile(
+      fileId: fileId,
+      priority: 32,
+      offset: 0,
+      limit: 0,
+      synchronous: false,
+    ));
+
+    _updateNativeNotification(fileId, task.title, task.progress, isPaused: false);
     _updatePwmState();
   }
 
