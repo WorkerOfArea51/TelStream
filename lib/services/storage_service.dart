@@ -821,24 +821,18 @@ class StorageService {
     await _save();
   }
 
-  int getScreenTimeMonthly() {
-    return _data['screen_time_monthly'] ?? 0;
+  Map<String, int> getScreenTimeDailyLogs() {
+    if (_data['screen_time_daily_logs'] == null) return <String, int>{};
+    final Map<String, dynamic> rawMap = _data['screen_time_daily_logs'];
+    return rawMap.map((key, value) => MapEntry(key, value as int));
   }
 
-  int getScreenTimeDaily() {
+  Future<void> incrementScreenTime(int seconds) async {
     final todayStr = DateTime.now().toIso8601String().substring(0, 10);
-    final lastActiveDate = _data['screen_time_last_active_date'] as String?;
-    if (lastActiveDate != todayStr) {
-      return 0;
-    }
-    return _data['screen_time_daily'] ?? 0;
-  }
-
-  Future<void> saveScreenTime({required int monthly, required int daily}) async {
-    final todayStr = DateTime.now().toIso8601String().substring(0, 10);
-    _data['screen_time_monthly'] = monthly;
-    _data['screen_time_daily'] = daily;
-    _data['screen_time_last_active_date'] = todayStr;
+    _data['screen_time_daily_logs'] ??= <String, dynamic>{};
+    final Map<String, dynamic> logs = _data['screen_time_daily_logs'];
+    final current = logs[todayStr] as int? ?? 0;
+    logs[todayStr] = current + seconds;
     await _save();
   }
 }

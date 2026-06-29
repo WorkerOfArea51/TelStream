@@ -32,7 +32,7 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
   bool _isLoadingUser = true;
 
   int _monthlySeconds = 0;
-  int _dailySeconds = 0;
+  int _averageDailySeconds = 0;
   int _watchStreak = 0;
   Timer? _screenTimeTimer;
 
@@ -105,9 +105,24 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
 
   void _loadStats() {
     final storage = ref.read(storageServiceProvider);
+    final logs = storage.getScreenTimeDailyLogs();
+    
+    final now = DateTime.now();
+    final monthPrefix = '${now.year}-${now.month.toString().padLeft(2, '0')}';
+    int monthlySum = 0;
+    int activeDays = 0;
+    logs.forEach((date, seconds) {
+      if (date.startsWith(monthPrefix)) {
+        monthlySum += seconds;
+        if (seconds > 0) {
+          activeDays++;
+        }
+      }
+    });
+
     setState(() {
-      _monthlySeconds = storage.getScreenTimeMonthly();
-      _dailySeconds = storage.getScreenTimeDaily();
+      _monthlySeconds = monthlySum;
+      _averageDailySeconds = activeDays > 0 ? (monthlySum ~/ activeDays) : 0;
       _watchStreak = calculateWatchStreak(storage.getHistoryLog());
     });
   }
@@ -115,14 +130,12 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
   void _startScreenTimeTracker() {
     _screenTimeTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
       if (!mounted) return;
-      setState(() {
-        _dailySeconds += 5;
-        _monthlySeconds += 5;
+      final storage = ref.read(storageServiceProvider);
+      storage.incrementScreenTime(5).then((_) {
+        if (mounted) {
+          _loadStats();
+        }
       });
-      ref.read(storageServiceProvider).saveScreenTime(
-        monthly: _monthlySeconds,
-        daily: _dailySeconds,
-      );
     });
   }
 
@@ -389,7 +402,7 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
                         children: [
                           _buildStatColumn('This Month', _formatScreenTime(_monthlySeconds)),
                           Container(width: 1, height: 32, color: Colors.white10),
-                          _buildStatColumn('Average Daily', _formatScreenTime(_dailySeconds)),
+                          _buildStatColumn('Average Daily', _formatScreenTime(_averageDailySeconds)),
                           Container(width: 1, height: 32, color: Colors.white10),
                           _buildStatColumn('Watch Streak', '$_watchStreak Days'),
                         ],
