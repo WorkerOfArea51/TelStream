@@ -31,9 +31,9 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
   String? _localPhotoPath;
   bool _isLoadingUser = true;
 
-  int _monthlySeconds = 174120; // Default seed (48 hrs 22 min)
-  int _dailySeconds = 5820;     // Default seed (1 hr 37 min)
-  int _watchStreak = 14;        // Default seed (14 Days)
+  int _monthlySeconds = 0;
+  int _dailySeconds = 0;
+  int _watchStreak = 0;
   Timer? _screenTimeTimer;
 
   @override
@@ -127,7 +127,7 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
   }
 
   int calculateWatchStreak(List<Map<String, dynamic>> logs) {
-    if (logs.isEmpty) return 14; // Default seed to keep look nicely populated
+    if (logs.isEmpty) return 0;
     final dates = logs
         .map((item) => DateTime.fromMillisecondsSinceEpoch(item['timestamp'] as int))
         .map((d) => DateTime(d.year, d.month, d.day))
@@ -140,7 +140,7 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
     final yesterdayDate = todayDate.subtract(const Duration(days: 1));
 
     if (!dates.contains(todayDate) && !dates.contains(yesterdayDate)) {
-      return 14;
+      return 0;
     }
 
     int streak = 0;
@@ -150,7 +150,7 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
       streak++;
       currentTarget = currentTarget.subtract(const Duration(days: 1));
     }
-    return streak > 14 ? streak : 14;
+    return streak;
   }
 
   String _formatScreenTime(int totalSeconds) {
@@ -230,45 +230,47 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
             child: ListView(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
               children: [
-                // Top Header Branding
-                Column(
-                  children: [
-                    Container(
-                      width: 90,
-                      height: 90,
-                      decoration: BoxDecoration(
-                        color: isDark ? Colors.black : Colors.white,
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: theme.primaryColor.withValues(alpha: 0.4),
-                            blurRadius: 20,
-                            spreadRadius: 2,
-                          )
-                        ],
+                // Top Header Branding (Horizontal Row matching 2nd photo's header position)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 20),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 38,
+                        height: 38,
+                        decoration: BoxDecoration(
+                          color: isDark ? Colors.black : Colors.white,
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: theme.primaryColor.withValues(alpha: 0.4),
+                              blurRadius: 8,
+                              spreadRadius: 1,
+                            )
+                          ],
+                        ),
+                        clipBehavior: Clip.hardEdge,
+                        child: Image.asset(
+                          'assets/icon.png',
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) {
+                            return Icon(Icons.play_circle_fill, size: 24, color: theme.primaryColor);
+                          },
+                        ),
                       ),
-                      clipBehavior: Clip.hardEdge,
-                      child: Image.asset(
-                        'assets/icon.png',
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) {
-                          return Icon(Icons.play_circle_fill, size: 60, color: theme.primaryColor);
-                        },
+                      const SizedBox(width: 12),
+                      Text(
+                        'TelStream',
+                        style: TextStyle(
+                          color: textColor,
+                          fontSize: 24,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.5,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      'TelStream',
-                      style: TextStyle(
-                        color: textColor,
-                        fontSize: 26,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1.2,
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-                const SizedBox(height: 24),
 
                 // Telegram User Profile Card
                 Container(
