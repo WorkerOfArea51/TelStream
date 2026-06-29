@@ -5,12 +5,14 @@ import '../../core/widgets/m3_animated_menu_tile.dart';
 import '../auth/auth_controller.dart';
 import '../auth/login_screen.dart';
 import '../player/pip_manager.dart';
-import 'settings_provider.dart';
 import 'video_settings_screen.dart';
 import 'tracker_settings_screen.dart';
 import 'diagnostics_screen.dart';
 import 'backup_manager_screen.dart';
 import 'storage_settings_screen.dart';
+import '../../core/widgets/expressive_container.dart';
+import '../../core/widgets/whats_new_dialog.dart';
+import '../../services/storage_service.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -40,7 +42,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final isDark = theme.brightness == Brightness.dark;
     
     final themeState = ref.watch(appThemeProvider);
-    final settings = ref.watch(videoSettingsProvider);
 
     return Scaffold(
       backgroundColor: settingsBg,

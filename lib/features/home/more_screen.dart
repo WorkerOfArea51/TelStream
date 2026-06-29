@@ -977,7 +977,7 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
         }
       },
     );
-  } }
+  }
 
   void _launchURL(String urlString) async {
     final uri = Uri.parse(urlString);
