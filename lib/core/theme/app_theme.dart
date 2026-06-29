@@ -71,48 +71,12 @@ final List<ColorThemePreset> appThemes = [
     id: 'classic',
     name: 'TelStream Classic',
     primaryColor: Colors.orange,
-    settingsPrimaryColor: Colors.blueAccent,
+    settingsPrimaryColor: Colors.orange,
     scaffoldBgDark: Colors.black,
-    settingsBgDark: Color(0xFF0A1128),
+    settingsBgDark: Colors.black,
     cardBgDark: Color(0xFF1C1C1E),
     scaffoldBgLight: Color(0xFFF3F4F6),
     settingsBgLight: Color(0xFFE5E7EB),
-    cardBgLight: Colors.white,
-  ),
-  const ColorThemePreset(
-    id: 'sunsetCyberpunk',
-    name: 'Sunset Cyberpunk',
-    primaryColor: Color(0xFFFF007F), // Neon Pink
-    settingsPrimaryColor: Color(0xFFFF007F),
-    scaffoldBgDark: Color(0xFF120826), // Violet-Black
-    settingsBgDark: Color(0xFF1E0E3D),
-    cardBgDark: Color(0xFF28154D),
-    scaffoldBgLight: Color(0xFFFFF0F5), // Lavender Blush
-    settingsBgLight: Color(0xFFF3E5F5),
-    cardBgLight: Colors.white,
-  ),
-  const ColorThemePreset(
-    id: 'auroraAbyss',
-    name: 'Aurora Abyss',
-    primaryColor: Color(0xFF00E5FF), // Cyan
-    settingsPrimaryColor: Color(0xFF00E5FF),
-    scaffoldBgDark: Color(0xFF05191C), // Deep Teal
-    settingsBgDark: Color(0xFF0C292E),
-    cardBgDark: Color(0xFF143B42),
-    scaffoldBgLight: Color(0xFFE0F7FA), // Light Cyan
-    settingsBgLight: Color(0xFFE0F2F1),
-    cardBgLight: Colors.white,
-  ),
-  const ColorThemePreset(
-    id: 'midnightSlate',
-    name: 'Midnight Slate',
-    primaryColor: Colors.indigoAccent,
-    settingsPrimaryColor: Colors.indigoAccent,
-    scaffoldBgDark: Color(0xFF0F172A), // Slate 900
-    settingsBgDark: Color(0xFF1E293B), // Slate 800
-    cardBgDark: Color(0xFF334155), // Slate 700
-    scaffoldBgLight: Color(0xFFF1F5F9), // Slate 100
-    settingsBgLight: Color(0xFFE2E8F0),
     cardBgLight: Colors.white,
   ),
 ];
@@ -143,19 +107,13 @@ class AppThemeNotifier extends Notifier<AppThemeState> {
   AppThemeState build() {
     final storageService = ref.watch(storageServiceProvider);
     final themeMode = _parseThemeMode(storageService.getThemeMode());
-    final colorThemeId = storageService.getTheme();
-    final isAmoled = storageService.getThemeMode() == 'amoled';
-
-    final preset = appThemes.firstWhere(
-      (theme) => theme.id == colorThemeId,
-      orElse: () => appThemes.first,
-    );
+    final colorThemeId = 'classic'; // Locked to classic
 
     return AppThemeState(
       themeMode: themeMode,
       colorThemeId: colorThemeId,
-      lightTheme: _buildTheme(preset, false, false),
-      darkTheme: _buildTheme(preset, true, isAmoled),
+      lightTheme: _buildTheme(appThemes.first, false, false),
+      darkTheme: _buildTheme(appThemes.first, true, true), // Force amoled = true for Dark Mode
     );
   }
 
@@ -164,9 +122,8 @@ class AppThemeNotifier extends Notifier<AppThemeState> {
       case 'light':
         return ThemeMode.light;
       case 'dark':
-        return ThemeMode.dark;
       case 'amoled':
-        return ThemeMode.dark; // Resolved to dark internally with pure black override
+        return ThemeMode.dark;
       case 'system':
       default:
         return ThemeMode.system;
@@ -174,32 +131,23 @@ class AppThemeNotifier extends Notifier<AppThemeState> {
   }
 
   void _updateState(ThemeMode mode, String colorThemeId) {
-    final storageService = ref.read(storageServiceProvider);
-    final preset = appThemes.firstWhere(
-      (theme) => theme.id == colorThemeId,
-      orElse: () => appThemes.first,
-    );
-
-    final isAmoled = storageService.getThemeMode() == 'amoled';
-
     state = AppThemeState(
       themeMode: mode,
-      colorThemeId: colorThemeId,
-      lightTheme: _buildTheme(preset, false, false),
-      darkTheme: _buildTheme(preset, true, isAmoled),
+      colorThemeId: 'classic',
+      lightTheme: _buildTheme(appThemes.first, false, false),
+      darkTheme: _buildTheme(appThemes.first, true, true), // Force amoled = true for Dark Mode
     );
   }
 
   Future<void> updateThemeMode(String modeStr) async {
     final storageService = ref.read(storageServiceProvider);
     await storageService.setThemeMode(modeStr);
-    _updateState(_parseThemeMode(modeStr), state.colorThemeId);
+    _updateState(_parseThemeMode(modeStr), 'classic');
   }
 
   Future<void> updateColorTheme(String colorThemeId) async {
-    final storageService = ref.read(storageServiceProvider);
-    await storageService.setTheme(colorThemeId);
-    _updateState(state.themeMode, colorThemeId);
+    // Locked to classic
+    _updateState(state.themeMode, 'classic');
   }
 
   ThemeData _buildTheme(ColorThemePreset preset, bool isDark, bool isAmoled) {

@@ -511,7 +511,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     style: TextStyle(color: isDark ? Colors.white54 : Colors.black45, fontSize: 12),
                   ),
                   trailing: DropdownButton<String>(
-                    value: ref.read(storageServiceProvider).getThemeMode(),
+                    value: () {
+                      final mode = ref.read(storageServiceProvider).getThemeMode();
+                      return mode == 'amoled' ? 'dark' : mode;
+                    }(),
                     dropdownColor: theme.cardColor,
                     underline: const SizedBox(),
                     icon: Icon(Icons.arrow_drop_down, color: isDark ? Colors.white70 : Colors.black54),
@@ -519,51 +522,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       DropdownMenuItem(value: 'system', child: Text('System')),
                       DropdownMenuItem(value: 'light', child: Text('Light')),
                       DropdownMenuItem(value: 'dark', child: Text('Dark')),
-                      DropdownMenuItem(value: 'amoled', child: Text('AMOLED Dark')),
                     ],
                     onChanged: (String? value) {
                       if (value != null) {
                         ref.read(appThemeProvider.notifier).updateThemeMode(value);
-                      }
-                    },
-                  ),
-                ),
-                Divider(color: theme.dividerColor, height: 1, indent: 56, endIndent: 16),
-                ListTile(
-                  leading: Icon(Icons.palette, color: isDark ? Colors.white70 : Colors.black54),
-                  title: const Text('Color Theme'),
-                  subtitle: Text(
-                    themeState.activePreset.name,
-                    style: TextStyle(color: isDark ? Colors.white54 : Colors.black45, fontSize: 12),
-                  ),
-                  trailing: DropdownButton<String>(
-                    value: themeState.colorThemeId,
-                    dropdownColor: theme.cardColor,
-                    underline: const SizedBox(),
-                    icon: Icon(Icons.arrow_drop_down, color: isDark ? Colors.white70 : Colors.black54),
-                    items: appThemes.map((preset) {
-                      return DropdownMenuItem(
-                        value: preset.id,
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Container(
-                              width: 12,
-                              height: 12,
-                              decoration: BoxDecoration(
-                                color: preset.primaryColor,
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Text(preset.name),
-                          ],
-                        ),
-                      );
-                    }).toList(),
-                    onChanged: (String? value) {
-                      if (value != null) {
-                        ref.read(appThemeProvider.notifier).updateColorTheme(value);
                       }
                     },
                   ),
