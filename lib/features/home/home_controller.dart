@@ -30,6 +30,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
 
   ChannelCategory get category;
   List<AnimeSeries> _allSeries = [];
+  List<AnimeSeries> get allSeries => _allSeries;
   String _resolvedChatTitle = 'Loading...';
   String get resolvedChatTitle => _resolvedChatTitle;
 

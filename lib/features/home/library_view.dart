@@ -381,9 +381,10 @@ class _LibraryViewState extends ConsumerState<LibraryView> with SingleTickerProv
   Widget _buildContinueWatchingSliver(BuildContext context, List<AnimeSeries> seriesList) {
     final history = ref.watch(historyLogProvider);
     final storage = ref.read(storageServiceProvider);
+    final allSeries = ref.read(provider.notifier).allSeries;
 
     final continueWatchingItems = history.where((item) {
-      final hasSeries = seriesList.any((s) => s.coreName == item['seriesName']);
+      final hasSeries = allSeries.any((s) => s.coreName == item['seriesName']);
       if (!hasSeries) return false;
 
       final msgId = item['messageId'] as int;
@@ -403,7 +404,7 @@ class _LibraryViewState extends ConsumerState<LibraryView> with SingleTickerProv
     return SliverToBoxAdapter(
       child: ContinueWatchingShelf(
         items: continueWatchingItems,
-        seriesList: seriesList,
+        seriesList: allSeries,
         ref: ref,
         categoryTitle: widget.category.title,
       ),
