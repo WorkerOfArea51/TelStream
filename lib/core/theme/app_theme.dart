@@ -192,6 +192,7 @@ class AppThemeNotifier extends Notifier<AppThemeState> {
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor: isDark ? (isAmoled ? Colors.black : scaffoldBg) : Colors.white,
         indicatorColor: preset.primaryColor.withValues(alpha: 0.15),
+        indicatorShape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         iconTheme: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) {
             return IconThemeData(color: preset.primaryColor);

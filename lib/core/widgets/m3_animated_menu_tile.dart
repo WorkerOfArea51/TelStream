@@ -1,6 +1,8 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
+import 'expressive_container.dart';
+
 class M3AnimatedMenuTile extends StatefulWidget {
   final IconData icon;
   final String title;
@@ -12,11 +14,11 @@ class M3AnimatedMenuTile extends StatefulWidget {
   const M3AnimatedMenuTile({
     super.key,
     required this.icon,
+    this.iconColor,
     required this.title,
     this.subtitle,
     required this.onTap,
     this.trailing,
-    this.iconColor,
   });
 
   @override
@@ -67,29 +69,32 @@ class _M3AnimatedMenuTileState extends State<M3AnimatedMenuTile> with SingleTick
     final subTextColor = isDark ? Colors.white38 : Colors.black54;
 
     return ListTile(
-      leading: AnimatedBuilder(
-        animation: _controller,
-        builder: (context, child) {
-          double rotation = 0.0;
-          if (widget.icon == Icons.settings || widget.icon == Icons.settings_outlined) {
-            // Gear spin: 90 degrees clockwise rotation
-            rotation = _controller.value * 0.5 * math.pi;
-          } else if (widget.icon == Icons.history) {
-            // Clock twist: brief counter-clockwise rotation and return
-            rotation = -_rotationAnimation.value * math.pi;
-          } else {
-            // Spring/shake rotation
-            rotation = _rotationAnimation.value * math.pi;
-          }
+      leading: Material3ExpressiveContainer(
+        shape: ExpressiveShape.squircle,
+        size: 38,
+        activeColor: theme.primaryColor,
+        isSelected: true, // Forces solid color accent background
+        child: AnimatedBuilder(
+          animation: _controller,
+          builder: (context, child) {
+            double rotation = 0.0;
+            if (widget.icon == Icons.settings || widget.icon == Icons.settings_outlined) {
+              rotation = _controller.value * 0.5 * math.pi;
+            } else if (widget.icon == Icons.history) {
+              rotation = -_rotationAnimation.value * math.pi;
+            } else {
+              rotation = _rotationAnimation.value * math.pi;
+            }
 
-          return Transform.scale(
-            scale: _scaleAnimation.value,
-            child: Transform.rotate(
-              angle: rotation,
-              child: Icon(widget.icon, color: widget.iconColor ?? theme.primaryColor, size: 24),
-            ),
-          );
-        },
+            return Transform.scale(
+              scale: _scaleAnimation.value,
+              child: Transform.rotate(
+                angle: rotation,
+                child: Icon(widget.icon, color: Colors.white, size: 20),
+              ),
+            );
+          },
+        ),
       ),
       title: Text(
         widget.title,

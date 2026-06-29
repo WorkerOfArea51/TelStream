@@ -13,6 +13,7 @@ import 'package:file_picker/file_picker.dart';
 import '../settings/settings_provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../../services/storage_service.dart';
+import '../../core/widgets/expressive_container.dart';
 import '../../core/logger.dart';
 import '../../services/streaming_proxy_service.dart';
 import 'package:path_provider/path_provider.dart';
@@ -2902,24 +2903,15 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
               top: 0,
               bottom: 0,
               child: Center(
-                child: ClipOval(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(14),
                   child: BackdropFilter(
                     filter: ImageFilter.blur(sigmaX: 5.0, sigmaY: 5.0),
-                    child: Container(
-                      width: 50,
-                      height: 50,
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.45),
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white12, width: 1.0),
-                      ),
-                      child: IconButton(
-                        icon: const Icon(Icons.camera_alt_outlined, color: Colors.white),
-                        iconSize: 22,
-                        padding: EdgeInsets.zero,
-                        onPressed: _takeScreenshot,
-                        tooltip: 'Take Screenshot',
-                      ),
+                    child: Material3ExpressiveContainer(
+                      shape: ExpressiveShape.squircle,
+                      size: 44,
+                      onTap: _takeScreenshot,
+                      child: const Icon(Icons.camera_alt_rounded, color: Colors.white),
                     ),
                   ),
                 ),
@@ -2957,13 +2949,15 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                IconButton(
-                                  iconSize: 28,
-                                  icon: Icon(
-                                    Icons.skip_previous,
+                                Material3ExpressiveContainer(
+                                  shape: ExpressiveShape.capsule,
+                                  size: 44,
+                                  onTap: widget.hasPrevEpisode ? widget.onPrevEpisode : null,
+                                  inactiveColor: Colors.white.withValues(alpha: 0.12),
+                                  child: Icon(
+                                    Icons.skip_previous_rounded,
                                     color: widget.hasPrevEpisode ? Colors.white : Colors.white24,
                                   ),
-                                  onPressed: widget.hasPrevEpisode ? widget.onPrevEpisode : null,
                                 ),
                                 const SizedBox(width: 24),
                                 StreamBuilder<bool>(
@@ -2973,28 +2967,31 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                                   },
                                 ),
                                 const SizedBox(width: 24),
-                                IconButton(
-                                  iconSize: 28,
-                                  icon: Icon(
-                                    Icons.skip_next,
+                                Material3ExpressiveContainer(
+                                  shape: ExpressiveShape.capsule,
+                                  size: 44,
+                                  onTap: widget.hasNextEpisode ? widget.onNextEpisode : null,
+                                  inactiveColor: Colors.white.withValues(alpha: 0.12),
+                                  child: Icon(
+                                    Icons.skip_next_rounded,
                                     color: widget.hasNextEpisode ? Colors.white : Colors.white24,
                                   ),
-                                  onPressed: widget.hasNextEpisode ? widget.onNextEpisode : null,
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 4),
+                            const SizedBox(height: 8),
                             // Row 2: Utility Controls (Lock, Spacer, +90s, Speed, Aspect Ratio)
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                IconButton(
-                                  icon: const Icon(Icons.lock_open_outlined, color: Colors.white70),
-                                  iconSize: 24,
-                                  onPressed: () {
+                                Material3ExpressiveContainer(
+                                  shape: ExpressiveShape.squircle,
+                                  size: 40,
+                                  onTap: () {
                                     setState(() => _isLocked = true);
                                     _startHideTimer();
                                   },
+                                  child: const Icon(Icons.lock_open_rounded, color: Colors.white70),
                                 ),
                                 Row(
                                   mainAxisSize: MainAxisSize.min,
@@ -3065,27 +3062,18 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                                 top: 0,
                                 bottom: 0,
                                 child: Center(
-                                  child: ClipOval(
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(14),
                                     child: BackdropFilter(
                                       filter: ImageFilter.blur(sigmaX: 5.0, sigmaY: 5.0),
-                                      child: Container(
-                                        width: 50,
-                                        height: 50,
-                                        decoration: BoxDecoration(
-                                          color: Colors.black.withValues(alpha: 0.45),
-                                          shape: BoxShape.circle,
-                                          border: Border.all(color: Colors.white12, width: 1.0),
-                                        ),
-                                        child: IconButton(
-                                          icon: const Icon(Icons.lock_open_outlined, color: Colors.white),
-                                          iconSize: 22,
-                                          padding: EdgeInsets.zero,
-                                          onPressed: () {
-                                            setState(() => _isLocked = true);
-                                            _startHideTimer();
-                                          },
-                                          tooltip: 'Lock Screen',
-                                        ),
+                                      child: Material3ExpressiveContainer(
+                                        shape: ExpressiveShape.squircle,
+                                        size: 40,
+                                        onTap: () {
+                                          setState(() => _isLocked = true);
+                                          _startHideTimer();
+                                        },
+                                        child: const Icon(Icons.lock_open_rounded, color: Colors.white),
                                       ),
                                     ),
                                   ),
@@ -3095,24 +3083,28 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    IconButton(
-                                      iconSize: 28,
-                                      icon: Icon(
-                                        Icons.skip_previous,
+                                    Material3ExpressiveContainer(
+                                      shape: ExpressiveShape.capsule,
+                                      size: 44,
+                                      onTap: widget.hasPrevEpisode ? widget.onPrevEpisode : null,
+                                      inactiveColor: Colors.white.withValues(alpha: 0.12),
+                                      child: Icon(
+                                        Icons.skip_previous_rounded,
                                         color: widget.hasPrevEpisode ? Colors.white : Colors.white24,
                                       ),
-                                      onPressed: widget.hasPrevEpisode ? widget.onPrevEpisode : null,
                                     ),
                                      const SizedBox(width: 24),
                                      Material3ExpressiveSquigglyPlayButton(player: widget.player),
                                      const SizedBox(width: 24),
-                                    IconButton(
-                                      iconSize: 28,
-                                      icon: Icon(
-                                        Icons.skip_next,
+                                    Material3ExpressiveContainer(
+                                      shape: ExpressiveShape.capsule,
+                                      size: 44,
+                                      onTap: widget.hasNextEpisode ? widget.onNextEpisode : null,
+                                      inactiveColor: Colors.white.withValues(alpha: 0.12),
+                                      child: Icon(
+                                        Icons.skip_next_rounded,
                                         color: widget.hasNextEpisode ? Colors.white : Colors.white24,
                                       ),
-                                      onPressed: widget.hasNextEpisode ? widget.onNextEpisode : null,
                                     ),
                                   ],
                                 ),
