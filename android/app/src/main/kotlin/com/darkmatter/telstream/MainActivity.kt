@@ -119,6 +119,7 @@ class MainActivity : FlutterActivity() {
                     val progress = call.argument<Double>("progress") ?: 0.0
                     val isCompleted = call.argument<Boolean>("isCompleted") ?: false
                     val isCancelled = call.argument<Boolean>("isCancelled") ?: false
+                    val isPaused = call.argument<Boolean>("isPaused") ?: false
 
                     val serviceIntent = Intent(this, DownloadService::class.java).apply {
                         putExtra("fileId", fileId)
@@ -126,6 +127,7 @@ class MainActivity : FlutterActivity() {
                         putExtra("progress", progress)
                         putExtra("isCompleted", isCompleted)
                         putExtra("isCancelled", isCancelled)
+                        putExtra("isPaused", isPaused)
                     }
 
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
