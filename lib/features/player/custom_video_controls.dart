@@ -2944,6 +2944,13 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                 },
                 quickActionRow: _buildQuickActionRow(),
                 settingsAccent: settingsAccent,
+                onToggleStatsForNerds: () {
+                  final s = ref.read(videoSettingsProvider);
+                  ref.read(videoSettingsProvider.notifier).updateSettings(
+                    s.copyWith(showStatsForNerds: !s.showStatsForNerds),
+                  );
+                },
+                isStatsForNerdsActive: ref.watch(videoSettingsProvider).showStatsForNerds,
               ),
             ),
             

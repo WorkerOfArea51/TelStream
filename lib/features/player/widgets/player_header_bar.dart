@@ -15,6 +15,8 @@ class PlayerHeaderBar extends StatelessWidget {
   final VoidCallback onShowMoreOptions;
   final Widget quickActionRow;
   final Color settingsAccent;
+  final VoidCallback onToggleStatsForNerds;
+  final bool isStatsForNerdsActive;
 
   const PlayerHeaderBar({
     super.key,
@@ -30,6 +32,8 @@ class PlayerHeaderBar extends StatelessWidget {
     required this.onShowMoreOptions,
     required this.quickActionRow,
     required this.settingsAccent,
+    required this.onToggleStatsForNerds,
+    required this.isStatsForNerdsActive,
   });
 
   @override
@@ -117,6 +121,20 @@ class PlayerHeaderBar extends StatelessWidget {
                   onTap: onShowQueue,
                   inactiveColor: Colors.white.withValues(alpha: 0.12),
                   child: const Icon(Icons.playlist_play_outlined, color: Colors.white, size: 20),
+                ),
+                const SizedBox(width: 16),
+
+                // Stats for Nerds Toggle Button
+                Material3ExpressiveContainer(
+                  shape: ExpressiveShape.squircle,
+                  size: 38,
+                  onTap: onToggleStatsForNerds,
+                  inactiveColor: isStatsForNerdsActive
+                      ? settingsAccent.withValues(alpha: 0.3)
+                      : Colors.white.withValues(alpha: 0.12),
+                  activeColor: settingsAccent,
+                  isSelected: isStatsForNerdsActive,
+                  child: const Icon(Icons.analytics_outlined, color: Colors.white, size: 20),
                 ),
                 const SizedBox(width: 16),
 

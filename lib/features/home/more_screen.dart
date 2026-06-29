@@ -615,6 +615,89 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
     }
   }
 
+  void _showReportBugOptions(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final textColor = isDark ? Colors.white : Colors.black87;
+    final subTextColor = isDark ? Colors.white54 : Colors.black54;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: theme.cardColor,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.symmetric(vertical: 12),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                child: Text(
+                  'Choose Reporting Method',
+                  style: TextStyle(
+                    color: textColor,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              ListTile(
+                leading: Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: theme.primaryColor.withValues(alpha: 0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(Icons.code_rounded, color: theme.primaryColor, size: 20),
+                ),
+                title: Text('GitHub Issues', style: TextStyle(color: textColor, fontWeight: FontWeight.bold)),
+                subtitle: Text('Ideal for developers & tracking progress publicly', style: TextStyle(color: subTextColor, fontSize: 11)),
+                onTap: () {
+                  Navigator.pop(context);
+                  _launchURL('https://github.com/WorkerOfArea51/TelStream/issues/new/choose');
+                },
+              ),
+              const Divider(height: 1, indent: 68, endIndent: 20),
+              ListTile(
+                leading: Container(
+                  width: 38,
+                  height: 38,
+                  decoration: const BoxDecoration(
+                    color: Colors.blueAccent,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.send_rounded, color: Colors.white, size: 20),
+                ),
+                title: Text('Telegram Support Bot', style: TextStyle(color: textColor, fontWeight: FontWeight.bold)),
+                subtitle: Text('Directly report to @Fil3Stor3_bot', style: TextStyle(color: subTextColor, fontSize: 11)),
+                onTap: () {
+                  Navigator.pop(context);
+                  _launchURL('https://t.me/Fil3Stor3_bot');
+                },
+              ),
+              const SizedBox(height: 16),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   void _showAboutDialog(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
@@ -763,11 +846,13 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
                           url: 'https://github.com/WorkerOfArea51/TelStream',
                         ),
                         Divider(color: theme.dividerColor, height: 1, indent: 56),
-                        _buildLinkTile(
+                         _buildLinkTile(
                           icon: Icons.bug_report_rounded,
                           title: 'Report Bug / Request Feature',
                           subtitle: 'Submit issues or suggest enhancements',
-                          url: 'https://github.com/WorkerOfArea51/TelStream/issues/new/choose',
+                          onTap: () {
+                            _showReportBugOptions(context);
+                          },
                         ),
                         Divider(color: theme.dividerColor, height: 1, indent: 56),
                         _buildLinkTile(
@@ -861,13 +946,12 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
         );
       },
     );
-  }
-
-  Widget _buildLinkTile({
+  }   Widget _buildLinkTile({
     required IconData icon,
     required String title,
     required String subtitle,
-    required String url,
+    String? url,
+    VoidCallback? onTap,
   }) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
@@ -887,9 +971,13 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
       title: Text(title, style: TextStyle(color: textColor, fontSize: 14, fontWeight: FontWeight.w500)),
       subtitle: Text(subtitle, style: TextStyle(color: subTextColor, fontSize: 12)),
       trailing: Icon(Icons.open_in_new_rounded, color: subTextColor.withValues(alpha: 0.5), size: 16),
-      onTap: () => _launchURL(url),
+      onTap: onTap ?? () {
+        if (url != null) {
+          _launchURL(url);
+        }
+      },
     );
-  }
+  } }
 
   void _launchURL(String urlString) async {
     final uri = Uri.parse(urlString);
