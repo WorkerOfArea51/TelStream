@@ -1,8 +1,7 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:media_kit/media_kit.dart';
 import '../../../core/theme/app_theme.dart';
-import 'subtitle_styling_tab.dart';
+import '../../../core/widgets/expressive_container.dart';
 
 class TrackSelectorPanel extends StatefulWidget {
   final Player player;
@@ -14,6 +13,8 @@ class TrackSelectorPanel extends StatefulWidget {
   final ValueChanged<String> onDecoderModeChanged;
   final double currentSubtitleDelay;
   final ValueChanged<double> onSubtitleDelayChanged;
+  final double currentAudioDelay;
+  final ValueChanged<double> onAudioDelayChanged;
   final ValueChanged<dynamic> onTrackSelected;
   final VoidCallback onPickLocalSubtitle;
   final VoidCallback onOpenSubtitleDownloader;
@@ -38,6 +39,8 @@ class TrackSelectorPanel extends StatefulWidget {
     required this.onDecoderModeChanged,
     required this.currentSubtitleDelay,
     required this.onSubtitleDelayChanged,
+    required this.currentAudioDelay,
+    required this.onAudioDelayChanged,
     required this.onTrackSelected,
     required this.onPickLocalSubtitle,
     required this.onOpenSubtitleDownloader,
@@ -56,6 +59,71 @@ class TrackSelectorPanel extends StatefulWidget {
 
 class _TrackSelectorPanelState extends State<TrackSelectorPanel> {
   int _activeTab = 0; // 0: Tracks, 1: Style
+  String _currentScreen = 'main'; // 'main', 'mode'
+
+  static const List<Map<String, String>> _colors = [
+    {'name': 'White', 'hex': '#FFFFFF'},
+    {'name': 'Black', 'hex': '#000000'},
+    {'name': 'Yellow', 'hex': '#FFFF00'},
+    {'name': 'Green', 'hex': '#00FF00'},
+    {'name': 'Red', 'hex': '#FF0000'},
+    {'name': 'Cyan', 'hex': '#00FFFF'},
+    {'name': 'Blue', 'hex': '#0000FF'},
+    {'name': 'Orange', 'hex': '#FFA500'},
+    {'name': 'Magenta', 'hex': '#FF00FF'},
+  ];
+
+  Color _parseColor(String hex) {
+    try {
+      final cleanHex = hex.replaceAll('#', '');
+      if (cleanHex.length == 6) {
+        return Color(int.parse('FF$cleanHex', radix: 16));
+      } else if (cleanHex.length == 8) {
+        return Color(int.parse(cleanHex, radix: 16));
+      }
+    } catch (_) {}
+    return Colors.white;
+  }
+
+  void _updateAudioDelay(double val) {
+    final roundedVal = double.parse(val.toStringAsFixed(1));
+    if (widget.player.platform is NativePlayer) {
+      try {
+        (widget.player.platform as NativePlayer).setProperty('audio-delay', roundedVal.toString());
+      } catch (_) {}
+    }
+    widget.onAudioDelayChanged(roundedVal);
+  }
+
+  Widget _buildPresetCard(String sampleText, String colorHex, Color activeColor) {
+    final isSelected = widget.currentFontColor.toUpperCase() == colorHex.toUpperCase();
+    final colorVal = _parseColor(colorHex);
+
+    return GestureDetector(
+      onTap: () => widget.onFontColorChanged(colorHex),
+      child: Container(
+        width: 68,
+        height: 48,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: Colors.black38,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: isSelected ? activeColor : Colors.white10,
+            width: isSelected ? 2.0 : 1.0,
+          ),
+        ),
+        child: Text(
+          sampleText,
+          style: TextStyle(
+            color: colorVal,
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -73,14 +141,14 @@ class _TrackSelectorPanelState extends State<TrackSelectorPanel> {
           builder: (context, trackSnapshot) {
             final tracksObj = tracksSnapshot.data;
             final currentTrackObj = trackSnapshot.data;
-            
+
             final List<dynamic> rawTracks = widget.isSubtitle
                 ? (tracksObj?.subtitle ?? [])
                 : (tracksObj?.audio ?? []);
             final currentTrack = widget.isSubtitle
                 ? currentTrackObj?.subtitle
                 : currentTrackObj?.audio;
-            
+
             final List<dynamic> options = [];
             if (widget.isSubtitle) {
               options.add(SubtitleTrack.no());
@@ -88,539 +156,683 @@ class _TrackSelectorPanelState extends State<TrackSelectorPanel> {
             } else {
               options.add(AudioTrack.auto());
             }
-            
+
             for (final track in rawTracks) {
               if (track.id != 'no' && track.id != 'auto') {
                 options.add(track);
               }
             }
-            
-            // Check if current track is ASS or PGS/Graphical to show recommended mode banners
-            bool isAssCodecSelected = false;
-            bool isGraphicalCodecSelected = false;
-            if (widget.isSubtitle && currentTrack != null && currentTrack.id != 'no' && currentTrack.id != 'auto') {
-              final codec = widget.trackCodecs['sub/${currentTrack.id}'];
-              if (codec != null) {
-                final codecLower = codec.toLowerCase();
-                if (codecLower.contains('ass') || codecLower.contains('ssa') || codecLower.contains('substation')) {
-                  isAssCodecSelected = true;
-                } else if (codecLower.contains('pgs') || 
-                           codecLower.contains('hdmv') || 
-                           codecLower.contains('dvd') || 
-                           codecLower.contains('vob') || 
-                           codecLower.contains('dvb') || 
-                           codecLower == 'xsub') {
-                  isGraphicalCodecSelected = true;
-                }
-              }
-            }
 
             final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
 
-            return ClipRRect(
-              borderRadius: isLandscape
-                  ? const BorderRadius.horizontal(left: Radius.circular(30))
-                  : const BorderRadius.vertical(top: Radius.circular(24)),
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 20.0, sigmaY: 20.0),
-                child: Container(
-                  height: isLandscape ? double.infinity : (widget.isSubtitle ? 500.0 : 340.0),
-                  decoration: BoxDecoration(
-                    color: const Color(0x990A0F1D), // Slate 950 with 60% opacity for premium glassmorphism
-                    borderRadius: isLandscape
-                        ? const BorderRadius.horizontal(left: Radius.circular(30))
-                        : const BorderRadius.vertical(top: Radius.circular(24)),
-                    border: Border.all(color: Colors.white10),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.5),
-                        blurRadius: 25,
-                        spreadRadius: 5,
-                      ),
-                    ],
+            return Container(
+              height: isLandscape ? double.infinity : (widget.isSubtitle ? 520.0 : 340.0),
+              decoration: BoxDecoration(
+                color: const Color(0xEB0A0F1D), // Slate 950 with 92% opacity - clean translucency (no blur)
+                borderRadius: isLandscape
+                    ? const BorderRadius.horizontal(left: Radius.circular(30))
+                    : const BorderRadius.vertical(top: Radius.circular(24)),
+                border: Border.all(color: Colors.white10),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.5),
+                    blurRadius: 25,
+                    spreadRadius: 5,
                   ),
-                  child: SafeArea(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        const SizedBox(height: 12),
-                        Center(
-                          child: Container(
-                            width: 45,
-                            height: 4,
-                            decoration: BoxDecoration(
-                              color: Colors.white30,
-                              borderRadius: BorderRadius.circular(2),
-                            ),
-                          ),
+                ],
+              ),
+              child: SafeArea(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const SizedBox(height: 12),
+                    Center(
+                      child: Container(
+                        width: 45,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: Colors.white30,
+                          borderRadius: BorderRadius.circular(2),
                         ),
-                        const SizedBox(height: 8),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-                          child: Row(
-                            children: [
-                              Icon(
-                                widget.isSubtitle ? Icons.subtitles : Icons.headphones,
-                                color: settingsAccent,
-                                size: 24,
-                              ),
-                              const SizedBox(width: 12),
-                              Text(
-                                widget.isSubtitle ? 'Subtitles' : 'Audio Tracks',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w800,
-                                  letterSpacing: 0.5,
-                                ),
-                              ),
-                              const Spacer(),
-                              if (widget.isSubtitle) ...[
-                                IconButton(
-                                  icon: const Icon(Icons.cloud_download, color: Colors.white),
-                                  tooltip: 'Download Subtitles Online',
-                                  onPressed: widget.onOpenSubtitleDownloader,
-                                ),
-                                IconButton(
-                                  icon: const Icon(Icons.folder_open, color: Colors.white),
-                                  tooltip: 'Load Local Subtitle File',
-                                  onPressed: widget.onPickLocalSubtitle,
-                                ),
-                              ],
-                              IconButton(
-                                icon: const Icon(Icons.close, color: Colors.white60),
-                                onPressed: widget.onClose,
-                              ),
-                            ],
-                          ),
-                        ),
-                        
-                        // Dual tab switcher (Tracks vs Style)
-                        if (widget.isSubtitle) ...[
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
-                            child: Row(
-                              children: [
-                                _buildTabButton(0, 'Tracks', settingsAccent),
-                                const SizedBox(width: 12),
-                                _buildTabButton(1, 'Style', settingsAccent),
-                              ],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    
+                    // Conditionally show Back Button or title
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+                      child: Row(
+                        children: [
+                          if (widget.isSubtitle && _activeTab == 1 && _currentScreen == 'mode') ...[
+                            IconButton(
+                              icon: const Icon(Icons.arrow_back, color: Colors.white),
+                              onPressed: () {
+                                setState(() {
+                                  _currentScreen = 'main';
+                                });
+                              },
                             ),
+                            const SizedBox(width: 8),
+                            const Text(
+                              'Subtitle mode',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 18,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ] else ...[
+                            Icon(
+                              widget.isSubtitle ? Icons.subtitles : Icons.headphones,
+                              color: settingsAccent,
+                              size: 24,
+                            ),
+                            const SizedBox(width: 12),
+                            Text(
+                              widget.isSubtitle ? 'Subtitles' : 'Audio Tracks',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 18,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ],
+                          const Spacer(),
+                          IconButton(
+                            icon: const Icon(Icons.close, color: Colors.white60),
+                            onPressed: widget.onClose,
                           ),
-                          const SizedBox(height: 4),
                         ],
-                        
-                        const Divider(color: Colors.white10, height: 1),
-                        
-                        // Body Section switching depending on active tab
-                        if (widget.isSubtitle && _activeTab == 1)
-                          Expanded(
-                            child: SingleChildScrollView(
-                              padding: const EdgeInsets.symmetric(vertical: 8),
-                              child: SubtitleStylingTab(
-                                currentFontSize: widget.currentFontSize,
-                                onFontSizeChanged: widget.onFontSizeChanged,
-                                currentFontColor: widget.currentFontColor,
-                                onFontColorChanged: widget.onFontColorChanged,
-                                currentFontFamily: widget.currentFontFamily,
-                                onFontFamilyChanged: widget.onFontFamilyChanged,
-                                currentRendererMode: widget.currentRendererMode,
-                                settingsAccent: settingsAccent,
-                              ),
-                            ),
-                          )
-                        else
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                if (widget.isSubtitle) ...[
-                                  Padding(
-                                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                                    child: Row(
-                                      children: [
-                                        const Text(
-                                          'Renderer Mode:',
-                                          style: TextStyle(
-                                            color: Colors.white70,
-                                            fontSize: 13,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 12),
-                                        Expanded(
-                                          child: Row(
-                                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                                            children: [
-                                              _buildModeButton('flutter', 'Overlay (Custom)', widget.currentRendererMode, settingsAccent),
-                                              const SizedBox(width: 8),
-                                              _buildModeButton('native', 'Native (Built-in)', widget.currentRendererMode, settingsAccent),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  if (isAssCodecSelected)
-                                    Padding(
-                                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-                                      child: Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                        decoration: BoxDecoration(
-                                          color: widget.currentRendererMode == 'native' 
-                                              ? settingsAccent.withValues(alpha: 0.1)
-                                              : Colors.orange.withValues(alpha: 0.1),
-                                          borderRadius: BorderRadius.circular(8),
-                                          border: Border.all(
-                                            color: widget.currentRendererMode == 'native'
-                                                ? settingsAccent.withValues(alpha: 0.3)
-                                                : Colors.orange.withValues(alpha: 0.3),
-                                          ),
-                                        ),
-                                        child: Row(
-                                          children: [
-                                            Icon(
-                                              widget.currentRendererMode == 'native' ? Icons.info_outline : Icons.warning_amber_rounded, 
-                                              color: widget.currentRendererMode == 'native' ? settingsAccent : Colors.orangeAccent, 
-                                              size: 16
-                                            ),
-                                            const SizedBox(width: 8),
-                                            Expanded(
-                                              child: Text(
-                                                widget.currentRendererMode == 'native'
-                                                    ? 'Native mode selected. Subtitles will display styled ASS layout.'
-                                                    : 'Selected subtitle has ASS format. Native mode is recommended.',
-                                                style: TextStyle(
-                                                  color: widget.currentRendererMode == 'native' ? Colors.white70 : Colors.orangeAccent, 
-                                                  fontSize: 11, 
-                                                  fontWeight: FontWeight.w500
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                  if (isGraphicalCodecSelected)
-                                    Padding(
-                                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-                                      child: Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                        decoration: BoxDecoration(
-                                          color: widget.currentRendererMode == 'flutter'
-                                              ? Colors.redAccent.withValues(alpha: 0.1)
-                                              : (widget.currentDecoderMode == 'mediacodec'
-                                                  ? Colors.orange.withValues(alpha: 0.1)
-                                                  : settingsAccent.withValues(alpha: 0.1)),
-                                          borderRadius: BorderRadius.circular(8),
-                                          border: Border.all(
-                                            color: widget.currentRendererMode == 'flutter'
-                                                ? Colors.redAccent.withValues(alpha: 0.3)
-                                                : (widget.currentDecoderMode == 'mediacodec'
-                                                    ? Colors.orange.withValues(alpha: 0.3)
-                                                    : settingsAccent.withValues(alpha: 0.3)),
-                                          ),
-                                        ),
-                                        child: Row(
-                                          children: [
-                                            Icon(
-                                              widget.currentRendererMode == 'flutter'
-                                                  ? Icons.error_outline
-                                                  : (widget.currentDecoderMode == 'mediacodec'
-                                                      ? Icons.warning_amber_rounded
-                                                      : Icons.info_outline),
-                                              color: widget.currentRendererMode == 'flutter'
-                                                  ? Colors.redAccent
-                                                  : (widget.currentDecoderMode == 'mediacodec'
-                                                      ? Colors.orangeAccent
-                                                      : settingsAccent),
-                                              size: 16,
-                                            ),
-                                            const SizedBox(width: 8),
-                                            Expanded(
-                                              child: Text(
-                                                widget.currentRendererMode == 'flutter'
-                                                    ? 'PGS/VobSub subtitles cannot render in Overlay mode.'
-                                                    : (widget.currentDecoderMode == 'mediacodec'
-                                                        ? 'PGS subtitles require HW+ or SW decoder to render natively.'
-                                                        : 'Native rendering active with compatible decoder.'),
-                                                style: TextStyle(
-                                                  color: widget.currentRendererMode == 'flutter'
-                                                      ? Colors.redAccent
-                                                      : (widget.currentDecoderMode == 'mediacodec'
-                                                          ? Colors.orangeAccent
-                                                          : Colors.white70),
-                                                  fontSize: 11,
-                                                  fontWeight: FontWeight.w500,
-                                                ),
-                                              ),
-                                            ),
-                                            if (widget.currentRendererMode == 'flutter')
-                                              TextButton(
-                                                style: TextButton.styleFrom(
-                                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                                  minimumSize: Size.zero,
-                                                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                                ),
-                                                onPressed: () => widget.onRendererModeChanged('native'),
-                                                child: Text(
-                                                  'Use Native',
-                                                  style: TextStyle(color: settingsAccent, fontSize: 11, fontWeight: FontWeight.bold),
-                                                ),
-                                              )
-                                            else if (widget.currentDecoderMode == 'mediacodec')
-                                              TextButton(
-                                                style: TextButton.styleFrom(
-                                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                                  minimumSize: Size.zero,
-                                                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                                ),
-                                                onPressed: () => widget.onDecoderModeChanged('mediacodec-copy'),
-                                                child: Text(
-                                                  'Use HW+',
-                                                  style: TextStyle(color: settingsAccent, fontSize: 11, fontWeight: FontWeight.bold),
-                                                ),
-                                              ),
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                  const Divider(color: Colors.white10, height: 1),
-                                ],
-                                Expanded(
-                                  child: options.isEmpty
-                                      ? const Center(
-                                          child: Text(
-                                            'No tracks available',
-                                            style: TextStyle(color: Colors.white38, fontSize: 15),
-                                          ),
-                                        )
-                                      : ListView.builder(
-                                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                                          itemCount: options.length,
-                                          itemBuilder: (context, index) {
-                                            final track = options[index];
-                                            final isSelected = currentTrack != null &&
-                                                track.id == currentTrack.id &&
-                                                track.title == currentTrack.title &&
-                                                track.language == currentTrack.language;
-                                            
-                                            Widget titleWidget;
-                                            Widget? leadingWidget;
-                                            
-                                            if (track.id == 'auto') {
-                                              leadingWidget = Container(
-                                                padding: const EdgeInsets.all(8),
-                                                decoration: BoxDecoration(
-                                                  color: isSelected ? settingsAccent.withValues(alpha: 0.2) : Colors.white10,
-                                                  shape: BoxShape.circle,
-                                                ),
-                                                child: Icon(
-                                                  Icons.autorenew,
-                                                  color: isSelected ? settingsAccent : Colors.white70,
-                                                  size: 18,
-                                                ),
-                                              );
-                                              titleWidget = const Text(
-                                                'Automatic Select',
-                                                style: TextStyle(fontSize: 15),
-                                              );
-                                            } else if (track.id == 'no') {
-                                              leadingWidget = Container(
-                                                padding: const EdgeInsets.all(8),
-                                                decoration: BoxDecoration(
-                                                  color: isSelected ? Colors.redAccent.withValues(alpha: 0.2) : Colors.white10,
-                                                  shape: BoxShape.circle,
-                                                ),
-                                                child: Icon(
-                                                  Icons.block,
-                                                  color: isSelected ? Colors.redAccent : Colors.white70,
-                                                  size: 18,
-                                                ),
-                                              );
-                                              titleWidget = const Text(
-                                                'Disable (None)',
-                                                style: TextStyle(fontSize: 15),
-                                              );
-                                            } else {
-                                              final rawLang = track.language ?? '';
-                                              final lang = _getLanguageName(rawLang);
-                                              final tTitle = track.title ?? 'Track ${track.id}';
-                                              
-                                              final typeKey = widget.isSubtitle ? 'sub' : 'audio';
-                                              final codec = widget.trackCodecs['$typeKey/${track.id}'];
-                                              String formatSuffix = '';
-                                              if (codec != null && codec.isNotEmpty) {
-                                                var cleanCodec = codec.toUpperCase();
-                                                if (cleanCodec == 'SUBRIP' || cleanCodec.contains('S_TEXT') || cleanCodec.contains('UTF8') || cleanCodec.contains('UTF-8')) {
-                                                  cleanCodec = 'SRT';
-                                                } else if (cleanCodec.contains('PGS') || cleanCodec.contains('HDMV')) {
-                                                  cleanCodec = 'PGS';
-                                                } else if (cleanCodec.contains('ASS') || cleanCodec.contains('SSA') || cleanCodec.contains('SUBSTATION')) {
-                                                  cleanCodec = 'ASS';
-                                                } else if (cleanCodec.contains('VOB') || cleanCodec.contains('DVD')) {
-                                                  cleanCodec = 'SUB';
-                                                } else if (cleanCodec.contains('VTT')) {
-                                                  cleanCodec = 'VTT';
-                                                }
-                                                formatSuffix = ' ($cleanCodec)';
-                                              }
-                                              final displayTitle = '$tTitle$formatSuffix';
-                                              
-                                              if (rawLang.isNotEmpty) {
-                                                leadingWidget = Container(
-                                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                                  decoration: BoxDecoration(
-                                                    color: isSelected ? settingsAccent.withValues(alpha: 0.2) : Colors.white10,
-                                                    borderRadius: BorderRadius.circular(8),
-                                                    border: Border.all(
-                                                      color: isSelected ? settingsAccent.withValues(alpha: 0.4) : Colors.white24,
-                                                    ),
-                                                  ),
-                                                  child: Text(
-                                                    lang,
-                                                    style: TextStyle(
-                                                      color: isSelected ? settingsAccent : Colors.white70,
-                                                      fontSize: 12,
-                                                      fontWeight: FontWeight.bold,
-                                                    ),
-                                                  ),
-                                                );
-                                              }
-                                              
-                                              titleWidget = Text(
-                                                displayTitle,
-                                                style: const TextStyle(fontSize: 15),
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
-                                              );
-                                            }
+                      ),
+                    ),
 
-                                            return Padding(
-                                              padding: const EdgeInsets.only(bottom: 8, left: 20, right: 20),
-                                              child: InkWell(
-                                                onTap: () => widget.onTrackSelected(track),
-                                                borderRadius: BorderRadius.circular(12),
-                                                child: AnimatedContainer(
-                                                  duration: const Duration(milliseconds: 150),
-                                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                                                  decoration: BoxDecoration(
-                                                    color: isSelected 
-                                                        ? settingsAccent.withValues(alpha: 0.12) 
-                                                        : Colors.white.withValues(alpha: 0.04),
-                                                    borderRadius: BorderRadius.circular(12),
-                                                    border: Border.all(
-                                                      color: isSelected 
-                                                          ? settingsAccent.withValues(alpha: 0.4) 
-                                                          : Colors.white.withValues(alpha: 0.05),
-                                                      width: 1,
-                                                    ),
-                                                  ),
-                                                  child: Row(
-                                                    children: [
-                                                      if (leadingWidget != null) ...[
-                                                        leadingWidget,
-                                                        const SizedBox(width: 12),
-                                                      ],
-                                                      Expanded(
-                                                        child: DefaultTextStyle(
-                                                          style: TextStyle(
-                                                            color: isSelected ? settingsAccent : Colors.white,
-                                                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                                                          ),
-                                                          child: titleWidget,
-                                                        ),
-                                                      ),
-                                                      if (isSelected)
-                                                        Icon(
-                                                          Icons.check_circle,
-                                                          color: settingsAccent,
-                                                          size: 20,
-                                                        ),
-                                                    ],
-                                                  ),
-                                                ),
-                                              ),
-                                            );
-                                          },
+                    // Dual tab switcher (Tracks vs Style)
+                    if (widget.isSubtitle && _currentScreen == 'main') ...[
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
+                        child: Row(
+                          children: [
+                            _buildTabButton(0, 'Tracks', settingsAccent),
+                            const SizedBox(width: 12),
+                            _buildTabButton(1, 'Style', settingsAccent),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                    ],
+
+                    const Divider(color: Colors.white10, height: 1),
+
+                    // Subtitle Mode Screen
+                    if (widget.isSubtitle && _activeTab == 1 && _currentScreen == 'mode')
+                      Expanded(
+                        child: ListView(
+                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                          children: [
+                            _buildModeRadioTile(
+                              title: 'Built-in mode',
+                              subtitle: 'Original subtitle style. Customization (color, size, position, etc.) is not supported.',
+                              isSelected: widget.currentRendererMode == 'native',
+                              onTap: () {
+                                widget.onRendererModeChanged('native');
+                                setState(() => _currentScreen = 'main');
+                              },
+                              settingsAccent: settingsAccent,
+                            ),
+                            const SizedBox(height: 16),
+                            _buildModeRadioTile(
+                              title: 'Custom mode',
+                              subtitle: 'You can customize subtitle color, size, position, etc., but it may cause display issues.',
+                              isSelected: widget.currentRendererMode == 'flutter',
+                              onTap: () {
+                                widget.onRendererModeChanged('flutter');
+                                setState(() => _currentScreen = 'main');
+                              },
+                              settingsAccent: settingsAccent,
+                            ),
+                          ],
+                        ),
+                      )
+                    // Subtitle Style Tab Main Screen
+                    else if (widget.isSubtitle && _activeTab == 1)
+                      Expanded(
+                        child: ListView(
+                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                          children: [
+                            // 1. Mode Select Row
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text(
+                                  'Mode',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                InkWell(
+                                  onTap: () {
+                                    setState(() {
+                                      _currentScreen = 'mode';
+                                    });
+                                  },
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        widget.currentRendererMode == 'native' ? 'Built-in' : 'Custom',
+                                        style: TextStyle(
+                                          color: settingsAccent,
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.bold,
                                         ),
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Icon(Icons.chevron_right_rounded, color: settingsAccent, size: 18),
+                                    ],
+                                  ),
                                 ),
                               ],
                             ),
-                          ),
-                        
-                        if (widget.isSubtitle && _activeTab == 0) ...[
-                          const Divider(color: Colors.white10, height: 1),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
+                            const SizedBox(height: 8),
+
+                            // Helper text or custom styles depending on active Mode
+                            if (widget.currentRendererMode == 'native') ...[
+                              Text(
+                                'To set more subtitle options, like color, please change subtitle rendering',
+                                style: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.45),
+                                  fontSize: 11,
+                                ),
+                              ),
+                              const SizedBox(height: 20),
+                            ] else ...[
+                              // Custom Mode Styles (Sample, presets, colors, size slider)
+                              const SizedBox(height: 12),
+                              // Live Preview Container
+                              Container(
+                                height: 52,
+                                alignment: Alignment.center,
+                                decoration: BoxDecoration(
+                                  color: Colors.black38,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: Colors.white10),
+                                ),
+                                child: Text(
+                                  'Sample Subtitle',
+                                  style: TextStyle(
+                                    color: _parseColor(widget.currentFontColor),
+                                    fontSize: (widget.currentFontSize * 0.45).clamp(12.0, 24.0),
+                                    fontWeight: FontWeight.bold,
+                                    shadows: const [
+                                      Shadow(offset: Offset(-1.5, -1.5), color: Colors.black, blurRadius: 1.0),
+                                      Shadow(offset: Offset(1.5, -1.5), color: Colors.black, blurRadius: 1.0),
+                                      Shadow(offset: Offset(1.5, 1.5), color: Colors.black, blurRadius: 1.0),
+                                      Shadow(offset: Offset(-1.5, 1.5), color: Colors.black, blurRadius: 1.0),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+
+                              // Preset styles
+                              const Text(
+                                'Preset styles',
+                                style: TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold),
+                              ),
+                              const SizedBox(height: 8),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  _buildPresetCard('Aa', '#FFFFFF', settingsAccent),
+                                  _buildPresetCard('Aa', '#00FFFF', settingsAccent),
+                                  _buildPresetCard('Aa', '#FFFF00', settingsAccent),
+                                  _buildPresetCard('Aa', '#00FF00', settingsAccent),
+                                ],
+                              ),
+                              const SizedBox(height: 16),
+
+                              // Font color list selection
+                              const Text(
+                                'Font color',
+                                style: TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold),
+                              ),
+                              const SizedBox(height: 8),
+                              SizedBox(
+                                height: 36,
+                                child: ListView.builder(
+                                  scrollDirection: Axis.horizontal,
+                                  itemCount: _colors.length,
+                                  itemBuilder: (context, idx) {
+                                    final colorInfo = _colors[idx];
+                                    final colorHex = colorInfo['hex']!;
+                                    final isSelected = widget.currentFontColor.toUpperCase() == colorHex.toUpperCase();
+                                    final colorVal = _parseColor(colorHex);
+
+                                    return Padding(
+                                      padding: const EdgeInsets.only(right: 10),
+                                      child: GestureDetector(
+                                        onTap: () => widget.onFontColorChanged(colorHex),
+                                        child: Container(
+                                          width: 32,
+                                          height: 32,
+                                          decoration: BoxDecoration(
+                                            color: colorVal,
+                                            shape: BoxShape.circle,
+                                            border: Border.all(
+                                              color: isSelected ? settingsAccent : Colors.white24,
+                                              width: isSelected ? 2.5 : 1.0,
+                                            ),
+                                          ),
+                                          child: isSelected
+                                              ? Icon(
+                                                  Icons.check,
+                                                  color: colorVal.computeLuminance() > 0.5 ? Colors.black : Colors.white,
+                                                  size: 16,
+                                                )
+                                              : null,
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+
+                              // Font Size Slider
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  const Text(
+                                    'Font size',
+                                    style: TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold),
+                                  ),
+                                  Text(
+                                    '${widget.currentFontSize.round()}px',
+                                    style: TextStyle(color: settingsAccent, fontSize: 12, fontWeight: FontWeight.bold),
+                                  ),
+                                ],
+                              ),
+                              SliderTheme(
+                                data: SliderTheme.of(context).copyWith(
+                                  trackHeight: 2,
+                                  thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+                                  overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
+                                ),
+                                child: Slider(
+                                  value: widget.currentFontSize,
+                                  min: 16.0,
+                                  max: 72.0,
+                                  divisions: 56,
+                                  activeColor: settingsAccent,
+                                  inactiveColor: Colors.white24,
+                                  onChanged: widget.onFontSizeChanged,
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                            ],
+
+                            const Divider(color: Colors.white10, height: 24),
+
+                            // Subtitle Delay Sync (Always visible in Style menu)
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
+                                const Text(
+                                  'Subtitle Delay Sync:',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
                                 Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    const Text(
-                                      'Subtitle Delay Sync:',
+                                    Text(
+                                      '${widget.currentSubtitleDelay > 0 ? '+' : ''}${widget.currentSubtitleDelay.toStringAsFixed(1)}s',
                                       style: TextStyle(
-                                        color: Colors.white70,
-                                        fontSize: 13,
+                                        color: settingsAccent,
+                                        fontSize: 14,
                                         fontWeight: FontWeight.bold,
                                       ),
                                     ),
+                                    const SizedBox(width: 8),
+                                    TextButton(
+                                      style: TextButton.styleFrom(
+                                        padding: EdgeInsets.zero,
+                                        minimumSize: Size.zero,
+                                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                      ),
+                                      onPressed: () => widget.onSubtitleDelayChanged(0.0),
+                                      child: Text(
+                                        'Reset',
+                                        style: TextStyle(
+                                          color: settingsAccent,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+                            SliderTheme(
+                              data: SliderTheme.of(context).copyWith(
+                                trackHeight: 2,
+                                thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+                                overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
+                              ),
+                              child: Slider(
+                                value: widget.currentSubtitleDelay.clamp(-5.0, 5.0),
+                                min: -5.0,
+                                max: 5.0,
+                                divisions: 100,
+                                activeColor: settingsAccent,
+                                inactiveColor: Colors.white24,
+                                onChanged: widget.onSubtitleDelayChanged,
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    // Tracks Tab List
+                    else
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Expanded(
+                              child: options.isEmpty
+                                  ? const Center(
+                                      child: Text(
+                                        'No tracks available',
+                                        style: TextStyle(color: Colors.white38, fontSize: 15),
+                                      ),
+                                    )
+                                  : ListView.builder(
+                                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                                      itemCount: options.length,
+                                      itemBuilder: (context, index) {
+                                        final track = options[index];
+                                        final isSelected = currentTrack != null &&
+                                            track.id == currentTrack.id &&
+                                            track.title == currentTrack.title &&
+                                            track.language == currentTrack.language;
+
+                                        Widget titleWidget;
+                                        Widget? leadingWidget;
+
+                                        if (track.id == 'auto') {
+                                          leadingWidget = Container(
+                                            padding: const EdgeInsets.all(8),
+                                            decoration: BoxDecoration(
+                                              color: isSelected ? settingsAccent.withValues(alpha: 0.2) : Colors.white10,
+                                              shape: BoxShape.circle,
+                                            ),
+                                            child: Icon(
+                                              Icons.autorenew,
+                                              color: isSelected ? settingsAccent : Colors.white70,
+                                              size: 18,
+                                            ),
+                                          );
+                                          titleWidget = const Text(
+                                            'Automatic Select',
+                                            style: TextStyle(fontSize: 15),
+                                          );
+                                        } else if (track.id == 'no') {
+                                          leadingWidget = Container(
+                                            padding: const EdgeInsets.all(8),
+                                            decoration: BoxDecoration(
+                                              color: isSelected ? Colors.redAccent.withValues(alpha: 0.2) : Colors.white10,
+                                              shape: BoxShape.circle,
+                                            ),
+                                            child: Icon(
+                                              Icons.block,
+                                              color: isSelected ? Colors.redAccent : Colors.white70,
+                                              size: 18,
+                                            ),
+                                          );
+                                          titleWidget = const Text(
+                                            'Disable (None)',
+                                            style: TextStyle(fontSize: 15),
+                                          );
+                                        } else {
+                                          final rawLang = track.language ?? '';
+                                          final lang = _getLanguageName(rawLang);
+                                          final tTitle = track.title ?? 'Track ${track.id}';
+
+                                          final typeKey = widget.isSubtitle ? 'sub' : 'audio';
+                                          final codec = widget.trackCodecs['$typeKey/${track.id}'];
+                                          String formatSuffix = '';
+                                          if (codec != null && codec.isNotEmpty) {
+                                            var cleanCodec = codec.toUpperCase();
+                                            if (cleanCodec == 'SUBRIP' || cleanCodec.contains('S_TEXT') || cleanCodec.contains('UTF8') || cleanCodec.contains('UTF-8')) {
+                                              cleanCodec = 'SRT';
+                                            } else if (cleanCodec.contains('PGS') || cleanCodec.contains('HDMV')) {
+                                              cleanCodec = 'PGS';
+                                            } else if (cleanCodec.contains('ASS') || cleanCodec.contains('SSA') || cleanCodec.contains('SUBSTATION')) {
+                                              cleanCodec = 'ASS';
+                                            } else if (cleanCodec.contains('VOB') || cleanCodec.contains('DVD')) {
+                                              cleanCodec = 'SUB';
+                                            } else if (cleanCodec.contains('VTT')) {
+                                              cleanCodec = 'VTT';
+                                            }
+                                            formatSuffix = ' ($cleanCodec)';
+                                          }
+                                          final displayTitle = '$tTitle$formatSuffix';
+
+                                          if (rawLang.isNotEmpty) {
+                                            leadingWidget = Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                              decoration: BoxDecoration(
+                                                color: isSelected ? settingsAccent.withValues(alpha: 0.2) : Colors.white10,
+                                                borderRadius: BorderRadius.circular(8),
+                                                border: Border.all(
+                                                  color: isSelected ? settingsAccent.withValues(alpha: 0.4) : Colors.white24,
+                                                ),
+                                              ),
+                                              child: Text(
+                                                lang,
+                                                style: TextStyle(
+                                                  color: isSelected ? settingsAccent : Colors.white70,
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                            );
+                                          }
+
+                                          titleWidget = Text(
+                                            displayTitle,
+                                            style: const TextStyle(fontSize: 15),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          );
+                                        }
+
+                                        return Padding(
+                                          padding: const EdgeInsets.only(bottom: 8, left: 20, right: 20),
+                                          child: InkWell(
+                                            onTap: () => widget.onTrackSelected(track),
+                                            borderRadius: BorderRadius.circular(12),
+                                            child: AnimatedContainer(
+                                              duration: const Duration(milliseconds: 150),
+                                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                              decoration: BoxDecoration(
+                                                color: isSelected
+                                                    ? settingsAccent.withValues(alpha: 0.12)
+                                                    : Colors.white.withValues(alpha: 0.04),
+                                                borderRadius: BorderRadius.circular(12),
+                                                border: Border.all(
+                                                  color: isSelected
+                                                      ? settingsAccent.withValues(alpha: 0.4)
+                                                      : Colors.white.withValues(alpha: 0.05),
+                                                  width: 1,
+                                                ),
+                                              ),
+                                              child: Row(
+                                                children: [
+                                                  if (leadingWidget != null) ...[
+                                                    leadingWidget,
+                                                    const SizedBox(width: 12),
+                                                  ],
+                                                  Expanded(
+                                                    child: DefaultTextStyle(
+                                                      style: TextStyle(
+                                                        color: isSelected ? settingsAccent : Colors.white,
+                                                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                                      ),
+                                                      child: titleWidget,
+                                                    ),
+                                                  ),
+                                                  if (isSelected)
+                                                    Icon(
+                                                      Icons.check_circle,
+                                                      color: settingsAccent,
+                                                      size: 20,
+                                                    ),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                    ),
+                            ),
+
+                            // Online download and folder selector placed below current subs (inside Tracks tab)
+                            if (widget.isSubtitle) ...[
+                              const Divider(color: Colors.white10, height: 1),
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: Material3ExpressiveContainer(
+                                        shape: ExpressiveShape.squircle,
+                                        size: 40,
+                                        onTap: widget.onOpenSubtitleDownloader,
+                                        inactiveColor: Colors.white.withValues(alpha: 0.08),
+                                        child: const Row(
+                                          mainAxisAlignment: MainAxisAlignment.center,
+                                          children: [
+                                            Icon(Icons.cloud_download_rounded, color: Colors.white, size: 18),
+                                            SizedBox(width: 8),
+                                            Text(
+                                              'Search Online',
+                                              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Material3ExpressiveContainer(
+                                        shape: ExpressiveShape.squircle,
+                                        size: 40,
+                                        onTap: widget.onPickLocalSubtitle,
+                                        inactiveColor: Colors.white.withValues(alpha: 0.08),
+                                        child: const Row(
+                                          mainAxisAlignment: MainAxisAlignment.center,
+                                          children: [
+                                            Icon(Icons.folder_open_rounded, color: Colors.white, size: 18),
+                                            SizedBox(width: 8),
+                                            Text(
+                                              'Open Local File',
+                                              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+
+                            // Audio Delay Sync (Placed below the audio tracks inside Tracks tab)
+                            if (!widget.isSubtitle) ...[
+                              const Divider(color: Colors.white10, height: 1),
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
                                     Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                       children: [
-                                        Text(
-                                          '${widget.currentSubtitleDelay > 0 ? '+' : ''}${widget.currentSubtitleDelay.toStringAsFixed(1)}s',
+                                        const Text(
+                                          'Audio delay',
                                           style: TextStyle(
-                                            color: settingsAccent,
+                                            color: Colors.white,
                                             fontSize: 14,
                                             fontWeight: FontWeight.bold,
                                           ),
                                         ),
-                                        const SizedBox(width: 8),
-                                        TextButton(
-                                          style: TextButton.styleFrom(
-                                            padding: EdgeInsets.zero,
-                                            minimumSize: Size.zero,
-                                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                          ),
-                                          onPressed: () => widget.onSubtitleDelayChanged(0.0),
-                                          child: Text(
-                                            'Reset',
-                                            style: TextStyle(
-                                              color: settingsAccent,
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.bold,
+                                        Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Text(
+                                              '${widget.currentAudioDelay > 0 ? '+' : ''}${widget.currentAudioDelay.toStringAsFixed(1)}s',
+                                              style: TextStyle(
+                                                color: settingsAccent,
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.bold,
+                                              ),
                                             ),
-                                          ),
+                                            const SizedBox(width: 8),
+                                            TextButton(
+                                              style: TextButton.styleFrom(
+                                                padding: EdgeInsets.zero,
+                                                minimumSize: Size.zero,
+                                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                              ),
+                                              onPressed: () => _updateAudioDelay(0.0),
+                                              child: Text(
+                                                'Reset',
+                                                style: TextStyle(
+                                                  color: settingsAccent,
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
                                         ),
                                       ],
                                     ),
+                                    const SizedBox(height: 6),
+                                    SliderTheme(
+                                      data: SliderTheme.of(context).copyWith(
+                                        trackHeight: 2,
+                                        thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+                                        overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
+                                      ),
+                                      child: Slider(
+                                        value: widget.currentAudioDelay.clamp(-5.0, 5.0),
+                                        min: -5.0,
+                                        max: 5.0,
+                                        divisions: 100,
+                                        activeColor: settingsAccent,
+                                        inactiveColor: Colors.white24,
+                                        onChanged: _updateAudioDelay,
+                                      ),
+                                    ),
                                   ],
                                 ),
-                                SliderTheme(
-                                  data: SliderTheme.of(context).copyWith(
-                                    trackHeight: 2,
-                                    thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
-                                    overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
-                                  ),
-                                  child: Slider(
-                                    value: widget.currentSubtitleDelay.clamp(-5.0, 5.0),
-                                    min: -5.0,
-                                    max: 5.0,
-                                    divisions: 100, // 0.1s increments
-                                    activeColor: settingsAccent,
-                                    inactiveColor: Colors.white24,
-                                    onChanged: widget.onSubtitleDelayChanged,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                  ],
                 ),
               ),
             );
@@ -665,6 +877,84 @@ class _TrackSelectorPanelState extends State<TrackSelectorPanel> {
     );
   }
 
+  Widget _buildModeRadioTile({
+    required String title,
+    required String subtitle,
+    required bool isSelected,
+    required VoidCallback onTap,
+    required Color settingsAccent,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: isSelected ? settingsAccent.withValues(alpha: 0.12) : Colors.white.withValues(alpha: 0.04),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSelected ? settingsAccent.withValues(alpha: 0.4) : Colors.white.withValues(alpha: 0.05),
+            width: 1,
+          ),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              margin: const EdgeInsets.only(top: 2),
+              width: 18,
+              height: 18,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: isSelected ? settingsAccent : Colors.white30,
+                  width: 2,
+                ),
+              ),
+              child: isSelected
+                  ? Center(
+                      child: Container(
+                        width: 10,
+                        height: 10,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: settingsAccent,
+                        ),
+                      ),
+                    )
+                  : null,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      color: isSelected ? settingsAccent : Colors.white,
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.45),
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   String _getLanguageName(String code) {
     final cleanCode = code.toLowerCase().trim();
     switch (cleanCode) {
@@ -683,7 +973,6 @@ class _TrackSelectorPanelState extends State<TrackSelectorPanel> {
         return 'Spanish';
       case 'fra':
       case 'fre':
-      case 'fr':
         return 'French';
       case 'deu':
       case 'ger':
@@ -719,36 +1008,5 @@ class _TrackSelectorPanelState extends State<TrackSelectorPanel> {
       default:
         return code.toUpperCase();
     }
-  }
-
-  Widget _buildModeButton(String mode, String label, String currentMode, Color activeColor) {
-    final isSelected = mode == currentMode;
-    return Expanded(
-      child: InkWell(
-        onTap: () => widget.onRendererModeChanged(mode),
-        borderRadius: BorderRadius.circular(8),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
-          padding: const EdgeInsets.symmetric(vertical: 6),
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: isSelected ? activeColor.withValues(alpha: 0.15) : Colors.white.withValues(alpha: 0.03),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(
-              color: isSelected ? activeColor : Colors.white10,
-              width: 1.5,
-            ),
-          ),
-          child: Text(
-            label,
-            style: TextStyle(
-              color: isSelected ? activeColor : Colors.white70,
-              fontSize: 11,
-              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-            ),
-          ),
-        ),
-      ),
-    );
   }
 }

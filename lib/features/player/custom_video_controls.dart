@@ -21,7 +21,7 @@ import '../../services/permission_service.dart';
 import 'pip_manager.dart';
 import '../../services/download_service.dart';
 import 'widgets/equalizer_dialog.dart';
-import 'widgets/speed_selector_dialog.dart';
+import 'widgets/speed_selector_panel.dart';
 import 'widgets/track_selector_panel.dart';
 import 'widgets/subtitle_downloader_dialog.dart';
 import 'widgets/audio_sync_dialog.dart';
@@ -86,6 +86,9 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
   bool _rememberRatio = false;
   bool _tapToSwitchRatio = false;
   bool _showRatioPanel = false;
+  bool _showSpeedPanel = false;
+  bool _showMoreOptionsPanel = false;
+  bool _visualEnhancer = false;
   
   StreamSubscription<bool>? _bufferingSubscription;
   bool _isBuffering = false;
@@ -749,6 +752,16 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     final settings = ref.read(videoSettingsProvider);
     _nightModeActive = settings.dynamicRangeCompression;
     _subtitleDelay = settings.subtitleDelay;
+    if (settings.rememberSpeed) {
+      _currentSpeed = ref.read(storageServiceProvider).getPlaybackSpeed();
+      if (_currentSpeed != 1.0) {
+        Future.delayed(const Duration(milliseconds: 200), () {
+          try {
+            widget.player.setRate(_currentSpeed);
+          } catch (_) {}
+        });
+      }
+    }
     _startHideTimer();
     _currentVolume = widget.player.state.volume;
     _initSystemVolumeAndBrightness();
@@ -1098,6 +1111,18 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
   }
 
   void _toggleControls() {
+    if (_showTrackSelectorPanel || _showRatioPanel || _showSpeedPanel || _showChaptersPanel || _showMoreOptionsPanel) {
+      setState(() {
+        _showTrackSelectorPanel = false;
+        _showRatioPanel = false;
+        _showSpeedPanel = false;
+        _showChaptersPanel = false;
+        _showMoreOptionsPanel = false;
+        _showControls = true;
+      });
+      _startHideTimer();
+      return;
+    }
     setState(() {
       _showControls = !_showControls;
       if (_showAutoNextCountdown) {
@@ -1127,16 +1152,11 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
   }
 
   void _showSpeedSelectorDialog() {
-    SpeedSelectorDialog.show(
-      context,
-      player: widget.player,
-      currentSpeed: _currentSpeed,
-      onSpeedChanged: (newSpeed) {
-        setState(() {
-          _currentSpeed = newSpeed;
-        });
-      },
-    );
+    _hideTimer?.cancel();
+    setState(() {
+      _showSpeedPanel = true;
+      _showControls = false;
+    });
   }
 
   void _handleDoubleTap(TapDownDetails details, double screenWidth, int seekDuration) {
@@ -2123,7 +2143,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     _startHideTimer();
   }
 
-  Widget _buildScreenRatioButton(String ratioId, IconData icon, String label) {
+  Widget _buildScreenRatioButton(String ratioId, IconData icon, String label, Color settingsAccent) {
     final isSelected = _currentAspectRatioString == ratioId;
     return GestureDetector(
       onTap: () => _applyAspectRatioString(ratioId),
@@ -2134,8 +2154,8 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
             width: 50, height: 50,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: isSelected ? Colors.green : Colors.white10,
-              border: Border.all(color: isSelected ? Colors.green : Colors.transparent, width: 2),
+              color: isSelected ? settingsAccent : Colors.white.withValues(alpha: 0.08),
+              border: Border.all(color: isSelected ? settingsAccent : Colors.transparent, width: 2),
             ),
             child: Icon(icon, color: Colors.white, size: 24),
           ),
@@ -2143,7 +2163,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
           Text(
             label,
             style: TextStyle(
-              color: isSelected ? Colors.green : Colors.white70,
+              color: isSelected ? settingsAccent : Colors.white70,
               fontSize: 11,
               fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
             ),
@@ -2153,7 +2173,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     );
   }
 
-  Widget _buildPillRatioButton(String ratioId) {
+  Widget _buildPillRatioButton(String ratioId, Color settingsAccent) {
     final isSelected = _currentAspectRatioString == ratioId;
     return GestureDetector(
       onTap: () => _applyAspectRatioString(ratioId),
@@ -2161,8 +2181,8 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(20),
-          color: isSelected ? Colors.green : Colors.white10,
-          border: Border.all(color: isSelected ? Colors.green : Colors.white24, width: 1),
+          color: isSelected ? settingsAccent : Colors.white.withValues(alpha: 0.08),
+          border: Border.all(color: isSelected ? settingsAccent : Colors.white24, width: 1),
         ),
         child: Text(
           ratioId,
@@ -2181,9 +2201,10 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     required String subtitle,
     required bool value,
     required ValueChanged<bool> onChanged,
+    required Color settingsAccent,
   }) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
@@ -2193,23 +2214,20 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
               children: [
                 Text(
                   title,
-                  style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w500),
+                  style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: 4),
                 Text(
                   subtitle,
-                  style: const TextStyle(color: Colors.white54, fontSize: 12),
+                  style: TextStyle(color: Colors.white.withValues(alpha: 0.45), fontSize: 12),
                 ),
               ],
             ),
           ),
-          Switch(
+          Switch.adaptive(
             value: value,
+            activeTrackColor: settingsAccent,
             onChanged: onChanged,
-            activeThumbColor: Colors.green,
-            activeTrackColor: Colors.green.withValues(alpha: 0.3),
-            inactiveThumbColor: Colors.grey,
-            inactiveTrackColor: Colors.white12,
           ),
         ],
       ),
@@ -2219,129 +2237,153 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
   Widget _buildRatioPanel() {
     final double screenHeight = MediaQuery.of(context).size.height;
     final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
+    final theme = Theme.of(context);
+    final customTheme = theme.extension<AppThemeExtension>();
+    final settingsAccent = customTheme?.settingsAccent ?? theme.primaryColor;
 
-    return ClipRRect(
-      borderRadius: isLandscape
-          ? const BorderRadius.horizontal(left: Radius.circular(30))
-          : const BorderRadius.vertical(top: Radius.circular(20)),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 20.0, sigmaY: 20.0),
-        child: Container(
-          constraints: BoxConstraints(
-            maxHeight: isLandscape ? double.infinity : screenHeight * 0.85,
-          ),
-          height: isLandscape ? double.infinity : null,
-          decoration: BoxDecoration(
-            color: const Color(0x990A0F1D), // Slate 950 with 60% opacity for premium glassmorphism
-            borderRadius: isLandscape
-                ? const BorderRadius.horizontal(left: Radius.circular(30))
-                : const BorderRadius.vertical(top: Radius.circular(20)),
-            border: Border.all(color: Colors.white10, width: 0.5),
-          ),
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-          child: Column(
-            mainAxisSize: isLandscape ? MainAxisSize.max : MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              IconButton(
-                icon: const Icon(Icons.arrow_back, color: Colors.white),
-                onPressed: _closeAspectRatioPanel,
-              ),
-              const Text(
-                'Ratio',
-                style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(width: 48),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Flexible(
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('Screen', style: TextStyle(color: Colors.white54, fontSize: 12, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 8),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      _buildScreenRatioButton('fit', Icons.fit_screen, 'Fit'),
-                      _buildScreenRatioButton('fill', Icons.fullscreen, 'Fill'),
-                      _buildScreenRatioButton('original', Icons.center_focus_strong, 'Original'),
-                      _buildScreenRatioButton('stretch', Icons.open_in_full, 'Stretch'),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  const Text('Standard', style: TextStyle(color: Colors.white54, fontSize: 12, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 8),
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: [
-                        _buildPillRatioButton('16:9'),
-                        _buildPillRatioButton('4:3'),
-                        _buildPillRatioButton('18:9'),
-                        _buildPillRatioButton('19.5:9'),
-                        _buildPillRatioButton('20:9'),
-                        _buildPillRatioButton('21:9'),
-                      ].map((w) => Padding(padding: const EdgeInsets.only(right: 8.0), child: w)).toList(),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  const Text('Cinema', style: TextStyle(color: Colors.white54, fontSize: 12, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 8),
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: [
-                        _buildPillRatioButton('1.85:1'),
-                        _buildPillRatioButton('2.21:1'),
-                        _buildPillRatioButton('2.35:1'),
-                        _buildPillRatioButton('2.39:1'),
-                      ].map((w) => Padding(padding: const EdgeInsets.only(right: 8.0), child: w)).toList(),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  const Divider(color: Colors.white10, height: 1),
-                  const SizedBox(height: 8),
-                  _buildSwitchRow(
-                    title: 'Remember ratio',
-                    subtitle: 'Remember ratio for all videos.',
-                    value: _rememberRatio,
-                    onChanged: (val) {
-                      setState(() {
-                        _rememberRatio = val;
-                      });
-                      ref.read(storageServiceProvider).setRememberAspectRatio(val);
-                      if (val) {
-                        ref.read(storageServiceProvider).setSavedAspectRatio(_currentAspectRatioString);
-                      }
-                    },
-                  ),
-                  _buildSwitchRow(
-                    title: 'Tap ratios to switch directly',
-                    subtitle: 'Tap to switch, long press for the full menu.',
-                    value: _tapToSwitchRatio,
-                    onChanged: (val) {
-                      setState(() {
-                        _tapToSwitchRatio = val;
-                      });
-                      ref.read(storageServiceProvider).setTapToSwitchAspectRatio(val);
-                    },
-                  ),
-                ],
-              ),
-            ),
+    return Container(
+      constraints: BoxConstraints(
+        maxHeight: isLandscape ? double.infinity : screenHeight * 0.85,
+      ),
+      height: isLandscape ? double.infinity : null,
+      decoration: BoxDecoration(
+        color: const Color(0xEB0A0F1D), // Slate 950 with 92% opacity - clean translucency (no blur)
+        borderRadius: isLandscape
+            ? const BorderRadius.horizontal(left: Radius.circular(30))
+            : const BorderRadius.vertical(top: Radius.circular(24)),
+        border: Border.all(color: Colors.white10, width: 0.5),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.5),
+            blurRadius: 25,
+            spreadRadius: 5,
           ),
         ],
       ),
-    ),
-  ),
-);
-}
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+      child: SafeArea(
+        child: Column(
+          mainAxisSize: isLandscape ? MainAxisSize.max : MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.arrow_back, color: Colors.white),
+                  onPressed: _closeAspectRatioPanel,
+                ),
+                const SizedBox(width: 8),
+                const Text(
+                  'Ratio',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ],
+            ),
+            const Divider(color: Colors.white10, height: 1),
+            const SizedBox(height: 12),
+            Flexible(
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Screen',
+                      style: TextStyle(color: Colors.white54, fontSize: 12, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        _buildScreenRatioButton('fit', Icons.crop_free_rounded, 'Fit', settingsAccent),
+                        _buildScreenRatioButton('fill', Icons.zoom_out_map_rounded, 'Fill', settingsAccent),
+                        _buildScreenRatioButton('original', Icons.crop_square_rounded, 'Original', settingsAccent),
+                        _buildScreenRatioButton('stretch', Icons.aspect_ratio_rounded, 'Stretch', settingsAccent),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+                    
+                    const Text(
+                      'Standard',
+                      style: TextStyle(color: Colors.white54, fontSize: 12, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 12),
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          _buildPillRatioButton('16:9', settingsAccent),
+                          _buildPillRatioButton('4:3', settingsAccent),
+                          _buildPillRatioButton('18:9', settingsAccent),
+                          _buildPillRatioButton('19.5:9', settingsAccent),
+                          _buildPillRatioButton('20:9', settingsAccent),
+                          _buildPillRatioButton('21:9', settingsAccent),
+                        ].map((w) => Padding(padding: const EdgeInsets.only(right: 8.0), child: w)).toList(),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    
+                    const Text(
+                      'Cinema',
+                      style: TextStyle(color: Colors.white54, fontSize: 12, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 12),
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          _buildPillRatioButton('1.85:1', settingsAccent),
+                          _buildPillRatioButton('2.21:1', settingsAccent),
+                          _buildPillRatioButton('2.35:1', settingsAccent),
+                          _buildPillRatioButton('2.39:1', settingsAccent),
+                        ].map((w) => Padding(padding: const EdgeInsets.only(right: 8.0), child: w)).toList(),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    const Divider(color: Colors.white10, height: 1),
+                    const SizedBox(height: 12),
+                    
+                    _buildSwitchRow(
+                      title: 'Remember ratio',
+                      subtitle: 'Remember ratio for all videos.',
+                      value: _rememberRatio,
+                      onChanged: (val) {
+                        setState(() {
+                          _rememberRatio = val;
+                        });
+                        ref.read(storageServiceProvider).setRememberAspectRatio(val);
+                        if (val) {
+                          ref.read(storageServiceProvider).setSavedAspectRatio(_currentAspectRatioString);
+                        }
+                      },
+                      settingsAccent: settingsAccent,
+                    ),
+                    const SizedBox(height: 8),
+                    _buildSwitchRow(
+                      title: 'Tap ratios to switch directly',
+                      subtitle: 'Tap to switch, long press for the full menu.',
+                      value: _tapToSwitchRatio,
+                      onChanged: (val) {
+                        setState(() {
+                          _tapToSwitchRatio = val;
+                        });
+                        ref.read(storageServiceProvider).setTapToSwitchAspectRatio(val);
+                      },
+                      settingsAccent: settingsAccent,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   Future<void> _loadTrackCodecs() async {
     try {
@@ -2514,6 +2556,9 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
       onLongPressStart: (details) {
         if (_isLocked || !settings.dynamicSpeedOverlay) return;
         final speed = settings.longPressSpeed;
+        if (settings.longPressVibration) {
+          HapticFeedback.heavyImpact();
+        }
         widget.player.setRate(speed);
         setState(() {
           _showSeekIndicator = true;
@@ -2872,7 +2917,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
               ),
             ),
 
-          if (_showControls && !_isLocked && !_showTrackSelectorPanel && !_showRatioPanel) ...[
+          if (_showControls && !_isLocked && !_showTrackSelectorPanel && !_showRatioPanel && !_showSpeedPanel && !_showMoreOptionsPanel) ...[
             // Top Bar & Quick Actions
             Positioned(
               top: 40, left: 16, right: 16,
@@ -2892,6 +2937,13 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                   isSubtitle: false,
                 ),
                 onShowQueue: _showQueueManagerSheet,
+                onShowMoreOptions: () {
+                  _hideTimer?.cancel();
+                  setState(() {
+                    _showMoreOptionsPanel = true;
+                    _showControls = false;
+                  });
+                },
                 quickActionRow: _buildQuickActionRow(),
                 settingsAccent: settingsAccent,
               ),
@@ -3341,11 +3393,8 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
           if (_showTrackSelectorPanel)
             GestureDetector(
               onTap: () => setState(() => _showTrackSelectorPanel = false),
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 5.0, sigmaY: 5.0),
-                child: Container(
-                  color: Colors.black38,
-                ),
+              child: Container(
+                color: Colors.black26,
               ),
             ),
           AnimatedPositioned(
@@ -3401,6 +3450,12 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                   _subtitleDelay = roundedVal;
                 });
               },
+              currentAudioDelay: _audioDelay,
+              onAudioDelayChanged: (val) {
+                setState(() {
+                  _audioDelay = val;
+                });
+              },
               onTrackSelected: _handleTrackSelection,
               onPickLocalSubtitle: _pickLocalSubtitleFile,
               onOpenSubtitleDownloader: _showSubtitleDownloaderDialog,
@@ -3429,15 +3484,12 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
             ),
           ),
 
-          // Custom Aspect Ratio Panel Background Blur
+          // Custom Aspect Ratio Panel Background Cover
           if (_showRatioPanel)
             GestureDetector(
               onTap: () => setState(() => _showRatioPanel = false),
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 5.0, sigmaY: 5.0),
-                child: Container(
-                  color: Colors.black38,
-                ),
+              child: Container(
+                color: Colors.black26,
               ),
             ),
           AnimatedPositioned(
@@ -3451,15 +3503,12 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
             child: _buildRatioPanel(),
           ),
 
-          // Custom Chapters Panel Background Blur
+          // Custom Chapters Panel Background Cover
           if (_showChaptersPanel)
             GestureDetector(
               onTap: () => setState(() => _showChaptersPanel = false),
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 5.0, sigmaY: 5.0),
-                child: Container(
-                  color: Colors.black38,
-                ),
+              child: Container(
+                color: Colors.black26,
               ),
             ),
           AnimatedPositioned(
@@ -3471,6 +3520,57 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
             bottom: isPortrait ? (_showChaptersPanel ? 0 : -800) : 0,
             width: isPortrait ? null : 380,
             child: _buildCustomChaptersPanel(),
+          ),
+
+          // Custom Speed Selector Panel Background Cover
+          if (_showSpeedPanel)
+            GestureDetector(
+              onTap: () => setState(() => _showSpeedPanel = false),
+              child: Container(
+                color: Colors.black26,
+              ),
+            ),
+          AnimatedPositioned(
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeInOut,
+            left: isPortrait ? 0 : null,
+            right: isPortrait ? 0 : (_showSpeedPanel ? 0 : -400),
+            top: isPortrait ? null : 0,
+            bottom: isPortrait ? (_showSpeedPanel ? 0 : -800) : 0,
+            width: isPortrait ? null : 380,
+            child: SpeedSelectorPanel(
+              player: widget.player,
+              currentSpeed: _currentSpeed,
+              onSpeedChanged: (newSpeed) {
+                setState(() {
+                  _currentSpeed = newSpeed;
+                });
+                final settings = ref.read(videoSettingsProvider);
+                if (settings.rememberSpeed) {
+                  ref.read(storageServiceProvider).setPlaybackSpeed(newSpeed);
+                }
+              },
+              onClose: () => setState(() => _showSpeedPanel = false),
+            ),
+          ),
+
+          // Custom More Options Panel Background Cover
+          if (_showMoreOptionsPanel)
+            GestureDetector(
+              onTap: () => setState(() => _showMoreOptionsPanel = false),
+              child: Container(
+                color: Colors.black26,
+              ),
+            ),
+          AnimatedPositioned(
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeInOut,
+            left: isPortrait ? 0 : null,
+            right: isPortrait ? 0 : (_showMoreOptionsPanel ? 0 : -400),
+            top: isPortrait ? null : 0,
+            bottom: isPortrait ? (_showMoreOptionsPanel ? 0 : -800) : 0,
+            width: isPortrait ? null : 380,
+            child: _buildMoreOptionsPanel(),
           ),
         ],
       ),
@@ -3508,6 +3608,375 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
               style: TextStyle(color: Colors.amber, fontSize: 8, fontWeight: FontWeight.bold),
             ),
           ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMoreOptionsPanel() {
+    final double screenHeight = MediaQuery.of(context).size.height;
+    final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
+    final theme = Theme.of(context);
+    final customTheme = theme.extension<AppThemeExtension>();
+    final settingsAccent = customTheme?.settingsAccent ?? theme.primaryColor;
+
+    // Resolve current Repeat Mode Index
+    final PlaylistMode mode = widget.player.state.playlistMode;
+    final bool shuffle = widget.player.state.shuffle;
+    final bool autoplayNext = ref.watch(videoSettingsProvider).autoplayNextVideo;
+    
+    int activeIdx = 0;
+    String modeLabel = 'Order';
+    if (shuffle) {
+      activeIdx = 2;
+      modeLabel = 'Shuffle';
+    } else if (mode == PlaylistMode.single) {
+      activeIdx = 1;
+      modeLabel = 'Repeat One';
+    } else if (mode == PlaylistMode.loop) {
+      activeIdx = 3;
+      modeLabel = 'Repeat All';
+    } else if (!autoplayNext) {
+      activeIdx = 4;
+      modeLabel = 'Single Play';
+    } else {
+      activeIdx = 0;
+      modeLabel = 'Order';
+    }
+
+    return Container(
+      constraints: BoxConstraints(
+        maxHeight: isLandscape ? double.infinity : screenHeight * 0.85,
+      ),
+      height: isLandscape ? double.infinity : null,
+      decoration: BoxDecoration(
+        color: const Color(0xEB0A0F1D), // Slate 950 with 92% opacity - clean translucency (no blur)
+        borderRadius: isLandscape
+            ? const BorderRadius.horizontal(left: Radius.circular(30))
+            : const BorderRadius.vertical(top: Radius.circular(24)),
+        border: Border.all(color: Colors.white10, width: 0.5),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.5),
+            blurRadius: 25,
+            spreadRadius: 5,
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+      child: SafeArea(
+        child: Column(
+          mainAxisSize: isLandscape ? MainAxisSize.max : MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.arrow_back, color: Colors.white),
+                  onPressed: () => setState(() => _showMoreOptionsPanel = false),
+                ),
+                const SizedBox(width: 8),
+                const Text(
+                  'Play option',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ],
+            ),
+            const Divider(color: Colors.white10, height: 1),
+            const SizedBox(height: 16),
+            Flexible(
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Grid of 4 actions: AB Repeat, Equalizer, Timer, Visual Enhancer
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        _buildQuickActionItem(
+                          label: 'AB Repeat',
+                          icon: _abRepeatA != null ? Icons.repeat_on_rounded : Icons.repeat_one_rounded,
+                          isActive: _abRepeatA != null,
+                          settingsAccent: settingsAccent,
+                          onTap: () {
+                            _toggleAbRepeat();
+                            setState(() {}); // refresh AB repeat state indicator
+                          },
+                        ),
+                        _buildQuickActionItem(
+                          label: 'Equalizer',
+                          icon: Icons.tune_rounded,
+                          isActive: false,
+                          settingsAccent: settingsAccent,
+                          onTap: () {
+                            setState(() => _showMoreOptionsPanel = false);
+                            _showEqualizerDialog();
+                          },
+                        ),
+                        _buildQuickActionItem(
+                          label: 'Timer',
+                          icon: _sleepTimerSecondsRemaining != null ? Icons.timer_rounded : Icons.timer_outlined,
+                          isActive: _sleepTimerSecondsRemaining != null,
+                          settingsAccent: settingsAccent,
+                          onTap: () {
+                            setState(() => _showMoreOptionsPanel = false);
+                            _showSleepTimerSelector();
+                          },
+                        ),
+                        _buildQuickActionItem(
+                          label: 'Visual Enhancer',
+                          icon: _visualEnhancer ? Icons.video_settings_rounded : Icons.video_settings_outlined,
+                          isActive: _visualEnhancer,
+                          settingsAccent: settingsAccent,
+                          onTap: () {
+                            setState(() {
+                              _visualEnhancer = !_visualEnhancer;
+                            });
+                            _showSkipToast(_visualEnhancer ? 'Visual Enhancer: Enabled' : 'Visual Enhancer: Disabled');
+                          },
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+                    const Divider(color: Colors.white10, height: 1),
+                    const SizedBox(height: 16),
+                    
+                    // Repeat Mode Selector
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Repeat Mode',
+                          style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
+                        ),
+                        Text(
+                          modeLabel,
+                          style: TextStyle(color: settingsAccent, fontSize: 13, fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Container(
+                      height: 48,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.05),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.white10),
+                      ),
+                      child: Row(
+                        children: List.generate(5, (index) {
+                          IconData ic;
+                          switch (index) {
+                            case 0:
+                              ic = Icons.swap_calls_outlined; // Sequence/Order
+                              break;
+                            case 1:
+                              ic = Icons.repeat_one_rounded; // Repeat One
+                              break;
+                            case 2:
+                              ic = Icons.shuffle_rounded; // Shuffle
+                              break;
+                            case 3:
+                              ic = Icons.repeat_rounded; // Repeat All
+                              break;
+                            case 4:
+                              ic = Icons.play_disabled_rounded; // Single Play
+                              break;
+                            default:
+                              ic = Icons.trending_flat_rounded;
+                          }
+                          final isSelected = activeIdx == index;
+                          return Expanded(
+                            child: GestureDetector(
+                              onTap: () => _setRepeatMode(index),
+                              behavior: HitTestBehavior.opaque,
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 200),
+                                curve: Curves.easeInOut,
+                                margin: const EdgeInsets.all(4),
+                                decoration: BoxDecoration(
+                                  color: isSelected ? settingsAccent : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Center(
+                                  child: Icon(
+                                    ic,
+                                    color: isSelected ? Colors.black : Colors.white70,
+                                    size: 20,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          );
+                        }),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    
+                    // Brightness slider
+                    Text(
+                      'Brightness',
+                      style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 13, fontWeight: FontWeight.bold),
+                    ),
+                    Row(
+                      children: [
+                        Icon(Icons.light_mode, color: Colors.white.withValues(alpha: 0.6), size: 18),
+                        Expanded(
+                          child: Slider(
+                            value: _currentBrightness,
+                            activeColor: settingsAccent,
+                            inactiveColor: Colors.white24,
+                            onChanged: (val) {
+                              setState(() {
+                                _currentBrightness = val;
+                              });
+                              try {
+                                ScreenBrightness().setApplicationScreenBrightness(val);
+                                _isPhysicalBrightnessSupported = true;
+                              } catch (_) {
+                                _isPhysicalBrightnessSupported = false;
+                              }
+                              _saveBrightnessDebounced(val);
+                            },
+                          ),
+                        ),
+                        SizedBox(
+                          width: 30,
+                          child: Text(
+                            '${(_currentBrightness * 100).toInt()}',
+                            style: const TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.bold),
+                            textAlign: TextAlign.end,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    
+                    // Volume slider
+                    Text(
+                      'Volume',
+                      style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 13, fontWeight: FontWeight.bold),
+                    ),
+                    Row(
+                      children: [
+                        Icon(Icons.volume_up, color: Colors.white.withValues(alpha: 0.6), size: 18),
+                        Expanded(
+                          child: Slider(
+                            value: _currentVolume,
+                            min: 0.0,
+                            max: ref.read(storageServiceProvider).getVolumeBoostEnabled() ? 200.0 : 100.0,
+                            activeColor: settingsAccent,
+                            inactiveColor: Colors.white24,
+                            onChanged: (val) {
+                              setState(() {
+                                _currentVolume = val;
+                              });
+                              try {
+                                FlutterVolumeController.setVolume((val / 100.0).clamp(0.0, 1.0));
+                              } catch (_) {}
+                              widget.player.setVolume(val);
+                            },
+                          ),
+                        ),
+                        SizedBox(
+                          width: 30,
+                          child: Text(
+                            '${_currentVolume.toInt()}',
+                            style: const TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.bold),
+                            textAlign: TextAlign.end,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _setRepeatMode(int index) {
+    final settings = ref.read(videoSettingsProvider);
+    setState(() {
+      switch (index) {
+        case 0: // Order
+          widget.player.setPlaylistMode(PlaylistMode.none);
+          widget.player.setShuffle(false);
+          ref.read(videoSettingsProvider.notifier).updateSettings(settings.copyWith(autoplayNextVideo: true));
+          _showSkipToast('Repeat Mode: Order');
+          break;
+        case 1: // Repeat One
+          widget.player.setPlaylistMode(PlaylistMode.single);
+          widget.player.setShuffle(false);
+          ref.read(videoSettingsProvider.notifier).updateSettings(settings.copyWith(autoplayNextVideo: true));
+          _showSkipToast('Repeat Mode: Repeat One');
+          break;
+        case 2: // Shuffle
+          widget.player.setPlaylistMode(PlaylistMode.none);
+          widget.player.setShuffle(true);
+          ref.read(videoSettingsProvider.notifier).updateSettings(settings.copyWith(autoplayNextVideo: true));
+          _showSkipToast('Repeat Mode: Shuffle');
+          break;
+        case 3: // Repeat All
+          widget.player.setPlaylistMode(PlaylistMode.loop);
+          widget.player.setShuffle(false);
+          ref.read(videoSettingsProvider.notifier).updateSettings(settings.copyWith(autoplayNextVideo: true));
+          _showSkipToast('Repeat Mode: Repeat All');
+          break;
+        case 4: // Single Play (Stop after current)
+          widget.player.setPlaylistMode(PlaylistMode.none);
+          widget.player.setShuffle(false);
+          ref.read(videoSettingsProvider.notifier).updateSettings(settings.copyWith(autoplayNextVideo: false));
+          _showSkipToast('Repeat Mode: Single Play');
+          break;
+      }
+    });
+  }
+
+  Widget _buildQuickActionItem({
+    required String label,
+    required IconData icon,
+    required bool isActive,
+    required Color settingsAccent,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 250),
+            curve: Curves.easeInOut,
+            width: 54, height: 54,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: isActive ? settingsAccent : Colors.white.withValues(alpha: 0.08),
+              border: Border.all(color: isActive ? settingsAccent : Colors.white12, width: 1.5),
+            ),
+            child: Icon(
+              icon,
+              color: isActive ? Colors.black : Colors.white,
+              size: 24,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            label,
+            style: TextStyle(
+              color: isActive ? settingsAccent : Colors.white70,
+              fontSize: 11,
+              fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+            ),
+          ),
         ],
       ),
     );

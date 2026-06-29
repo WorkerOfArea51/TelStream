@@ -44,6 +44,8 @@ class VideoSettings {
   final String progressSyncMode;
   final double subtitleBottomMargin;
   final double subtitleHorizontalOffset;
+  final bool rememberSpeed;
+  final bool longPressVibration;
 
   const VideoSettings({
     this.doubleTapSeekDuration = 10,
@@ -88,6 +90,8 @@ class VideoSettings {
     this.progressSyncMode = 'disabled',
     this.subtitleBottomMargin = 84.0,
     this.subtitleHorizontalOffset = 0.0,
+    this.rememberSpeed = false,
+    this.longPressVibration = true,
   });
 
   String getLayoutForCategory(String categoryTitle) {
@@ -159,6 +163,8 @@ class VideoSettings {
     String? progressSyncMode,
     double? subtitleBottomMargin,
     double? subtitleHorizontalOffset,
+    bool? rememberSpeed,
+    bool? longPressVibration,
   }) {
     return VideoSettings(
       doubleTapSeekDuration: doubleTapSeekDuration ?? this.doubleTapSeekDuration,
@@ -203,6 +209,8 @@ class VideoSettings {
       progressSyncMode: progressSyncMode ?? this.progressSyncMode,
       subtitleBottomMargin: subtitleBottomMargin ?? this.subtitleBottomMargin,
       subtitleHorizontalOffset: subtitleHorizontalOffset ?? this.subtitleHorizontalOffset,
+      rememberSpeed: rememberSpeed ?? this.rememberSpeed,
+      longPressVibration: longPressVibration ?? this.longPressVibration,
     );
   }
 
@@ -250,6 +258,8 @@ class VideoSettings {
       'progressSyncMode': progressSyncMode,
       'subtitleBottomMargin': subtitleBottomMargin,
       'subtitleHorizontalOffset': subtitleHorizontalOffset,
+      'rememberSpeed': rememberSpeed,
+      'longPressVibration': longPressVibration,
     };
   }
 
@@ -297,6 +307,8 @@ class VideoSettings {
       progressSyncMode: json['progressSyncMode'] ?? 'disabled',
       subtitleBottomMargin: (json['subtitleBottomMargin'] as num?)?.toDouble() ?? 84.0,
       subtitleHorizontalOffset: (json['subtitleHorizontalOffset'] as num?)?.toDouble() ?? 0.0,
+      rememberSpeed: json['rememberSpeed'] ?? false,
+      longPressVibration: json['longPressVibration'] ?? true,
     );
   }
 }

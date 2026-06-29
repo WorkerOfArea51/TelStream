@@ -176,6 +176,15 @@ class StorageService {
     await _save();
   }
 
+  double getPlaybackSpeed() {
+    return (_data['playback_speed'] as num?)?.toDouble() ?? 1.0;
+  }
+
+  Future<void> setPlaybackSpeed(double value) async {
+    _data['playback_speed'] = value;
+    await _save();
+  }
+
   // --- Watch History ---
 
   Future<void> saveWatchPosition(int messageId, int positionInSeconds) async {
