@@ -44,20 +44,31 @@ class StorageService {
         'DejaVuSans.ttf'
       ];
       
-      final byteData = await rootBundle.load('assets/fonts/Roboto-Regular.ttf');
-      final bytes = byteData.buffer.asUint8List(
-        byteData.offsetInBytes,
-        byteData.lengthInBytes,
-      );
+      _localFontPath = File('${fontDir.path}/Roboto-Regular.ttf').path;
       
+      bool needsWrite = false;
       for (final name in fontNames) {
-        final fontFile = File('${fontDir.path}/$name');
-        if (!await fontFile.exists()) {
-          await fontFile.writeAsBytes(bytes);
-          Log.i('Font asset copied: $name');
+        if (!await File('${fontDir.path}/$name').exists()) {
+          needsWrite = true;
+          break;
         }
       }
-      _localFontPath = File('${fontDir.path}/Roboto-Regular.ttf').path;
+      
+      if (needsWrite) {
+        final byteData = await rootBundle.load('assets/fonts/Roboto-Regular.ttf');
+        final bytes = byteData.buffer.asUint8List(
+          byteData.offsetInBytes,
+          byteData.lengthInBytes,
+        );
+        
+        for (final name in fontNames) {
+          final fontFile = File('${fontDir.path}/$name');
+          if (!await fontFile.exists()) {
+            await fontFile.writeAsBytes(bytes);
+            Log.i('Font asset copied: $name');
+          }
+        }
+      }
     } catch (e, stack) {
       Log.e('Failed to copy subtitle font', e, stack);
     }

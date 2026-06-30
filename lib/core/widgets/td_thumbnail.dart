@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -38,19 +39,38 @@ class _TdThumbnailState extends ConsumerState<TdThumbnail> {
   String? _localPath;
   StreamSubscription? _sub;
   late final TdlibService _tdlibService;
+  Uint8List? _cachedMiniBytes;
   
   @override
   void initState() {
     super.initState();
     _tdlibService = ref.read(tdlibServiceProvider);
+    _decodeMinithumbnail();
     _initThumbnail(isInit: true);
   }
   
   @override
   void didUpdateWidget(TdThumbnail oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.minithumbnail?.data != widget.minithumbnail?.data) {
+      _decodeMinithumbnail();
+    }
     if (oldWidget.file?.id != widget.file?.id) {
       _initThumbnail(isInit: false);
+    }
+  }
+
+  void _decodeMinithumbnail() {
+    final data = widget.minithumbnail?.data;
+    if (data != null && data.isNotEmpty) {
+      try {
+        _cachedMiniBytes = base64Decode(data);
+      } catch (e, stackTrace) {
+        Log.e("Error decoding minithumbnail on init/update", e, stackTrace);
+        _cachedMiniBytes = null;
+      }
+    } else {
+      _cachedMiniBytes = null;
     }
   }
 
@@ -138,23 +158,18 @@ class _TdThumbnailState extends ConsumerState<TdThumbnail> {
   }
 
   Widget _buildPlaceholder() {
-    final mini = widget.minithumbnail;
-    if (mini != null && mini.data.isNotEmpty) {
-      try {
-        final bytes = base64Decode(mini.data);
-        return ImageFiltered(
-          imageFilter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-          child: Image.memory(
-            bytes,
-            width: widget.width,
-            height: widget.height,
-            fit: widget.fit,
-            alignment: widget.alignment,
-          ),
-        );
-      } catch (e, stackTrace) {
-        Log.e("Error decoding minithumbnail", e, stackTrace);
-      }
+    final bytes = _cachedMiniBytes;
+    if (bytes != null && bytes.isNotEmpty) {
+      return ImageFiltered(
+        imageFilter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+        child: Image.memory(
+          bytes,
+          width: widget.width,
+          height: widget.height,
+          fit: widget.fit,
+          alignment: widget.alignment,
+        ),
+      );
     }
 
     return const Center(

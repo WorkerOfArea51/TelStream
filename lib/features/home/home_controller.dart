@@ -971,6 +971,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
       }
 
       Log.i('Starting background release year fetch for ${seasonsToFetch.length} seasons in category ${category.title}');
+      int updateCount = 0;
 
       for (final season in seasonsToFetch) {
         while (ref.read(pipControllerProvider) != null) {
@@ -995,8 +996,11 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
           await storage.setSeasonReleaseYear(title, fetchedYear);
           Log.i('Cached release year for "$title": $fetchedYear');
           
-          if (state.value != null) {
-            state = AsyncValue.data(_applySearchAndSort(_allSeries));
+          updateCount++;
+          if (updateCount % 4 == 0 || season == seasonsToFetch.last) {
+            if (state.value != null) {
+              state = AsyncValue.data(_applySearchAndSort(_allSeries));
+            }
           }
         }
 
