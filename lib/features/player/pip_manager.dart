@@ -138,6 +138,7 @@ class PipController extends Notifier<PipVideoState?> {
     String? networkUrl,
   }) {
     isTransitioning = true;
+    final wasPip = state?.isPip ?? false;
     final oldActivePlayer = _activePlayer;
     if (oldActivePlayer != null) {
       try {
@@ -212,7 +213,7 @@ class PipController extends Notifier<PipVideoState?> {
       ),
     );
 
-    if (oldActivePlayer != null) {
+    if (oldActivePlayer != null && !wasPip) {
       Navigator.of(context, rootNavigator: true).pushReplacement(route);
     } else {
       Navigator.of(context, rootNavigator: true).push(route);
@@ -226,6 +227,7 @@ class PipController extends Notifier<PipVideoState?> {
     final item = currentState.queue[index];
 
     isTransitioning = true;
+    final wasPip = currentState.isPip;
     final oldActivePlayer = _activePlayer;
     if (oldActivePlayer != null) {
       try {
@@ -264,7 +266,7 @@ class PipController extends Notifier<PipVideoState?> {
       ),
     );
 
-    if (oldActivePlayer != null) {
+    if (oldActivePlayer != null && !wasPip) {
       Navigator.of(context, rootNavigator: true).pushReplacement(route);
     } else {
       Navigator.of(context, rootNavigator: true).push(route);
