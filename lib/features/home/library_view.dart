@@ -14,10 +14,12 @@ import '../settings/settings_provider.dart';
 
 class LibraryView extends ConsumerStatefulWidget {
   final ChannelCategory category;
+  final bool isActive;
   
   const LibraryView({
     super.key,
     required this.category,
+    this.isActive = true,
   });
 
   @override
@@ -296,6 +298,7 @@ class _LibraryViewState extends ConsumerState<LibraryView> with SingleTickerProv
                     child: FeaturedCarousel(
                       seriesList: filteredList.take(5).toList(),
                       categoryTitle: widget.category.title,
+                      isActive: widget.isActive,
                     ),
                   ),
                 if (!_isSearching && _activeSubTabIndex == 0 && _searchController.text.isEmpty && filteredList.isNotEmpty)
@@ -638,11 +641,13 @@ class _LibraryGridItemState extends State<_LibraryGridItem> {
 class FeaturedCarousel extends StatefulWidget {
   final List<AnimeSeries> seriesList;
   final String categoryTitle;
+  final bool isActive;
 
   const FeaturedCarousel({
     super.key,
     required this.seriesList,
     required this.categoryTitle,
+    this.isActive = true,
   });
 
   @override
@@ -658,7 +663,9 @@ class _FeaturedCarouselState extends State<FeaturedCarousel> {
   void initState() {
     super.initState();
     _pageController = PageController(initialPage: 0, viewportFraction: 0.75);
-    _startAutoScroll();
+    if (widget.isActive) {
+      _startAutoScroll();
+    }
   }
 
   void _startAutoScroll() {
@@ -674,6 +681,18 @@ class _FeaturedCarouselState extends State<FeaturedCarousel> {
         );
       }
     });
+  }
+
+  @override
+  void didUpdateWidget(covariant FeaturedCarousel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.isActive != oldWidget.isActive) {
+      if (widget.isActive) {
+        _startAutoScroll();
+      } else {
+        _timer?.cancel();
+      }
+    }
   }
 
   @override

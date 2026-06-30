@@ -21,12 +21,6 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   int _currentIndex = 0;
   static const _downloadsChannel = MethodChannel('com.darkmatter.telstream/downloads');
 
-  final List<Widget> _screens = [
-    LibraryView(category: Constants.categories[0]), // Anime
-    LibraryView(category: Constants.categories[1]), // Movies
-    LibraryView(category: Constants.categories[2]), // Web Series
-    const MoreScreen(),
-  ];
 
   @override
   void initState() {
@@ -63,7 +57,12 @@ class _MainScreenState extends ConsumerState<MainScreen> {
 
     Widget mainBody = IndexedStack(
       index: _currentIndex,
-      children: _screens,
+      children: [
+        LibraryView(category: Constants.categories[0], isActive: _currentIndex == 0), // Anime
+        LibraryView(category: Constants.categories[1], isActive: _currentIndex == 1), // Movies
+        LibraryView(category: Constants.categories[2], isActive: _currentIndex == 2), // Web Series
+        const MoreScreen(),
+      ],
     );
 
     if (isDesktop) {
