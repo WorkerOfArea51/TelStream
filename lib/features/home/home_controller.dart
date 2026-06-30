@@ -5,7 +5,6 @@ import 'package:http/http.dart' as http;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tdlib/td_api.dart' as td;
 import '../../core/constants.dart';
-import '../../core/secrets.dart';
 import '../../core/tmdb_config.dart';
 import '../../services/tdlib_service.dart';
 import '../../services/storage_service.dart';
