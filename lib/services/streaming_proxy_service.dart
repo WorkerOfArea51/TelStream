@@ -271,6 +271,8 @@ class StreamingProxyService {
           }
           return;
         }
+      }
+
       // OPTIMIZATION 2: If the file is still downloading, open a single RandomAccessFile session
       RandomAccessFile? raf;
       try {
