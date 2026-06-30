@@ -271,23 +271,29 @@ class StreamingProxyService {
           }
           return;
         }
-      }
-
       // OPTIMIZATION 2: If the file is still downloading, open a single RandomAccessFile session
       RandomAccessFile? raf;
       try {
-        final file = File(tdFile.local.path);
-        if (!await file.exists()) {
-          // Wait up to 1 second for the file to be created on disk by TDLib
+        String filePath = tdFile.local.path;
+        if (filePath.isEmpty || !await File(filePath).exists()) {
+          // Wait up to 10 seconds (100 attempts * 100ms) for the file path to resolve and the file to be created on disk by TDLib
           int fileWaitAttempts = 0;
-          while (fileWaitAttempts < 10 && !await file.exists()) {
+          while (fileWaitAttempts < 100 && (filePath.isEmpty || !await File(filePath).exists())) {
             await Future.delayed(const Duration(milliseconds: 100));
+            try {
+              final res = await _tdlibService.sendAsync(td.GetFile(fileId: fileId));
+              if (res is td.File) {
+                _fileStates[fileId] = res;
+                filePath = res.local.path;
+              }
+            } catch (_) {}
             fileWaitAttempts++;
           }
         }
 
+        final file = File(filePath);
         if (!await file.exists()) {
-          Log.e('Proxy error: local file does not exist after waiting: ${file.path}');
+          Log.e('Proxy error: local file does not exist after waiting: $filePath');
           request.response.statusCode = HttpStatus.notFound;
           await request.response.close();
           return;

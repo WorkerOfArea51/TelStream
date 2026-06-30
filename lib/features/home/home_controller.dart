@@ -911,7 +911,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
           }
           
           final cachedYear = storage.getSeasonReleaseYear(title);
-          if (cachedYear != null) {
+          if (cachedYear != null && cachedYear > 0) {
             continue;
           }
           
@@ -932,16 +932,17 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
         }
 
         final title = season.fullTitle;
+        final cleanTitle = normalizeSeriesName(title, isMovie: category.title == 'Movies');
         int? fetchedYear;
         
         try {
           if (category.title == 'Anime') {
-            fetchedYear = await _fetchAnimeReleaseYearFromMal(title);
+            fetchedYear = await _fetchAnimeReleaseYearFromMal(cleanTitle);
           } else {
-            fetchedYear = await _fetchMediaReleaseYearFromTrakt(title);
+            fetchedYear = await _fetchMediaReleaseYearFromTrakt(cleanTitle);
           }
         } catch (e, stack) {
-          Log.e('Failed to fetch release year for: $title', e, stack);
+          Log.e('Failed to fetch release year for: $cleanTitle (original: $title)', e, stack);
         }
 
         if (fetchedYear != null) {

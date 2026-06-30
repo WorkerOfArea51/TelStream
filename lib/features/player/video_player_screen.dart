@@ -1124,28 +1124,30 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
       if (player.platform is NativePlayer) {
         final nativePlayer = player.platform as NativePlayer;
         
-        // Enable fast rendering/scaling profile to save GPU/CPU thermals and prevent lag
-        nativePlayer.setProperty('profile', 'fast');
-
+        // Enable cache and buffers
         nativePlayer.setProperty('cache', 'yes');
         nativePlayer.setProperty('demuxer-max-back-bytes', '16777216'); // 16 MB back buffer (instant backward seek)
-        nativePlayer.setProperty('cache-pause', 'yes'); // Stalls playback if buffer runs out to prevent decoding corrupted frames
-        nativePlayer.setProperty('cache-pause-initial', 'yes'); // Wait for initial buffer to prevent stutters
-        nativePlayer.setProperty('hr-seek', 'no'); // Disable high-precision seeking on slow networks to seek instantly to keyframes
         
-        // Set synchronization clocks and framedrop to maintain perfect audio/video/subtitle sync at high speed
-        nativePlayer.setProperty('video-sync', 'audio');
+        // Prevent artificial freeze/stall on first load by disabling hard pause-initial locks
+        nativePlayer.setProperty('cache-pause', 'no'); 
+        nativePlayer.setProperty('cache-pause-initial', 'no'); 
+        nativePlayer.setProperty('hr-seek', 'no'); // Disable high-precision seeking to avoid frame decoding stalls
+        
         nativePlayer.setProperty('audio-pitch-correction', 'yes');
-        nativePlayer.setProperty('audio-buffer', '0.2'); // Increased to 0.2s to prevent audio underflow stutters
-        nativePlayer.setProperty('framedrop', 'vo'); // Drop late frames in VO to avoid lag at 2x speed without decoder slideshow freezes
+        nativePlayer.setProperty('audio-buffer', '0.2'); // 0.2s audio buffer
+        nativePlayer.setProperty('framedrop', 'vo'); // Drop late frames in VO to avoid lag at 2x speed
         nativePlayer.setProperty('sub-fix-timing', 'yes');
-        nativePlayer.setProperty('stream-buffer-size', '8388608'); // 8 MB stream buffer for high-throughput network reading
-        nativePlayer.setProperty('vd-lavc-fast', 'yes'); // Enable fast decoding optimizations
-        nativePlayer.setProperty('vd-lavc-skiploopfilter', 'none'); // Do not skip loop filtering to prevent blocky pixelation/glitching
-        nativePlayer.setProperty('vd-lavc-threads', '0'); // Enable multi-threaded video decoding to prevent lag at 2x speed
-        nativePlayer.setProperty('demuxer-max-bytes', '104857600'); // 100 MB forward cache buffer to smooth out variable bandwidth (WiFi/Cellular)
-        nativePlayer.setProperty('demuxer-readahead-secs', '60'); // Buffer up to 60 seconds ahead to guard against connection handovers
-        nativePlayer.setProperty('cache-pause-wait', '5'); // Buffer 5 seconds of stream before resuming after a buffer exhaustion to avoid start-stop stutters
+        nativePlayer.setProperty('stream-buffer-size', '8388608'); // 8 MB stream buffer
+        
+        // Fix glitching on all decoders by ensuring standard-compliant decoding
+        nativePlayer.setProperty('vd-lavc-fast', 'no'); // Disable fast decoding optimizations (which causes macroblock glitching/artifacts)
+        nativePlayer.setProperty('vd-lavc-skiploopfilter', 'none'); // Ensure loop filtering is active to prevent pixelated/blocky rendering
+        nativePlayer.setProperty('vd-lavc-check-hw-profile', 'no'); // Skip HW profile validation to prevent decoder load failures
+        nativePlayer.setProperty('vd-lavc-threads', '0'); // Auto threads for multi-threaded decoding
+        
+        nativePlayer.setProperty('demuxer-max-bytes', '104857600'); // 100 MB cache
+        nativePlayer.setProperty('demuxer-readahead-secs', '60');
+        nativePlayer.setProperty('cache-pause-wait', '3'); // Buffer 3 seconds instead of 5
 
         final settings = ref.read(videoSettingsProvider);
         final targetLibass = settings.subtitleRendererMode == 'native';
