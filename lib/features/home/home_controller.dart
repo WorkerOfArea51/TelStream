@@ -890,9 +890,16 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
     final Map<String, AnimeSeries> seriesMap = {};
 
     for (final sb in builders) {
-      // Sort episodes inside the season chronologically ascending (oldest first)
+      // Sort episodes inside the season numerically by episode number parsed from filename
       final sortedEpisodes = List<td.Message>.from(sb.accumulatedEpisodes)
-        ..sort((a, b) => a.id.compareTo(b.id));
+        ..sort((a, b) {
+          final epA = _parseEpisodeNumber(a);
+          final epB = _parseEpisodeNumber(b);
+          if (epA != epB) {
+            return epA.compareTo(epB);
+          }
+          return a.id.compareTo(b.id);
+        });
 
       final newSeason = AnimeSeason(
         fullTitle: sb.fullTitle,
@@ -952,6 +959,43 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
     }
 
     return seriesList;
+  }
+
+  static int _parseEpisodeNumber(td.Message ep) {
+    String fileName = '';
+    if (ep.content is td.MessageVideo) {
+      fileName = (ep.content as td.MessageVideo).video.fileName;
+    } else if (ep.content is td.MessageDocument) {
+      fileName = (ep.content as td.MessageDocument).document.fileName;
+    }
+    
+    final name = fileName.toLowerCase();
+    
+    // 1. Match patterns like e06, ep06, ep.06, ep - 06, episode 06, episode - 06, ep_06
+    final epMatch = RegExp(
+      r'\b(?:ep|episode|e|eps)\.?\s*[-–—_]*\s*(\d+)\b',
+      caseSensitive: false,
+    ).firstMatch(name);
+    if (epMatch != null) {
+      return int.tryParse(epMatch.group(1)!) ?? 9999;
+    }
+    
+    // 2. Match standalone numbers followed by common extensions or separators
+    final standaloneMatch = RegExp(
+      r'(?:[-–—_]\s*|^)(\d+)(?:\s*[-–—_]|\.mkv|\.mp4|\.avi|\.webm|\.mov|\.flv|\.wmv|\.3gp|\.m4v|\.ts)\b',
+      caseSensitive: false,
+    ).firstMatch(name);
+    if (standaloneMatch != null) {
+      return int.tryParse(standaloneMatch.group(1)!) ?? 9999;
+    }
+    
+    // 3. Fallback: match any digits in the filename
+    final fallbackMatch = RegExp(r'(\d+)').firstMatch(name);
+    if (fallbackMatch != null) {
+      return int.tryParse(fallbackMatch.group(1)!) ?? 9999;
+    }
+    
+    return 9999;
   }
   
   List<AnimeSeries> _applySearchAndSort(List<AnimeSeries> list) {
