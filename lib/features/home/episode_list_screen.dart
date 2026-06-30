@@ -101,7 +101,7 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
       final response = await tdlibService.sendAsync(td.GetChatHistory(
         chatId: chatId,
         fromMessageId: currentFromId,
-        offset: -100,
+        offset: -99,
         limit: 100,
         onlyLocal: false,
       )).timeout(

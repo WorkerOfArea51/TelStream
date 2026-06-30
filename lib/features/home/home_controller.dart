@@ -957,7 +957,8 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
           }
           
           final cachedYear = storage.getSeasonReleaseYear(title);
-          if (cachedYear != null && cachedYear > 0) {
+          // Retries queries that returned 0 (failed/unset) in older versions. Skip valid years (>0) and permanent skips (-1).
+          if (cachedYear != null && cachedYear != 0) {
             continue;
           }
           
@@ -1092,11 +1093,49 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
         Log.w('TMDB API Key is placeholder, falling back to Trakt');
       }
     } catch (e) {
-      Log.w('Error calling TMDB API for query "$title", falling back to Trakt: $e');
+      Log.w('Error calling TMDB API for query "$title", falling back: $e');
     }
 
-    // FALLBACK TO TRAKT
+    // TVmaze Fallback for Web Series shows (No API key required)
+    if (category.title == 'Web Series') {
+      final tvmazeYear = await _fetchMediaReleaseYearFromTvmaze(title);
+      if (tvmazeYear != null) return tvmazeYear;
+    }
+
+    // Secondary fallback to Trakt
     return _fetchMediaReleaseYearFromTraktFallback(title);
+  }
+
+  Future<int?> _fetchMediaReleaseYearFromTvmaze(String title) async {
+    try {
+      final query = Uri.encodeComponent(title);
+      final url = 'https://api.tvmaze.com/singlesearch/shows?q=$query';
+      final response = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 10));
+      
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> data = json.decode(response.body);
+        final premiered = data['premiered'] as String?;
+        if (premiered != null && premiered.isNotEmpty) {
+          final parts = premiered.split('-');
+          if (parts.isNotEmpty) {
+            final year = int.tryParse(parts[0]);
+            if (year != null && year > 0) {
+              Log.i('Successfully fetched release year from TVmaze for $title: $year');
+              return year;
+            }
+          }
+        }
+        return -1; // Cache as -1 to indicate permanent skip (not found)
+      } else if (response.statusCode == 404) {
+        return -1; // Not found on TVmaze, permanent skip
+      } else {
+        Log.w('TVmaze returned status code ${response.statusCode} for query "$title"');
+        return null; // Temporary HTTP error, retry later
+      }
+    } catch (e, stack) {
+      Log.e('Error calling TVmaze API for query "$title"', e, stack);
+      return null;
+    }
   }
 
   Future<int?> _fetchMediaReleaseYearFromTraktFallback(String title) async {
@@ -1126,9 +1165,9 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
             }
           }
         }
-        return 0; // No results found, cache 0
+        return -1; // No results found, cache -1 to permanently skip
       } else if (response.statusCode == 404) {
-        return 0; // Not found, cache 0
+        return -1; // Not found, cache -1 to permanently skip
       } else {
         Log.w('Trakt Fallback API returned status code ${response.statusCode} for query "$title"');
         return null; // HTTP error, retry later
