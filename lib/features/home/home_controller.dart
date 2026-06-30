@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tdlib/td_api.dart' as td;
 import '../../core/constants.dart';
+import '../../core/secrets.dart';
 import '../../services/tdlib_service.dart';
 import '../../services/storage_service.dart';
 import '../../models/anime_models.dart';
@@ -939,7 +940,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
           if (category.title == 'Anime') {
             fetchedYear = await _fetchAnimeReleaseYearFromMal(cleanTitle);
           } else {
-            fetchedYear = await _fetchMediaReleaseYearFromTrakt(cleanTitle);
+            fetchedYear = await _fetchMediaReleaseYearFromTmdb(cleanTitle);
           }
         } catch (e, stack) {
           Log.e('Failed to fetch release year for: $cleanTitle (original: $title)', e, stack);
@@ -1004,29 +1005,37 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
     }
   }
 
-  Future<int?> _fetchMediaReleaseYearFromTrakt(String title) async {
+  Future<int?> _fetchMediaReleaseYearFromTmdb(String title) async {
     try {
-      final query = Uri.encodeComponent(title);
-      final type = category.title == 'Movies' ? 'movie' : 'show';
-      final url = 'https://api.trakt.tv/search/$type?query=$query&limit=1';
-      
-      final headers = {
-        'Content-Type': 'application/json',
-        'trakt-api-version': '2',
-        'trakt-api-key': '05553e1be851c22a76f7df2b8a7c29be60cb5038ecbe6e80b2a7587dfb38ea47',
-      };
+      final apiKey = Secrets.tmdbApiKey;
+      if (apiKey.isEmpty || apiKey == 'YOUR_TMDB_API_KEY') {
+        Log.w('TMDB API Key is not configured in Secrets');
+        return null;
+      }
 
-      final response = await http.get(Uri.parse(url), headers: headers).timeout(const Duration(seconds: 10));
+      final query = Uri.encodeComponent(title);
+      final isMovie = category.title == 'Movies';
+      final path = isMovie ? 'movie' : 'tv';
+      final url = 'https://api.themoviedb.org/3/search/$path?api_key=$apiKey&query=$query&page=1';
+
+      final response = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 10));
       
       if (response.statusCode == 200) {
-        final List<dynamic> data = json.decode(response.body);
-        if (data.isNotEmpty) {
-          final first = data[0];
-          if (first['type'] != null && first[first['type']] != null) {
-            final media = first[first['type']];
-            final year = media['year'] as int?;
-            if (year != null) {
-              return year;
+        final Map<String, dynamic> data = json.decode(response.body);
+        final List<dynamic>? results = data['results'];
+        if (results != null && results.isNotEmpty) {
+          final first = results[0];
+          final dateStr = isMovie 
+              ? first['release_date'] as String? 
+              : first['first_air_date'] as String?;
+              
+          if (dateStr != null && dateStr.isNotEmpty) {
+            final parts = dateStr.split('-');
+            if (parts.isNotEmpty) {
+              final year = int.tryParse(parts[0]);
+              if (year != null && year > 0) {
+                return year;
+              }
             }
           }
         }
@@ -1034,11 +1043,11 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
       } else if (response.statusCode == 404) {
         return 0; // Not found, cache 0
       } else {
-        Log.w('Trakt API returned status code ${response.statusCode} for query "$title"');
+        Log.w('TMDB API returned status code ${response.statusCode} for query "$title"');
         return null; // HTTP error, retry later
       }
     } catch (e, stack) {
-      Log.e('Error calling Trakt API for query "$title"', e, stack);
+      Log.e('Error calling TMDB API for query "$title"', e, stack);
       return null;
     }
   }
