@@ -413,6 +413,12 @@ class TdlibService {
         json['can_pin_messages'] ??= false;
         json['can_manage_topics'] ??= false;
         break;
+      case 'targetChatChosen':
+        json['allow_user_chats'] ??= false;
+        json['allow_bot_chats'] ??= false;
+        json['allow_group_chats'] ??= false;
+        json['allow_channel_chats'] ??= false;
+        break;
       case 'attachmentMenuBot':
         json['supports_self_audios'] ??= false;
         json['supports_self_videos'] ??= false;

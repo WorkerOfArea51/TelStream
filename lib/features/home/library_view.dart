@@ -1376,19 +1376,6 @@ class _LibraryListItemState extends ConsumerState<_LibraryListItem> {
                         ],
                       ],
                     ),
-                    if (yearsText.isNotEmpty) ...[
-                      const SizedBox(height: 6),
-                      Row(
-                        children: [
-                          Icon(Icons.calendar_today, size: 12, color: subTextColor),
-                          const SizedBox(width: 4),
-                          Text(
-                            yearsText,
-                            style: TextStyle(color: subTextColor, fontSize: 12),
-                          ),
-                        ],
-                      ),
-                    ],
                   ],
                 ),
               ),
