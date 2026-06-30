@@ -100,7 +100,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
           _fetchAndAndUpdateSingleMessage(event.messageId, tdlibService);
         }
       } else if (event is td.UpdateDeleteMessages) {
-        if (event.chatId == category.channelId) {
+        if (event.chatId == category.channelId && !event.fromCache) {
           bool changed = false;
           for (final id in event.messageIds) {
             final removedIndex = _rawMessages.indexWhere((m) => m.id == id);

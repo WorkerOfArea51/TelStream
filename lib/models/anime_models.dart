@@ -40,14 +40,21 @@ class AnimeSeason {
         'episodes': episodes.map((e) => e.toJson()).toList(),
       };
 
-  factory AnimeSeason.fromJson(Map<String, dynamic> json) => AnimeSeason(
-        fullTitle: json['fullTitle'] as String,
-        seasonName: json['seasonName'] as String,
-        posterMessage: td.Message.fromJson(json['posterMessage'] as Map<String, dynamic>),
-        episodes: (json['episodes'] as List)
-            .map((e) => td.Message.fromJson(e as Map<String, dynamic>))
-            .toList(),
-      );
+  factory AnimeSeason.fromJson(Map<String, dynamic> json) {
+    Map<String, dynamic> sanitize(Map<String, dynamic> map) {
+      final newMap = Map<String, dynamic>.from(map);
+      newMap['media_album_id'] = (newMap['media_album_id'] ?? 0).toString();
+      return newMap;
+    }
+    return AnimeSeason(
+      fullTitle: json['fullTitle'] as String,
+      seasonName: json['seasonName'] as String,
+      posterMessage: td.Message.fromJson(sanitize(json['posterMessage'] as Map<String, dynamic>)),
+      episodes: (json['episodes'] as List)
+          .map((e) => td.Message.fromJson(sanitize(e as Map<String, dynamic>)))
+          .toList(),
+    );
+  }
 
   AnimeSeason copyWith({
     String? fullTitle,
