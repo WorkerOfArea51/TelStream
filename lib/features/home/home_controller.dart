@@ -834,7 +834,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
         // A. Match series words strictly
         bool nameMatched = false;
         if (sb.seriesWords.isNotEmpty) {
-          nameMatched = sb.seriesWords.every((w) => tokens.any((t) => t.startsWith(w)));
+          nameMatched = sb.seriesWords.every((w) => tokens.any((t) => w.length <= 4 ? t == w : t.startsWith(w)));
         } else {
           nameMatched = sb.cleanSeriesName.isNotEmpty &&
               (em.fileName.toLowerCase().contains(sb.cleanSeriesName) || sb.cleanSeriesName.contains(em.fileName.toLowerCase()));
@@ -1094,10 +1094,6 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
         for (final season in series.seasons) {
           final title = season.fullTitle;
           final lowerTitle = title.toLowerCase();
-          
-          if (lowerTitle.contains('arc') || lowerTitle.contains('saga')) {
-            continue;
-          }
           
           final cachedYear = storage.getSeasonReleaseYear(title);
           // Retries queries that returned 0 (failed/unset) in older versions. Skip valid years (>0) and permanent skips (-1).
