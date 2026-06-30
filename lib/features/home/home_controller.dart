@@ -805,18 +805,19 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
         fileName = (ep.content as td.MessageDocument).document.fileName;
       }
       
-      final cleanFile = fileName.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+      final List<String> fileTokens = fileName.toLowerCase().split(RegExp(r'[^a-z0-9]')).where((t) => t.isNotEmpty).toList();
       
       // Parse season number from filename
       int? fileSeasonNum;
-      final fileSeasonMatch = RegExp(r'\bs(?:eason)?\.?\s*(\d+)\b|\bseason\s*(\d+)\b', caseSensitive: false).firstMatch(fileName);
+      final fileSeasonMatch = RegExp(r'\bs(?:eason)?\.?\s*(\d+)(?:\b|(?=[eE]\d+))', caseSensitive: false).firstMatch(fileName);
       if (fileSeasonMatch != null) {
-        fileSeasonNum = int.tryParse(fileSeasonMatch.group(1) ?? fileSeasonMatch.group(2) ?? '');
+        fileSeasonNum = int.tryParse(fileSeasonMatch.group(1) ?? '');
       }
 
       matchers.add(_EpisodeMatcher(
         episode: ep,
-        cleanFile: cleanFile,
+        fileName: fileName,
+        fileTokens: fileTokens,
         fileSeasonNum: fileSeasonNum,
         id: ep.id,
       ));
@@ -825,17 +826,18 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
     for (final em in matchers) {
       _SeasonBuilder? bestBuilder;
       double bestScore = -9999.0;
+      final tokens = em.fileTokens;
 
       for (final sb in builders) {
         double score = 0.0;
         
-        // A. Match series words
+        // A. Match series words strictly
         bool nameMatched = false;
         if (sb.seriesWords.isNotEmpty) {
-          nameMatched = sb.seriesWords.every((w) => em.cleanFile.contains(w));
+          nameMatched = sb.seriesWords.every((w) => tokens.any((t) => t.startsWith(w)));
         } else {
           nameMatched = sb.cleanSeriesName.isNotEmpty &&
-              (em.cleanFile.contains(sb.cleanSeriesName) || sb.cleanSeriesName.contains(em.cleanFile));
+              (em.fileName.toLowerCase().contains(sb.cleanSeriesName) || sb.cleanSeriesName.contains(em.fileName.toLowerCase()));
         }
 
         if (nameMatched) {
@@ -852,15 +854,19 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
         }
 
         // C. Proximity score (maximum 10.0, decays based on relative message ID distance)
-        final dist = (em.id - sb.posterMessage.id).abs();
+        final rawDist = (em.id - sb.posterMessage.id).abs();
+        final dist = rawDist >> 20; // Shift by 20 to get actual message ID distance
         final proximityScore = 10.0 / (1.0 + (dist / 100.0));
         score += proximityScore;
 
+        // Soft distance penalty to discourage far away matching
+        score -= dist / 100.0;
+
         // D. Strict Validation:
-        // If there is no name match, we only allow proximity matching if the file is very close to the poster (dist <= 40)
-        // and there is no season mismatch penalty. Otherwise, we reject this match.
+        // If there is no name match, we only allow proximity matching if the file is very close to the poster (dist <= 80)
+        // and the poster was posted before the episode, and there is no season mismatch penalty. Otherwise, we reject this match.
         if (!nameMatched) {
-          final isCloseProximity = dist <= 40;
+          final isCloseProximity = dist <= 80 && sb.posterMessage.id < em.id;
           final hasSeasonMismatch = em.fileSeasonNum != null && em.fileSeasonNum != sb.seasonNum;
           if (!isCloseProximity || hasSeasonMismatch) {
             score = -9999.0;
@@ -1511,20 +1517,27 @@ class _SeasonBuilder {
     required this.seasonNum,
   }) {
     cleanSeriesName = seriesName.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
-    seriesWords = seriesName.toLowerCase().split(RegExp(r'[^a-z0-9]')).where((w) => w.length > 2).toList();
+    const stopWords = {'the', 'and', 'for', 'with', 'from', 'this', 'that', 'out', 'off', 'you', 'arc', 'act', 'part', 'season', 'movie', 'episode', 'eps'};
+    seriesWords = seriesName.toLowerCase()
+        .split(RegExp(r'[^a-z0-9]'))
+        .where((w) => w.length > 2 && !stopWords.contains(w))
+        .toList();
   }
 }
 
 class _EpisodeMatcher {
   final td.Message episode;
-  final String cleanFile;
+  final String fileName;
+  final List<String> fileTokens;
   final int? fileSeasonNum;
   final int id;
 
   _EpisodeMatcher({
     required this.episode,
-    required this.cleanFile,
+    required this.fileName,
+    required this.fileTokens,
     required this.fileSeasonNum,
     required this.id,
   });
 }
+

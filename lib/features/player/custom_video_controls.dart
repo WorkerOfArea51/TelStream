@@ -111,6 +111,8 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
   String _seekDirection = '';
   bool _isPhysicalBrightnessSupported = false;
   Timer? _brightnessSaveTimer;
+  DateTime _lastVolumeCallTime = DateTime.fromMillisecondsSinceEpoch(0);
+  DateTime _lastBrightnessCallTime = DateTime.fromMillisecondsSinceEpoch(0);
   final bool _audioBoostActive = false;
   bool _nightModeActive = false;
   bool _showSpeedIndicator = false;
@@ -1901,6 +1903,17 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     if (_showSpeedIndicator) {
       widget.player.seek(widget.player.state.position);
     }
+    
+    // Final hardware state synchronization
+    if (_isVerticalDrag) {
+      try {
+        FlutterVolumeController.setVolume((_currentVolume / 100.0).clamp(0.0, 1.0));
+      } catch (_) {}
+      try {
+        ScreenBrightness().setApplicationScreenBrightness(_currentBrightness);
+      } catch (_) {}
+    }
+
     setState(() {
       _showVolumeIndicator = false;
       _showBrightnessIndicator = false;
@@ -1928,9 +1941,15 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
       setState(() {
         _currentVolume -= deltaY * 0.2 * sensitivityMultiplier;
         _currentVolume = _currentVolume.clamp(0.0, maxVol);
-        try {
-          FlutterVolumeController.setVolume((_currentVolume / 100.0).clamp(0.0, 1.0));
-        } catch (_) {}
+        
+        final now = DateTime.now();
+        if (now.difference(_lastVolumeCallTime) > const Duration(milliseconds: 80)) {
+          _lastVolumeCallTime = now;
+          try {
+            FlutterVolumeController.setVolume((_currentVolume / 100.0).clamp(0.0, 1.0));
+          } catch (_) {}
+        }
+        
         widget.player.setVolume(_currentVolume);
         _showVolumeIndicator = true;
       });
@@ -1938,12 +1957,18 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
       setState(() {
         _currentBrightness -= (deltaY / 300) * sensitivityMultiplier;
         _currentBrightness = _currentBrightness.clamp(0.0, 1.0);
-        try {
-          ScreenBrightness().setApplicationScreenBrightness(_currentBrightness);
-          _isPhysicalBrightnessSupported = true;
-        } catch (_) {
-          _isPhysicalBrightnessSupported = false;
+        
+        final now = DateTime.now();
+        if (now.difference(_lastBrightnessCallTime) > const Duration(milliseconds: 80)) {
+          _lastBrightnessCallTime = now;
+          try {
+            ScreenBrightness().setApplicationScreenBrightness(_currentBrightness);
+            _isPhysicalBrightnessSupported = true;
+          } catch (_) {
+            _isPhysicalBrightnessSupported = false;
+          }
         }
+        
         _showBrightnessIndicator = true;
       });
       _saveBrightnessDebounced(_currentBrightness);

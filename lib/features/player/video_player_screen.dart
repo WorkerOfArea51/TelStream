@@ -771,7 +771,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
                   player.stop();
                 } catch (_) {}
                 _resetOrientationAndUI();
-                Navigator.of(context).pop();
+                Navigator.of(context, rootNavigator: true).pop();
                 return KeyEventResult.handled;
               }
             }
@@ -810,7 +810,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
                          player.stop();
                        } catch (_) {}
                        _resetOrientationAndUI();
-                       Navigator.of(context).pop();
+                       Navigator.of(context, rootNavigator: true).pop();
                      },
                      hasPrevEpisode: pipState != null && pipState.currentIndex > 0,
                      hasNextEpisode: pipState != null && pipState.currentIndex + 1 < pipState.queue.length,
@@ -1129,8 +1129,8 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         nativePlayer.setProperty('demuxer-max-back-bytes', '16777216'); // 16 MB back buffer (instant backward seek)
         
         // Prevent artificial freeze/stall on first load by disabling hard pause-initial locks
-        nativePlayer.setProperty('cache-pause', 'no'); 
-        nativePlayer.setProperty('cache-pause-initial', 'no'); 
+        nativePlayer.setProperty('cache-pause', 'yes'); 
+        nativePlayer.setProperty('cache-pause-initial', 'yes'); 
         nativePlayer.setProperty('hr-seek', 'no'); // Disable high-precision seeking to avoid frame decoding stalls
         
         nativePlayer.setProperty('audio-pitch-correction', 'yes');
