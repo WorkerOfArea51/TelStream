@@ -221,71 +221,11 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
   }
 
   Future<List<AnimeSeries>> _fetchInitial() async {
-    // Stagger startup requests to prevent concurrent connection sessions to TDLib
-    if (category.title == 'Movies') {
-      Log.i('[_fetchInitial] Staggering Movies startup by 3s...');
-      await Future.delayed(const Duration(seconds: 3));
-    } else if (category.title == 'Web Series') {
-      Log.i('[_fetchInitial] Staggering Web Series startup by 6s...');
-      await Future.delayed(const Duration(seconds: 6));
-    }
-
     Log.i('[_fetchInitial] Started for category: ${category.title} (Channel: ${category.channelId})');
     _hasMore = true;
     _lastMessageId = 0;
-    _rawMessages.clear();
-    _rawMessageIds.clear();
     
-    final tdlibService = ref.read(tdlibServiceProvider);
-    
-    // Helper to send request with a safety timeout to prevent hanging
-    Future<td.TdObject> sendWithTimeout(td.TdFunction request) {
-      return tdlibService.sendAsync(request).timeout(
-        const Duration(seconds: 6),
-        onTimeout: () => td.TdError(code: 408, message: "Request Timeout"),
-      );
-    }
-    
-    // 1. Try to get chat directly first (highly optimized for subsequent launches)
-    td.TdObject chatRes = await sendWithTimeout(td.GetChat(chatId: category.channelId));
-    
-    // 2. Fallback strategy if chat is not found in local TDLib database
-    if (chatRes is td.TdError) {
-      // Fallback A: Sync chat list (limit 100) first to see if chat is loaded from main list
-      try {
-        await sendWithTimeout(td.LoadChats(
-          chatList: const td.ChatListMain(),
-          limit: 100,
-        ));
-        chatRes = await sendWithTimeout(td.GetChat(chatId: category.channelId));
-      } catch (_) {}
-      
-      // Fallback B: Resolve invite link to load its info
-      if (chatRes is td.TdError) {
-        try {
-          await sendWithTimeout(td.CheckChatInviteLink(inviteLink: category.inviteLink));
-          chatRes = await sendWithTimeout(td.GetChat(chatId: category.channelId));
-        } catch (_) {}
-      }
-      
-      // Fallback C: Join chat via invite link
-      if (chatRes is td.TdError) {
-        try {
-          await sendWithTimeout(td.JoinChatByInviteLink(inviteLink: category.inviteLink));
-          chatRes = await sendWithTimeout(td.GetChat(chatId: category.channelId));
-        } catch (_) {}
-      }
-    }
-
-    if (chatRes is td.TdError) {
-      throw Exception("GetChat failed: ${chatRes.message} (Code: ${chatRes.code})");
-    }
-
-    if (chatRes is td.Chat) {
-      _resolvedChatTitle = chatRes.title;
-    }
-
-    // 1. Try loading catalog cache first
+    // 1. Try loading catalog cache FIRST (instant return, no network or stagger delay)
     try {
       final directory = await getAppDirectory();
       final cachePath = '${directory.path}/catalog_cache_${category.title.replaceAll(' ', '_')}.json';
@@ -316,14 +256,59 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
         
         _rawMessages.sort((a, b) => b.id.compareTo(a.id));
         _cacheLoadComplete = true; // Cache loading completes the full load, subsequent sync starts incremental
-        Log.i('Loaded ${cachedList.length} series from catalog cache for category ${category.title}');
+        Log.i('Loaded ${cachedList.length} series from catalog cache for category ${category.title} instantly');
         return _applySearchAndSort(_allSeries);
       }
     } catch (e, stack) {
-      Log.e('Failed to load catalog cache for ${category.title}, falling back to local DB loop', e, stack);
+      Log.e('Failed to load catalog cache for ${category.title}, falling back to TDLib local DB load', e, stack);
     }
 
-    // Fallback: load using onlyLocal: true from TDLib local database
+    // 2. Cache miss fallback: Load from local DB (occurs on absolute first launch ever)
+    final tdlibService = ref.read(tdlibServiceProvider);
+    
+    // Helper to send request with a safety timeout to prevent hanging
+    Future<td.TdObject> sendWithTimeout(td.TdFunction request) {
+      return tdlibService.sendAsync(request).timeout(
+        const Duration(seconds: 6),
+        onTimeout: () => td.TdError(code: 408, message: "Request Timeout"),
+      );
+    }
+    
+    td.TdObject chatRes = await sendWithTimeout(td.GetChat(chatId: category.channelId));
+    if (chatRes is td.TdError) {
+      try {
+        await sendWithTimeout(td.LoadChats(
+          chatList: const td.ChatListMain(),
+          limit: 100,
+        ));
+        chatRes = await sendWithTimeout(td.GetChat(chatId: category.channelId));
+      } catch (_) {}
+      
+      if (chatRes is td.TdError) {
+        try {
+          await sendWithTimeout(td.CheckChatInviteLink(inviteLink: category.inviteLink));
+          chatRes = await sendWithTimeout(td.GetChat(chatId: category.channelId));
+        } catch (_) {}
+      }
+      
+      if (chatRes is td.TdError) {
+        try {
+          await sendWithTimeout(td.JoinChatByInviteLink(inviteLink: category.inviteLink));
+          chatRes = await sendWithTimeout(td.GetChat(chatId: category.channelId));
+        } catch (_) {}
+      }
+    }
+
+    if (chatRes is td.TdError) {
+      throw Exception("GetChat failed: ${chatRes.message} (Code: ${chatRes.code})");
+    }
+
+    if (chatRes is td.Chat) {
+      _resolvedChatTitle = chatRes.title;
+    }
+
+    _rawMessages.clear();
+    _rawMessageIds.clear();
     int iterations = 0;
     int currentFromId = 0;
     while (_hasMore && iterations < 200) {
@@ -361,9 +346,30 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
   }
 
   Future<void> _syncFromNetwork() async {
-    Log.i('[_syncFromNetwork] Started background sync for category: ${category.title}');
+    Log.i('[_syncFromNetwork] Scheduling background sync for category: ${category.title}');
+
+    // Stagger startup requests to prevent concurrent connection sessions to TDLib (runs asynchronously in background)
+    if (category.title == 'Movies') {
+      await Future.delayed(const Duration(seconds: 3));
+    } else if (category.title == 'Web Series') {
+      await Future.delayed(const Duration(seconds: 6));
+    }
+
+    Log.i('[_syncFromNetwork] Starting background sync execution for category: ${category.title}');
 
     try {
+      final tdlibService = ref.read(tdlibServiceProvider);
+      
+      // Ensure chat title is resolved if it was loaded directly from cache miss
+      if (_resolvedChatTitle == 'Loading...') {
+        try {
+          final chatRes = await tdlibService.sendAsync(td.GetChat(chatId: category.channelId));
+          if (chatRes is td.Chat) {
+            _resolvedChatTitle = chatRes.title;
+          }
+        } catch (_) {}
+      }
+
       _hasMore = true; // Reset _hasMore to allow background network fetching
       final storage = ref.read(storageServiceProvider);
       int currentFromId = 0;
@@ -731,7 +737,10 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
     Map<String, AnimeSeries> seriesMap = {};
     List<td.Message> currentEpisodes = [];
 
-    for (final msg in raw) {
+    // ENFORCE ASCENDING ORDER (oldest message first) to process episodes before their poster
+    final sortedRaw = List<td.Message>.from(raw)..sort((a, b) => a.id.compareTo(b.id));
+
+    for (final msg in sortedRaw) {
       if (msg.content is td.MessageVideo) {
         currentEpisodes.add(msg);
       } else if (msg.content is td.MessageDocument) {
@@ -761,7 +770,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
             fullTitle: fullTitle,
             seasonName: parseSeasonName(fullTitle, baseName),
             posterMessage: msg,
-            episodes: currentEpisodes.reversed.toList(),
+            episodes: List<td.Message>.from(currentEpisodes), // Chronological ascending
           );
           
           final canonicalKey = baseName.toLowerCase().replaceAll(RegExp(r'[^a-zA-Z0-9]'), '');
@@ -883,9 +892,18 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
         sorted.sort((a, b) => b.coreName.compareTo(a.coreName));
         break;
       case SortOrder.newest:
+        sorted.sort((a, b) {
+          final idA = a.seasons.isNotEmpty ? a.seasons.last.posterMessage.id : 0;
+          final idB = b.seasons.isNotEmpty ? b.seasons.last.posterMessage.id : 0;
+          return idB.compareTo(idA); // Newest/highest poster message ID first
+        });
         break;
       case SortOrder.oldest:
-        sorted = sorted.reversed.toList();
+        sorted.sort((a, b) {
+          final idA = a.seasons.isNotEmpty ? a.seasons.first.posterMessage.id : 0;
+          final idB = b.seasons.isNotEmpty ? b.seasons.first.posterMessage.id : 0;
+          return idA.compareTo(idB); // Oldest/lowest poster message ID first
+        });
         break;
     }
 
