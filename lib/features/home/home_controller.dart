@@ -787,7 +787,8 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
       ));
     }
 
-    // 3. Assign each episode to the best matching season builder using heuristic scoring
+    // 3. Assign each episode to the best matching season builder using pre-computed heuristic matching
+    final List<_EpisodeMatcher> matchers = [];
     for (final ep in episodes) {
       String fileName = '';
       if (ep.content is td.MessageVideo) {
@@ -805,6 +806,15 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
         fileSeasonNum = int.tryParse(fileSeasonMatch.group(1) ?? fileSeasonMatch.group(2) ?? '');
       }
 
+      matchers.add(_EpisodeMatcher(
+        episode: ep,
+        cleanFile: cleanFile,
+        fileSeasonNum: fileSeasonNum,
+        id: ep.id,
+      ));
+    }
+
+    for (final em in matchers) {
       _SeasonBuilder? bestBuilder;
       double bestScore = -9999.0;
 
@@ -812,13 +822,12 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
         double score = 0.0;
         
         // A. Match series words
-        final words = sb.seriesName.toLowerCase().split(RegExp(r'[^a-z0-9]')).where((w) => w.length > 2).toList();
         bool nameMatched = false;
-        if (words.isNotEmpty) {
-          nameMatched = words.every((w) => cleanFile.contains(w));
+        if (sb.seriesWords.isNotEmpty) {
+          nameMatched = sb.seriesWords.every((w) => em.cleanFile.contains(w));
         } else {
-          final cleanSeriesName = sb.seriesName.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
-          nameMatched = cleanSeriesName.isNotEmpty && (cleanFile.contains(cleanSeriesName) || cleanSeriesName.contains(cleanFile));
+          nameMatched = sb.cleanSeriesName.isNotEmpty &&
+              (em.cleanFile.contains(sb.cleanSeriesName) || sb.cleanSeriesName.contains(em.cleanFile));
         }
 
         if (nameMatched) {
@@ -826,8 +835,8 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
         }
 
         // B. Season match check
-        if (fileSeasonNum != null) {
-          if (fileSeasonNum == sb.seasonNum) {
+        if (em.fileSeasonNum != null) {
+          if (em.fileSeasonNum == sb.seasonNum) {
             score += 20.0;
           } else {
             score -= 50.0; // Penalty for wrong season grouping
@@ -835,7 +844,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
         }
 
         // C. Proximity score (maximum 10.0, decays based on relative message ID distance)
-        final dist = (ep.id - sb.posterMessage.id).abs();
+        final dist = (em.id - sb.posterMessage.id).abs();
         final proximityScore = 10.0 / (1.0 + (dist / 100.0));
         score += proximityScore;
 
@@ -846,7 +855,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
       }
 
       if (bestBuilder != null) {
-        bestBuilder.accumulatedEpisodes.add(ep);
+        bestBuilder.accumulatedEpisodes.add(em.episode);
       }
     }
 
@@ -1466,11 +1475,32 @@ class _SeasonBuilder {
   final int seasonNum;
   final List<td.Message> accumulatedEpisodes = [];
 
+  // Pre-computed fields for high-performance matching
+  late final String cleanSeriesName;
+  late final List<String> seriesWords;
+
   _SeasonBuilder({
     required this.posterMessage,
     required this.fullTitle,
     required this.seriesName,
     required this.seasonName,
     required this.seasonNum,
+  }) {
+    cleanSeriesName = seriesName.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+    seriesWords = seriesName.toLowerCase().split(RegExp(r'[^a-z0-9]')).where((w) => w.length > 2).toList();
+  }
+}
+
+class _EpisodeMatcher {
+  final td.Message episode;
+  final String cleanFile;
+  final int? fileSeasonNum;
+  final int id;
+
+  _EpisodeMatcher({
+    required this.episode,
+    required this.cleanFile,
+    required this.fileSeasonNum,
+    required this.id,
   });
 }
