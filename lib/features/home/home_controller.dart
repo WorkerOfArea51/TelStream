@@ -856,13 +856,25 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
         final proximityScore = 10.0 / (1.0 + (dist / 100.0));
         score += proximityScore;
 
+        // D. Strict Validation:
+        // If there is no name match, we only allow proximity matching if the file is very close to the poster (dist <= 40)
+        // and there is no season mismatch penalty. Otherwise, we reject this match.
+        if (!nameMatched) {
+          final isCloseProximity = dist <= 40;
+          final hasSeasonMismatch = em.fileSeasonNum != null && em.fileSeasonNum != sb.seasonNum;
+          if (!isCloseProximity || hasSeasonMismatch) {
+            score = -9999.0;
+          }
+        }
+
         if (score > bestScore) {
           bestScore = score;
           bestBuilder = sb;
         }
       }
 
-      if (bestBuilder != null) {
+      // Only assign the episode if it meets a minimum matching threshold
+      if (bestBuilder != null && bestScore >= -10.0) {
         bestBuilder.accumulatedEpisodes.add(em.episode);
       }
     }

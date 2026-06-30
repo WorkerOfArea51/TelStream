@@ -70,7 +70,11 @@ class AnimeSeason {
     // Try parsing from fullTitle
     final match = RegExp(r'(?<!\d)(19\d\d|20\d\d)(?!\d)').firstMatch(fullTitle);
     if (match != null) {
-      return int.tryParse(match.group(1)!);
+      final yr = int.tryParse(match.group(1)!);
+      if (yr != null) {
+        storage.setSeasonReleaseYear(fullTitle, yr);
+        return yr;
+      }
     }
 
     // Try parsing from episodes filenames
@@ -84,7 +88,11 @@ class AnimeSeason {
       if (fileName != null && fileName.isNotEmpty) {
         final epMatch = RegExp(r'(?<!\d)(19\d\d|20\d\d)(?!\d)').firstMatch(fileName);
         if (epMatch != null) {
-          return int.tryParse(epMatch.group(1)!);
+          final yr = int.tryParse(epMatch.group(1)!);
+          if (yr != null) {
+            storage.setSeasonReleaseYear(fullTitle, yr);
+            return yr;
+          }
         }
       }
     }
