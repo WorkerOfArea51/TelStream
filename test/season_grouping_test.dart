@@ -111,9 +111,9 @@ void main() {
 
       // They should NOT be merged. We should get 3 separate series.
       expect(seriesList.length, 3);
-      expect(seriesList[0].coreName, 'Dragon Ball Daima');
+      expect(seriesList[0].coreName, 'Dragon Ball');
       expect(seriesList[1].coreName, 'Dragon Ball Z');
-      expect(seriesList[2].coreName, 'Dragon Ball');
+      expect(seriesList[2].coreName, 'Dragon Ball Daima');
     });
 
     test('Naruto seasons sort numerically even when message IDs are uploaded out-of-order', () {
