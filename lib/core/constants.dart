@@ -14,9 +14,9 @@ class ChannelCategory {
 }
 
 class Constants {
-  static const String currentVersion = '2.9.2';
+  static const String currentVersion = '2.9.3';
   static const String changelog = '''
-### 🚀 What's New in v2.9.2
+### 🚀 What's New in v2.9.3
 
 * **Draggable Subtitle Position Overlay (Phone & PC)**:
   - Drag the custom subtitle overlay anywhere on the screen (supports finger drag on phones and mouse drag on PC).
