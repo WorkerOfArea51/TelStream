@@ -708,7 +708,7 @@ class StorageService {
     // Fallback/migration from old boolean
     final oldAcc = getHardwareAcceleration();
     if (Platform.isWindows) {
-      return oldAcc ? 'd3d11va' : 'no';
+      return oldAcc ? 'd3d11va-copy' : 'no';
     }
     return oldAcc ? 'mediacodec-copy' : 'no';
   }

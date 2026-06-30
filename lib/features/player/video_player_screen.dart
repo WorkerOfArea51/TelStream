@@ -1165,11 +1165,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
             nativePlayer.setProperty('hwdec', 'no');
           }
         } else {
-          if (hwDecMode != 'no') {
-            nativePlayer.setProperty('hwdec', 'd3d11va');
-          } else {
-            nativePlayer.setProperty('hwdec', 'no');
-          }
+          nativePlayer.setProperty('hwdec', hwDecMode);
         }
         // Always configure native subtitle rendering (libass)
         if (localFont != null) {

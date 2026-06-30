@@ -4257,6 +4257,8 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
       return 'SW';
     } else if (mode == 'd3d11va') {
       return 'HW';
+    } else if (mode == 'd3d11va-copy') {
+      return 'HW+';
     } else if (mode == 'mediacodec') {
       return 'HW';
     } else if (mode == 'mediacodec-copy') {
@@ -4272,12 +4274,15 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     String toastText;
 
     if (Platform.isWindows) {
-      if (currentMode == 'no') {
+      if (currentMode == 'd3d11va-copy') {
         nextMode = 'd3d11va';
-        toastText = 'Hardware Decoder: HW (d3d11va)';
-      } else {
+        toastText = 'Hardware Decoder: HW (d3d11va Direct)';
+      } else if (currentMode == 'd3d11va') {
         nextMode = 'no';
         toastText = 'Hardware Decoder: SW (Software)';
+      } else {
+        nextMode = 'd3d11va-copy';
+        toastText = 'Hardware Decoder: HW+ (d3d11va Copy-back)';
       }
     } else {
       if (currentMode == 'mediacodec') {
@@ -4297,15 +4302,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     try {
       if (widget.player.platform is NativePlayer) {
         final nativePlayer = widget.player.platform as NativePlayer;
-        if (nextMode != 'no') {
-          if (Platform.isAndroid) {
-            nativePlayer.setProperty('hwdec', nextMode);
-          } else {
-            nativePlayer.setProperty('hwdec', 'd3d11va');
-          }
-        } else {
-          nativePlayer.setProperty('hwdec', 'no');
-        }
+        nativePlayer.setProperty('hwdec', nextMode);
       }
     } catch (e) {
       Log.w('Failed to apply hwdec change dynamically: $e');
