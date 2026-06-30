@@ -90,6 +90,36 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
             }
           }
         }
+      } else if (event is td.UpdateMessageContent) {
+        if (event.chatId == category.channelId) {
+          _fetchAndAndUpdateSingleMessage(event.messageId, tdlibService);
+        }
+      } else if (event is td.UpdateMessageEdited) {
+        if (event.chatId == category.channelId) {
+          _fetchAndAndUpdateSingleMessage(event.messageId, tdlibService);
+        }
+      } else if (event is td.UpdateDeleteMessages) {
+        if (event.chatId == category.channelId) {
+          bool changed = false;
+          for (final id in event.messageIds) {
+            final removedIndex = _rawMessages.indexWhere((m) => m.id == id);
+            if (removedIndex != -1) {
+              _rawMessages.removeAt(removedIndex);
+              _rawMessageIds.remove(id);
+              changed = true;
+            }
+          }
+          if (changed) {
+            _allSeries = _parseMessages(_rawMessages);
+            if (state.value != null) {
+              state = AsyncValue.data(_applySearchAndSort(_allSeries));
+            }
+            if (_cacheLoadComplete) {
+              _saveCatalogCache();
+            }
+            Log.i('Real-time deleted messages from catalog: ${event.messageIds}');
+          }
+        }
       }
     });
 
@@ -340,6 +370,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
       bool changed = false;
       bool reachedEnd = false;
       
+      int processedCount = 0;
       DateTime lastUiUpdateTime = DateTime.now();
 
       // Sync messages incrementally from the network in the background
@@ -364,12 +395,29 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
           }
           
           for (final msg in networkMessages) {
-            if (_rawMessageIds.contains(msg.id) && _cacheLoadComplete) {
-              reachedEnd = true;
-              _hasMore = false;
-              break;
-            }
-            if (!_rawMessageIds.contains(msg.id)) {
+            processedCount++;
+            
+            final existingIndex = _rawMessages.indexWhere((m) => m.id == msg.id);
+            if (existingIndex != -1) {
+              // Overwrite existing message if it was edited (e.g. video files updated/replaced)
+              final oldMsg = _rawMessages[existingIndex];
+              final isDifferent = oldMsg.editDate != msg.editDate || 
+                  oldMsg.content.runtimeType != msg.content.runtimeType;
+              
+              if (isDifferent) {
+                _rawMessages[existingIndex] = msg;
+                changed = true;
+                Log.i('Background sync updated edited message: ${msg.id}');
+              }
+              
+              // Only stop background sync if we have processed/scanned at least 150 messages,
+              // ensuring recent file replacements/edits are fully captured and updated.
+              if (_cacheLoadComplete && processedCount >= 150) {
+                reachedEnd = true;
+                _hasMore = false;
+                break;
+              }
+            } else {
               _rawMessages.add(msg);
               _rawMessageIds.add(msg.id);
               changed = true;
@@ -1049,6 +1097,30 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
     } catch (e, stack) {
       Log.e('Error calling TMDB API for query "$title"', e, stack);
       return null;
+    }
+  }
+  void _fetchAndAndUpdateSingleMessage(int messageId, TdlibService tdlibService) async {
+    try {
+      final res = await tdlibService.sendAsync(td.GetMessage(
+        chatId: category.channelId,
+        messageId: messageId,
+      ));
+      if (res is td.Message) {
+        final idx = _rawMessages.indexWhere((m) => m.id == messageId);
+        if (idx != -1) {
+          _rawMessages[idx] = res;
+          _allSeries = _parseMessages(_rawMessages);
+          if (state.value != null) {
+            state = AsyncValue.data(_applySearchAndSort(_allSeries));
+          }
+          if (_cacheLoadComplete) {
+            _saveCatalogCache();
+          }
+          Log.i('Real-time updated edited message in catalog: $messageId');
+        }
+      }
+    } catch (e) {
+      Log.w('Failed to get updated message: $e');
     }
   }
 }
