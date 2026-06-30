@@ -5,7 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tdlib/td_api.dart' as td;
 import '../../core/constants.dart';
-import '../../core/tmdb_config.dart';
+import '../../core/secrets.dart';
 import '../../services/tdlib_service.dart';
 import '../../services/storage_service.dart';
 import '../../models/anime_models.dart';
@@ -1007,9 +1007,9 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
 
   Future<int?> _fetchMediaReleaseYearFromTmdb(String title) async {
     try {
-      final apiKey = TmdbConfig.apiKey;
+      final apiKey = Secrets.tmdbApiKey;
       if (apiKey.isEmpty || apiKey == 'YOUR_TMDB_API_KEY') {
-        Log.w('TMDB API Key is not configured in TmdbConfig');
+        Log.w('TMDB API Key is not configured in Secrets');
         return null;
       }
 
