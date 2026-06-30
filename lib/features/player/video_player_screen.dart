@@ -1144,6 +1144,9 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         nativePlayer.setProperty('vd-lavc-skiploopfilter', 'none'); // Ensure loop filtering is active to prevent pixelated/blocky rendering
         nativePlayer.setProperty('vd-lavc-check-hw-profile', 'no'); // Skip HW profile validation to prevent decoder load failures
         nativePlayer.setProperty('vd-lavc-threads', '0'); // Auto threads for multi-threaded decoding
+        nativePlayer.setProperty('vd-lavc-show-all', 'no'); // Discard corrupted/smeared frames instead of displaying them
+        nativePlayer.setProperty('vd-lavc-er', 'careful'); // Enable high error resilience to conceal stream packet drops
+        nativePlayer.setProperty('hwdec-extra-frames', '64'); // Allocate larger buffer pool on mobile GPUs to prevent frame drops
         
         nativePlayer.setProperty('demuxer-max-bytes', '104857600'); // 100 MB cache
         nativePlayer.setProperty('demuxer-readahead-secs', '60');
