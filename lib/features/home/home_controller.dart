@@ -256,6 +256,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
         
         _rawMessages.sort((a, b) => b.id.compareTo(a.id));
         _cacheLoadComplete = true; // Cache loading completes the full load, subsequent sync starts incremental
+        _hasMore = false; // Prevent UI from calling loadMore() on startup
         Log.i('Loaded ${cachedList.length} series from catalog cache for category ${category.title} instantly');
         return _applySearchAndSort(_allSeries);
       }
@@ -733,16 +734,18 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
   }
 
   List<AnimeSeries> _parseMessages(List<td.Message> raw) {
-    List<AnimeSeries> seriesList = [];
-    Map<String, AnimeSeries> seriesMap = {};
-    List<td.Message> currentEpisodes = [];
+    // 1. Separate posters and potential episodes
+    final List<td.Message> posters = [];
+    final List<td.Message> episodes = [];
 
-    // ENFORCE ASCENDING ORDER (oldest message first) to process episodes before their poster
-    final sortedRaw = List<td.Message>.from(raw)..sort((a, b) => a.id.compareTo(b.id));
-
-    for (final msg in sortedRaw) {
-      if (msg.content is td.MessageVideo) {
-        currentEpisodes.add(msg);
+    for (final msg in raw) {
+      if (msg.content is td.MessagePhoto) {
+        final photo = msg.content as td.MessagePhoto;
+        if (photo.caption.text.isNotEmpty) {
+          posters.add(msg);
+        }
+      } else if (msg.content is td.MessageVideo) {
+        episodes.add(msg);
       } else if (msg.content is td.MessageDocument) {
         final doc = msg.content as td.MessageDocument;
         final fileName = doc.document.fileName.toLowerCase();
@@ -754,81 +757,168 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
             fileName.endsWith('.webm') ||
             fileName.endsWith('.flv') ||
             fileName.endsWith('.wmv')) {
-          currentEpisodes.add(msg);
-        }
-      } else if (msg.content is td.MessagePhoto) {
-        final photo = msg.content as td.MessagePhoto;
-        final captionText = photo.caption.text;
-        
-        if (captionText.isNotEmpty) {
-          final lines = captionText.split('\n');
-          final fullTitle = lines.first.trim();
-          final isMovie = category.title == 'Movies';
-          final baseName = normalizeSeriesName(fullTitle, isMovie: isMovie);
-          
-          final newSeason = AnimeSeason(
-            fullTitle: fullTitle,
-            seasonName: parseSeasonName(fullTitle, baseName),
-            posterMessage: msg,
-            episodes: List<td.Message>.from(currentEpisodes), // Chronological ascending
-          );
-          
-          final canonicalKey = baseName.toLowerCase().replaceAll(RegExp(r'[^a-zA-Z0-9]'), '');
-          
-          // Prefix/substring grouping to merge movies and seasons under a clean core folder
-          // For movies category, we keep each movie alone (no folder merging)
-          String matchedKey = isMovie ? '${canonicalKey}_${msg.id}' : canonicalKey;
-          if (!isMovie) {
-            for (final existingKey in seriesMap.keys) {
-              if (existingKey.length >= 7 && canonicalKey.length >= 7) {
-                // Bypass prefix/substring grouping for franchise sequels/spinoffs
-                bool isFranchiseBypass = false;
-                const franchisePrefixes = ['dragonball', 'naruto', 'onepiece', 'bleach'];
-                for (final prefix in franchisePrefixes) {
-                  if ((canonicalKey.startsWith(prefix) || existingKey.startsWith(prefix)) &&
-                      canonicalKey != existingKey) {
-                    isFranchiseBypass = true;
-                    break;
-                  }
-                }
-                if (isFranchiseBypass) continue;
-
-                if (canonicalKey.startsWith(existingKey)) {
-                  matchedKey = existingKey;
-                  break;
-                } else if (existingKey.startsWith(canonicalKey)) {
-                  // If the new one is shorter, update the core name and key mapping
-                  matchedKey = existingKey;
-                  final existingSeries = seriesMap[existingKey]!;
-                  if (baseName.length < existingSeries.coreName.length) {
-                    seriesMap[existingKey] = AnimeSeries(
-                      coreName: baseName,
-                      seasons: existingSeries.seasons,
-                    );
-                    final idx = seriesList.indexOf(existingSeries);
-                    if (idx != -1) {
-                      seriesList[idx] = seriesMap[existingKey]!;
-                    }
-                    break;
-                  }
-                }
-              }
-            }
-          }
-          
-          if (!seriesMap.containsKey(matchedKey)) {
-            seriesMap[matchedKey] = AnimeSeries(coreName: baseName, seasons: []);
-            seriesList.add(seriesMap[matchedKey]!);
-          }
-          
-          seriesMap[matchedKey]!.seasons.insert(0, newSeason);
-          currentEpisodes = [];
+          episodes.add(msg);
         }
       }
     }
 
+    // 2. Prepare Season Builder structures for each poster
+    final List<_SeasonBuilder> builders = [];
+    for (final poster in posters) {
+      final photo = poster.content as td.MessagePhoto;
+      final fullTitle = photo.caption.text.split('\n').first.trim();
+      final isMovie = category.title == 'Movies';
+      final seriesName = normalizeSeriesName(fullTitle, isMovie: isMovie);
+      final seasonName = parseSeasonName(fullTitle, seriesName);
+      
+      // Parse season number
+      int seasonNum = 1;
+      final match = RegExp(r'\b(?:season|s|part)\s*(\d+)\b', caseSensitive: false).firstMatch(seasonName);
+      if (match != null) {
+        seasonNum = int.tryParse(match.group(1)!) ?? 1;
+      }
+
+      builders.add(_SeasonBuilder(
+        posterMessage: poster,
+        fullTitle: fullTitle,
+        seriesName: seriesName,
+        seasonName: seasonName,
+        seasonNum: seasonNum,
+      ));
+    }
+
+    // 3. Assign each episode to the best matching season builder using heuristic scoring
+    for (final ep in episodes) {
+      String fileName = '';
+      if (ep.content is td.MessageVideo) {
+        fileName = (ep.content as td.MessageVideo).video.fileName;
+      } else if (ep.content is td.MessageDocument) {
+        fileName = (ep.content as td.MessageDocument).document.fileName;
+      }
+      
+      final cleanFile = fileName.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+      
+      // Parse season number from filename
+      int? fileSeasonNum;
+      final fileSeasonMatch = RegExp(r'\bs(?:eason)?\.?\s*(\d+)\b|\bseason\s*(\d+)\b', caseSensitive: false).firstMatch(fileName);
+      if (fileSeasonMatch != null) {
+        fileSeasonNum = int.tryParse(fileSeasonMatch.group(1) ?? fileSeasonMatch.group(2) ?? '');
+      }
+
+      _SeasonBuilder? bestBuilder;
+      double bestScore = -9999.0;
+
+      for (final sb in builders) {
+        double score = 0.0;
+        
+        // A. Match series words
+        final words = sb.seriesName.toLowerCase().split(RegExp(r'[^a-z0-9]')).where((w) => w.length > 2).toList();
+        bool nameMatched = false;
+        if (words.isNotEmpty) {
+          nameMatched = words.every((w) => cleanFile.contains(w));
+        } else {
+          final cleanSeriesName = sb.seriesName.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+          nameMatched = cleanSeriesName.isNotEmpty && (cleanFile.contains(cleanSeriesName) || cleanSeriesName.contains(cleanFile));
+        }
+
+        if (nameMatched) {
+          score += 30.0;
+        }
+
+        // B. Season match check
+        if (fileSeasonNum != null) {
+          if (fileSeasonNum == sb.seasonNum) {
+            score += 20.0;
+          } else {
+            score -= 50.0; // Penalty for wrong season grouping
+          }
+        }
+
+        // C. Proximity score (maximum 10.0, decays based on relative message ID distance)
+        final dist = (ep.id - sb.posterMessage.id).abs();
+        final proximityScore = 10.0 / (1.0 + (dist / 100.0));
+        score += proximityScore;
+
+        if (score > bestScore) {
+          bestScore = score;
+          bestBuilder = sb;
+        }
+      }
+
+      if (bestBuilder != null) {
+        bestBuilder.accumulatedEpisodes.add(ep);
+      }
+    }
+
+    // 4. Build final AnimeSeries structures
+    final List<AnimeSeries> seriesList = [];
+    final Map<String, AnimeSeries> seriesMap = {};
+
+    for (final sb in builders) {
+      // Sort episodes inside the season chronologically ascending (oldest first)
+      final sortedEpisodes = List<td.Message>.from(sb.accumulatedEpisodes)
+        ..sort((a, b) => a.id.compareTo(b.id));
+
+      final newSeason = AnimeSeason(
+        fullTitle: sb.fullTitle,
+        seasonName: sb.seasonName,
+        posterMessage: sb.posterMessage,
+        episodes: sortedEpisodes,
+      );
+
+      final isMovie = category.title == 'Movies';
+      final canonicalKey = sb.seriesName.toLowerCase().replaceAll(RegExp(r'[^a-zA-Z0-9]'), '');
+      
+      String matchedKey = isMovie ? '${canonicalKey}_${sb.posterMessage.id}' : canonicalKey;
+      if (!isMovie) {
+        for (final existingKey in seriesMap.keys) {
+          if (existingKey.length >= 7 && canonicalKey.length >= 7) {
+            // Bypass prefix/substring grouping for franchise sequels/spinoffs
+            bool isFranchiseBypass = false;
+            const franchisePrefixes = ['dragonball', 'naruto', 'onepiece', 'bleach'];
+            for (final prefix in franchisePrefixes) {
+              if ((canonicalKey.startsWith(prefix) || existingKey.startsWith(prefix)) &&
+                  canonicalKey != existingKey) {
+                isFranchiseBypass = true;
+                break;
+              }
+            }
+            if (isFranchiseBypass) continue;
+
+            if (canonicalKey.startsWith(existingKey)) {
+              matchedKey = existingKey;
+              break;
+            } else if (existingKey.startsWith(canonicalKey)) {
+              matchedKey = existingKey;
+              final existingSeries = seriesMap[existingKey]!;
+              if (sb.seriesName.length < existingSeries.coreName.length) {
+                seriesMap[existingKey] = AnimeSeries(
+                  coreName: sb.seriesName,
+                  seasons: existingSeries.seasons,
+                );
+                final idx = seriesList.indexOf(existingSeries);
+                if (idx != -1) {
+                  seriesList[idx] = seriesMap[existingKey]!;
+                }
+                break;
+              }
+            }
+          }
+        }
+      }
+
+      if (!seriesMap.containsKey(matchedKey)) {
+        seriesMap[matchedKey] = AnimeSeries(coreName: sb.seriesName, seasons: []);
+        seriesList.add(seriesMap[matchedKey]!);
+      }
+
+      // Add season, keeping chronological order if sorting
+      seriesMap[matchedKey]!.seasons.add(newSeason);
+    }
+
     return seriesList;
   }
+  
   List<AnimeSeries> _applySearchAndSort(List<AnimeSeries> list) {
     final StorageService storage = testStorage ?? ref.read(storageServiceProvider);
     
@@ -1366,4 +1456,21 @@ class SeasonSortKey implements Comparable<SeasonSortKey> {
   int compareTo(SeasonSortKey other) {
     return messageId.compareTo(other.messageId);
   }
+}
+
+class _SeasonBuilder {
+  final td.Message posterMessage;
+  final String fullTitle;
+  final String seriesName;
+  final String seasonName;
+  final int seasonNum;
+  final List<td.Message> accumulatedEpisodes = [];
+
+  _SeasonBuilder({
+    required this.posterMessage,
+    required this.fullTitle,
+    required this.seriesName,
+    required this.seasonName,
+    required this.seasonNum,
+  });
 }
