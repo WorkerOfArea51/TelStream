@@ -43,6 +43,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
   bool _isFetchingReleaseYears = false;
   Timer? _releaseYearsTimer;
   StorageService? testStorage;
+  bool _isDisposed = false;
 
   @override
   FutureOr<List<AnimeSeries>> build() async {
@@ -124,6 +125,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
     });
 
     ref.onDispose(() {
+      _isDisposed = true;
       _updateSubscription?.cancel();
       _releaseYearsTimer?.cancel();
     });
@@ -312,7 +314,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
     _rawMessageIds.clear();
     int iterations = 0;
     int currentFromId = 0;
-    while (_hasMore && iterations < 200) {
+    while (_hasMore && iterations < 200 && !_isDisposed) {
       iterations++;
       final localMessages = await _fetchMessages(fromId: currentFromId, onlyLocal: true);
       if (localMessages.isEmpty) {
@@ -324,9 +326,14 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
           _rawMessageIds.add(msg.id);
         }
       }
-      _allSeries = _parseMessages(_rawMessages);
       currentFromId = _rawMessages.last.id;
     }
+    
+    if (_isDisposed) {
+      throw Exception("Provider was disposed during DB load");
+    }
+    
+    _allSeries = _parseMessages(_rawMessages);
     _cacheLoadComplete = !_hasMore;
     Log.i('[_fetchInitial] Completed for category: ${category.title}, found ${_allSeries.length} series');
     return _applySearchAndSort(_allSeries);
@@ -381,10 +388,10 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
       DateTime lastUiUpdateTime = DateTime.now();
 
       // Sync messages incrementally from the network in the background
-      while (_hasMore) {
+      while (_hasMore && !_isDisposed) {
         try {
           // Yield execution and pause TDLib requests while video is actively playing to maximize streaming bandwidth
-          while (ref.read(pipControllerProvider) != null) {
+          while (ref.read(pipControllerProvider) != null && !_isDisposed) {
             await Future.delayed(const Duration(seconds: 2));
           }
 
@@ -456,6 +463,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
       }
 
       // Final UI update to guarantee that any pending changes are flushed
+      if (_isDisposed) return;
       if (changed) {
         _rawMessages.sort((a, b) => b.id.compareTo(a.id));
         _allSeries = _parseMessages(_rawMessages);
@@ -1092,9 +1100,11 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
       int updateCount = 0;
 
       for (final season in seasonsToFetch) {
-        while (ref.read(pipControllerProvider) != null) {
+        if (_isDisposed) return;
+        while (ref.read(pipControllerProvider) != null && !_isDisposed) {
           await Future.delayed(const Duration(seconds: 3));
         }
+        if (_isDisposed) return;
 
         final title = season.fullTitle;
         final cleanTitle = normalizeSeriesName(title, isMovie: category.title == 'Movies');
@@ -1110,13 +1120,15 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
           Log.e('Failed to fetch release year for: $cleanTitle (original: $title)', e, stack);
         }
 
+        if (_isDisposed) return;
+
         if (fetchedYear != null) {
           await storage.setSeasonReleaseYear(title, fetchedYear);
           Log.i('Cached release year for "$title": $fetchedYear');
           
           updateCount++;
           if (updateCount % 4 == 0 || season == seasonsToFetch.last) {
-            if (state.value != null) {
+            if (state.value != null && !_isDisposed) {
               state = AsyncValue.data(_applySearchAndSort(_allSeries));
             }
           }
