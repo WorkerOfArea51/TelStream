@@ -399,16 +399,9 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
             
             final existingIndex = _rawMessages.indexWhere((m) => m.id == msg.id);
             if (existingIndex != -1) {
-              // Overwrite existing message if it was edited (e.g. video files updated/replaced)
-              final oldMsg = _rawMessages[existingIndex];
-              final isDifferent = oldMsg.editDate != msg.editDate || 
-                  oldMsg.content.runtimeType != msg.content.runtimeType;
-              
-              if (isDifferent) {
-                _rawMessages[existingIndex] = msg;
-                changed = true;
-                Log.i('Background sync updated edited message: ${msg.id}');
-              }
+              // Always overwrite existing message to capture any edits/updates (e.g. video files updated/replaced)
+              _rawMessages[existingIndex] = msg;
+              changed = true;
               
               // Only stop background sync if we have processed/scanned at least 150 messages,
               // ensuring recent file replacements/edits are fully captured and updated.
@@ -473,6 +466,10 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
     } catch (e, stackTrace) {
       Log.e("Background sync error", e, stackTrace);
     }
+  }
+
+  void triggerManualSync() {
+    _syncFromNetwork();
   }
 
   Future<List<td.Message>> _fetchMessages({required int fromId, required bool onlyLocal}) async {
@@ -1056,34 +1053,72 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
   Future<int?> _fetchMediaReleaseYearFromTmdb(String title) async {
     try {
       final apiKey = Secrets.tmdbApiKey;
-      if (apiKey.isEmpty || apiKey == 'YOUR_TMDB_API_KEY') {
-        Log.w('TMDB API Key is not configured in Secrets');
-        return null;
+      if (apiKey.isNotEmpty && apiKey != 'YOUR_TMDB_API_KEY') {
+        final query = Uri.encodeComponent(title);
+        final isMovie = category.title == 'Movies';
+        final path = isMovie ? 'movie' : 'tv';
+        final url = 'https://api.themoviedb.org/3/search/$path?api_key=$apiKey&query=$query&page=1';
+
+        final response = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 10));
+        
+        if (response.statusCode == 200) {
+          final Map<String, dynamic> data = json.decode(response.body);
+          final List<dynamic>? results = data['results'];
+          if (results != null && results.isNotEmpty) {
+            final first = results[0];
+            final dateStr = isMovie 
+                ? first['release_date'] as String? 
+                : first['first_air_date'] as String?;
+                
+            if (dateStr != null && dateStr.isNotEmpty) {
+              final parts = dateStr.split('-');
+              if (parts.isNotEmpty) {
+                final year = int.tryParse(parts[0]);
+                if (year != null && year > 0) {
+                  Log.i('Successfully fetched release year from TMDB for $title: $year');
+                  return year;
+                }
+              }
+            }
+          }
+        } else {
+          Log.w('TMDB API returned status code ${response.statusCode} for query "$title", falling back to Trakt');
+        }
+      } else {
+        Log.w('TMDB API Key is placeholder, falling back to Trakt');
       }
+    } catch (e) {
+      Log.w('Error calling TMDB API for query "$title", falling back to Trakt: $e');
+    }
 
+    // FALLBACK TO TRAKT
+    return _fetchMediaReleaseYearFromTraktFallback(title);
+  }
+
+  Future<int?> _fetchMediaReleaseYearFromTraktFallback(String title) async {
+    try {
       final query = Uri.encodeComponent(title);
-      final isMovie = category.title == 'Movies';
-      final path = isMovie ? 'movie' : 'tv';
-      final url = 'https://api.themoviedb.org/3/search/$path?api_key=$apiKey&query=$query&page=1';
+      final type = category.title == 'Movies' ? 'movie' : 'show';
+      final url = 'https://api.trakt.tv/search/$type?query=$query&limit=1';
+      
+      final headers = {
+        'Content-Type': 'application/json',
+        'trakt-api-version': '2',
+        'trakt-api-key': '05553e1be851c22a76f7df2b8a7c29be60cb5038ecbe6e80b2a7587dfb38ea47',
+      };
 
-      final response = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 10));
+      final response = await http.get(Uri.parse(url), headers: headers).timeout(const Duration(seconds: 10));
       
       if (response.statusCode == 200) {
-        final Map<String, dynamic> data = json.decode(response.body);
-        final List<dynamic>? results = data['results'];
-        if (results != null && results.isNotEmpty) {
-          final first = results[0];
-          final dateStr = isMovie 
-              ? first['release_date'] as String? 
-              : first['first_air_date'] as String?;
-              
-          if (dateStr != null && dateStr.isNotEmpty) {
-            final parts = dateStr.split('-');
-            if (parts.isNotEmpty) {
-              final year = int.tryParse(parts[0]);
-              if (year != null && year > 0) {
-                return year;
-              }
+        final List<dynamic> data = json.decode(response.body);
+        if (data.isNotEmpty) {
+          final first = data[0];
+          if (first['type'] != null && first[first['type']] != null) {
+            final media = first[first['type']];
+            final year = media['year'] as int?;
+            if (year != null && year > 0) {
+              Log.i('Successfully fetched release year from Trakt fallback for $title: $year');
+              return year;
             }
           }
         }
@@ -1091,11 +1126,11 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
       } else if (response.statusCode == 404) {
         return 0; // Not found, cache 0
       } else {
-        Log.w('TMDB API returned status code ${response.statusCode} for query "$title"');
+        Log.w('Trakt Fallback API returned status code ${response.statusCode} for query "$title"');
         return null; // HTTP error, retry later
       }
     } catch (e, stack) {
-      Log.e('Error calling TMDB API for query "$title"', e, stack);
+      Log.e('Error calling Trakt Fallback API for query "$title"', e, stack);
       return null;
     }
   }

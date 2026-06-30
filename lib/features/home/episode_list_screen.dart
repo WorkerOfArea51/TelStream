@@ -10,6 +10,7 @@ import '../../core/widgets/wavy_progress_indicators.dart';
 import '../../core/widgets/td_thumbnail.dart';
 import '../../core/theme/app_theme.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'home_controller.dart';
 import '../../services/storage_service.dart';
 import '../../services/download_service.dart';
 import '../../services/tdlib_service.dart';
@@ -278,13 +279,31 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Watch HomeController provider to dynamically update the view with synchronized edits in real-time
+    final provider = widget.categoryTitle == 'Anime'
+        ? animeControllerProvider
+        : widget.categoryTitle == 'Movies'
+            ? moviesControllerProvider
+            : webSeriesControllerProvider;
+
+    final seriesListAsync = ref.watch(provider);
+    final seriesList = seriesListAsync.value ?? [];
+    final activeSeries = seriesList.firstWhere(
+      (s) => s.coreName == widget.series.coreName,
+      orElse: () => widget.series,
+    );
+    final selectedSeason = activeSeries.seasons.firstWhere(
+      (s) => s.seasonName == _selectedSeason.seasonName,
+      orElse: () => _selectedSeason,
+    );
+
     final isFavorite = ref.watch(favoritesProvider).contains(widget.series.coreName);
     final effectiveHeroTag = widget.heroTag ?? 'hero_poster_grid_${widget.series.coreName}';
 
     td.File? posterFile;
     td.Minithumbnail? minithumbnail;
-    if (_selectedSeason.posterMessage.content is td.MessagePhoto) {
-      final photo = _selectedSeason.posterMessage.content as td.MessagePhoto;
+    if (selectedSeason.posterMessage.content is td.MessagePhoto) {
+      final photo = selectedSeason.posterMessage.content as td.MessagePhoto;
       if (photo.photo.sizes.isNotEmpty) {
         posterFile = photo.photo.sizes.last.photo;
       }
@@ -296,7 +315,7 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
     final settingsAccent = customTheme?.settingsAccent ?? theme.primaryColor;
     final isDark = theme.brightness == Brightness.dark;
 
-    final title = _selectedSeason.fullTitle;
+    final title = selectedSeason.fullTitle;
 
     return Theme(
       data: theme.copyWith(
@@ -421,7 +440,7 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
                             Text(
                               widget.categoryTitle == 'Movies'
                                   ? 'Movie'
-                                  : '${_selectedSeason.episodes.length} Episode${_selectedSeason.episodes.length > 1 ? "s" : ""}',
+                                  : '${selectedSeason.episodes.length} Episode${selectedSeason.episodes.length > 1 ? "s" : ""}',
                               style: TextStyle(
                                 color: isDark ? Colors.white70 : Colors.black87,
                                 fontWeight: FontWeight.bold,
@@ -452,7 +471,7 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
                   itemCount: widget.series.seasons.length,
                   itemBuilder: (context, index) {
                     final season = widget.series.seasons[index];
-                    final isSelected = season.seasonName == _selectedSeason.seasonName;
+                    final isSelected = season.seasonName == selectedSeason.seasonName;
                     return Padding(
                       padding: const EdgeInsets.only(right: 10),
                       child: ChoiceChip(
@@ -523,20 +542,20 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
                             ),
                           ),
                         )
-                      : ListView.builder(
-                          key: ValueKey('${_selectedSeason.seasonName}_${_selectedSeason.episodes.length}'),
+                       : ListView.builder(
+                          key: ValueKey('${selectedSeason.seasonName}_${selectedSeason.episodes.length}'),
                           shrinkWrap: true,
                           physics: const NeverScrollableScrollPhysics(),
                           padding: const EdgeInsets.all(16),
-                          itemCount: _selectedSeason.episodes.length,
+                          itemCount: selectedSeason.episodes.length,
                           itemBuilder: (context, index) {
-                            final msg = _selectedSeason.episodes[index];
+                            final msg = selectedSeason.episodes[index];
                             final isHighlighted = widget.highlightMessageId == msg.id;
                             return _EpisodeCardItem(
                               key: ValueKey(msg.id),
                               msg: msg,
                               index: index,
-                              season: _selectedSeason,
+                              season: selectedSeason,
                               series: widget.series,
                               onLongPress: _showMarkWatchedDialog,
                               isHighlighted: isHighlighted,

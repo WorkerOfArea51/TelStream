@@ -24,7 +24,7 @@ class LibraryView extends ConsumerStatefulWidget {
   ConsumerState<LibraryView> createState() => _LibraryViewState();
 }
 
-class _LibraryViewState extends ConsumerState<LibraryView> with SingleTickerProviderStateMixin {
+class _LibraryViewState extends ConsumerState<LibraryView> with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   late final AsyncNotifierProvider<HomeController, List<AnimeSeries>> provider;
   late final TabController _subTabController;
   final ScrollController _scrollController = ScrollController();
@@ -36,6 +36,7 @@ class _LibraryViewState extends ConsumerState<LibraryView> with SingleTickerProv
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     
     // Select provider based on category
     provider = widget.category.title == 'Anime'
@@ -80,10 +81,18 @@ class _LibraryViewState extends ConsumerState<LibraryView> with SingleTickerProv
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _subTabController.dispose();
     _scrollController.dispose();
     _searchController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      ref.read(provider.notifier).triggerManualSync();
+    }
   }
 
   @override
