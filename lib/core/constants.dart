@@ -14,27 +14,16 @@ class ChannelCategory {
 }
 
 class Constants {
-  static const String currentVersion = '2.10.2';
+  static const String currentVersion = '2.10.2+40';
   static const String changelog = '''
-### 🚀 What's New in v2.10.2
+### 🚀 What's New in v2.10.2+40
 
-* **Draggable Subtitle Position Overlay (Phone & PC)**:
-  - Drag the custom subtitle overlay anywhere on the screen (supports finger drag on phones and mouse drag on PC).
-  - The app automatically remembers and saves your custom position.
-* **Telegram-style Startup Jet Animation**:
-  - Replaced the initial loading screen with a smooth Telegram-style logo fly-in animation (flying jet effect inside a blue gradient circle) on app launch.
-* **Continue Watching Screen Redirection & Glow Highlights**:
-  - Tapping a Continue Watching item now navigates to the series detail screen, selects the correct season, scrolls to the last watched episode, and highlights it with a 5-second glowing outline.
-* **Telegram Document Video Thumbnail Support**:
-  - Video files uploaded as Document attachments (.mkv, .mp4, etc.) will now parse and render their original video thumbnails instead of showing generic grey icons.
-* **Persistent Layout View Preferences**:
-  - Saved layout preferences (`Grid`, `Compact`, `List`) separately so they never reset during app updates, logouts, or cloud merges.
-* **Playback Stability & Double Subtitle Fixes**:
-  - Mapped default Windows hardware decoding to Direct3D 11 (`d3d11va`) to resolve grey video macroblock glitching.
-  - Dynamically toggle sub-visibility to completely prevent double-rendering subtitle layers on PC.
-  - Solved loopback proxy header timeouts that caused video playback to freeze at `0:00` on startup.
-* **Removed Swipe Gestures**:
-  - Removed swiping gesture shortcuts in the episode list to prevent accidental downloads or watch status edits during scrolling.
+This release is a massive stability and security update, fixing over 200 issues identified in a comprehensive source code audit! 🛡️
+
+* **🔒 Security**: Implemented strict SHA-256 hash verification for app updates, secured the TDLib database with a 32-byte encrypted key, added strict JSON type-checking to prevent storage crashes, and enabled atomic file saving to stop corrupted downloads.
+* **⚡ Concurrency & Sync**: The Download Manager now strictly limits concurrent active downloads to a maximum of 3 to eliminate CPU/Network bottlenecks. The Cloud Sync Service now correctly deduplicates standalone movies in the "Continue Watching" log by unique Telegram message IDs.
+* **📱 Platform Fixes**: Fixed a foreground service background crash and null-intent deliveries on Android 8+. Added UIBackgroundModes for continuous background audio on iOS. Added network entitlements for macOS. Included Wakelock Plus to stop your screen from falling asleep during long movies.
+* **🎨 Performance Improvements**: Added a 300ms debounce to all Search bars to eliminate UI stuttering while typing. Reduced the Video Player's auto-save frequency to reduce battery and disk usage. The root runApp has been safely moved outside the try block to guarantee a visible error screen on fatal init failure.
 ''';
 
   // Telegram API Credentials from secrets.dart
