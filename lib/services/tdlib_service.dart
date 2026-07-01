@@ -61,7 +61,10 @@ class TdlibService {
     if (key == null || key.isEmpty) {
       final random = Random.secure();
       final values = List<int>.generate(32, (i) => random.nextInt(256));
-      key = base64UrlEncode(values);
+      key = base64Encode(values);
+      await storage.write(key: 'tdlib_db_key', value: key);
+    } else if (key.contains('-') || key.contains('_')) {
+      key = key.replaceAll('-', '+').replaceAll('_', '/');
       await storage.write(key: 'tdlib_db_key', value: key);
     }
     return key;
@@ -126,7 +129,7 @@ class TdlibService {
       apiHash: apiHash,
       systemLanguageCode: 'en',
       deviceModel: deviceModel,
-      systemVersion: Platform.operatingSystemVersion,
+      systemVersion: Platform.operatingSystemVersion.replaceAll(RegExp(r'[^\x20-\x7E]'), ''),
       applicationVersion: '1.0',
       enableStorageOptimizer: true,
       ignoreFileNames: false,
