@@ -208,19 +208,35 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
       );
     }
 
-    player.open(Media(finalPath), play: true).then((_) {
+    final savedPos = _storageService.getWatchPosition(widget.messageId);
+    final shouldPlayImmediately = savedPos <= 0;
+
+    player.open(Media(finalPath), play: shouldPlayImmediately).then((_) {
       if (!mounted) return;
-      final savedPos = _storageService.getWatchPosition(widget.messageId);
       if (savedPos > 0) {
         if (player.state.duration.inSeconds > 0) {
-          _handleCustomSeek(Duration(seconds: savedPos));
+          player.seek(Duration(seconds: savedPos)).then((_) {
+            if (mounted) {
+              player.play();
+              setState(() {
+                _isInitializing = false;
+              });
+            }
+          });
         } else {
           late final StreamSubscription<Duration> durSub;
           durSub = player.stream.duration.listen((dur) {
             if (dur.inSeconds > 0) {
               durSub.cancel();
               if (mounted) {
-                _handleCustomSeek(Duration(seconds: savedPos));
+                player.seek(Duration(seconds: savedPos)).then((_) {
+                  if (mounted) {
+                    player.play();
+                    setState(() {
+                      _isInitializing = false;
+                    });
+                  }
+                });
               }
             }
           });
@@ -357,7 +373,8 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
       _storageService.associateFileWithSeries(widget.seriesName, _resolvedVideoFileId!);
     }
 
-    if (mounted) {
+    final savedPos = _storageService.getWatchPosition(widget.messageId);
+    if (mounted && savedPos <= 0) {
       setState(() {
         _isInitializing = false;
       });
@@ -1137,13 +1154,13 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         
         nativePlayer.setProperty('audio-pitch-correction', 'yes');
         nativePlayer.setProperty('audio-buffer', '0.2'); // 0.2s audio buffer
-        nativePlayer.setProperty('framedrop', 'vo'); // Drop late video frames to keep audio synchronized and prevent stuttering
+        nativePlayer.setProperty('framedrop', 'no'); // Disable framedrop to prevent skips and micro-stuttering
         nativePlayer.setProperty('sub-fix-timing', 'yes');
         nativePlayer.setProperty('stream-buffer-size', '16777216'); // 16 MB stream buffer (faster download pipeline)
         
         // Fix glitching on all decoders by optimizing decoder loops
-        nativePlayer.setProperty('vd-lavc-fast', 'yes'); // Enable fast decoding optimizations
-        nativePlayer.setProperty('vd-lavc-skiploopfilter', 'bidir'); // Skip loop filter for B-frames to save massive CPU cycles
+        nativePlayer.setProperty('vd-lavc-fast', 'no'); // Disable fast decoding hacks to prevent pixelation/glitching
+        nativePlayer.setProperty('vd-lavc-skiploopfilter', 'none'); // Do not skip loop filter to keep lines sharp and clean in anime
         nativePlayer.setProperty('vd-lavc-check-hw-profile', 'no'); // Skip HW profile validation to prevent decoder load failures
         nativePlayer.setProperty('vd-lavc-threads', '0'); // Auto threads for multi-threaded decoding
         nativePlayer.setProperty('vd-lavc-show-all', 'no'); // Discard corrupted/smeared frames instead of displaying them
