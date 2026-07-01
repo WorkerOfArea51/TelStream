@@ -344,7 +344,8 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
     }
     
     if (_isDisposed) {
-      throw Exception("Provider was disposed during DB load");
+      Log.i("Provider was disposed during DB load, aborting cleanly.");
+      return [];
     }
     
     _allSeries = _parseMessages(_rawMessages);
