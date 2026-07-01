@@ -110,6 +110,10 @@ class TdlibService {
 
     final dbKey = await _loadOrCreateDbEncryptionKey();
     
+    const storage = FlutterSecureStorage();
+    final isMigrated = await storage.read(key: 'tdlib_db_migrated');
+    bool needsMigration = isMigrated != 'true';
+    
     String deviceModel = 'Unknown';
     if (Platform.isAndroid) deviceModel = 'Android';
     else if (Platform.isIOS) deviceModel = 'iOS';
@@ -133,9 +137,14 @@ class TdlibService {
       applicationVersion: '1.0',
       enableStorageOptimizer: true,
       ignoreFileNames: false,
-      databaseEncryptionKey: dbKey, 
+      databaseEncryptionKey: needsMigration ? '' : dbKey, 
     );
     send(params);
+
+    if (needsMigration) {
+      send(td.SetDatabaseEncryptionKey(newEncryptionKey: dbKey));
+      await storage.write(key: 'tdlib_db_migrated', value: 'true');
+    }
 
     // Give TDLib a moment to initialize its DB, then prune cached video files
     Future.delayed(const Duration(seconds: 5), () {

@@ -1,4 +1,4 @@
-### 🚀 What's New in v2.10.2+40
+### 🚀 What's New in v2.10.2+41
 
 This release is a massive stability and security update, fixing over 200 issues identified in a comprehensive source code audit! 🛡️
 
@@ -27,8 +27,8 @@ This release is a massive stability and security update, fixing over 200 issues 
 ---
 
 ### 🛠️ Build Information
-- **Version:** `v2.10.2+40`
-- **Build Number:** `40`
+- **Version:** `v2.10.2+41`
+- **Build Number:** `41`
 - **Branch:** `main`
 - **Commit SHA:** `pending`
 
