@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'storage_service.dart';
 import '../core/logger.dart';
+import '../core/secrets.dart';
 
 final trackerServiceProvider = Provider<TrackerService>((ref) {
   return TrackerService(ref.watch(storageServiceProvider));

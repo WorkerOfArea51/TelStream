@@ -214,55 +214,44 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
     player.open(Media(finalPath), play: shouldPlayImmediately).then((_) {
       if (!mounted) return;
       if (savedPos > 0) {
-        if (player.state.duration.inSeconds > 0) {
-          player.seek(Duration(seconds: savedPos)).then((_) {
-            Future.delayed(const Duration(milliseconds: 350), () {
-              if (!mounted) return;
-              final diff = (player.state.position.inSeconds - savedPos).abs();
-              if (diff > 5 && player.state.position.inSeconds == 0) {
-                Log.w('Playback startup seek failed (position is still 0). Retrying seek to $savedPos');
-                player.seek(Duration(seconds: savedPos)).then((_) {
-                  player.play();
-                  setState(() {
-                    _isInitializing = false;
-                  });
-                });
-              } else {
-                player.play();
-                setState(() {
-                  _isInitializing = false;
-                });
-              }
+        Future<void> performRobustStartupSeek() async {
+          for (int i = 0; i < 5; i++) {
+            if (!mounted) return;
+            await player.seek(Duration(seconds: savedPos));
+            await Future.delayed(Duration(milliseconds: 300 + (i * 200)));
+            if (!mounted) return;
+            final currentPos = player.state.position.inSeconds;
+            if (currentPos > 0 && (currentPos - savedPos).abs() <= 5) {
+              Log.i('Robust startup seek successful at attempt ${i + 1}');
+              break;
+            }
+            Log.w('Playback startup seek failed. Retrying seek to $savedPos (Attempt ${i + 1})');
+          }
+          if (mounted) {
+            player.play();
+            setState(() {
+              _isInitializing = false;
             });
-          });
+          }
+        }
+
+        if (player.state.duration.inSeconds > 0) {
+          performRobustStartupSeek();
         } else {
           late final StreamSubscription<Duration> durSub;
           durSub = player.stream.duration.listen((dur) {
             if (dur.inSeconds > 0) {
               durSub.cancel();
               if (mounted) {
-                player.seek(Duration(seconds: savedPos)).then((_) {
-                  Future.delayed(const Duration(milliseconds: 350), () {
-                    if (!mounted) return;
-                    final diff = (player.state.position.inSeconds - savedPos).abs();
-                    if (diff > 5 && player.state.position.inSeconds == 0) {
-                      Log.w('Playback startup stream seek failed. Retrying seek to $savedPos');
-                      player.seek(Duration(seconds: savedPos)).then((_) {
-                        player.play();
-                        setState(() {
-                          _isInitializing = false;
-                        });
-                      });
-                    } else {
-                      player.play();
-                      setState(() {
-                        _isInitializing = false;
-                      });
-                    }
-                  });
-                });
+                performRobustStartupSeek();
               }
             }
+          });
+        }
+      } else {
+        if (mounted) {
+          setState(() {
+            _isInitializing = false;
           });
         }
       }

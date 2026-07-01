@@ -9,6 +9,8 @@ import '../player/pip_manager.dart';
 import 'home_controller.dart';
 import '../../models/anime_models.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/constants.dart';
+import 'episode_list_screen.dart';
 
 class HistoryScreen extends ConsumerStatefulWidget {
   const HistoryScreen({super.key});
@@ -236,7 +238,22 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                         children: [
                           ListTile(
                             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                            leading: ClipRRect(
+                            leading: matchedSeries != null ? Hero(
+                              tag: 'hero_history_${matchedSeries.coreName}',
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(12),
+                                child: SizedBox(
+                                  width: 44,
+                                  height: 58,
+                                  child: posterFile != null
+                                      ? TdThumbnail(file: posterFile, minithumbnail: minithumbnail)
+                                      : Container(
+                                          color: settingsAccent.withValues(alpha: 0.1),
+                                          child: Icon(Icons.movie_rounded, color: settingsAccent, size: 24),
+                                        ),
+                                ),
+                              ),
+                            ) : ClipRRect(
                               borderRadius: BorderRadius.circular(12),
                               child: SizedBox(
                                 width: 44,
@@ -377,20 +394,41 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                                         ),
                                       ),
                                       const SizedBox(width: 8),
-                                      fileId != null && matchedSeries != null
-                                          ? IconButton(
-                                              icon: Icon(Icons.play_circle_fill_rounded, color: settingsAccent, size: 28),
-                                              onPressed: () {
-                                                ref.read(pipControllerProvider.notifier).playVideo(
-                                                  context,
-                                                  messageId: episodeMsg?.id ?? log['messageId'] as int,
-                                                  videoFileId: fileId!,
-                                                  videoTitle: '$seriesName - ${epFileName.isNotEmpty ? epFileName : episodeTitle}',
-                                                  episodeList: matchedSeason?.episodes ?? matchedSeries!.seasons.first.episodes,
-                                                  currentEpisodeIndex: episodeListIndex ?? log['episodeIndex'] as int,
-                                                  seriesName: seriesName,
-                                                );
-                                              },
+                                      fileId != null && matchedSeries != null && matchedSeries!.seasons.isNotEmpty
+                                          ? Semantics(
+                                              label: 'Play ${matchedSeries.coreName} $episodeTitle',
+                                              button: true,
+                                              child: IconButton(
+                                                icon: Icon(Icons.play_circle_fill_rounded, color: settingsAccent, size: 28),
+                                                tooltip: 'Play Episode',
+                                                onPressed: () {
+                                                  final targetSeason = matchedSeason ?? matchedSeries!.seasons.first;
+                                                  Navigator.push(
+                                                    context,
+                                                    PremiumPageRoute(
+                                                      child: EpisodeListScreen(
+                                                        season: targetSeason,
+                                                        series: matchedSeries,
+                                                        heroTag: 'hero_history_${matchedSeries.coreName}',
+                                                      ),
+                                                    ),
+                                                  );
+                                                  
+                                                  Future.delayed(const Duration(milliseconds: 50), () {
+                                                    if (context.mounted) {
+                                                      ref.read(pipControllerProvider.notifier).playVideo(
+                                                        context,
+                                                        messageId: episodeMsg?.id ?? log['messageId'] as int,
+                                                        videoFileId: fileId!,
+                                                        videoTitle: '$seriesName - ${epFileName.isNotEmpty ? epFileName : episodeTitle}',
+                                                        episodeList: targetSeason.episodes,
+                                                        currentEpisodeIndex: episodeListIndex ?? log['episodeIndex'] as int,
+                                                        seriesName: seriesName,
+                                                      );
+                                                    }
+                                                  });
+                                                },
+                                              ),
                                             )
                                           : const Icon(Icons.play_circle_outline, color: Colors.white24, size: 24),
                                     ],

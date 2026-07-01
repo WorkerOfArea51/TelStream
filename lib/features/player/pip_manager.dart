@@ -138,7 +138,6 @@ class PipController extends Notifier<PipVideoState?> {
     String? networkUrl,
   }) {
     isTransitioning = true;
-    final wasPip = state?.isPip ?? false;
     final oldActivePlayer = _activePlayer;
     if (oldActivePlayer != null) {
       try {

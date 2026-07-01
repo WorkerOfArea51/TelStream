@@ -47,16 +47,40 @@ class FavoritesScreen extends ConsumerWidget {
   }
 
   Widget _buildFavoritesBody(BuildContext context, WidgetRef ref, List<AnimeSeries> favoriteSeries) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     if (favoriteSeries.isEmpty) {
-      return const Center(
+      return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.favorite_border, size: 80, color: Colors.white24),
-            SizedBox(height: 16),
-            Text('No favorites yet.', style: TextStyle(color: Colors.white54, fontSize: 18)),
-            SizedBox(height: 8),
-            Text('Tap the heart icon on any series to add it here!', style: TextStyle(color: Colors.white38, fontSize: 14)),
+            Icon(
+              Icons.favorite_rounded, 
+              size: 80, 
+              color: theme.colorScheme.primary.withValues(alpha: 0.2),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              'No favorites yet.', 
+              style: TextStyle(
+                color: isDark ? Colors.white70 : Colors.black87, 
+                fontSize: 20, 
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 40),
+              child: Text(
+                'Tap the heart icon on any series to add it here for quick access.', 
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: isDark ? Colors.white54 : Colors.black54, 
+                  fontSize: 15,
+                ),
+              ),
+            ),
           ],
         ),
       );
@@ -94,6 +118,7 @@ class FavoritesScreen extends ConsumerWidget {
 
         return GestureDetector(
           onTap: () {
+            if (series.seasons.isEmpty) return;
             Navigator.push(
               context,
               PremiumPageRoute(

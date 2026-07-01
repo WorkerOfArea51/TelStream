@@ -32,6 +32,7 @@ dependencies:
   archive: ^3.6.1
   device_info_plus: ^10.1.0
   flutter_secure_storage: ^9.2.2
+  synchronized: ^3.1.0
 
 dev_dependencies:
   flutter_test:

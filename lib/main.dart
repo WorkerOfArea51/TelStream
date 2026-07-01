@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'package:flutter/foundation.dart';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:media_kit/media_kit.dart';
@@ -45,10 +45,10 @@ void main() async {
         ),
       );
     } catch (e, stack) {
-      Log.error('Fatal error during startup: $e', stack);
+      Log.e('Fatal error during startup: $e', stack);
     }
   }, (error, stack) {
-    Log.error('Uncaught asynchronous error: $error', stack);
+    Log.e('Uncaught asynchronous error: $error', stack);
   });
 }
 

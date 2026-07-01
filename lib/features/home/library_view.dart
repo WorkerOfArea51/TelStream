@@ -522,6 +522,7 @@ class _LibraryGridItemState extends State<_LibraryGridItem> {
       onTapUp: (_) => setState(() => _isTapped = false),
       onTapCancel: () => setState(() => _isTapped = false),
       onTap: () {
+        if (widget.series.seasons.isEmpty) return;
         Navigator.push(
           context,
           PremiumPageRoute(
@@ -751,6 +752,7 @@ class _FeaturedCarouselState extends State<FeaturedCarousel> {
                 },
                 child: GestureDetector(
                   onTap: () {
+                    if (series.seasons.isEmpty) return;
                     Navigator.push(
                       context,
                       PremiumPageRoute(
@@ -972,7 +974,7 @@ class ContinueWatchingShelf extends StatelessWidget {
                 clipBehavior: Clip.antiAlias,
                 child: InkWell(
                   onTap: () {
-                    if (matchedSeries != null) {
+                    if (matchedSeries != null && matchedSeries.seasons.isNotEmpty) {
                       AnimeSeason selectedSeason = matchedSeries.seasons.first;
                       for (final season in matchedSeries.seasons) {
                         if (season.episodes.any((ep) => ep.id == msgId)) {
@@ -1245,27 +1247,7 @@ class _LibraryListItemState extends ConsumerState<_LibraryListItem> {
     final isDark = theme.brightness == Brightness.dark;
     final textColor = isDark ? Colors.white : Colors.black87;
     final subTextColor = isDark ? Colors.white60 : Colors.black54;
-
-    final storage = ref.read(storageServiceProvider);
-
     final totalEpisodes = widget.series.seasons.fold(0, (sum, s) => sum + s.episodes.length);
-
-    final years = widget.series.seasons
-        .map((s) => s.getReleaseYear(storage))
-        .where((y) => y != null && y > 0)
-        .cast<int>()
-        .toSet()
-        .toList();
-    years.sort();
-    
-    final String yearsText;
-    if (years.isEmpty) {
-      yearsText = '';
-    } else if (years.length == 1) {
-      yearsText = years.first.toString();
-    } else {
-      yearsText = '${years.first}–${years.last}';
-    }
 
     final latestPoster = widget.series.seasons.isNotEmpty ? widget.series.seasons.first.posterMessage : null;
     

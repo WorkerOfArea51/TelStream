@@ -216,13 +216,26 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.sentiment_dissatisfied_rounded, size: 64, color: isDark ? Colors.white24 : Colors.black12),
-                      const SizedBox(height: 16),
+                      Icon(Icons.search_off_rounded, size: 80, color: theme.colorScheme.primary.withValues(alpha: 0.2)),
+                      const SizedBox(height: 24),
                       Text(
-                        'No results found for "$_query"',
+                        'No results found',
                         style: TextStyle(
-                          color: isDark ? Colors.white30 : Colors.black38,
-                          fontSize: 14,
+                          color: isDark ? Colors.white70 : Colors.black87,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 40),
+                        child: Text(
+                          'We couldn\'t find any series matching "$_query". Try different keywords or check your spelling.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: isDark ? Colors.white54 : Colors.black54,
+                            fontSize: 15,
+                          ),
                         ),
                       ),
                     ],
@@ -287,6 +300,7 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
           itemCount: results.length,
           itemBuilder: (context, index) {
             final series = results[index];
+            if (series.seasons.isEmpty) return const SizedBox.shrink();
             final season = series.seasons.first; // Navigate to first season by default
             final heroTag = '${heroPrefix}_${series.coreName}_$index';
 

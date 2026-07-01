@@ -12,6 +12,7 @@ import '../../models/anime_models.dart';
 import '../../core/logger.dart';
 import '../player/pip_manager.dart';
 import '../../core/utils/path_helper.dart';
+import 'package:synchronized/synchronized.dart';
 
 enum SortOrder { newest, oldest, aToZ, zToA }
 
@@ -24,6 +25,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
   
   final List<td.Message> _rawMessages = [];
   final Set<int> _rawMessageIds = {};
+  final _mutationLock = Lock();
 
   bool get hasMore => _hasMore;
   bool get isLoadingMore => _isLoadingMore;
@@ -79,21 +81,23 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
     });
 
     _updateSubscription?.cancel();
-    _updateSubscription = tdlibService.updates.listen((event) {
+    _updateSubscription = tdlibService.updates.listen((event) async {
       if (event is td.UpdateNewMessage) {
         if (event.message.chatId == category.channelId) {
-          if (!_rawMessageIds.contains(event.message.id)) {
-            _rawMessages.insert(0, event.message);
-            _rawMessageIds.add(event.message.id);
-            _allSeries = _parseMessages(_rawMessages);
-            if (state.value != null) {
-              state = AsyncValue.data(_applySearchAndSort(_allSeries));
+          await _mutationLock.synchronized(() async {
+            if (!_rawMessageIds.contains(event.message.id)) {
+              _rawMessages.insert(0, event.message);
+              _rawMessageIds.add(event.message.id);
+              _allSeries = _parseMessages(_rawMessages);
+              if (state.value != null) {
+                state = AsyncValue.data(_applySearchAndSort(_allSeries));
+              }
+              _triggerReleaseYearsSync();
+              if (_cacheLoadComplete) {
+                _saveCatalogCache();
+              }
             }
-            _triggerReleaseYearsSync();
-            if (_cacheLoadComplete) {
-              _saveCatalogCache();
-            }
-          }
+          });
         }
       } else if (event is td.UpdateMessageContent) {
         if (event.chatId == category.channelId) {
@@ -105,25 +109,27 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
         }
       } else if (event is td.UpdateDeleteMessages) {
         if (event.chatId == category.channelId && !event.fromCache) {
-          bool changed = false;
-          for (final id in event.messageIds) {
-            final removedIndex = _rawMessages.indexWhere((m) => m.id == id);
-            if (removedIndex != -1) {
-              _rawMessages.removeAt(removedIndex);
-              _rawMessageIds.remove(id);
-              changed = true;
+          await _mutationLock.synchronized(() async {
+            bool changed = false;
+            for (final id in event.messageIds) {
+              final removedIndex = _rawMessages.indexWhere((m) => m.id == id);
+              if (removedIndex != -1) {
+                _rawMessages.removeAt(removedIndex);
+                _rawMessageIds.remove(id);
+                changed = true;
+              }
             }
-          }
-          if (changed) {
-            _allSeries = _parseMessages(_rawMessages);
-            if (state.value != null) {
-              state = AsyncValue.data(_applySearchAndSort(_allSeries));
+            if (changed) {
+              _allSeries = _parseMessages(_rawMessages);
+              if (state.value != null) {
+                state = AsyncValue.data(_applySearchAndSort(_allSeries));
+              }
+              if (_cacheLoadComplete) {
+                _saveCatalogCache();
+              }
+              Log.i('Real-time deleted messages from catalog: ${event.messageIds}');
             }
-            if (_cacheLoadComplete) {
-              _saveCatalogCache();
-            }
-            Log.i('Real-time deleted messages from catalog: ${event.messageIds}');
-          }
+          });
         }
       }
     });
@@ -205,18 +211,22 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
         if (moreMessages.isEmpty) {
           break;
         }
-        for (final msg in moreMessages) {
-          if (!_rawMessageIds.contains(msg.id)) {
-            _rawMessages.add(msg);
-            _rawMessageIds.add(msg.id);
-            changed = true;
+        await _mutationLock.synchronized(() async {
+          for (final msg in moreMessages) {
+            if (!_rawMessageIds.contains(msg.id)) {
+              _rawMessages.add(msg);
+              _rawMessageIds.add(msg.id);
+              changed = true;
+            }
           }
-        }
-        
-        _rawMessages.sort((a, b) => b.id.compareTo(a.id));
-        _allSeries = _parseMessages(_rawMessages);
-        state = AsyncValue.data(_applySearchAndSort(_allSeries));
-        _triggerReleaseYearsSync();
+          
+          if (changed) {
+            _rawMessages.sort((a, b) => b.id.compareTo(a.id));
+            _allSeries = _parseMessages(_rawMessages);
+            state = AsyncValue.data(_applySearchAndSort(_allSeries));
+            _triggerReleaseYearsSync();
+          }
+        });
       }
       if (changed && _cacheLoadComplete) {
         _saveCatalogCache();
@@ -412,50 +422,51 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
             continue;
           }
           
-          for (final msg in networkMessages) {
-            processedCount++;
-            
-            final existingIndex = _rawMessages.indexWhere((m) => m.id == msg.id);
-            if (existingIndex != -1) {
-              // Always overwrite existing message to capture any edits/updates (e.g. video files updated/replaced)
-              _rawMessages[existingIndex] = msg;
-              changed = true;
+          await _mutationLock.synchronized(() async {
+            for (final msg in networkMessages) {
+              processedCount++;
               
-              // Only stop background sync if we have processed/scanned at least 150 messages,
-              // ensuring recent file replacements/edits are fully captured and updated.
-              if (_cacheLoadComplete && processedCount >= 150) {
-                reachedEnd = true;
-                _hasMore = false;
-                break;
+              final existingIndex = _rawMessages.indexWhere((m) => m.id == msg.id);
+              if (existingIndex != -1) {
+                // Always overwrite existing message to capture any edits/updates (e.g. video files updated/replaced)
+                _rawMessages[existingIndex] = msg;
+                changed = true;
+                
+                // Only stop background sync if we have processed/scanned at least 150 messages,
+                // ensuring recent file replacements/edits are fully captured and updated.
+                if (_cacheLoadComplete && processedCount >= 150) {
+                  reachedEnd = true;
+                  _hasMore = false;
+                  break;
+                }
+              } else {
+                _rawMessages.add(msg);
+                _rawMessageIds.add(msg.id);
+                changed = true;
               }
-            } else {
-              _rawMessages.add(msg);
-              _rawMessageIds.add(msg.id);
-              changed = true;
             }
-          }
+            
+            if (changed) {
+              final now = DateTime.now();
+              final isNearEnd = reachedEnd || !_hasMore;
+              if (isNearEnd || now.difference(lastUiUpdateTime) > const Duration(milliseconds: 1500)) {
+                _rawMessages.sort((a, b) => b.id.compareTo(a.id));
+                _allSeries = _parseMessages(_rawMessages);
+                state = AsyncValue.data(_applySearchAndSort(_allSeries));
+                _triggerReleaseYearsSync();
+                if (_cacheLoadComplete) {
+                  _saveCatalogCache();
+                }
+                lastUiUpdateTime = now;
+                changed = false; // Reset changed flag
+              }
+            }
+          });
           
           if (reachedEnd) {
             break;
           }
-          
           currentFromId = networkMessages.last.id;
-          
-          if (changed) {
-            final now = DateTime.now();
-            final isNearEnd = reachedEnd || !_hasMore;
-            if (isNearEnd || now.difference(lastUiUpdateTime) > const Duration(milliseconds: 1500)) {
-              _rawMessages.sort((a, b) => b.id.compareTo(a.id));
-              _allSeries = _parseMessages(_rawMessages);
-              state = AsyncValue.data(_applySearchAndSort(_allSeries));
-              _triggerReleaseYearsSync();
-              if (_cacheLoadComplete) {
-                _saveCatalogCache();
-              }
-              lastUiUpdateTime = now;
-              changed = false; // Reset changed flag
-            }
-          }
           
           // Brief pause to respect Telegram rate limits and yield UI thread
           await Future.delayed(const Duration(milliseconds: 200));
@@ -1088,7 +1099,6 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
       for (final series in seriesCopy) {
         for (final season in series.seasons) {
           final title = season.fullTitle;
-          final lowerTitle = title.toLowerCase();
           
           final cachedYear = storage.getSeasonReleaseYear(title);
           // Retries queries that returned 0 (failed/unset) in older versions. Skip valid years (>0) and permanent skips (-1).
