@@ -1183,13 +1183,20 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         nativePlayer.setProperty('vd-lavc-threads', '0'); // Auto threads for multi-threaded decoding
         nativePlayer.setProperty('vd-lavc-show-all', 'no'); // Discard corrupted/smeared frames instead of displaying them
         nativePlayer.setProperty('vd-lavc-er', 'careful'); // Enable high error resilience to conceal stream packet drops
-        nativePlayer.setProperty('hwdec-extra-frames', '64'); // Allocate larger buffer pool on mobile GPUs to prevent frame drops
+        if (!Platform.isAndroid && !Platform.isIOS) {
+          nativePlayer.setProperty('hwdec-extra-frames', '64'); // Allocate larger buffer pool on PC GPUs to prevent frame drops
+        }
         
         final hwDecMode = _storageService.getHardwareDecoderMode();
         if (Platform.isAndroid) {
-          if (hwDecMode != 'no') {
-            nativePlayer.setProperty('hwdec', hwDecMode);
-            Log.i('Set hardware decoder mode to $hwDecMode on player init');
+          String safeMode = hwDecMode;
+          // mediacodec-copy causes severe macroblocking on Android HEVC streams due to CPU RAM bottlenecks
+          if (safeMode == 'mediacodec-copy') {
+            safeMode = 'auto';
+          }
+          if (safeMode != 'no') {
+            nativePlayer.setProperty('hwdec', safeMode);
+            Log.i('Set hardware decoder mode to $safeMode on player init (Android sanitized)');
           } else {
             nativePlayer.setProperty('hwdec', 'no');
             Log.i('Hardware decoder mode is disabled (no) on player init');
