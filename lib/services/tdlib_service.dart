@@ -361,15 +361,15 @@ class TdlibService {
     }
   }
 
-  Map<String, dynamic> _sanitizeJson(Map<String, dynamic> json) {
+  static Map<String, dynamic> sanitizeJson(Map<String, dynamic> json) {
     // 1. Recursively sanitize all children first
     json.forEach((key, value) {
       if (value is Map<String, dynamic>) {
-        json[key] = _sanitizeJson(value);
+        json[key] = sanitizeJson(value);
       } else if (value is List) {
         json[key] = value.map((item) {
           if (item is Map<String, dynamic>) {
-            return _sanitizeJson(item);
+            return sanitizeJson(item);
           }
           return item;
         }).toList();
@@ -616,7 +616,7 @@ class TdlibService {
             }
             final jsonStr = rawPtr.toDartString();
             final Map<String, dynamic> jsonMap = jsonDecode(jsonStr);
-            final sanitized = _sanitizeJson(jsonMap);
+            final sanitized = sanitizeJson(jsonMap);
             event = td.convertToObject(jsonEncode(sanitized));
           } else {
             event = tdReceive(0.0);

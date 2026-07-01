@@ -1,5 +1,6 @@
 import 'package:tdlib/td_api.dart' as td;
 import '../services/storage_service.dart';
+import '../services/tdlib_service.dart';
 
 class AnimeSeries {
   final String coreName;
@@ -41,17 +42,12 @@ class AnimeSeason {
       };
 
   factory AnimeSeason.fromJson(Map<String, dynamic> json) {
-    Map<String, dynamic> sanitize(Map<String, dynamic> map) {
-      final newMap = Map<String, dynamic>.from(map);
-      newMap['media_album_id'] = (newMap['media_album_id'] ?? 0).toString();
-      return newMap;
-    }
     return AnimeSeason(
       fullTitle: json['fullTitle'] as String,
       seasonName: json['seasonName'] as String,
-      posterMessage: td.Message.fromJson(sanitize(json['posterMessage'] as Map<String, dynamic>)),
+      posterMessage: td.Message.fromJson(TdlibService.sanitizeJson(json['posterMessage'] as Map<String, dynamic>)),
       episodes: (json['episodes'] as List)
-          .map((e) => td.Message.fromJson(sanitize(e as Map<String, dynamic>)))
+          .map((e) => td.Message.fromJson(TdlibService.sanitizeJson(e as Map<String, dynamic>)))
           .toList(),
     );
   }
