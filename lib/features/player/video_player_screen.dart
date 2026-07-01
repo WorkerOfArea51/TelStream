@@ -322,6 +322,37 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
     }
 
     _resolvedVideoFileId = widget.videoFileId;
+
+    // Pre-emptively resolve the fresh file ID from TDLib to prevent stale file ID errors
+    Log.i('Resolving fresh file ID for message ${widget.messageId}...');
+    int? freshFileId;
+    for (final category in Constants.categories) {
+      try {
+        final res = await _tdlibService.sendAsync(td.GetMessage(
+          chatId: category.channelId,
+          messageId: widget.messageId,
+        )).timeout(const Duration(seconds: 3));
+        
+        if (res is td.Message) {
+          if (res.content is td.MessageVideo) {
+            freshFileId = (res.content as td.MessageVideo).video.video.id;
+          } else if (res.content is td.MessageDocument) {
+            freshFileId = (res.content as td.MessageDocument).document.document.id;
+          }
+          if (freshFileId != null && freshFileId != 0) {
+            Log.i('Successfully resolved fresh file ID $freshFileId (previous was $_resolvedVideoFileId) for message ${widget.messageId} in category ${category.title}');
+            break;
+          }
+        }
+      } catch (e) {
+        Log.w('Failed to check category ${category.title} for message ${widget.messageId}: $e');
+      }
+    }
+
+    if (freshFileId != null && freshFileId != 0) {
+      _resolvedVideoFileId = freshFileId;
+    }
+
     if (widget.seriesName.isNotEmpty && _resolvedVideoFileId != null && _resolvedVideoFileId != 0) {
       _storageService.associateFileWithSeries(widget.seriesName, _resolvedVideoFileId!);
     }
@@ -384,69 +415,6 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         limit: 0,
         synchronous: false,
       ));
-    }
-
-    if (_resolvedVideoFileId == 0) {
-      Log.i('videoFileId is 0, resolving fresh file ID via categories search...');
-      int? freshFileId;
-      for (final category in Constants.categories) {
-        try {
-          final res = await _tdlibService.sendAsync(td.GetMessage(
-            chatId: category.channelId,
-            messageId: widget.messageId,
-          )).timeout(const Duration(seconds: 3));
-          
-          if (res is td.Message) {
-            if (res.content is td.MessageVideo) {
-              freshFileId = (res.content as td.MessageVideo).video.video.id;
-            } else if (res.content is td.MessageDocument) {
-              freshFileId = (res.content as td.MessageDocument).document.document.id;
-            }
-            if (freshFileId != null) {
-              Log.i('Resolved fresh file ID $freshFileId for message ${widget.messageId} in category ${category.title}');
-              break;
-            }
-          }
-        } catch (e) {
-          Log.w('Failed to check category ${category.title} for message ${widget.messageId}: $e');
-        }
-      }
-      _resolvedVideoFileId = freshFileId ?? 0;
-      if (widget.seriesName.isNotEmpty && _resolvedVideoFileId != null && _resolvedVideoFileId != 0) {
-        _storageService.associateFileWithSeries(widget.seriesName, _resolvedVideoFileId!);
-      }
-      _listenToUpdates();
-
-      // Trigger download for newly resolved file ID
-      if (_resolvedVideoFileId != null && _resolvedVideoFileId != 0) {
-        int initialOffset = 0;
-        final savedPos = _storageService.getWatchPosition(widget.messageId);
-        if (savedPos > 0) {
-          final totalDuration = _storageService.getVideoDuration(widget.messageId);
-          final cachedFile = _proxyService.getCachedFile(_resolvedVideoFileId!);
-          final expectedSize = cachedFile?.expectedSize ?? 0;
-          if (totalDuration > 0 && expectedSize > 0) {
-            final fraction = savedPos / totalDuration;
-            initialOffset = (fraction * expectedSize).round();
-            const graceBuffer = 1 * 1024 * 1024;
-            initialOffset = (initialOffset - graceBuffer).clamp(0, expectedSize);
-          }
-        }
-        _initialOffset = initialOffset;
-
-        if (initialOffset > 0) {
-          final cachedFile = _proxyService.getCachedFile(_resolvedVideoFileId!);
-          _proxyService.setDownloadOffset(_resolvedVideoFileId!, initialOffset, cachedFile?.local.downloadedSize ?? 0);
-        }
-
-        _tdlibService.send(td.DownloadFile(
-          fileId: _resolvedVideoFileId!,
-          priority: 32,
-          offset: initialOffset,
-          limit: 0,
-          synchronous: false,
-        ));
-      }
     }
 
     // Play now using the resolved file state (completed file, active download via proxy, or pre-emptively via proxy)
