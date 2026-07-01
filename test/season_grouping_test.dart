@@ -183,33 +183,29 @@ void main() {
       expect(seasons[3].seasonName, 'Season 9');
     });
 
-    test('Smart sequential parser correctly groups interleaved files and ignores unrelated update posters', () {
+    test('Pure chronological sequential parser correctly groups episodes under their preceding posters', () {
       final controller = TestHomeController();
       
       final messages = [
         FakeMessage(
-          id: 125,
-          content: FakeMessageDocument('[SubBel] Marvel Zombies - S01E02.mkv'),
+          id: 104,
+          content: FakeMessageDocument('Marvel Zombies - Episode 2'),
         ),
         FakeMessage(
-          id: 120,
-          content: FakeMessagePhoto('Channel Updates & Info'),
+          id: 103,
+          content: FakeMessageDocument('Marvel Zombies - Episode 1'),
         ),
         FakeMessage(
-          id: 115,
-          content: FakeMessageDocument('[SubBel] Marvel Zombies - S01E01.mkv'),
+          id: 102,
+          content: FakeMessagePhoto('Marvel Zombies'),
         ),
         FakeMessage(
-          id: 110,
-          content: FakeMessagePhoto("Marvel Zombies\nThis is a series"),
-        ),
-        FakeMessage(
-          id: 105,
-          content: FakeMessageDocument("[SubBel] Marvel's The Defenders - S01E01.mkv"),
+          id: 101,
+          content: FakeMessageDocument("Marvel's The Defenders - Episode 1"),
         ),
         FakeMessage(
           id: 100,
-          content: FakeMessagePhoto("Marvel's The Defenders\nThis is a series"),
+          content: FakeMessagePhoto("Marvel's The Defenders"),
         ),
       ];
 
