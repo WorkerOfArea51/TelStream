@@ -43,6 +43,31 @@ class FakeMessage implements td.Message {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
+class FakeMessageDocument implements td.MessageDocument {
+  @override
+  final td.Document document;
+  @override
+  final td.FormattedText caption = const td.FormattedText(text: '', entities: []);
+
+  FakeMessageDocument(String fileName)
+      : document = td.Document(
+          fileName: fileName,
+          mimeType: 'video/x-matroska',
+          thumbnail: null,
+          minithumbnail: null,
+          document: td.File(
+            id: 0,
+            size: 0,
+            expectedSize: 0,
+            local: td.LocalFile(path: '', canBeDownloaded: false, canBeDeleted: false, isDownloadingActive: false, isDownloadingCompleted: false, downloadOffset: 0, downloadedPrefixSize: 0, downloadedSize: 0),
+            remote: td.RemoteFile(id: '', uniqueId: '', isUploadingActive: false, isUploadingCompleted: false, uploadedSize: 0),
+          ),
+        );
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
 class TestHomeController extends HomeController {
   @override
   ChannelCategory get category => const ChannelCategory(
@@ -156,6 +181,45 @@ void main() {
       expect(seasons[1].seasonName, 'Season 7');
       expect(seasons[2].seasonName, 'Season 8');
       expect(seasons[3].seasonName, 'Season 9');
+    });
+
+    test('Smart sequential parser correctly groups interleaved files and ignores unrelated update posters', () {
+      final controller = TestHomeController();
+      
+      final messages = [
+        FakeMessage(
+          id: 125,
+          content: FakeMessageDocument('[SubBel] Marvel Zombies - S01E02.mkv'),
+        ),
+        FakeMessage(
+          id: 120,
+          content: FakeMessagePhoto('Channel Updates & Info'),
+        ),
+        FakeMessage(
+          id: 115,
+          content: FakeMessageDocument('[SubBel] Marvel Zombies - S01E01.mkv'),
+        ),
+        FakeMessage(
+          id: 110,
+          content: FakeMessagePhoto("Marvel Zombies\nThis is a series"),
+        ),
+        FakeMessage(
+          id: 105,
+          content: FakeMessageDocument("[SubBel] Marvel's The Defenders - S01E01.mkv"),
+        ),
+        FakeMessage(
+          id: 100,
+          content: FakeMessagePhoto("Marvel's The Defenders\nThis is a series"),
+        ),
+      ];
+
+      final seriesList = controller.testParse(messages);
+
+      final defendersSeries = seriesList.firstWhere((s) => s.coreName == "Marvel's The Defenders");
+      final zombiesSeries = seriesList.firstWhere((s) => s.coreName == "Marvel Zombies");
+
+      expect(defendersSeries.seasons.first.episodes.length, 1);
+      expect(zombiesSeries.seasons.first.episodes.length, 2);
     });
   });
 }

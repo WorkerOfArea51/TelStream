@@ -746,6 +746,38 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
   }
 
   List<AnimeSeries> _parseMessages(List<td.Message> raw) {
+    List<String> getCleanPosterWords(String baseName) {
+      final stopWords = {
+        'the', 'a', 'of', 'and', 'or', 'in', 'on', 'at', 'to', 'for', 'with',
+        'season', 'ep', 'episode', 'series', 'movie', 'movies', 'anime', 'part', 'vol', 'volume'
+      };
+      return baseName.toLowerCase()
+          .replaceAll(RegExp(r'[^a-zA-Z0-9\s]'), ' ')
+          .split(RegExp(r'\s+'))
+          .map((w) => w.trim())
+          .where((w) => w.length > 1 && !stopWords.contains(w))
+          .toList();
+    }
+
+    List<String> getCleanFilenameTokens(String filename) {
+      return filename.toLowerCase()
+          .replaceAll(RegExp(r'[^a-zA-Z0-9\s]'), ' ')
+          .split(RegExp(r'\s+'))
+          .map((w) => w.trim())
+          .where((w) => w.isNotEmpty)
+          .toList();
+    }
+
+    int getMatchedWordsCount(List<String> posterWords, List<String> epTokens) {
+      int count = 0;
+      for (final w in posterWords) {
+        if (epTokens.any((t) => w.length <= 3 ? t == w : t.startsWith(w))) {
+          count++;
+        }
+      }
+      return count;
+    }
+
     // 1. Separate poster messages and episode messages
     final List<td.Message> posterMessages = [];
     final List<td.Message> episodeMessages = [];
@@ -779,12 +811,6 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
     final Map<String, AnimeSeries> seriesMap = {};
     final List<AnimeSeries> seriesList = [];
     final isMovie = category.title == 'Movies';
-
-    // Stop words to clean poster title words for name matching
-    final stopWords = {
-      'the', 'a', 'of', 'and', 'or', 'in', 'on', 'at', 'to', 'for', 'with',
-      'season', 'ep', 'episode', 'series', 'movie', 'movies', 'anime', 'part', 'vol', 'volume'
-    };
 
     for (final pMsg in posterMessages) {
       final photo = pMsg.content as td.MessagePhoto;
@@ -839,12 +865,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
       }
 
       // Generate clean words for the poster
-      final cleanWords = baseName.toLowerCase()
-          .replaceAll(RegExp(r'[^a-zA-Z0-9\s]'), ' ')
-          .split(RegExp(r'\s+'))
-          .map((w) => w.trim())
-          .where((w) => w.length > 1 && !stopWords.contains(w))
-          .toList();
+      final cleanWords = getCleanPosterWords(baseName);
 
       posterDetails.add({
         'message': pMsg,
@@ -856,7 +877,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
       });
     }
 
-    // 3. Match each episode message to the best poster using proximity & word overlap
+    // 3. Match each episode message to the best poster using sequential proximity & word overlap
     for (final ep in episodeMessages) {
       String fileName = '';
       if (ep.content is td.MessageVideo) {
@@ -865,50 +886,102 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
         fileName = (ep.content as td.MessageDocument).document.fileName;
       }
       
-      final epTokens = fileName.toLowerCase()
-          .replaceAll(RegExp(r'[^a-zA-Z0-9\s]'), ' ')
-          .split(RegExp(r'\s+'))
-          .map((w) => w.trim())
-          .where((w) => w.isNotEmpty)
-          .toList();
+      final epTokens = getCleanFilenameTokens(fileName);
 
-      Map<String, dynamic>? bestPoster;
-      double bestScore = -double.infinity;
+      Map<String, dynamic>? selectedPoster;
 
-      for (final pd in posterDetails) {
-        double nameScore = 0.0;
-        final posterWords = pd['words'] as List<String>;
+      if (isMovie) {
+        // Movies: Match to the chronologically preceding poster (highest ID < ep.id)
+        Map<String, dynamic>? defaultPoster;
+        int maxPrecedingId = -1;
+        for (final pd in posterDetails) {
+          final pMsg = pd['message'] as td.Message;
+          if (pMsg.id < ep.id && pMsg.id > maxPrecedingId) {
+            maxPrecedingId = pMsg.id;
+            defaultPoster = pd;
+          }
+        }
         
-        int matchedWords = 0;
-        if (posterWords.isNotEmpty) {
-          for (final w in posterWords) {
-            if (epTokens.any((t) => w.length <= 3 ? t == w : t.startsWith(w))) {
-              matchedWords++;
+        // Fallback: If no preceding poster, use the closest poster overall
+        if (defaultPoster == null && posterDetails.isNotEmpty) {
+          int minDistance = -1;
+          for (final pd in posterDetails) {
+            final pMsg = pd['message'] as td.Message;
+            final dist = (ep.id - pMsg.id).abs();
+            if (minDistance == -1 || dist < minDistance) {
+              minDistance = dist;
+              defaultPoster = pd;
+            }
+          }
+        }
+        
+        selectedPoster = defaultPoster;
+      } else {
+        // Anime & Web Series: Smart Sequential Parser
+        
+        // A. Find default chronologically preceding poster (highest ID < ep.id)
+        Map<String, dynamic>? defaultPoster;
+        int maxPrecedingId = -1;
+        for (final pd in posterDetails) {
+          final pMsg = pd['message'] as td.Message;
+          if (pMsg.id < ep.id && pMsg.id > maxPrecedingId) {
+            maxPrecedingId = pMsg.id;
+            defaultPoster = pd;
+          }
+        }
+
+        // B. Find best name-matched poster
+        Map<String, dynamic>? bestNamePoster;
+        int maxMatchedWords = 0;
+        
+        for (final pd in posterDetails) {
+          final posterWords = pd['words'] as List<String>;
+          if (posterWords.isNotEmpty) {
+            final matchedCount = getMatchedWordsCount(posterWords, epTokens);
+            if (matchedCount > maxMatchedWords) {
+              maxMatchedWords = matchedCount;
+              bestNamePoster = pd;
             }
           }
         }
 
-        if (matchedWords > 0) {
-          nameScore = 1000.0 + matchedWords * 150.0;
-          if (matchedWords == posterWords.length) {
-            nameScore += 50.0;
+        // C. Combine logic:
+        if (maxMatchedWords > 0 && bestNamePoster != null) {
+          if (defaultPoster == null) {
+            selectedPoster = bestNamePoster;
+          } else {
+            // Check if defaultPoster also has a name match
+            final defaultWords = defaultPoster['words'] as List<String>;
+            final defaultMatchedCount = getMatchedWordsCount(defaultWords, epTokens);
+            
+            // If the best name matched poster is a better match than the default poster,
+            // we override and choose the best name matched poster to resolve interleaved files.
+            if (maxMatchedWords > defaultMatchedCount) {
+              selectedPoster = bestNamePoster;
+            } else {
+              selectedPoster = defaultPoster;
+            }
           }
-        }
-
-        final pMsg = pd['message'] as td.Message;
-        final dist = (ep.id - pMsg.id).abs() >> 20;
-        final proximityScore = 500.0 / (1.0 + (dist / 50.0));
-
-        final totalScore = nameScore + proximityScore;
-
-        if (totalScore > bestScore) {
-          bestScore = totalScore;
-          bestPoster = pd;
+        } else {
+          // If no name match exists at all, fall back purely to chronological preceding poster
+          if (defaultPoster == null && posterDetails.isNotEmpty) {
+            // If no preceding poster, use closest overall poster
+            int minDistance = -1;
+            for (final pd in posterDetails) {
+              final pMsg = pd['message'] as td.Message;
+              final dist = (ep.id - pMsg.id).abs();
+              if (minDistance == -1 || dist < minDistance) {
+                minDistance = dist;
+                defaultPoster = pd;
+              }
+            }
+          }
+          selectedPoster = defaultPoster;
         }
       }
 
-      if (bestPoster != null) {
-        (bestPoster['episodesList'] as List<td.Message>).add(ep);
+      if (selectedPoster != null) {
+        (selectedPoster['episodesList'] as List<td.Message>).add(ep);
       }
     }
 
