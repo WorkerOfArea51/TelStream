@@ -45,65 +45,78 @@ class DownloadService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        intent?.let {
-            val action = it.action
-            val fileId = it.getIntExtra("fileId", -1)
-
-            if (action != null && fileId != -1) {
-                // Send broadcast to MainActivity to forward to Flutter
-                val broadcastIntent = Intent(NOTIFICATION_ACTION).apply {
-                    putExtra("action", action)
-                    putExtra("fileId", fileId)
-                    setPackage(packageName)
-                }
-                sendBroadcast(broadcastIntent)
-
-                // If it is cancel, remove from activeDownloads immediately
-                if (action == ACTION_CANCEL) {
-                    activeDownloads.remove(fileId)
-                }
+        if (intent == null) {
+            val dummyNotification = NotificationCompat.Builder(this, CHANNEL_ID)
+                .setSmallIcon(android.R.drawable.stat_sys_download)
+                .setContentTitle("Service running")
+                .build()
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                startForeground(NOTIFICATION_ID, dummyNotification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
             } else {
-                val title = it.getStringExtra("title") ?: "Download"
-                val progress = it.getDoubleExtra("progress", 0.0)
-                val isCompleted = it.getBooleanExtra("isCompleted", false)
-                val isCancelled = it.getBooleanExtra("isCancelled", false)
-                val isPaused = it.getBooleanExtra("isPaused", false)
-
-                if (fileId != -1) {
-                    if (isCancelled || isCompleted) {
-                        activeDownloads.remove(fileId)
-                    } else {
-                        activeDownloads[fileId] = Triple(title, progress, isPaused)
-                    }
-                }
+                startForeground(NOTIFICATION_ID, dummyNotification)
             }
+            stopSelf(startId)
+            return START_NOT_STICKY
+        }
 
-            if (activeDownloads.isEmpty()) {
-                val dummyNotification = NotificationCompat.Builder(this, CHANNEL_ID)
-                    .setSmallIcon(android.R.drawable.stat_sys_download)
-                    .setContentTitle("Download completed")
-                    .build()
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                    startForeground(
-                        NOTIFICATION_ID,
-                        dummyNotification,
-                        ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
-                    )
-                } else {
-                    startForeground(NOTIFICATION_ID, dummyNotification)
-                }
+        val action = intent.action
+        val fileId = intent.getIntExtra("fileId", -1)
 
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                    stopForeground(STOP_FOREGROUND_REMOVE)
+        if (action != null && fileId != -1) {
+            // Send broadcast to MainActivity to forward to Flutter
+            val broadcastIntent = Intent(NOTIFICATION_ACTION).apply {
+                putExtra("action", action)
+                putExtra("fileId", fileId)
+                setPackage(packageName)
+            }
+            sendBroadcast(broadcastIntent)
+
+            // If it is cancel, remove from activeDownloads immediately
+            if (action == ACTION_CANCEL) {
+                activeDownloads.remove(fileId)
+            }
+        } else {
+            val title = intent.getStringExtra("title") ?: "Download"
+            val progress = intent.getDoubleExtra("progress", 0.0)
+            val isCompleted = intent.getBooleanExtra("isCompleted", false)
+            val isCancelled = intent.getBooleanExtra("isCancelled", false)
+            val isPaused = intent.getBooleanExtra("isPaused", false)
+
+            if (fileId != -1) {
+                if (isCancelled || isCompleted) {
+                    activeDownloads.remove(fileId)
                 } else {
-                    @Suppress("DEPRECATION")
-                    stopForeground(true)
+                    activeDownloads[fileId] = Triple(title, progress, isPaused)
                 }
-                stopSelf()
-            } else {
-                showOrUpdateNotification()
             }
         }
+
+        if (activeDownloads.isEmpty()) {
+            val dummyNotification = NotificationCompat.Builder(this, CHANNEL_ID)
+                .setSmallIcon(android.R.drawable.stat_sys_download)
+                .setContentTitle("Download completed")
+                .build()
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                startForeground(
+                    NOTIFICATION_ID,
+                    dummyNotification,
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
+                )
+            } else {
+                startForeground(NOTIFICATION_ID, dummyNotification)
+            }
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                stopForeground(STOP_FOREGROUND_REMOVE)
+            } else {
+                @Suppress("DEPRECATION")
+                stopForeground(true)
+            }
+            stopSelf(startId)
+        } else {
+            showOrUpdateNotification()
+        }
+        
         return START_NOT_STICKY
     }
 

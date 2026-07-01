@@ -21,6 +21,7 @@ class DownloadTask {
   final int etaSeconds;
   final bool isScheduled;
   final bool isPaused;
+  final bool isQueued;
 
   DownloadTask({
     required this.fileId,
@@ -33,6 +34,7 @@ class DownloadTask {
     this.etaSeconds = 0,
     this.isScheduled = false,
     this.isPaused = false,
+    this.isQueued = false,
   });
 
   DownloadTask copyWith({
@@ -43,6 +45,7 @@ class DownloadTask {
     int? etaSeconds,
     bool? isScheduled,
     bool? isPaused,
+    bool? isQueued,
   }) {
     return DownloadTask(
       fileId: fileId,
@@ -55,6 +58,7 @@ class DownloadTask {
       etaSeconds: etaSeconds ?? this.etaSeconds,
       isScheduled: isScheduled ?? this.isScheduled,
       isPaused: isPaused ?? this.isPaused,
+      isQueued: isQueued ?? this.isQueued,
     );
   }
 
@@ -484,6 +488,36 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
     }
   }
 
+  static const int _maxConcurrentDownloads = 3;
+
+  int get _activeDownloadCount {
+    return state.values.where((t) => !t.isCompleted && !t.isPaused && !t.isScheduled && !t.isQueued && !_pausedForStreamingFileIds.contains(t.fileId)).length;
+  }
+
+  void _processQueue() {
+    int activeCount = _activeDownloadCount;
+    if (activeCount < _maxConcurrentDownloads) {
+      final queuedTasks = state.values.where((t) => t.isQueued && !t.isPaused && !t.isScheduled && !_pausedForStreamingFileIds.contains(t.fileId)).toList();
+      if (queuedTasks.isNotEmpty) {
+        final tasksToStart = queuedTasks.take(_maxConcurrentDownloads - activeCount).toList();
+        final Map<int, DownloadTask> updated = {...state};
+        
+        for (final task in tasksToStart) {
+          updated[task.fileId] = task.copyWith(isQueued: false);
+          ref.read(tdlibServiceProvider).send(td.DownloadFile(
+            fileId: task.fileId,
+            priority: 32,
+            offset: 0,
+            limit: 0,
+            synchronous: false,
+          ));
+          Log.i('Queue Manager: Started download for ${task.title}');
+        }
+        state = updated;
+      }
+    }
+  }
+
   Future<void> startDownload(int fileId, String title, {int? messageId, int? chatId}) async {
     int finalFileId = fileId;
 
@@ -544,6 +578,8 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
     }
 
     // Register the task in memory
+    bool willBeQueued = !isScheduledNow && _activeDownloadCount >= _maxConcurrentDownloads;
+
     state = {
       ...state,
       finalFileId: DownloadTask(
@@ -551,6 +587,7 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
         messageId: messageId,
         title: title,
         isScheduled: isScheduledNow,
+        isQueued: willBeQueued,
       ),
     };
 
@@ -560,7 +597,7 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
     // Notify native background download service to start
     _updateNativeNotification(finalFileId, title, 0.0);
 
-    if (!isScheduledNow) {
+    if (!isScheduledNow && !willBeQueued) {
       // Send TDLib DownloadFile command
       ref.read(tdlibServiceProvider).send(td.DownloadFile(
         fileId: finalFileId,
@@ -569,6 +606,8 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
         limit: 0,
         synchronous: false,
       ));
+    } else if (willBeQueued) {
+      Log.i('Download queued (max concurrent reached): $title');
     }
     _updatePwmState();
   }
@@ -592,26 +631,34 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
 
     _updateNativeNotification(fileId, task.title, task.progress, isPaused: true);
     _updatePwmState();
+    _processQueue();
   }
 
   Future<void> resumeDownload(int fileId) async {
     final task = state[fileId];
     if (task == null || !task.isPaused) return;
 
+    bool willBeQueued = _activeDownloadCount >= _maxConcurrentDownloads;
+
     state = {
       ...state,
       fileId: task.copyWith(
         isPaused: false,
+        isQueued: willBeQueued,
       ),
     };
 
-    ref.read(tdlibServiceProvider).send(td.DownloadFile(
-      fileId: fileId,
-      priority: 32,
-      offset: 0,
-      limit: 0,
-      synchronous: false,
-    ));
+    if (!willBeQueued) {
+      ref.read(tdlibServiceProvider).send(td.DownloadFile(
+        fileId: fileId,
+        priority: 32,
+        offset: 0,
+        limit: 0,
+        synchronous: false,
+      ));
+    } else {
+      Log.i('Resumed download queued (max concurrent reached): ${task.title}');
+    }
 
     _updateNativeNotification(fileId, task.title, task.progress, isPaused: false);
     _updatePwmState();
@@ -642,6 +689,7 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
 
     state = {...state}..remove(fileId);
     _updatePwmState();
+    _processQueue();
   }
 
   Future<void> _saveFilePermanently(int fileId, String tempPath, String title) async {
@@ -669,6 +717,7 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
 
       // 4. Construct path (clean, no fileId prefixes)
       final permanentPath = '${downloadsDir.path}/$cleanTitle.$ext';
+      final partPath = '$permanentPath.part';
 
       final tempFile = File(tempPath);
       if (await tempFile.exists()) {
@@ -677,12 +726,15 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
           throw Exception("Temp file size is 0 bytes");
         }
         
-        final permFile = await tempFile.copy(permanentPath);
-        final permSize = await permFile.length();
+        final partFile = await tempFile.copy(partPath);
+        final permSize = await partFile.length();
         
         if (permSize != tempSize) {
+          await partFile.delete();
           throw Exception("Copied file size ($permSize bytes) does not match original size ($tempSize bytes)");
         }
+        
+        final permFile = await partFile.rename(permanentPath);
         
         try {
           await tempFile.delete();
@@ -715,6 +767,7 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
       // Notify native background download service of success
       _updateNativeNotification(fileId, title, 1.0, isCompleted: true);
       _updatePwmState();
+      _processQueue();
 
     } catch (e, stackTrace) {
       Log.e('FAILED TO SAVE FILE PERMANENTLY', e, stackTrace);

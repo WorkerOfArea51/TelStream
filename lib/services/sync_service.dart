@@ -88,9 +88,8 @@ class ProgressSyncNotifier extends Notifier<void> {
       final List<dynamic> cloudLog = cloudData['history_log'] ?? [];
       final Map<String, Map<String, dynamic>> logMap = {};
       for (final item in [...localLog, ...cloudLog]) {
-        final seriesName = item['seriesName'];
-        final episodeIndex = item['episodeIndex'];
-        final key = '$seriesName-$episodeIndex';
+        final messageId = item['messageId'];
+        final key = '$messageId';
         final existing = logMap[key];
         if (existing == null || (item['timestamp'] ?? 0) > (existing['timestamp'] ?? 0)) {
           logMap[key] = Map<String, dynamic>.from(item);
@@ -300,9 +299,8 @@ class ProgressSyncNotifier extends Notifier<void> {
     final List<dynamic> cloudLog = cloudData['history_log'] ?? [];
     final Map<String, Map<String, dynamic>> logMap = {};
     for (final item in [...localLog, ...cloudLog]) {
-      final seriesName = item['seriesName'];
-      final episodeIndex = item['episodeIndex'];
-      final key = '$seriesName-$episodeIndex';
+      final messageId = item['messageId'];
+      final key = '$messageId';
       final existing = logMap[key];
       if (existing == null || (item['timestamp'] ?? 0) > (existing['timestamp'] ?? 0)) {
         logMap[key] = Map<String, dynamic>.from(item);

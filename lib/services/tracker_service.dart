@@ -44,6 +44,10 @@ class TrackerService {
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
+        if (data['errors'] != null && (data['errors'] as List).isNotEmpty) {
+          Log.w('AniList search GraphQL error for $name: ${data['errors']}');
+          return null;
+        }
         final id = data['data']?['Media']?['id'] as int?;
         if (id != null) {
           await _storage.setAnilistIdForSeries(name, id);
@@ -89,6 +93,11 @@ class TrackerService {
       ).timeout(const Duration(seconds: 5));
 
       if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['errors'] != null && (data['errors'] as List).isNotEmpty) {
+          Log.w('AniList progress update GraphQL error: ${data['errors']}');
+          return false;
+        }
         Log.i('AniList updated progress successfully for mediaId=$mediaId to ep=$episode');
         return true;
       } else {

@@ -2,8 +2,10 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:ffi';
 import 'dart:convert';
+import 'dart:math';
 import 'package:ffi/ffi.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:tdlib/td_client.dart';
 import 'package:tdlib/td_api.dart' as td;
 import 'package:path_provider/path_provider.dart';
@@ -53,6 +55,18 @@ class TdlibService {
     } catch (_) {}
   }
 
+  Future<String> _loadOrCreateDbEncryptionKey() async {
+    const storage = FlutterSecureStorage();
+    String? key = await storage.read(key: 'tdlib_db_key');
+    if (key == null || key.isEmpty) {
+      final random = Random.secure();
+      final values = List<int>.generate(32, (i) => random.nextInt(256));
+      key = base64UrlEncode(values);
+      await storage.write(key: 'tdlib_db_key', value: key);
+    }
+    return key;
+  }
+
   Future<void> init(
     int apiId,
     String apiHash, {
@@ -91,6 +105,15 @@ class TdlibService {
     _initNativeLibrary();
     _startEventLoop();
 
+    final dbKey = await _loadOrCreateDbEncryptionKey();
+    
+    String deviceModel = 'Unknown';
+    if (Platform.isAndroid) deviceModel = 'Android';
+    else if (Platform.isIOS) deviceModel = 'iOS';
+    else if (Platform.isMacOS) deviceModel = 'macOS';
+    else if (Platform.isWindows) deviceModel = 'Windows';
+    else if (Platform.isLinux) deviceModel = 'Linux';
+
     final params = td.SetTdlibParameters(
       useTestDc: false,
       databaseDirectory: safePath,
@@ -102,12 +125,12 @@ class TdlibService {
       apiId: apiId,
       apiHash: apiHash,
       systemLanguageCode: 'en',
-      deviceModel: 'Windows',
-      systemVersion: '10',
+      deviceModel: deviceModel,
+      systemVersion: Platform.operatingSystemVersion,
       applicationVersion: '1.0',
       enableStorageOptimizer: true,
       ignoreFileNames: false,
-      databaseEncryptionKey: '', 
+      databaseEncryptionKey: dbKey, 
     );
     send(params);
 

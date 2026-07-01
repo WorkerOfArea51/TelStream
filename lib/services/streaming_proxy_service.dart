@@ -337,29 +337,7 @@ class StreamingProxyService {
           }
 
           List<int>? preReadBytes;
-          
-          // Fast content-level cache check: if metadata is inconclusive, inspect file directly.
-          // Since TDLib pre-allocates files with zeroes, if we find any non-zero byte in this chunk on disk,
-          // it means this chunk was already successfully downloaded from a previous session and is ready.
-          if (!isAvailable) {
-            try {
-              await raf.setPosition(currentOffset);
-              final checkBytes = await raf.read(chunkNeeded);
-              if (checkBytes.isNotEmpty) {
-                bool hasData = false;
-                for (int i = 0; i < checkBytes.length; i++) {
-                  if (checkBytes[i] != 0) {
-                    hasData = true;
-                    break;
-                  }
-                }
-                if (hasData) {
-                  isAvailable = true;
-                  preReadBytes = checkBytes;
-                }
-              }
-            } catch (_) {}
-          }
+          // REMOVED: Unsafe zero-byte check that causes video corruption. We now rely strictly on TDLib's reported downloaded bounds.
 
           // If not ready, wait event-driven without polling TDLib
           if (!isAvailable) {
@@ -430,29 +408,6 @@ class StreamingProxyService {
                     if (targetEndOffset <= availableRangeEnd) {
                       checkAvailable = true;
                     }
-                  }
-
-                  final activeRaf = raf;
-                  if (!checkAvailable && activeRaf != null) {
-                    try {
-                      activeRaf.setPosition(currentOffset).then((_) {
-                        activeRaf.read(chunkNeeded).then((checkBytes) {
-                          if (checkBytes.isNotEmpty) {
-                            bool hasData = false;
-                            for (int i = 0; i < checkBytes.length; i++) {
-                              if (checkBytes[i] != 0) {
-                                  hasData = true;
-                                  break;
-                              }
-                            }
-                            if (hasData && !waitCompleter.isCompleted) {
-                              available = true;
-                              waitCompleter.complete();
-                            }
-                          }
-                        });
-                      });
-                    } catch (_) {}
                   }
 
                   if (checkAvailable) {

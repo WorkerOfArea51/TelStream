@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tdlib/td_api.dart' as td;
@@ -19,9 +20,11 @@ class GlobalSearchScreen extends ConsumerStatefulWidget {
 class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
   final TextEditingController _searchController = TextEditingController();
   String _query = '';
+  Timer? _debounce;
 
   @override
   void dispose() {
+    _debounce?.cancel();
     _searchController.dispose();
     super.dispose();
   }
@@ -122,8 +125,13 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
                 : null,
           ),
           onChanged: (val) {
-            setState(() {
-              _query = val;
+            _debounce?.cancel();
+            _debounce = Timer(const Duration(milliseconds: 300), () {
+              if (mounted) {
+                setState(() {
+                  _query = val;
+                });
+              }
             });
           },
           onSubmitted: (val) {

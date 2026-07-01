@@ -84,7 +84,11 @@ class StorageService {
     if (await _file!.exists()) {
       try {
         final content = await _file!.readAsString();
-        _data = json.decode(content);
+        final decoded = json.decode(content);
+        if (decoded is! Map<String, dynamic>) {
+          throw const FormatException('Storage file does not contain a JSON object');
+        }
+        _data = decoded;
         loaded = true;
         Log.i('User storage loaded successfully');
       } catch (e) {
@@ -95,7 +99,11 @@ class StorageService {
     if (!loaded && await backupFile.exists()) {
       try {
         final content = await backupFile.readAsString();
-        _data = json.decode(content);
+        final decoded = json.decode(content);
+        if (decoded is! Map<String, dynamic>) {
+          throw const FormatException('Backup storage file does not contain a JSON object');
+        }
+        _data = decoded;
         loaded = true;
         Log.i('User storage loaded successfully from backup file');
         // Restore primary from backup
@@ -274,10 +282,9 @@ class StorageService {
     _data['history_log'] ??= [];
     final List<dynamic> logs = List.from(_data['history_log']);
     
-    // Remove if already exists for this episode/series to avoid duplicates in the timeline
+    // Remove if already exists for this messageId to avoid duplicates in the timeline
     logs.removeWhere((item) => 
-      item['seriesName'] == seriesName && 
-      item['episodeIndex'] == episodeIndex
+      item['messageId'] == messageId
     );
     
     logs.insert(0, {

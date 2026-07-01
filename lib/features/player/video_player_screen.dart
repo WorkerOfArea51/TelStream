@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:tdlib/td_api.dart' as td;
+import 'package:wakelock_plus/wakelock_plus.dart';
 import '../../services/tdlib_service.dart';
 import '../../services/storage_service.dart';
 import '../../services/download_service.dart';
@@ -97,6 +98,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
     _initDownload();
     
     if (!widget.isPip) {
+      WakelockPlus.enable();
       SystemChrome.setPreferredOrientations([
         DeviceOrientation.landscapeLeft,
         DeviceOrientation.landscapeRight,
@@ -126,8 +128,8 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
       });
     }
 
-    _saveTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
-      if (_settings.savePositionOnQuit && player.state.position.inSeconds > 0) {
+    _saveTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
+      if (_settings.savePositionOnQuit && player.state.position.inSeconds > 0 && player.state.playing) {
         _storageService.saveWatchPosition(widget.messageId, player.state.position.inSeconds);
         if (player.state.duration.inSeconds > 0) {
           _storageService.saveVideoDuration(widget.messageId, player.state.duration.inSeconds);
@@ -573,6 +575,9 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
 
   @override
   void dispose() {
+    if (!widget.isPip) {
+      WakelockPlus.disable();
+    }
     _cancelPreloadOfNextEpisode();
     WidgetsBinding.instance.removeObserver(this);
     // Redundant pause/stop removed to prevent race conditions during player disposal

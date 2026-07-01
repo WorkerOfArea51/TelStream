@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:device_info_plus/device_info_plus.dart';
+import 'package:crypto/crypto.dart';
 import '../core/logger.dart';
 import '../core/secrets.dart';
 import '../core/widgets/wavy_progress_indicators.dart';
@@ -15,12 +16,14 @@ class AppUpdateInfo {
   final String latestVersion;
   final String releaseNotes;
   final String releaseUrl;
+  final String expectedSha256;
 
   AppUpdateInfo({
     required this.isUpdateAvailable,
     required this.latestVersion,
     required this.releaseNotes,
     required this.releaseUrl,
+    this.expectedSha256 = '',
   });
 }
 
@@ -116,12 +119,20 @@ class UpdateService {
         final currentBuild = getCurrentBuildNumber();
         final latestBuild = parseBuildNumber(latestTagName);
 
+        String parsedSha256 = '';
+        final sha256Regex = RegExp(r'(?:SHA-?256[:\s]*)([a-fA-F0-9]{64})', caseSensitive: false);
+        final match = sha256Regex.firstMatch(releaseNotes);
+        if (match != null) {
+          parsedSha256 = match.group(1)?.toLowerCase() ?? '';
+        }
+
         if (latestBuild != null && latestBuild > currentBuild) {
           return AppUpdateInfo(
             isUpdateAvailable: true,
             latestVersion: latestName,
             releaseNotes: releaseNotes,
             releaseUrl: downloadUrl,
+            expectedSha256: parsedSha256,
           );
         }
         
@@ -130,6 +141,7 @@ class UpdateService {
           latestVersion: latestName,
           releaseNotes: releaseNotes,
           releaseUrl: downloadUrl,
+          expectedSha256: parsedSha256,
         );
       }
     } catch (e, stack) {
@@ -237,6 +249,19 @@ class _UpdateDialogContentState extends State<UpdateDialogContent> {
 
       await fileSink.flush();
       await fileSink.close();
+
+      setState(() {
+        _statusText = "Verifying update integrity...";
+        _progress = null;
+      });
+
+      if (widget.updateInfo.expectedSha256.isNotEmpty) {
+        final digest = await sha256.bind(tempFile.openRead()).first;
+        if (digest.toString() != widget.updateInfo.expectedSha256) {
+          await tempFile.delete();
+          throw Exception("Security Exception: Installer integrity check failed. SHA-256 hash mismatch.");
+        }
+      }
 
       setState(() {
         _statusText = "Preparing installation...";

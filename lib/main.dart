@@ -18,6 +18,9 @@ void main() async {
   runZonedGuarded(() async {
     WidgetsFlutterBinding.ensureInitialized();
     
+    ProviderContainer? container;
+    Object? startupError;
+
     try {
       final appData = Platform.environment['APPDATA'] ?? '';
       final dirPath = Platform.isWindows 
@@ -27,7 +30,7 @@ void main() async {
 
       MediaKit.ensureInitialized();
       
-      final container = ProviderContainer();
+      container = ProviderContainer();
       
       // Parallelize independent initializations for faster cold startup
       await Future.wait([
@@ -38,15 +41,34 @@ void main() async {
       // Pre-warm the streaming proxy provider to start the HTTP server early
       container.read(streamingProxyServiceProvider);
       
-      runApp(
-        UncontrolledProviderScope(
-          container: container,
-          child: const TelStreamApp(),
-        ),
-      );
     } catch (e, stack) {
+      startupError = e;
       Log.e('Fatal error during startup: $e', stack);
     }
+
+    runApp(
+      startupError != null
+          ? MaterialApp(
+              debugShowCheckedModeBanner: false,
+              home: Scaffold(
+                backgroundColor: Colors.black,
+                body: Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24.0),
+                    child: Text(
+                      'Fatal Error: $startupError\n\nPlease reinstall the app.',
+                      style: const TextStyle(color: Colors.redAccent, fontSize: 16),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+              ),
+            )
+          : UncontrolledProviderScope(
+              container: container!,
+              child: const TelStreamApp(),
+            ),
+    );
   }, (error, stack) {
     Log.e('Uncaught asynchronous error: $error', stack);
   });

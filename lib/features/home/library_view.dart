@@ -31,6 +31,7 @@ class _LibraryViewState extends ConsumerState<LibraryView> with SingleTickerProv
   late final TabController _subTabController;
   final ScrollController _scrollController = ScrollController();
   final TextEditingController _searchController = TextEditingController();
+  Timer? _debounce;
   
   bool _isSearching = false;
   int _activeSubTabIndex = 0;
@@ -83,6 +84,7 @@ class _LibraryViewState extends ConsumerState<LibraryView> with SingleTickerProv
 
   @override
   void dispose() {
+    _debounce?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     _subTabController.dispose();
     _scrollController.dispose();
@@ -149,7 +151,10 @@ class _LibraryViewState extends ConsumerState<LibraryView> with SingleTickerProv
                                     icon: Icon(Icons.search, color: subTextColor, size: 20),
                                   ),
                                   onChanged: (val) {
-                                    ref.read(provider.notifier).search(val);
+                                    _debounce?.cancel();
+                                    _debounce = Timer(const Duration(milliseconds: 300), () {
+                                      ref.read(provider.notifier).search(val);
+                                    });
                                   },
                                 ),
                               )
