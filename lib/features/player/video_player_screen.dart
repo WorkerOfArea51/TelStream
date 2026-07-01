@@ -386,24 +386,6 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
       ));
     }
 
-    // Play now if path is already resolved by TDLib
-    if (initialFileState != null && initialFileState.local.path.isNotEmpty) {
-      final localPath = initialFileState.local.path;
-      if (initialFileState.local.isDownloadingCompleted) {
-        Log.i('Instant playback: playing cached completed file path: $localPath');
-        _startPlayback(localPath);
-        if (!_nextEpisodePreloaded) {
-          _nextEpisodePreloaded = true;
-          _preloadNextEpisode();
-        }
-      } else {
-        Log.i('Instant playback: streaming active download via proxy: $localPath');
-        _proxyService.setDownloadOffset(_resolvedVideoFileId!, _initialOffset, initialFileState.local.downloadedSize);
-        final proxyUrl = _proxyService.getProxyUrl(_resolvedVideoFileId!, fileName: widget.videoTitle);
-        _startPlayback(proxyUrl);
-      }
-    }
-
     if (_resolvedVideoFileId == 0) {
       Log.i('videoFileId is 0, resolving fresh file ID via categories search...');
       int? freshFileId;
@@ -464,6 +446,33 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
           limit: 0,
           synchronous: false,
         ));
+      }
+    }
+
+    // Play now using the resolved file state (completed file, active download via proxy, or pre-emptively via proxy)
+    if (_resolvedVideoFileId != null && _resolvedVideoFileId != 0) {
+      final cachedFile = _proxyService.getCachedFile(_resolvedVideoFileId!) ?? initialFileState;
+      if (cachedFile != null && cachedFile.local.path.isNotEmpty) {
+        final localPath = cachedFile.local.path;
+        if (cachedFile.local.isDownloadingCompleted) {
+          Log.i('Instant playback: playing cached completed file path: $localPath');
+          _startPlayback(localPath);
+          if (!_nextEpisodePreloaded) {
+            _nextEpisodePreloaded = true;
+            _preloadNextEpisode();
+          }
+        } else {
+          Log.i('Instant playback: streaming active download via proxy: $localPath');
+          _proxyService.setDownloadOffset(_resolvedVideoFileId!, _initialOffset, cachedFile.local.downloadedSize);
+          final proxyUrl = _proxyService.getProxyUrl(_resolvedVideoFileId!, fileName: widget.videoTitle);
+          _startPlayback(proxyUrl);
+        }
+      } else {
+        // Fallback: start playback via proxy immediately even if path isn't allocated on disk yet
+        Log.i('Pre-emptive playback fallback: starting proxy streaming immediately for fileId: $_resolvedVideoFileId');
+        _proxyService.setDownloadOffset(_resolvedVideoFileId!, _initialOffset, cachedFile?.local.downloadedSize ?? 0);
+        final proxyUrl = _proxyService.getProxyUrl(_resolvedVideoFileId!, fileName: widget.videoTitle);
+        _startPlayback(proxyUrl);
       }
     }
   }
