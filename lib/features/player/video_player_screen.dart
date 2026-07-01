@@ -1101,51 +1101,46 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
       if (player.platform is NativePlayer) {
         final nativePlayer = player.platform as NativePlayer;
         
-        // Enable cache and buffers
+        // Enable cache and buffers aggressively
         nativePlayer.setProperty('cache', 'yes');
-        nativePlayer.setProperty('demuxer-max-back-bytes', '16777216'); // 16 MB back buffer (instant backward seek)
+        nativePlayer.setProperty('demuxer-max-bytes', '209715200'); // 200 MB cache (prevents connection stalls)
+        nativePlayer.setProperty('demuxer-max-back-bytes', '52428800'); // 50 MB back buffer (fast seeking)
+        nativePlayer.setProperty('demuxer-readahead-secs', '180'); // Cache up to 180 seconds ahead
         
         // Prevent artificial freeze/stall on first load by disabling hard pause-initial locks
         nativePlayer.setProperty('cache-pause', 'yes'); 
         nativePlayer.setProperty('cache-pause-initial', 'yes'); 
+        nativePlayer.setProperty('cache-pause-wait', '5'); // Buffer 5 seconds before resuming play
+        nativePlayer.setProperty('cache-secs', '180'); // Max caching seconds
         nativePlayer.setProperty('hr-seek', 'no'); // Disable high-precision seeking to avoid frame decoding stalls
         
         nativePlayer.setProperty('audio-pitch-correction', 'yes');
         nativePlayer.setProperty('audio-buffer', '0.2'); // 0.2s audio buffer
-        nativePlayer.setProperty('framedrop', 'no'); // Disable frame-dropping to prevent auto-skipping seconds
+        nativePlayer.setProperty('framedrop', 'vo'); // Drop late video frames to keep audio synchronized and prevent stuttering
         nativePlayer.setProperty('sub-fix-timing', 'yes');
-        nativePlayer.setProperty('stream-buffer-size', '8388608'); // 8 MB stream buffer
+        nativePlayer.setProperty('stream-buffer-size', '16777216'); // 16 MB stream buffer (faster download pipeline)
         
-        // Fix glitching on all decoders by ensuring standard-compliant decoding
-        nativePlayer.setProperty('vd-lavc-fast', 'no'); // Disable fast decoding optimizations (which causes macroblock glitching/artifacts)
-        nativePlayer.setProperty('vd-lavc-skiploopfilter', 'none'); // Ensure loop filtering is active to prevent pixelated/blocky rendering
+        // Fix glitching on all decoders by optimizing decoder loops
+        nativePlayer.setProperty('vd-lavc-fast', 'yes'); // Enable fast decoding optimizations
+        nativePlayer.setProperty('vd-lavc-skiploopfilter', 'bidir'); // Skip loop filter for B-frames to save massive CPU cycles
         nativePlayer.setProperty('vd-lavc-check-hw-profile', 'no'); // Skip HW profile validation to prevent decoder load failures
         nativePlayer.setProperty('vd-lavc-threads', '0'); // Auto threads for multi-threaded decoding
         nativePlayer.setProperty('vd-lavc-show-all', 'no'); // Discard corrupted/smeared frames instead of displaying them
         nativePlayer.setProperty('vd-lavc-er', 'careful'); // Enable high error resilience to conceal stream packet drops
         nativePlayer.setProperty('hwdec-extra-frames', '64'); // Allocate larger buffer pool on mobile GPUs to prevent frame drops
         
-        nativePlayer.setProperty('demuxer-max-bytes', '104857600'); // 100 MB cache
-        nativePlayer.setProperty('demuxer-readahead-secs', '60');
-        nativePlayer.setProperty('cache-pause-wait', '3'); // Buffer 3 seconds instead of 5
-
-        final settings = ref.read(videoSettingsProvider);
-        final targetLibass = settings.subtitleRendererMode == 'native';
-
         final hwDecMode = _storageService.getHardwareDecoderMode();
         if (Platform.isAndroid) {
-          if (targetLibass) {
-            // Force software decoding for native subtitles to allow libass blending to work
-            nativePlayer.setProperty('hwdec', 'no');
-            Log.i('Forced software decoding (hwdec=no) on player init for native subtitle rendering');
-          } else if (hwDecMode != 'no') {
+          if (hwDecMode != 'no') {
             nativePlayer.setProperty('hwdec', hwDecMode);
             Log.i('Set hardware decoder mode to $hwDecMode on player init');
           } else {
             nativePlayer.setProperty('hwdec', 'no');
+            Log.i('Hardware decoder mode is disabled (no) on player init');
           }
         } else {
           nativePlayer.setProperty('hwdec', hwDecMode);
+          Log.i('Set hardware decoder mode to $hwDecMode on player init (PC)');
         }
         // Always configure native subtitle rendering (libass)
         if (localFont != null) {
