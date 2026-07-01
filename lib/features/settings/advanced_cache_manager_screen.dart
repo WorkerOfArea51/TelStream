@@ -754,25 +754,42 @@ class _AdvancedCacheManagerScreenState extends ConsumerState<AdvancedCacheManage
     int pSize = 0;
     int tSize = 0;
 
-    int getDirSize(String path) {
-      int size = 0;
+    void scanDir(String path, bool isTemp) {
       try {
         final dir = Directory(path);
         if (dir.existsSync()) {
           for (final f in dir.listSync(recursive: true, followLinks: false)) {
             if (f is File) {
-              size += f.lengthSync();
+              final len = f.lengthSync();
+              if (isTemp) {
+                // TDLib stores active streaming segments as extensionless file IDs inside the 'temp' folder.
+                // Any file in 'temp' larger than 1MB is a video cache buffer.
+                if (len > 1 * 1024 * 1024) {
+                  vSize += len;
+                } else {
+                  tSize += len;
+                }
+              } else {
+                final normalizedPath = path.toLowerCase();
+                if (normalizedPath.contains('videos') || normalizedPath.contains('documents')) {
+                  vSize += len;
+                } else if (normalizedPath.contains('photos') || normalizedPath.contains('thumbnails')) {
+                  pSize += len;
+                } else {
+                  dSize += len;
+                }
+              }
             }
           }
         }
       } catch (_) {}
-      return size;
     }
 
-    vSize = getDirSize('$docPath/videos');
-    dSize = getDirSize('$docPath/documents');
-    pSize = getDirSize('$docPath/photos');
-    tSize = getDirSize('$docPath/temp');
+    scanDir('$docPath/videos', false);
+    scanDir('$docPath/documents', false);
+    scanDir('$docPath/photos', false);
+    scanDir('$docPath/thumbnails', false);
+    scanDir('$docPath/temp', true);
 
     return [vSize, dSize, pSize, tSize];
   }

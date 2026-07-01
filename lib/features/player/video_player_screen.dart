@@ -380,6 +380,27 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
               _expectedSize = res.expectedSize;
             });
           }
+
+          // If the file is completed but path is empty, trigger a quick DownloadFile to force TDLib to resolve the path
+          if (res.local.isDownloadingCompleted && res.local.path.isEmpty) {
+            _tdlibService.send(td.DownloadFile(
+              fileId: _resolvedVideoFileId!,
+              priority: 1,
+              offset: 0,
+              limit: 0,
+              synchronous: false,
+            ));
+            
+            // Wait up to 1.5 seconds for the path to resolve
+            for (int i = 0; i < 15; i++) {
+              await Future.delayed(const Duration(milliseconds: 100));
+              final fresh = await _tdlibService.sendAsync(td.GetFile(fileId: _resolvedVideoFileId!));
+              if (fresh is td.File && fresh.local.path.isNotEmpty) {
+                initialFileState = fresh;
+                break;
+              }
+            }
+          }
         }
       } catch (e) {
         Log.w('Failed fast local GetFile check: $e');

@@ -48,7 +48,7 @@ class StreamingProxyService {
     final activeOffset = _activeDownloadOffsets[fileId] ?? 0;
     final baseDownloaded = _downloadedSizeAtOffsets[fileId] ?? 0;
     final downloadedDelta = tdFile.local.downloadedSize - baseDownloaded;
-    final activeRangeEnd = activeOffset + downloadedDelta;
+    final activeRangeEnd = activeOffset + (downloadedDelta > 0 ? downloadedDelta : tdFile.local.downloadedSize);
 
     if (start >= activeOffset && end <= activeRangeEnd) return true;
 
@@ -330,7 +330,7 @@ class StreamingProxyService {
           } else if (currentOffset >= activeOffset) {
             // Check active download delta
             final downloadedDelta = currentFile.local.downloadedSize - baseDownloaded;
-            final availableRangeEnd = activeOffset + downloadedDelta;
+            final availableRangeEnd = activeOffset + (downloadedDelta > 0 ? downloadedDelta : currentFile.local.downloadedSize);
             if (targetEndOffset <= availableRangeEnd) {
               isAvailable = true;
             }
@@ -426,10 +426,33 @@ class StreamingProxyService {
                     checkAvailable = true;
                   } else if (currentOffset >= activeOffset) {
                     final downloadedDelta = event.file.local.downloadedSize - baseDownloaded;
-                    final availableRangeEnd = activeOffset + downloadedDelta;
+                    final availableRangeEnd = activeOffset + (downloadedDelta > 0 ? downloadedDelta : event.file.local.downloadedSize);
                     if (targetEndOffset <= availableRangeEnd) {
                       checkAvailable = true;
                     }
+                  }
+
+                  final activeRaf = raf;
+                  if (!checkAvailable && activeRaf != null) {
+                    try {
+                      activeRaf.setPosition(currentOffset).then((_) {
+                        activeRaf.read(chunkNeeded).then((checkBytes) {
+                          if (checkBytes.isNotEmpty) {
+                            bool hasData = false;
+                            for (int i = 0; i < checkBytes.length; i++) {
+                              if (checkBytes[i] != 0) {
+                                  hasData = true;
+                                  break;
+                              }
+                            }
+                            if (hasData && !waitCompleter.isCompleted) {
+                              available = true;
+                              waitCompleter.complete();
+                            }
+                          }
+                        });
+                      });
+                    } catch (_) {}
                   }
 
                   if (checkAvailable) {

@@ -1,5 +1,5 @@
 #define MyAppName "TelStream"
-#define MyAppVersion "2.10.0"
+#define MyAppVersion "2.10.1"
 #define MyAppPublisher "com.darkmatter"
 #define MyAppExeName "telstream.exe"
 #define BuildDir "..\..\build\windows\x64\runner\Release"
