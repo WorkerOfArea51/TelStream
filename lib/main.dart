@@ -1,4 +1,5 @@
-import 'dart:io';
+import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:media_kit/media_kit.dart';
@@ -14,30 +15,41 @@ import 'services/streaming_proxy_service.dart';
 import 'core/theme/app_theme.dart';
 
 void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  
-  final appData = Platform.environment['APPDATA'] ?? '';
-  final dirPath = Platform.isWindows 
-      ? '$appData/com.darkmatter/telstream'.replaceAll('\\', '/')
-      : (await getApplicationSupportDirectory()).path;
-  Log.init(dirPath);
+  runZonedGuarded(() async {
+    WidgetsFlutterBinding.ensureInitialized();
+    
+    try {
+      final appData = Platform.environment['APPDATA'] ?? '';
+      final dirPath = Platform.isWindows 
+          ? '$appData/com.darkmatter/telstream'.replaceAll('\\', '/')
+          : (await getApplicationSupportDirectory()).path;
+      Log.init(dirPath);
 
-  MediaKit.ensureInitialized();
-  
-  await TdPlugin.initialize(Platform.isAndroid ? 'libtdjson.so' : (Platform.isWindows ? 'tdjson.dll' : null));
-  
-  final container = ProviderContainer();
-  await container.read(storageServiceProvider).init();
-  
-  // Pre-warm the streaming proxy provider to start the HTTP server early
-  container.read(streamingProxyServiceProvider);
-  
-  runApp(
-    UncontrolledProviderScope(
-      container: container,
-      child: const TelStreamApp(),
-    ),
-  );
+      MediaKit.ensureInitialized();
+      
+      final container = ProviderContainer();
+      
+      // Parallelize independent initializations for faster cold startup
+      await Future.wait([
+        container.read(storageServiceProvider).init(),
+        TdPlugin.initialize(Platform.isAndroid ? 'libtdjson.so' : (Platform.isWindows ? 'tdjson.dll' : null)),
+      ]);
+      
+      // Pre-warm the streaming proxy provider to start the HTTP server early
+      container.read(streamingProxyServiceProvider);
+      
+      runApp(
+        UncontrolledProviderScope(
+          container: container,
+          child: const TelStreamApp(),
+        ),
+      );
+    } catch (e, stack) {
+      Log.error('Fatal error during startup: $e', stack);
+    }
+  }, (error, stack) {
+    Log.error('Uncaught asynchronous error: $error', stack);
+  });
 }
 
 class TelStreamApp extends ConsumerWidget {
@@ -53,9 +65,6 @@ class TelStreamApp extends ConsumerWidget {
       theme: themeState.lightTheme,
       darkTheme: themeState.darkTheme,
       themeMode: themeState.themeMode,
-      builder: (context, child) {
-        return child ?? const SizedBox.shrink();
-      },
       home: const AuthWrapper(),
     );
   }
@@ -70,18 +79,25 @@ class AuthWrapper extends ConsumerStatefulWidget {
 
 class _AuthWrapperState extends ConsumerState<AuthWrapper> {
   bool _splashCompleted = false;
+  Timer? _splashTimer;
 
   @override
   void initState() {
     super.initState();
     // Keep splash animation showing for at least 2.5 seconds
-    Future.delayed(const Duration(milliseconds: 2500), () {
+    _splashTimer = Timer(const Duration(milliseconds: 2500), () {
       if (mounted) {
         setState(() {
           _splashCompleted = true;
         });
       }
     });
+  }
+
+  @override
+  void dispose() {
+    _splashTimer?.cancel();
+    super.dispose();
   }
 
   @override
