@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../core/logger.dart';
 import '../core/utils/path_helper.dart';
 
@@ -13,6 +14,11 @@ final storageServiceProvider = Provider<StorageService>((ref) {
 class StorageService {
   File? _file;
   Future? _writeChain;
+  final _secureStorage = const FlutterSecureStorage();
+  String? _anilistTokenCache;
+  String? _malTokenCache;
+  String? _traktTokenCache;
+
   Map<String, dynamic> _data = {
     'history': <String, int>{}, // messageId (String) -> position in seconds
     'favorites': <String>[], // coreName
@@ -119,6 +125,35 @@ class StorageService {
       _data[migratedKey] = true;
       await _save();
       Log.i('Migrated hardware_decoder_mode to copy-back mediacodec-copy.');
+    }
+    // Secure Storage Token Migration
+    _anilistTokenCache = await _secureStorage.read(key: 'anilist_token');
+    _malTokenCache = await _secureStorage.read(key: 'mal_token');
+    _traktTokenCache = await _secureStorage.read(key: 'trakt_token');
+
+    bool requiresMigrationSave = false;
+    if (_data.containsKey('anilist_token')) {
+      _anilistTokenCache = _data['anilist_token'] as String?;
+      if (_anilistTokenCache != null) await _secureStorage.write(key: 'anilist_token', value: _anilistTokenCache);
+      _data.remove('anilist_token');
+      requiresMigrationSave = true;
+    }
+    if (_data.containsKey('mal_token')) {
+      _malTokenCache = _data['mal_token'] as String?;
+      if (_malTokenCache != null) await _secureStorage.write(key: 'mal_token', value: _malTokenCache);
+      _data.remove('mal_token');
+      requiresMigrationSave = true;
+    }
+    if (_data.containsKey('trakt_token')) {
+      _traktTokenCache = _data['trakt_token'] as String?;
+      if (_traktTokenCache != null) await _secureStorage.write(key: 'trakt_token', value: _traktTokenCache);
+      _data.remove('trakt_token');
+      requiresMigrationSave = true;
+    }
+    
+    if (requiresMigrationSave) {
+      await _save();
+      Log.i('Migrated OAuth tokens to secure storage.');
     }
   }
 
@@ -596,23 +631,31 @@ class StorageService {
   }
 
   String? getAnilistToken() {
-    return _data['anilist_token'] as String?;
+    return _anilistTokenCache;
   }
 
   Future<void> setAnilistToken(String? value) async {
-    _data['anilist_token'] = value;
-    await _save();
+    _anilistTokenCache = value;
+    if (value == null) {
+      await _secureStorage.delete(key: 'anilist_token');
+    } else {
+      await _secureStorage.write(key: 'anilist_token', value: value);
+    }
   }
 
   // --- MAL Token ---
 
   String? getMalToken() {
-    return _data['mal_token'] as String?;
+    return _malTokenCache;
   }
 
   Future<void> setMalToken(String? value) async {
-    _data['mal_token'] = value;
-    await _save();
+    _malTokenCache = value;
+    if (value == null) {
+      await _secureStorage.delete(key: 'mal_token');
+    } else {
+      await _secureStorage.write(key: 'mal_token', value: value);
+    }
   }
 
   // --- Trakt Cache & Token ---
@@ -629,12 +672,16 @@ class StorageService {
   }
 
   String? getTraktToken() {
-    return _data['trakt_token'] as String?;
+    return _traktTokenCache;
   }
 
   Future<void> setTraktToken(String? value) async {
-    _data['trakt_token'] = value;
-    await _save();
+    _traktTokenCache = value;
+    if (value == null) {
+      await _secureStorage.delete(key: 'trakt_token');
+    } else {
+      await _secureStorage.write(key: 'trakt_token', value: value);
+    }
   }
 
   // --- Subtitle Preferences ---

@@ -41,17 +41,13 @@ android {
 
         create("release") {
             val keystoreFilePath = System.getenv("KEYSTORE_FILE")
-            if (keystoreFilePath != null) {
-                storeFile = file(keystoreFilePath)
-                storePassword = System.getenv("KEYSTORE_PASSWORD")
-                keyAlias = System.getenv("KEY_ALIAS")
-                keyPassword = System.getenv("KEY_PASSWORD")
-            } else {
-                storeFile = file("debug.keystore")
-                storePassword = "android"
-                keyAlias = "androiddebugkey"
-                keyPassword = "android"
+            if (keystoreFilePath.isNullOrEmpty()) {
+                throw GradleException("Release build requires KEYSTORE_FILE env var. Refusing to fallback to debug key.")
             }
+            storeFile = file(keystoreFilePath)
+            storePassword = System.getenv("KEYSTORE_PASSWORD")
+            keyAlias = System.getenv("KEY_ALIAS")
+            keyPassword = System.getenv("KEY_PASSWORD")
         }
     }
 

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:device_info_plus/device_info_plus.dart';
 import '../core/logger.dart';
 import '../core/secrets.dart';
 import '../core/widgets/wavy_progress_indicators.dart';
@@ -48,7 +49,6 @@ class UpdateService {
 
   static Future<AppUpdateInfo?> checkForUpdate() async {
     final client = HttpClient();
-    client.badCertificateCallback = (cert, host, port) => true;
     try {
       final request = await client.getUrl(Uri.parse(_apiUrl));
       request.headers.set('User-Agent', 'TelStream-App');
@@ -78,8 +78,15 @@ class UpdateService {
           }
         } else {
           // Auto-select the correct APK based on device architecture
-          final isArm64 = Platform.version.toLowerCase().contains('arm64') ||
-              Platform.version.toLowerCase().contains('aarch64');
+          bool isArm64 = false;
+          try {
+            final deviceInfo = DeviceInfoPlugin();
+            final androidInfo = await deviceInfo.androidInfo;
+            isArm64 = androidInfo.supportedAbis.any((abi) => abi.toLowerCase().contains('arm64'));
+          } catch (_) {
+            isArm64 = true; // Fallback for most modern devices
+          }
+          
           final targetAssetName = isArm64 ? 'telstream-arm64.apk' : 'telstream-arm32.apk';
 
           for (final asset in assets) {
@@ -190,10 +197,13 @@ class _UpdateDialogContentState extends State<UpdateDialogContent> {
       }
 
       final tempDir = await getTemporaryDirectory();
+      final updatesDir = Directory('${tempDir.path}/updates');
+      if (!await updatesDir.exists()) await updatesDir.create(recursive: true);
+
       if (Platform.isWindows) {
-        tempFile = File('${tempDir.path}/telstream-setup.exe');
+        tempFile = File('${updatesDir.path}/telstream-setup.exe');
       } else {
-        tempFile = File('${tempDir.path}/telstream_update.apk');
+        tempFile = File('${updatesDir.path}/telstream_update.apk');
       }
       
       if (await tempFile.exists()) {

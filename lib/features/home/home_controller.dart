@@ -1285,7 +1285,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
       final headers = {
         'Content-Type': 'application/json',
         'trakt-api-version': '2',
-        'trakt-api-key': '05553e1be851c22a76f7df2b8a7c29be60cb5038ecbe6e80b2a7587dfb38ea47',
+        'trakt-api-key': Secrets.traktApiKey,
       };
 
       final response = await http.get(Uri.parse(url), headers: headers).timeout(const Duration(seconds: 10));

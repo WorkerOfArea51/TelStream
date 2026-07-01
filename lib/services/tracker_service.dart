@@ -112,7 +112,7 @@ class TrackerService {
       if (token != null && token.isNotEmpty) {
         headers['Authorization'] = 'Bearer $token';
       } else {
-        headers['X-MAL-CLIENT-ID'] = '829f046ef3294326127b407137f62c0a'; // Default client ID
+        headers['X-MAL-CLIENT-ID'] = Secrets.malClientId; // Default client ID
       }
 
       final response = await http.get(url, headers: headers).timeout(const Duration(seconds: 5));
@@ -174,7 +174,7 @@ class TrackerService {
         headers: {
           'Content-Type': 'application/json',
           'trakt-api-version': '2',
-          'trakt-api-key': '05553e1be851c22a76f7df2b8a7c29be60cb5038ecbe6e80b2a7587dfb38ea47', // System default Trakt key
+          'trakt-api-key': Secrets.traktApiKey, // System default Trakt key
         },
       ).timeout(const Duration(seconds: 5));
 
@@ -206,7 +206,7 @@ class TrackerService {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
           'trakt-api-version': '2',
-          'trakt-api-key': '05553e1be851c22a76f7df2b8a7c29be60cb5038ecbe6e80b2a7587dfb38ea47',
+          'trakt-api-key': Secrets.traktApiKey,
         },
         body: json.encode({
           'show': {'ids': {'slug': showSlug}},
@@ -279,7 +279,7 @@ class TrackerService {
       if (token != null && token.isNotEmpty) {
         headers['Authorization'] = 'Bearer $token';
       } else {
-        headers['X-MAL-CLIENT-ID'] = '829f046ef3294326127b407137f62c0a';
+        headers['X-MAL-CLIENT-ID'] = Secrets.malClientId;
       }
 
       final response = await http.get(url, headers: headers).timeout(const Duration(seconds: 5));
@@ -310,7 +310,7 @@ class TrackerService {
         headers: {
           'Content-Type': 'application/json',
           'trakt-api-version': '2',
-          'trakt-api-key': '05553e1be851c22a76f7df2b8a7c29be60cb5038ecbe6e80b2a7587dfb38ea47',
+          'trakt-api-key': Secrets.traktApiKey,
         },
       ).timeout(const Duration(seconds: 5));
 

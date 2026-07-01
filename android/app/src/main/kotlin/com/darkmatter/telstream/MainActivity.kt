@@ -60,7 +60,7 @@ class MainActivity : FlutterActivity() {
         }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            registerReceiver(receiver, filter, Context.RECEIVER_EXPORTED)
+            registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED)
         } else {
             registerReceiver(receiver, filter)
         }
@@ -150,6 +150,16 @@ class MainActivity : FlutterActivity() {
             throw Exception("File does not exist: $filePath")
         }
         val context = applicationContext
+        
+        // Security Sandbox: Restrict installable APKs exclusively to our updates directories
+        val canonicalPath = file.canonicalPath
+        val allowedCacheDir = File(context.cacheDir, "updates").canonicalPath
+        val allowedExtDir = context.getExternalFilesDir(null)?.let { File(it, "updates").canonicalPath } ?: ""
+        
+        if (canonicalPath.isEmpty() || (!canonicalPath.startsWith(allowedCacheDir) && !canonicalPath.startsWith(allowedExtDir))) {
+            throw SecurityException("Install path not whitelisted: $canonicalPath")
+        }
+
         val apkUri: Uri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
             FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
         } else {

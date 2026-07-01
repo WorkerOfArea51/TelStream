@@ -140,11 +140,16 @@ class DownloadService : Service() {
 
         // Open app when notification clicked
         val intent = packageManager.getLaunchIntentForPackage(packageName)
+        val flagActivity = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        } else {
+            PendingIntent.FLAG_UPDATE_CURRENT
+        }
         val pendingIntent = PendingIntent.getActivity(
             this,
             0,
             intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            flagActivity
         )
 
         val notificationBuilder = NotificationCompat.Builder(this, CHANNEL_ID)
@@ -226,7 +231,7 @@ class DownloadService : Service() {
         // Clear download cache folders on app kill from recents
         try {
             val appFlutterDir = File(applicationContext.filesDir.parentFile, "app_flutter")
-            val targetDirs = listOf("videos", "documents", "temp", "voice", "music", "video_notes", "stickers", "animations")
+            val targetDirs = listOf("temp") // Security fix: Do not delete user's downloaded "videos", "music", etc.
             for (dirName in targetDirs) {
                 val dir = File(appFlutterDir, dirName)
                 if (dir.exists() && dir.isDirectory) {
