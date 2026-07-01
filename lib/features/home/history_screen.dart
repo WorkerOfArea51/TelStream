@@ -408,8 +408,8 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                                                     PremiumPageRoute(
                                                       child: EpisodeListScreen(
                                                         season: targetSeason,
-                                                        series: matchedSeries,
-                                                        heroTag: 'hero_history_${matchedSeries.coreName}',
+                                                        series: matchedSeries!,
+                                                        heroTag: 'hero_history_${matchedSeries!.coreName}',
                                                       ),
                                                     ),
                                                   );
