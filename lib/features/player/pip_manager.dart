@@ -213,11 +213,8 @@ class PipController extends Notifier<PipVideoState?> {
       ),
     );
 
-    if (oldActivePlayer != null && !wasPip) {
-      Navigator.of(context, rootNavigator: true).pushReplacement(route);
-    } else {
-      Navigator.of(context, rootNavigator: true).push(route);
-    }
+    // Always push the player screen when launching from lists/detail screens to preserve back navigation history
+    Navigator.of(context, rootNavigator: true).push(route);
   }
 
   void playQueueIndex(BuildContext context, int index) {

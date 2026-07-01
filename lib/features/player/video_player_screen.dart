@@ -216,12 +216,24 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
       if (savedPos > 0) {
         if (player.state.duration.inSeconds > 0) {
           player.seek(Duration(seconds: savedPos)).then((_) {
-            if (mounted) {
-              player.play();
-              setState(() {
-                _isInitializing = false;
-              });
-            }
+            Future.delayed(const Duration(milliseconds: 350), () {
+              if (!mounted) return;
+              final diff = (player.state.position.inSeconds - savedPos).abs();
+              if (diff > 5 && player.state.position.inSeconds == 0) {
+                Log.w('Playback startup seek failed (position is still 0). Retrying seek to $savedPos');
+                player.seek(Duration(seconds: savedPos)).then((_) {
+                  player.play();
+                  setState(() {
+                    _isInitializing = false;
+                  });
+                });
+              } else {
+                player.play();
+                setState(() {
+                  _isInitializing = false;
+                });
+              }
+            });
           });
         } else {
           late final StreamSubscription<Duration> durSub;
@@ -230,12 +242,24 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
               durSub.cancel();
               if (mounted) {
                 player.seek(Duration(seconds: savedPos)).then((_) {
-                  if (mounted) {
-                    player.play();
-                    setState(() {
-                      _isInitializing = false;
-                    });
-                  }
+                  Future.delayed(const Duration(milliseconds: 350), () {
+                    if (!mounted) return;
+                    final diff = (player.state.position.inSeconds - savedPos).abs();
+                    if (diff > 5 && player.state.position.inSeconds == 0) {
+                      Log.w('Playback startup stream seek failed. Retrying seek to $savedPos');
+                      player.seek(Duration(seconds: savedPos)).then((_) {
+                        player.play();
+                        setState(() {
+                          _isInitializing = false;
+                        });
+                      });
+                    } else {
+                      player.play();
+                      setState(() {
+                        _isInitializing = false;
+                      });
+                    }
+                  });
                 });
               }
             }
