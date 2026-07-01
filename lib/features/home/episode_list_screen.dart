@@ -746,7 +746,13 @@ class _EpisodeCardItemState extends ConsumerState<_EpisodeCardItem> {
 
     final epTitle = fileTitle;
     final downloadTasks = ref.watch(downloadControllerProvider);
-    final task = downloadTasks[fileId];
+    DownloadTask? task;
+    for (final t in downloadTasks.values) {
+      if (t.messageId == widget.msg.id || t.fileId == fileId) {
+        task = t;
+        break;
+      }
+    }
 
     final theme = Theme.of(context);
     final customTheme = theme.extension<AppThemeExtension>();
@@ -758,7 +764,12 @@ class _EpisodeCardItemState extends ConsumerState<_EpisodeCardItem> {
       trailingWidget = IconButton(
         icon: Icon(Icons.download, color: settingsAccent, size: 22),
         onPressed: () {
-          ref.read(downloadControllerProvider.notifier).startDownload(fileId!, fileTitle);
+          ref.read(downloadControllerProvider.notifier).startDownload(
+            fileId!,
+            fileTitle,
+            messageId: widget.msg.id,
+            chatId: widget.msg.chatId,
+          );
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('Starting download: $fileTitle'),
@@ -771,7 +782,7 @@ class _EpisodeCardItemState extends ConsumerState<_EpisodeCardItem> {
     } else if (!task.isCompleted) {
       trailingWidget = GestureDetector(
         onTap: () {
-          ref.read(downloadControllerProvider.notifier).cancelDownload(fileId!);
+          ref.read(downloadControllerProvider.notifier).cancelDownload(task!.fileId);
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Download cancelled'),

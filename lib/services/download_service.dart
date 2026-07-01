@@ -12,6 +12,7 @@ import '../core/utils/path_helper.dart';
 
 class DownloadTask {
   final int fileId;
+  final int? messageId;
   final String title;
   final double progress;
   final String? localPath;
@@ -23,6 +24,7 @@ class DownloadTask {
 
   DownloadTask({
     required this.fileId,
+    this.messageId,
     required this.title,
     this.progress = 0.0,
     this.localPath,
@@ -44,6 +46,7 @@ class DownloadTask {
   }) {
     return DownloadTask(
       fileId: fileId,
+      messageId: messageId,
       title: title,
       progress: progress ?? this.progress,
       localPath: localPath ?? this.localPath,
@@ -481,8 +484,37 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
     }
   }
 
-  Future<void> startDownload(int fileId, String title) async {
-    if (state.containsKey(fileId) && state[fileId]!.isCompleted) {
+  Future<void> startDownload(int fileId, String title, {int? messageId, int? chatId}) async {
+    int finalFileId = fileId;
+
+    if (messageId != null && chatId != null) {
+      try {
+        final tdlibService = ref.read(tdlibServiceProvider);
+        final res = await tdlibService.sendAsync(td.GetMessage(
+          chatId: chatId,
+          messageId: messageId,
+        )).timeout(const Duration(seconds: 4));
+        
+        if (res is td.Message) {
+          int? freshFileId;
+          if (res.content is td.MessageVideo) {
+            freshFileId = (res.content as td.MessageVideo).video.video.id;
+          } else if (res.content is td.MessageDocument) {
+            freshFileId = (res.content as td.MessageDocument).document.document.id;
+          }
+          if (freshFileId != null && freshFileId != 0) {
+            if (freshFileId != fileId) {
+              Log.i('Resolved fresh file ID $freshFileId (was stale $fileId) for message $messageId');
+              finalFileId = freshFileId;
+            }
+          }
+        }
+      } catch (e) {
+        Log.w('Failed to resolve fresh file ID for download: $e');
+      }
+    }
+
+    if (state.containsKey(finalFileId) && state[finalFileId]!.isCompleted) {
       return; // Already downloaded
     }
 
@@ -506,7 +538,7 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
 
       if (!isWithinWindow) {
         isScheduledNow = true;
-        _pausedBySchedulerFileIds.add(fileId);
+        _pausedBySchedulerFileIds.add(finalFileId);
         Log.i('Download scheduled for off-peak hours ($start:00 - $end:00): $title');
       }
     }
@@ -514,23 +546,24 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
     // Register the task in memory
     state = {
       ...state,
-      fileId: DownloadTask(
-        fileId: fileId,
+      finalFileId: DownloadTask(
+        fileId: finalFileId,
+        messageId: messageId,
         title: title,
         isScheduled: isScheduledNow,
       ),
     };
 
     // Persist active download in queue database
-    await ref.read(storageServiceProvider).addActiveDownload(fileId, title);
+    await ref.read(storageServiceProvider).addActiveDownload(finalFileId, title);
 
     // Notify native background download service to start
-    _updateNativeNotification(fileId, title, 0.0);
+    _updateNativeNotification(finalFileId, title, 0.0);
 
     if (!isScheduledNow) {
       // Send TDLib DownloadFile command
       ref.read(tdlibServiceProvider).send(td.DownloadFile(
-        fileId: fileId,
+        fileId: finalFileId,
         priority: 32,
         offset: 0,
         limit: 0,
