@@ -2,7 +2,7 @@ name: telstream
 description: "Stream Telegram videos seamlessly using a high-performance built-in media player powered by TDLib and MediaKit."
 publish_to: 'none'
 
-version: 2.10.2+43
+version: 2.10.2+44
 
 environment:
   sdk: ^3.12.1
@@ -34,6 +34,7 @@ dependencies:
   flutter_secure_storage: ^9.2.2
   synchronized: ^3.1.0
   crypto: ^3.0.7
+  wakelock_plus: ^1.2.8
 
 dev_dependencies:
   flutter_test:

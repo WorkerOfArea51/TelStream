@@ -1905,10 +1905,12 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     }
     
     // Final hardware state synchronization
-    if (_isVerticalDrag) {
+    if (_showVolumeIndicator) {
       try {
         FlutterVolumeController.setVolume((_currentVolume / 100.0).clamp(0.0, 1.0));
       } catch (_) {}
+    }
+    if (_showBrightnessIndicator) {
       try {
         ScreenBrightness().setApplicationScreenBrightness(_currentBrightness);
       } catch (_) {}

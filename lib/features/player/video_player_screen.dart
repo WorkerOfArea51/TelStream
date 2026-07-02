@@ -1291,6 +1291,18 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
     _tracksSubscription?.cancel();
     _bufferingSubscription?.cancel();
 
+    player.stream.playing.listen((playing) {
+      if (playing) {
+        if (!widget.isPip) WakelockPlus.enable();
+      } else {
+        Future.delayed(const Duration(seconds: 30), () {
+          if (mounted && !player.state.playing && !widget.isPip) {
+            WakelockPlus.disable();
+          }
+        });
+      }
+    });
+
     _tracksSubscription = player.stream.tracks.listen((tracks) {
       if (tracks.audio.isEmpty && tracks.subtitle.isEmpty) return;
       if (_initialTrackSelectionDone) return;

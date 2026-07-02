@@ -1,4 +1,4 @@
-### 🚀 What's New in v2.10.2+43
+### 🚀 What's New in v2.10.2+44
 
 This release is a massive stability and security update, fixing over 200 issues identified in a comprehensive source code audit! 🛡️
 
@@ -27,8 +27,8 @@ This release is a massive stability and security update, fixing over 200 issues 
 ---
 
 ### 🛠️ Build Information
-- **Version:** `v2.10.2+43`
-- **Build Number:** `43`
+- **Version:** `v2.10.2+44`
+- **Build Number:** `44`
 - **Branch:** `main`
 - **Commit SHA:** `pending`
 
