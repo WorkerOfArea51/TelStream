@@ -6,6 +6,8 @@ import '../../core/constants.dart';
 import '../../services/metadata_service.dart';
 import '../../models/anime_models.dart';
 import 'episode_list_screen.dart';
+import 'home_controller.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class SeriesDetailsScreen extends ConsumerStatefulWidget {
   final AnimeSeries series;
@@ -84,6 +86,105 @@ class _SeriesDetailsScreenState extends ConsumerState<SeriesDetailsScreen> with 
         _isLoadingMetadata = false;
         _initYtController(_currentMetadata);
       });
+    }
+  }
+
+  Future<void> _openRecommendation(BuildContext context, RelatedContent rec) async {
+    final isMovie = widget.categoryTitle.toLowerCase() == 'movies';
+    final normalizedRecTitle = HomeController.normalizeSeriesName(rec.title, isMovie: isMovie);
+    
+    AsyncValue<List<AnimeSeries>> seriesState;
+    if (isMovie) {
+      seriesState = ref.read(moviesControllerProvider);
+    } else if (widget.categoryTitle.toLowerCase() == 'web series') {
+      seriesState = ref.read(webSeriesControllerProvider);
+    } else {
+      seriesState = ref.read(animeControllerProvider);
+    }
+    
+    final allSeries = seriesState.value ?? [];
+    AnimeSeries? matchedSeries;
+    
+    for (final s in allSeries) {
+      if (s.coreName.toLowerCase() == normalizedRecTitle.toLowerCase()) {
+        matchedSeries = s;
+        break;
+      }
+    }
+    
+    if (matchedSeries != null) {
+      // It's uploaded! Fetch override if exists, then navigate
+      const secureStorage = FlutterSecureStorage();
+      final overrideId = await secureStorage.read(key: 'metadata_override_${matchedSeries.coreName}');
+      
+      List<String>? overrideIds;
+      SeriesMetadata? newMeta;
+      
+      if (overrideId != null && overrideId.isNotEmpty) {
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (c) => const Center(child: CircularProgressIndicator()),
+        );
+        
+        overrideIds = overrideId.split(',');
+        final firstId = overrideIds.first;
+        final metadataService = MetadataService();
+        
+        if (widget.categoryTitle.toLowerCase() == 'anime') {
+          newMeta = await metadataService.fetchJikanByMalId(firstId);
+        } else {
+          newMeta = await metadataService.fetchTmdbByImdbId(firstId);
+        }
+        
+        if (context.mounted) Navigator.pop(context);
+      }
+      
+      if (context.mounted) {
+        Navigator.push(
+          context,
+          PremiumPageRoute(
+            child: SeriesDetailsScreen(
+              series: matchedSeries,
+              categoryTitle: widget.categoryTitle,
+              metadata: newMeta,
+              overrideIds: overrideIds,
+            ),
+          ),
+        );
+      }
+    } else {
+      // Not uploaded, show the dialog
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          backgroundColor: Colors.grey[900],
+          title: Text(rec.title, style: const TextStyle(color: Colors.white)),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (rec.posterUrl.isNotEmpty)
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Image.network(rec.posterUrl, height: 200, fit: BoxFit.cover),
+                  ),
+                const SizedBox(height: 16),
+                Text(
+                  rec.synopsis.isNotEmpty ? rec.synopsis : 'Recommendation from TMDB/Jikan.',
+                  style: const TextStyle(color: Colors.white70),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Close'),
+            ),
+          ],
+        ),
+      );
     }
   }
 
@@ -342,38 +443,7 @@ extension on _SeriesDetailsScreenState {
       itemBuilder: (context, index) {
         final rec = meta.recommendations[index];
         return GestureDetector(
-          onTap: () {
-            showDialog(
-              context: context,
-              builder: (context) => AlertDialog(
-                backgroundColor: Colors.grey[900],
-                title: Text(rec.title, style: const TextStyle(color: Colors.white)),
-                content: SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (rec.posterUrl.isNotEmpty)
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: Image.network(rec.posterUrl, height: 200, fit: BoxFit.cover),
-                        ),
-                      const SizedBox(height: 16),
-                      Text(
-                        rec.synopsis.isNotEmpty ? rec.synopsis : 'Recommendation from TMDB/Jikan.',
-                        style: const TextStyle(color: Colors.white70),
-                      ),
-                    ],
-                  ),
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text('Close'),
-                  ),
-                ],
-              ),
-            );
-          },
+          onTap: () => _openRecommendation(context, rec),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(8),
             child: rec.posterUrl.isNotEmpty
