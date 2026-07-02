@@ -62,6 +62,7 @@ class _SeriesDetailsScreenState extends ConsumerState<SeriesDetailsScreen> with 
         series: widget.series,
         heroTag: 'hero_library_${widget.categoryTitle}_${widget.series.coreName}',
         categoryTitle: widget.categoryTitle,
+        isEmbedded: false,
       );
     }
 
@@ -111,19 +112,6 @@ class _SeriesDetailsScreenState extends ConsumerState<SeriesDetailsScreen> with 
                     ],
                   ),
                   const SizedBox(height: 16),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        foregroundColor: Colors.black,
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                      ),
-                      onPressed: () {},
-                      icon: const Icon(Icons.play_arrow, size: 28),
-                      label: const Text('Play First Episode', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                    ),
-                  ),
                   const SizedBox(height: 16),
                   Text(
                     meta.synopsis,
@@ -146,9 +134,9 @@ class _SeriesDetailsScreenState extends ConsumerState<SeriesDetailsScreen> with 
                 indicatorColor: Colors.red,
                 labelColor: Colors.white,
                 unselectedLabelColor: Colors.white54,
-                tabs: const [
-                  Tab(text: 'Episodes'),
-                  Tab(text: 'More Details'),
+                tabs: [
+                  Tab(text: widget.categoryTitle.toLowerCase() == 'movies' ? 'Media' : 'Episodes'),
+                  const Tab(text: 'More Details'),
                 ],
               ),
             ),
@@ -162,6 +150,7 @@ class _SeriesDetailsScreenState extends ConsumerState<SeriesDetailsScreen> with 
                   series: widget.series,
                   heroTag: 'hero_library_details_${widget.series.coreName}',
                   categoryTitle: widget.categoryTitle,
+                  isEmbedded: true,
                 ),
                 const Center(child: Text('More Details Coming Soon', style: TextStyle(color: Colors.white54))),
               ],

@@ -24,6 +24,7 @@ class EpisodeListScreen extends ConsumerStatefulWidget {
   final String? heroTag;
   final String? categoryTitle;
   final int? highlightMessageId;
+  final bool isEmbedded;
 
   const EpisodeListScreen({
     super.key,
@@ -32,6 +33,7 @@ class EpisodeListScreen extends ConsumerStatefulWidget {
     this.heroTag,
     this.categoryTitle,
     this.highlightMessageId,
+    this.isEmbedded = false,
   });
 
   @override
@@ -210,10 +212,10 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
     if (lastWatchedMap != null && lastWatchedMap['seriesName'] == widget.series.coreName) {
       resumeIndex = lastWatchedMap['episodeIndex'] as int? ?? 0;
       if (resumeIndex < _selectedSeason.episodes.length) {
-        btnText = 'Resume Episode ${resumeIndex + 1}';
+        btnText = widget.categoryTitle == 'Movies' ? 'Resume Movie' : 'Resume Episode ${resumeIndex + 1}';
       }
     } else if (_selectedSeason.episodes.isNotEmpty) {
-      btnText = 'Play Episode 1';
+      btnText = widget.categoryTitle == 'Movies' ? 'Play Movie' : 'Play Episode 1';
     }
 
     if (_selectedSeason.episodes.isEmpty) {
@@ -338,121 +340,124 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
       body: CustomScrollView(
         controller: _scrollController,
         slivers: [
-          SliverAppBar(
-            expandedHeight: 250,
-            pinned: true,
-            backgroundColor: theme.scaffoldBackgroundColor,
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.link, color: Colors.white),
-                tooltip: 'Tracker Matcher',
-                onPressed: () {
-                  showModalBottomSheet(
-                    context: context,
-                    isScrollControlled: true,
-                    backgroundColor: Colors.transparent,
-                    builder: (context) => TrackerMatchDialog(
-                      seriesName: widget.series.coreName,
+          if (!widget.isEmbedded)
+            SliverAppBar(
+              expandedHeight: 250,
+              pinned: true,
+              backgroundColor: theme.scaffoldBackgroundColor,
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.link, color: Colors.white),
+                  tooltip: 'Tracker Matcher',
+                  onPressed: () {
+                    showModalBottomSheet(
+                      context: context,
+                      isScrollControlled: true,
+                      backgroundColor: Colors.transparent,
+                      builder: (context) => TrackerMatchDialog(
+                        seriesName: widget.series.coreName,
+                      ),
+                    );
+                  },
+                ),
+              ],
+              flexibleSpace: FlexibleSpaceBar(
+                background: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    _buildLocalBackdrop(posterFile, minithumbnail),
+                    BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+                      child: Container(color: Colors.black.withValues(alpha: 0.4)),
                     ),
-                  );
-                },
-              ),
-            ],
-            flexibleSpace: FlexibleSpaceBar(
-              background: Stack(
-                fit: StackFit.expand,
-                children: [
-                  _buildLocalBackdrop(posterFile, minithumbnail),
-                  BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-                    child: Container(color: Colors.black.withValues(alpha: 0.4)),
-                  ),
-                  Container(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          Colors.transparent,
-                          theme.scaffoldBackgroundColor.withValues(alpha: 0.8),
-                          theme.scaffoldBackgroundColor
-                        ],
-                        stops: const [0.4, 0.8, 1.0],
+                    Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.transparent,
+                            theme.scaffoldBackgroundColor.withValues(alpha: 0.8),
+                            theme.scaffoldBackgroundColor
+                          ],
+                          stops: const [0.4, 0.8, 1.0],
+                        ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
-          ),
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        width: 105,
-                        height: 155,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(12),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.4),
-                              blurRadius: 10,
-                              offset: const Offset(0, 5),
-                            ),
-                          ],
-                          border: Border.all(color: Colors.white12, width: 0.5),
-                        ),
-                        clipBehavior: Clip.antiAlias,
-                        child: Hero(
-                          tag: effectiveHeroTag,
-                          child: ClipRRect(
+                  if (!widget.isEmbedded) ...[
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          width: 105,
+                          height: 155,
+                          decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(12),
-                            child: TdThumbnail(
-                              file: posterFile,
-                              minithumbnail: minithumbnail,
-                              autoDownload: true,
-                              borderRadius: BorderRadius.zero,
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.4),
+                                blurRadius: 10,
+                                offset: const Offset(0, 5),
+                              ),
+                            ],
+                            border: Border.all(color: Colors.white12, width: 0.5),
+                          ),
+                          clipBehavior: Clip.antiAlias,
+                          child: Hero(
+                            tag: effectiveHeroTag,
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(12),
+                              child: TdThumbnail(
+                                file: posterFile,
+                                minithumbnail: minithumbnail,
+                                autoDownload: true,
+                                borderRadius: BorderRadius.zero,
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              title,
-                              style: TextStyle(
-                                color: isDark ? Colors.white : Colors.black87,
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 0.3,
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                title,
+                                style: TextStyle(
+                                  color: isDark ? Colors.white : Colors.black87,
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 0.3,
+                                ),
                               ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              widget.categoryTitle == 'Movies'
-                                  ? 'Movie'
-                                  : '${selectedSeason.episodes.length} Episode${selectedSeason.episodes.length > 1 ? "s" : ""}',
-                              style: TextStyle(
-                                color: isDark ? Colors.white70 : Colors.black87,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 14,
+                              const SizedBox(height: 8),
+                              Text(
+                                widget.categoryTitle == 'Movies'
+                                    ? 'Movie'
+                                    : '${selectedSeason.episodes.length} Episode${selectedSeason.episodes.length > 1 ? "s" : ""}',
+                                style: TextStyle(
+                                  color: isDark ? Colors.white70 : Colors.black87,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                  ],
                   _buildResumePlayButton(context, settingsAccent),
                   const SizedBox(height: 16),
                   const Divider(color: Colors.white12, height: 1),
@@ -937,7 +942,9 @@ class _EpisodeCardItemState extends ConsumerState<_EpisodeCardItem> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          '${widget.index + 1}. $epTitle',
+                          widget.series.seasons.length == 1 && widget.season.episodes.length == 1 
+                              ? epTitle 
+                              : '${widget.index + 1}. $epTitle',
                           style: TextStyle(
                             color: isDark ? Colors.white : Colors.black87,
                             fontWeight: FontWeight.bold,
