@@ -34,8 +34,9 @@ class _SeriesDetailsScreenState extends ConsumerState<SeriesDetailsScreen> with 
     _tabController = TabController(length: 2, vsync: this);
     
     if (widget.metadata != null && widget.metadata!.trailerYoutubeId.isNotEmpty) {
-      _ytController = YoutubePlayerController(
-        initialVideoId: widget.metadata!.trailerYoutubeId,
+      _ytController = YoutubePlayerController.fromVideoId(
+        videoId: widget.metadata!.trailerYoutubeId,
+        autoPlay: false,
         params: const YoutubePlayerParams(
           showControls: true,
           mute: false,
@@ -175,8 +176,8 @@ class _SeriesDetailsScreenState extends ConsumerState<SeriesDetailsScreen> with 
     if (_ytController != null && _trailerPlaying) {
       return Container(
         color: Colors.black,
-        child: YoutubePlayerIFrame(
-          controller: _ytController,
+        child: YoutubePlayer(
+          controller: _ytController!,
         ),
       );
     }

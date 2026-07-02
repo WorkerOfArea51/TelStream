@@ -35,7 +35,7 @@ dependencies:
   synchronized: ^3.1.0
   crypto: ^3.0.7
   wakelock_plus: ^1.2.8
-  youtube_player_iframe: ^2.3.0
+  youtube_player_iframe: ^6.0.2
   cached_network_image: ^3.4.1
 
 dev_dependencies:
