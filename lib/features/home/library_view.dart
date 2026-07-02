@@ -541,6 +541,9 @@ class _LibraryGridItemState extends ConsumerState<_LibraryGridItem> {
         final overrideId = await secureStorage.read(key: 'metadata_override_${widget.series.coreName}');
         
         if (overrideId != null && overrideId.isNotEmpty) {
+          final overrideIds = overrideId.split(',');
+          final firstId = overrideIds.first;
+          
           // Show loading
           showDialog(
             context: context,
@@ -551,10 +554,10 @@ class _LibraryGridItemState extends ConsumerState<_LibraryGridItem> {
           final metadataService = MetadataService();
           SeriesMetadata? meta;
           
-          if (overrideId.startsWith('tt')) {
-            meta = await metadataService.fetchTmdbByImdbId(overrideId);
+          if (firstId.startsWith('tt')) {
+            meta = await metadataService.fetchTmdbByImdbId(firstId);
           } else {
-            meta = await metadataService.fetchJikanByMalId(overrideId);
+            meta = await metadataService.fetchJikanByMalId(firstId);
           }
           
           if (context.mounted) Navigator.pop(context); // close loading
@@ -567,6 +570,7 @@ class _LibraryGridItemState extends ConsumerState<_LibraryGridItem> {
                   series: widget.series,
                   categoryTitle: widget.categoryTitle,
                   metadata: meta,
+                  overrideIds: overrideIds,
                 ),
               ),
             );
@@ -597,16 +601,16 @@ class _LibraryGridItemState extends ConsumerState<_LibraryGridItem> {
           );
           
           if (result != null && result.trim().isNotEmpty) {
-            String? id;
+            List<String> ids = [];
             final input = result.trim();
             if (input.startsWith('tt') || input.contains('imdb.com')) {
-              id = MetadataService.extractImdbId(input);
+              ids = MetadataService.extractAllImdbIds(input);
             } else {
-              id = MetadataService.extractMalId(input);
+              ids = MetadataService.extractAllMalIds(input);
             }
             
-            if (id != null) {
-              await tdlibService.saveMetadataOverride(widget.series.coreName, id);
+            if (ids.isNotEmpty) {
+              await tdlibService.saveMetadataOverride(widget.series.coreName, ids.join(','));
               if (context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Metadata Linked successfully! Tap the folder to view.')));
               }
@@ -1238,6 +1242,9 @@ class _LibraryCompactItemState extends ConsumerState<_LibraryCompactItem> {
         final overrideId = await secureStorage.read(key: 'metadata_override_${widget.series.coreName}');
         
         if (overrideId != null && overrideId.isNotEmpty) {
+          final overrideIds = overrideId.split(',');
+          final firstId = overrideIds.first;
+          
           showDialog(
             context: context,
             barrierDismissible: false,
@@ -1248,9 +1255,9 @@ class _LibraryCompactItemState extends ConsumerState<_LibraryCompactItem> {
           SeriesMetadata? meta;
           
           if (widget.categoryTitle.toLowerCase() == 'anime') {
-            meta = await metadataService.fetchJikanByMalId(overrideId);
+            meta = await metadataService.fetchJikanByMalId(firstId);
           } else {
-            meta = await metadataService.fetchTmdbByImdbId(overrideId);
+            meta = await metadataService.fetchTmdbByImdbId(firstId);
           }
           
           if (context.mounted) Navigator.pop(context);
@@ -1263,6 +1270,7 @@ class _LibraryCompactItemState extends ConsumerState<_LibraryCompactItem> {
                   series: widget.series,
                   categoryTitle: widget.categoryTitle,
                   metadata: meta,
+                  overrideIds: overrideIds,
                 ),
               ),
             );
@@ -1291,15 +1299,20 @@ class _LibraryCompactItemState extends ConsumerState<_LibraryCompactItem> {
           );
           
           if (result != null && result.trim().isNotEmpty) {
-            String? id;
+            List<String> ids = [];
+            final input = result.trim();
             if (widget.categoryTitle.toLowerCase() == 'anime') {
-              id = MetadataService.extractMalId(result.trim());
+              ids = MetadataService.extractAllMalIds(input);
             } else {
-              id = MetadataService.extractImdbId(result.trim());
+              if (input.startsWith('tt') || input.contains('imdb.com')) {
+                ids = MetadataService.extractAllImdbIds(input);
+              } else {
+                ids = MetadataService.extractAllMalIds(input);
+              }
             }
             
-            if (id != null) {
-              await tdlibService.saveMetadataOverride(widget.series.coreName, id);
+            if (ids.isNotEmpty) {
+              await tdlibService.saveMetadataOverride(widget.series.coreName, ids.join(','));
               if (context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Metadata Linked successfully! Tap the folder to view.')));
               }
@@ -1436,6 +1449,9 @@ class _LibraryListItemState extends ConsumerState<_LibraryListItem> {
         final overrideId = await secureStorage.read(key: 'metadata_override_${widget.series.coreName}');
         
         if (overrideId != null && overrideId.isNotEmpty) {
+          final overrideIds = overrideId.split(',');
+          final firstId = overrideIds.first;
+          
           showDialog(
             context: context,
             barrierDismissible: false,
@@ -1446,9 +1462,9 @@ class _LibraryListItemState extends ConsumerState<_LibraryListItem> {
           SeriesMetadata? meta;
           
           if (widget.categoryTitle.toLowerCase() == 'anime') {
-            meta = await metadataService.fetchJikanByMalId(overrideId);
+            meta = await metadataService.fetchJikanByMalId(firstId);
           } else {
-            meta = await metadataService.fetchTmdbByImdbId(overrideId);
+            meta = await metadataService.fetchTmdbByImdbId(firstId);
           }
           
           if (context.mounted) Navigator.pop(context);
@@ -1461,6 +1477,7 @@ class _LibraryListItemState extends ConsumerState<_LibraryListItem> {
                   series: widget.series,
                   categoryTitle: widget.categoryTitle,
                   metadata: meta,
+                  overrideIds: overrideIds,
                 ),
               ),
             );
@@ -1489,15 +1506,20 @@ class _LibraryListItemState extends ConsumerState<_LibraryListItem> {
           );
           
           if (result != null && result.trim().isNotEmpty) {
-            String? id;
+            List<String> ids = [];
+            final input = result.trim();
             if (widget.categoryTitle.toLowerCase() == 'anime') {
-              id = MetadataService.extractMalId(result.trim());
+              ids = MetadataService.extractAllMalIds(input);
             } else {
-              id = MetadataService.extractImdbId(result.trim());
+              if (input.startsWith('tt') || input.contains('imdb.com')) {
+                ids = MetadataService.extractAllImdbIds(input);
+              } else {
+                ids = MetadataService.extractAllMalIds(input);
+              }
             }
             
-            if (id != null) {
-              await tdlibService.saveMetadataOverride(widget.series.coreName, id);
+            if (ids.isNotEmpty) {
+              await tdlibService.saveMetadataOverride(widget.series.coreName, ids.join(','));
               if (context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Metadata Linked successfully! Tap the folder to view.')));
               }

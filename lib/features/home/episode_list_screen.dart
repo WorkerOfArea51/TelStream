@@ -34,7 +34,10 @@ class EpisodeListScreen extends ConsumerStatefulWidget {
     this.categoryTitle,
     this.highlightMessageId,
     this.isEmbedded = false,
+    this.onSeasonChanged,
   });
+
+  final Function(int)? onSeasonChanged;
 
   @override
   ConsumerState<EpisodeListScreen> createState() => _EpisodeListScreenState();
@@ -500,6 +503,7 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
                             setState(() {
                               _selectedSeason = season;
                             });
+                            widget.onSeasonChanged?.call(index);
                             if (season.episodes.isEmpty) {
                               _loadEpisodesDynamically();
                             }

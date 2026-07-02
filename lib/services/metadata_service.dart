@@ -296,6 +296,19 @@ class MetadataService {
     return null;
   }
 
+  static List<String> extractAllImdbIds(String text) {
+    final matches = RegExp(r'title\/(tt\d+)').allMatches(text);
+    final ids = matches.map((m) => m.group(1)!).toList();
+    if (ids.isEmpty) {
+      // split by whitespace/comma and check if any starts with tt
+      final parts = text.split(RegExp(r'[\s,]+'));
+      for (var p in parts) {
+        if (p.startsWith('tt')) ids.add(p);
+      }
+    }
+    return ids;
+  }
+
   static String? extractMalId(String url) {
     final match = RegExp(r'anime\/(\d+)').firstMatch(url);
     if (match != null && match.groupCount >= 1) {
@@ -303,5 +316,17 @@ class MetadataService {
     }
     if (int.tryParse(url) != null) return url;
     return null;
+  }
+
+  static List<String> extractAllMalIds(String text) {
+    final matches = RegExp(r'anime\/(\d+)').allMatches(text);
+    final ids = matches.map((m) => m.group(1)!).toList();
+    if (ids.isEmpty) {
+      final parts = text.split(RegExp(r'[\s,]+'));
+      for (var p in parts) {
+        if (int.tryParse(p) != null) ids.add(p);
+      }
+    }
+    return ids;
   }
 }

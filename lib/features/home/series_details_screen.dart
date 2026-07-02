@@ -11,12 +11,14 @@ class SeriesDetailsScreen extends ConsumerStatefulWidget {
   final AnimeSeries series;
   final String categoryTitle;
   final SeriesMetadata? metadata;
+  final List<String>? overrideIds;
 
   const SeriesDetailsScreen({
     super.key,
     required this.series,
     required this.categoryTitle,
     this.metadata,
+    this.overrideIds,
   });
 
   @override
@@ -27,13 +29,20 @@ class _SeriesDetailsScreenState extends ConsumerState<SeriesDetailsScreen> with 
   late TabController _tabController;
   YoutubePlayerController? _ytController;
   bool _trailerPlaying = false;
+  SeriesMetadata? _currentMetadata;
+  bool _isLoadingMetadata = false;
 
   @override
   void initState() {
     super.initState();
+    _currentMetadata = widget.metadata;
     _tabController = TabController(length: 3, vsync: this);
     
-    if (widget.metadata != null && widget.metadata!.trailerYoutubeId.isNotEmpty) {
+    _initYtController(_currentMetadata);
+  }
+
+  void _initYtController(SeriesMetadata? meta) {
+    if (meta != null && meta.trailerYoutubeId.isNotEmpty) {
       _ytController = YoutubePlayerController.fromVideoId(
         videoId: widget.metadata!.trailerYoutubeId,
         autoPlay: false,
@@ -44,6 +53,37 @@ class _SeriesDetailsScreenState extends ConsumerState<SeriesDetailsScreen> with 
           loop: false,
         ),
       );
+    } else {
+      _ytController?.close();
+      _ytController = null;
+    }
+  }
+
+  Future<void> _onSeasonChanged(int newIndex) async {
+    if (widget.overrideIds == null || widget.overrideIds!.isEmpty) return;
+    
+    int idIndex = newIndex < widget.overrideIds!.length ? newIndex : widget.overrideIds!.length - 1;
+    String targetId = widget.overrideIds![idIndex];
+    
+    setState(() {
+      _isLoadingMetadata = true;
+      _trailerPlaying = false;
+    });
+    
+    SeriesMetadata? newMeta;
+    final metadataService = MetadataService();
+    if (targetId.startsWith('tt')) {
+      newMeta = await metadataService.fetchTmdbByImdbId(targetId);
+    } else {
+      newMeta = await metadataService.fetchJikanByMalId(targetId);
+    }
+    
+    if (mounted) {
+      setState(() {
+        _currentMetadata = newMeta ?? _currentMetadata;
+        _isLoadingMetadata = false;
+        _initYtController(_currentMetadata);
+      });
     }
   }
 
@@ -56,17 +96,18 @@ class _SeriesDetailsScreenState extends ConsumerState<SeriesDetailsScreen> with 
 
   @override
   Widget build(BuildContext context) {
-    if (widget.metadata == null) {
+    if (_currentMetadata == null) {
       return EpisodeListScreen(
         season: widget.series.seasons.first,
         series: widget.series,
         heroTag: 'hero_library_${widget.categoryTitle}_${widget.series.coreName}',
         categoryTitle: widget.categoryTitle,
         isEmbedded: false,
+        onSeasonChanged: _onSeasonChanged,
       );
     }
 
-    final meta = widget.metadata!;
+    final meta = _currentMetadata!;
     return Scaffold(
       body: CustomScrollView(
         slivers: [
@@ -152,6 +193,7 @@ class _SeriesDetailsScreenState extends ConsumerState<SeriesDetailsScreen> with 
                   heroTag: 'hero_library_details_${widget.series.coreName}',
                   categoryTitle: widget.categoryTitle,
                   isEmbedded: true,
+                  onSeasonChanged: _onSeasonChanged,
                 ),
                 _buildMoreDetailsTab(meta),
                 _buildMoreLikeThisTab(meta),

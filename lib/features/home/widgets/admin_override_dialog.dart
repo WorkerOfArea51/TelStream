@@ -34,8 +34,10 @@ class _AdminOverrideDialogState extends State<AdminOverrideDialog> {
           TextField(
             controller: _controller,
             style: const TextStyle(color: Colors.white),
+            minLines: 1,
+            maxLines: 5,
             decoration: InputDecoration(
-              hintText: 'Paste IMDB/MAL URL or ID',
+              hintText: 'Paste IMDB/MAL URLs (comma separated or multiple lines)',
               hintStyle: const TextStyle(color: Colors.white30),
               filled: true,
               fillColor: Colors.black,
