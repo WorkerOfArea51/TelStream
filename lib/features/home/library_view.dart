@@ -551,10 +551,10 @@ class _LibraryGridItemState extends ConsumerState<_LibraryGridItem> {
           final metadataService = MetadataService();
           SeriesMetadata? meta;
           
-          if (widget.categoryTitle.toLowerCase() == 'anime') {
-            meta = await metadataService.fetchJikanByMalId(overrideId);
-          } else {
+          if (overrideId.startsWith('tt')) {
             meta = await metadataService.fetchTmdbByImdbId(overrideId);
+          } else {
+            meta = await metadataService.fetchJikanByMalId(overrideId);
           }
           
           if (context.mounted) Navigator.pop(context); // close loading
@@ -598,10 +598,11 @@ class _LibraryGridItemState extends ConsumerState<_LibraryGridItem> {
           
           if (result != null && result.trim().isNotEmpty) {
             String? id;
-            if (widget.categoryTitle.toLowerCase() == 'anime') {
-              id = MetadataService.extractMalId(result.trim());
+            final input = result.trim();
+            if (input.startsWith('tt') || input.contains('imdb.com')) {
+              id = MetadataService.extractImdbId(input);
             } else {
-              id = MetadataService.extractImdbId(result.trim());
+              id = MetadataService.extractMalId(input);
             }
             
             if (id != null) {
