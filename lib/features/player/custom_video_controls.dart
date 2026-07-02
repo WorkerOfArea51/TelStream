@@ -307,13 +307,13 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
       if (_isMuted) {
         _isMuted = false;
         _currentVolume = _preMuteVolume;
-        FlutterVolumeController.setVolume(_currentVolume / 100.0, showSystemUI: false);
+        FlutterVolumeController.setVolume(_currentVolume / 100.0);
         _showSkipToast('Volume restored');
       } else {
         _isMuted = true;
         _preMuteVolume = _currentVolume;
         _currentVolume = 0.0;
-        FlutterVolumeController.setVolume(0.0, showSystemUI: false);
+        FlutterVolumeController.setVolume(0.0);
         _showSkipToast('Volume muted');
       }
     });
@@ -1907,7 +1907,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     // Final hardware state synchronization
     if (_showVolumeIndicator) {
       try {
-        FlutterVolumeController.setVolume((_currentVolume / 100.0).clamp(0.0, 1.0), showSystemUI: false);
+        FlutterVolumeController.setVolume((_currentVolume / 100.0).clamp(0.0, 1.0));
       } catch (_) {}
     }
     if (_showBrightnessIndicator) {
@@ -1948,7 +1948,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
         if (now.difference(_lastVolumeCallTime) > const Duration(milliseconds: 80)) {
           _lastVolumeCallTime = now;
           try {
-            FlutterVolumeController.setVolume((_currentVolume / 100.0).clamp(0.0, 1.0), showSystemUI: false);
+            FlutterVolumeController.setVolume((_currentVolume / 100.0).clamp(0.0, 1.0));
           } catch (_) {}
         }
         

@@ -4,7 +4,7 @@ import 'package:youtube_player_iframe/youtube_player_iframe.dart';
 import 'package:tdlib/td_api.dart' as td;
 import '../../core/constants.dart';
 import '../../services/metadata_service.dart';
-import '../../core/models/anime_models.dart';
+import '../../models/anime_models.dart';
 import 'episode_list_screen.dart';
 
 class SeriesDetailsScreen extends ConsumerStatefulWidget {
@@ -34,8 +34,8 @@ class _SeriesDetailsScreenState extends ConsumerState<SeriesDetailsScreen> with 
     _tabController = TabController(length: 2, vsync: this);
     
     if (widget.metadata != null && widget.metadata!.trailerYoutubeId.isNotEmpty) {
-      _ytController = YoutubePlayerController.fromVideoId(
-        videoId: widget.metadata!.trailerYoutubeId,
+      _ytController = YoutubePlayerController(
+        initialVideoId: widget.metadata!.trailerYoutubeId,
         params: const YoutubePlayerParams(
           showControls: true,
           mute: false,
@@ -175,8 +175,8 @@ class _SeriesDetailsScreenState extends ConsumerState<SeriesDetailsScreen> with 
 
   Widget _buildHero(SeriesMetadata meta) {
     if (_ytController != null && _trailerPlaying) {
-      return YoutubePlayer(
-        controller: _ytController!,
+      return YoutubePlayerIFrame(
+        controller: _ytController,
         backgroundColor: Colors.black,
       );
     }
