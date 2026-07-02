@@ -165,8 +165,10 @@ class _SeriesDetailsScreenState extends ConsumerState<SeriesDetailsScreen> with 
     if (_ytController != null && _trailerPlaying) {
       return Container(
         color: Colors.black,
-        child: YoutubePlayer(
-          controller: _ytController!,
+        child: SafeArea(
+          child: YoutubePlayer(
+            controller: _ytController!,
+          ),
         ),
       );
     }
