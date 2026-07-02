@@ -394,7 +394,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                                         ),
                                       ),
                                       const SizedBox(width: 8),
-                                      fileId != null && matchedSeries != null && matchedSeries!.seasons.isNotEmpty
+                                      fileId != null && matchedSeries != null && matchedSeries.seasons.isNotEmpty
                                           ? Semantics(
                                               label: 'Play ${matchedSeries.coreName} $episodeTitle',
                                               button: true,

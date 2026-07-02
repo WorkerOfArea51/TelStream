@@ -790,6 +790,7 @@ class TdlibService {
       final newChat = await sendAsync(const td.CreateNewSupergroupChat(
         title: 'TelStream Metadata',
         isChannel: true,
+        isForum: false,
         description: 'Hidden channel storing metadata overrides for TelStream',
         location: null,
         messageAutoDeleteTime: 0,

@@ -16,7 +16,7 @@ import '../../services/tdlib_service.dart';
 import '../../services/metadata_service.dart';
 import 'series_details_screen.dart';
 import 'widgets/admin_override_dialog.dart';
-import '../../services/auth_service.dart';
+
 
 class LibraryView extends ConsumerStatefulWidget {
   final ChannelCategory category;
@@ -535,9 +535,7 @@ class _LibraryGridItemState extends ConsumerState<_LibraryGridItem> {
       onTap: () async {
         if (widget.series.seasons.isEmpty) return;
         
-        final storage = ref.read(storageServiceProvider);
-        final tdlibService = ref.read(tdlibServiceProvider);
-        
+
         // Check for manual metadata
         const secureStorage = FlutterSecureStorage();
         final overrideId = await secureStorage.read(key: 'metadata_override_${widget.series.coreName}');
@@ -589,10 +587,10 @@ class _LibraryGridItemState extends ConsumerState<_LibraryGridItem> {
       },
       onLongPress: () async {
         final tdlibService = ref.read(tdlibServiceProvider);
-        final state = ref.read(authServiceProvider);
+        final me = await tdlibService.sendAsync(const td.GetMe());
         
         // Only Admin can open
-        if (state.user?.id == Constants.adminUserId) {
+        if (me is td.User && me.id == Constants.adminUserId) {
           final result = await showDialog<String>(
             context: context,
             builder: (c) => AdminOverrideDialog(title: widget.series.coreName),
@@ -1228,9 +1226,7 @@ class _LibraryCompactItemState extends ConsumerState<_LibraryCompactItem> {
       onTap: () async {
         if (widget.series.seasons.isEmpty) return;
         
-        final storage = ref.read(storageServiceProvider);
-        final tdlibService = ref.read(tdlibServiceProvider);
-        
+
         const secureStorage = FlutterSecureStorage();
         final overrideId = await secureStorage.read(key: 'metadata_override_${widget.series.coreName}');
         
@@ -1279,9 +1275,9 @@ class _LibraryCompactItemState extends ConsumerState<_LibraryCompactItem> {
       },
       onLongPress: () async {
         final tdlibService = ref.read(tdlibServiceProvider);
-        final state = ref.read(authServiceProvider);
+        final me = await tdlibService.sendAsync(const td.GetMe());
         
-        if (state.user?.id == Constants.adminUserId) {
+        if (me is td.User && me.id == Constants.adminUserId) {
           final result = await showDialog<String>(
             context: context,
             builder: (c) => AdminOverrideDialog(title: widget.series.coreName),
@@ -1422,9 +1418,7 @@ class _LibraryListItemState extends ConsumerState<_LibraryListItem> {
       onTap: () async {
         if (widget.series.seasons.isEmpty) return;
         
-        final storage = ref.read(storageServiceProvider);
-        final tdlibService = ref.read(tdlibServiceProvider);
-        
+
         const secureStorage = FlutterSecureStorage();
         final overrideId = await secureStorage.read(key: 'metadata_override_${widget.series.coreName}');
         
@@ -1473,9 +1467,9 @@ class _LibraryListItemState extends ConsumerState<_LibraryListItem> {
       },
       onLongPress: () async {
         final tdlibService = ref.read(tdlibServiceProvider);
-        final state = ref.read(authServiceProvider);
+        final me = await tdlibService.sendAsync(const td.GetMe());
         
-        if (state.user?.id == Constants.adminUserId) {
+        if (me is td.User && me.id == Constants.adminUserId) {
           final result = await showDialog<String>(
             context: context,
             builder: (c) => AdminOverrideDialog(title: widget.series.coreName),

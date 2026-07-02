@@ -57,7 +57,7 @@ class _SeriesDetailsScreenState extends ConsumerState<SeriesDetailsScreen> with 
   Widget build(BuildContext context) {
     if (widget.metadata == null) {
       return EpisodeListScreen(
-        season: widget.series.seasons.isNotEmpty ? widget.series.seasons.first : null,
+        season: widget.series.seasons.first,
         series: widget.series,
         heroTag: 'hero_library_${widget.categoryTitle}_${widget.series.coreName}',
         categoryTitle: widget.categoryTitle,
@@ -66,13 +66,11 @@ class _SeriesDetailsScreenState extends ConsumerState<SeriesDetailsScreen> with 
 
     final meta = widget.metadata!;
     return Scaffold(
-      backgroundColor: Colors.black,
       body: CustomScrollView(
         slivers: [
           SliverAppBar(
             expandedHeight: 250,
             pinned: true,
-            backgroundColor: Colors.black,
             flexibleSpace: FlexibleSpaceBar(
               background: _buildHero(meta),
             ),
@@ -159,7 +157,7 @@ class _SeriesDetailsScreenState extends ConsumerState<SeriesDetailsScreen> with 
               controller: _tabController,
               children: [
                 EpisodeListScreen(
-                  season: widget.series.seasons.isNotEmpty ? widget.series.seasons.first : null,
+                  season: widget.series.seasons.first,
                   series: widget.series,
                   heroTag: 'hero_library_details_${widget.series.coreName}',
                   categoryTitle: widget.categoryTitle,
@@ -175,9 +173,11 @@ class _SeriesDetailsScreenState extends ConsumerState<SeriesDetailsScreen> with 
 
   Widget _buildHero(SeriesMetadata meta) {
     if (_ytController != null && _trailerPlaying) {
-      return YoutubePlayerIFrame(
-        controller: _ytController,
-        backgroundColor: Colors.black,
+      return Container(
+        color: Colors.black,
+        child: YoutubePlayerIFrame(
+          controller: _ytController,
+        ),
       );
     }
 
