@@ -31,7 +31,7 @@ class _SeriesDetailsScreenState extends ConsumerState<SeriesDetailsScreen> with 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
     
     if (widget.metadata != null && widget.metadata!.trailerYoutubeId.isNotEmpty) {
       _ytController = YoutubePlayerController.fromVideoId(
@@ -137,6 +137,7 @@ class _SeriesDetailsScreenState extends ConsumerState<SeriesDetailsScreen> with 
                 tabs: [
                   Tab(text: widget.categoryTitle.toLowerCase() == 'movies' ? 'Media' : 'Episodes'),
                   const Tab(text: 'More Details'),
+                  const Tab(text: 'More Like This'),
                 ],
               ),
             ),
@@ -152,7 +153,8 @@ class _SeriesDetailsScreenState extends ConsumerState<SeriesDetailsScreen> with 
                   categoryTitle: widget.categoryTitle,
                   isEmbedded: true,
                 ),
-                const Center(child: Text('More Details Coming Soon', style: TextStyle(color: Colors.white54))),
+                _buildMoreDetailsTab(meta),
+                _buildMoreLikeThisTab(meta),
               ],
             ),
           ),
@@ -230,5 +232,114 @@ class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
   @override
   bool shouldRebuild(_SliverAppBarDelegate oldDelegate) {
     return false;
+  }
+}
+
+extension on _SeriesDetailsScreenState {
+  Widget _buildMoreDetailsTab(SeriesMetadata meta) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (meta.status.isNotEmpty) _buildDetailRow('Status', meta.status),
+          if (meta.runtime.isNotEmpty) _buildDetailRow('Duration', meta.runtime),
+          if (meta.releaseYear.isNotEmpty) _buildDetailRow('Release Year', meta.releaseYear),
+          if (meta.maturityRating.isNotEmpty) _buildDetailRow('Age Rating', meta.maturityRating),
+          if (meta.genres.isNotEmpty) _buildDetailRow('Genres', meta.genres.join(', ')),
+          if (meta.productionCompanies.isNotEmpty) _buildDetailRow('Studios', meta.productionCompanies),
+          if (meta.cast.isNotEmpty && meta.cast != 'Anime Cast') _buildDetailRow('Cast', meta.cast),
+          const SizedBox(height: 24),
+          const Text('Synopsis', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          Text(meta.synopsis, style: const TextStyle(color: Colors.white70, fontSize: 14, height: 1.5)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDetailRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 100,
+            child: Text(
+              label,
+              style: const TextStyle(color: Colors.white54, fontSize: 14),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(color: Colors.white, fontSize: 14),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMoreLikeThisTab(SeriesMetadata meta) {
+    if (meta.recommendations.isEmpty) {
+      return const Center(
+        child: Text('No recommendations available', style: TextStyle(color: Colors.white54)),
+      );
+    }
+    return GridView.builder(
+      padding: const EdgeInsets.all(16),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 3,
+        childAspectRatio: 0.68,
+        crossAxisSpacing: 12,
+        mainAxisSpacing: 12,
+      ),
+      itemCount: meta.recommendations.length,
+      itemBuilder: (context, index) {
+        final rec = meta.recommendations[index];
+        return GestureDetector(
+          onTap: () {
+            showDialog(
+              context: context,
+              builder: (context) => AlertDialog(
+                backgroundColor: Colors.grey[900],
+                title: Text(rec.title, style: const TextStyle(color: Colors.white)),
+                content: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (rec.posterUrl.isNotEmpty)
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Image.network(rec.posterUrl, height: 200, fit: BoxFit.cover),
+                        ),
+                      const SizedBox(height: 16),
+                      Text(
+                        rec.synopsis.isNotEmpty ? rec.synopsis : 'Recommendation from TMDB/Jikan.',
+                        style: const TextStyle(color: Colors.white70),
+                      ),
+                    ],
+                  ),
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Close'),
+                  ),
+                ],
+              ),
+            );
+          },
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: rec.posterUrl.isNotEmpty
+                ? Image.network(rec.posterUrl, fit: BoxFit.cover)
+                : Container(color: Colors.grey[800], child: const Center(child: Icon(Icons.movie, color: Colors.white54))),
+          ),
+        );
+      },
+    );
   }
 }

@@ -3,6 +3,20 @@ import 'package:http/http.dart' as http;
 import '../core/constants.dart';
 import '../core/logger.dart';
 
+class RelatedContent {
+  final int id;
+  final String title;
+  final String posterUrl;
+  final String synopsis;
+
+  RelatedContent({
+    required this.id,
+    required this.title,
+    required this.posterUrl,
+    required this.synopsis,
+  });
+}
+
 class SeriesMetadata {
   final String title;
   final String synopsis;
@@ -13,6 +27,10 @@ class SeriesMetadata {
   final String cast;
   final String maturityRating;
   final String trailerYoutubeId;
+  final String status;
+  final String runtime;
+  final String productionCompanies;
+  final List<RelatedContent> recommendations;
 
   SeriesMetadata({
     required this.title,
@@ -24,6 +42,10 @@ class SeriesMetadata {
     required this.cast,
     required this.maturityRating,
     required this.trailerYoutubeId,
+    this.status = '',
+    this.runtime = '',
+    this.productionCompanies = '',
+    this.recommendations = const [],
   });
 
   factory SeriesMetadata.empty() {
@@ -73,7 +95,7 @@ class MetadataService {
 
       // Step 2: Fetch full details including videos and credits
       final type = isMovie ? 'movie' : 'tv';
-      final detailsUrl = Uri.parse('$_tmdbBaseUrl/$type/$tmdbId?api_key=${Constants.tmdbApiKey}&append_to_response=videos,credits,content_ratings,release_dates');
+      final detailsUrl = Uri.parse('$_tmdbBaseUrl/$type/$tmdbId?api_key=${Constants.tmdbApiKey}&append_to_response=videos,credits,content_ratings,release_dates,recommendations');
       final detailsRes = await http.get(detailsUrl);
       if (detailsRes.statusCode != 200) return null;
 
@@ -131,6 +153,38 @@ class MetadataService {
 
       final dateStr = isMovie ? (data['release_date'] ?? '') : (data['first_air_date'] ?? '');
       final year = dateStr.isNotEmpty && dateStr.length >= 4 ? dateStr.substring(0, 4) : '';
+      
+      final status = data['status'] ?? '';
+      
+      String runtime = '';
+      if (isMovie && data['runtime'] != null && data['runtime'] > 0) {
+        runtime = '${data['runtime']} min';
+      } else if (!isMovie && data['episode_run_time'] != null && data['episode_run_time'].isNotEmpty) {
+        runtime = '${data['episode_run_time'][0]} min/ep';
+      } else if (!isMovie && data['number_of_seasons'] != null) {
+        runtime = '${data['number_of_seasons']} Seasons, ${data['number_of_episodes']} Episodes';
+      }
+
+      String productionCompanies = '';
+      if (data['production_companies'] != null) {
+        final List pc = data['production_companies'];
+        productionCompanies = pc.map((e) => e['name'].toString()).join(', ');
+      }
+
+      List<RelatedContent> recs = [];
+      if (data['recommendations'] != null && data['recommendations']['results'] != null) {
+        final List r = data['recommendations']['results'];
+        for (var rec in r) {
+          if (rec['poster_path'] != null) {
+            recs.add(RelatedContent(
+              id: rec['id'] ?? 0,
+              title: rec['title'] ?? rec['name'] ?? '',
+              posterUrl: 'https://image.tmdb.org/t/p/w500${rec['poster_path']}',
+              synopsis: rec['overview'] ?? '',
+            ));
+          }
+        }
+      }
 
       return SeriesMetadata(
         title: isMovie ? (data['title'] ?? data['original_title']) : (data['name'] ?? data['original_name']),
@@ -142,6 +196,10 @@ class MetadataService {
         cast: castList.join(', '),
         maturityRating: rating,
         trailerYoutubeId: trailerId,
+        status: status,
+        runtime: runtime,
+        productionCompanies: productionCompanies,
+        recommendations: recs,
       );
     } catch (e) {
       Log.e('Failed to fetch TMDB details', e);
@@ -174,6 +232,40 @@ class MetadataService {
       final dateStr = data['aired'] != null ? (data['aired']['from'] ?? '') : '';
       final year = dateStr.isNotEmpty && dateStr.length >= 4 ? dateStr.substring(0, 4) : '';
       
+      final status = data['status'] ?? '';
+      final runtime = data['duration'] ?? '';
+      
+      String productionCompanies = '';
+      if (data['studios'] != null) {
+        final List st = data['studios'];
+        productionCompanies = st.map((e) => e['name'].toString()).join(', ');
+      }
+
+      List<RelatedContent> recs = [];
+      try {
+        final recUrl = Uri.parse('$_jikanBaseUrl/anime/$malId/recommendations');
+        final recRes = await http.get(recUrl);
+        if (recRes.statusCode == 200) {
+          final recJson = jsonDecode(recRes.body);
+          if (recJson['data'] != null) {
+            final List r = recJson['data'];
+            for (int i = 0; i < r.length && i < 10; i++) {
+              final entry = r[i]['entry'];
+              if (entry != null) {
+                recs.add(RelatedContent(
+                  id: entry['mal_id'] ?? 0,
+                  title: entry['title'] ?? '',
+                  posterUrl: entry['images']?['jpg']?['large_image_url'] ?? '',
+                  synopsis: '',
+                ));
+              }
+            }
+          }
+        }
+      } catch (e) {
+        Log.e('Failed to fetch Jikan recommendations', e);
+      }
+      
       return SeriesMetadata(
         title: data['title_english'] ?? data['title'] ?? '',
         synopsis: data['synopsis'] ?? '',
@@ -184,6 +276,10 @@ class MetadataService {
         cast: 'Anime Cast', 
         maturityRating: data['rating'] ?? 'NR',
         trailerYoutubeId: trailerId,
+        status: status,
+        runtime: runtime,
+        productionCompanies: productionCompanies,
+        recommendations: recs,
       );
     } catch (e) {
       Log.e('Failed to fetch Jikan details', e);
