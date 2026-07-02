@@ -11,6 +11,12 @@ import '../../core/widgets/shimmer_card.dart';
 import 'home_controller.dart';
 import 'episode_list_screen.dart';
 import '../settings/settings_provider.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import '../../services/tdlib_service.dart';
+import '../../services/metadata_service.dart';
+import 'series_details_screen.dart';
+import 'widgets/admin_override_dialog.dart';
+import '../../services/auth_service.dart';
 
 class LibraryView extends ConsumerStatefulWidget {
   final ChannelCategory category;
@@ -490,7 +496,7 @@ class _LibraryViewState extends ConsumerState<LibraryView> with SingleTickerProv
   }
 }
 
-class _LibraryGridItem extends StatefulWidget {
+class _LibraryGridItem extends ConsumerStatefulWidget {
   final AnimeSeries series;
   final String categoryTitle;
 
@@ -500,10 +506,10 @@ class _LibraryGridItem extends StatefulWidget {
   });
 
   @override
-  State<_LibraryGridItem> createState() => _LibraryGridItemState();
+  ConsumerState<_LibraryGridItem> createState() => _LibraryGridItemState();
 }
 
-class _LibraryGridItemState extends State<_LibraryGridItem> {
+class _LibraryGridItemState extends ConsumerState<_LibraryGridItem> {
   bool _isTapped = false;
 
   @override
@@ -526,19 +532,92 @@ class _LibraryGridItemState extends State<_LibraryGridItem> {
       onTapDown: (_) => setState(() => _isTapped = true),
       onTapUp: (_) => setState(() => _isTapped = false),
       onTapCancel: () => setState(() => _isTapped = false),
-      onTap: () {
+      onTap: () async {
         if (widget.series.seasons.isEmpty) return;
-        Navigator.push(
-          context,
-          PremiumPageRoute(
-            child: EpisodeListScreen(
-              season: widget.series.seasons.first,
-              series: widget.series,
-              heroTag: 'hero_library_${widget.categoryTitle}_${widget.series.coreName}',
-              categoryTitle: widget.categoryTitle,
+        
+        final storage = ref.read(storageServiceProvider);
+        final tdlibService = ref.read(tdlibServiceProvider);
+        
+        // Check for manual metadata
+        const secureStorage = FlutterSecureStorage();
+        final overrideId = await secureStorage.read(key: 'metadata_override_${widget.series.coreName}');
+        
+        if (overrideId != null && overrideId.isNotEmpty) {
+          // Show loading
+          showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (c) => const Center(child: CircularProgressIndicator()),
+          );
+          
+          final metadataService = MetadataService();
+          SeriesMetadata? meta;
+          
+          if (widget.categoryTitle.toLowerCase() == 'anime') {
+            meta = await metadataService.fetchJikanByMalId(overrideId);
+          } else {
+            meta = await metadataService.fetchTmdbByImdbId(overrideId);
+          }
+          
+          if (context.mounted) Navigator.pop(context); // close loading
+          
+          if (context.mounted) {
+            Navigator.push(
+              context,
+              PremiumPageRoute(
+                child: SeriesDetailsScreen(
+                  series: widget.series,
+                  categoryTitle: widget.categoryTitle,
+                  metadata: meta,
+                ),
+              ),
+            );
+          }
+        } else {
+          // Normal Episode List
+          Navigator.push(
+            context,
+            PremiumPageRoute(
+              child: SeriesDetailsScreen(
+                series: widget.series,
+                categoryTitle: widget.categoryTitle,
+                metadata: null,
+              ),
             ),
-          ),
-        );
+          );
+        }
+      },
+      onLongPress: () async {
+        final tdlibService = ref.read(tdlibServiceProvider);
+        final state = ref.read(authServiceProvider);
+        
+        // Only Admin can open
+        if (state.user?.id == Constants.adminUserId) {
+          final result = await showDialog<String>(
+            context: context,
+            builder: (c) => AdminOverrideDialog(title: widget.series.coreName),
+          );
+          
+          if (result != null && result.trim().isNotEmpty) {
+            String? id;
+            if (widget.categoryTitle.toLowerCase() == 'anime') {
+              id = MetadataService.extractMalId(result.trim());
+            } else {
+              id = MetadataService.extractImdbId(result.trim());
+            }
+            
+            if (id != null) {
+              await tdlibService.saveMetadataOverride(widget.series.coreName, id);
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Metadata Linked successfully! Tap the folder to view.')));
+              }
+            } else {
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Invalid Link or ID')));
+              }
+            }
+          }
+        }
       },
       child: AnimatedScale(
         scale: _isTapped ? 0.96 : 1.0,
@@ -1110,7 +1189,7 @@ class ContinueWatchingShelf extends StatelessWidget {
   }
 }
 
-class _LibraryCompactItem extends StatefulWidget {
+class _LibraryCompactItem extends ConsumerStatefulWidget {
   final AnimeSeries series;
   final String categoryTitle;
 
@@ -1120,10 +1199,10 @@ class _LibraryCompactItem extends StatefulWidget {
   });
 
   @override
-  State<_LibraryCompactItem> createState() => _LibraryCompactItemState();
+  ConsumerState<_LibraryCompactItem> createState() => _LibraryCompactItemState();
 }
 
-class _LibraryCompactItemState extends State<_LibraryCompactItem> {
+class _LibraryCompactItemState extends ConsumerState<_LibraryCompactItem> {
   bool _isTapped = false;
 
   @override
@@ -1146,18 +1225,88 @@ class _LibraryCompactItemState extends State<_LibraryCompactItem> {
       onTapDown: (_) => setState(() => _isTapped = true),
       onTapUp: (_) => setState(() => _isTapped = false),
       onTapCancel: () => setState(() => _isTapped = false),
-      onTap: () {
-        Navigator.push(
-          context,
-          PremiumPageRoute(
-            child: EpisodeListScreen(
-              season: widget.series.seasons.first,
-              series: widget.series,
-              heroTag: 'hero_library_${widget.categoryTitle}_${widget.series.coreName}',
-              categoryTitle: widget.categoryTitle,
+      onTap: () async {
+        if (widget.series.seasons.isEmpty) return;
+        
+        final storage = ref.read(storageServiceProvider);
+        final tdlibService = ref.read(tdlibServiceProvider);
+        
+        const secureStorage = FlutterSecureStorage();
+        final overrideId = await secureStorage.read(key: 'metadata_override_${widget.series.coreName}');
+        
+        if (overrideId != null && overrideId.isNotEmpty) {
+          showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (c) => const Center(child: CircularProgressIndicator()),
+          );
+          
+          final metadataService = MetadataService();
+          SeriesMetadata? meta;
+          
+          if (widget.categoryTitle.toLowerCase() == 'anime') {
+            meta = await metadataService.fetchJikanByMalId(overrideId);
+          } else {
+            meta = await metadataService.fetchTmdbByImdbId(overrideId);
+          }
+          
+          if (context.mounted) Navigator.pop(context);
+          
+          if (context.mounted) {
+            Navigator.push(
+              context,
+              PremiumPageRoute(
+                child: SeriesDetailsScreen(
+                  series: widget.series,
+                  categoryTitle: widget.categoryTitle,
+                  metadata: meta,
+                ),
+              ),
+            );
+          }
+        } else {
+          Navigator.push(
+            context,
+            PremiumPageRoute(
+              child: SeriesDetailsScreen(
+                series: widget.series,
+                categoryTitle: widget.categoryTitle,
+                metadata: null,
+              ),
             ),
-          ),
-        );
+          );
+        }
+      },
+      onLongPress: () async {
+        final tdlibService = ref.read(tdlibServiceProvider);
+        final state = ref.read(authServiceProvider);
+        
+        if (state.user?.id == Constants.adminUserId) {
+          final result = await showDialog<String>(
+            context: context,
+            builder: (c) => AdminOverrideDialog(title: widget.series.coreName),
+          );
+          
+          if (result != null && result.trim().isNotEmpty) {
+            String? id;
+            if (widget.categoryTitle.toLowerCase() == 'anime') {
+              id = MetadataService.extractMalId(result.trim());
+            } else {
+              id = MetadataService.extractImdbId(result.trim());
+            }
+            
+            if (id != null) {
+              await tdlibService.saveMetadataOverride(widget.series.coreName, id);
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Metadata Linked successfully! Tap the folder to view.')));
+              }
+            } else {
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Invalid Link or ID')));
+              }
+            }
+          }
+        }
       },
       child: AnimatedScale(
         scale: _isTapped ? 0.96 : 1.0,
@@ -1270,18 +1419,88 @@ class _LibraryListItemState extends ConsumerState<_LibraryListItem> {
       onTapDown: (_) => setState(() => _isTapped = true),
       onTapUp: (_) => setState(() => _isTapped = false),
       onTapCancel: () => setState(() => _isTapped = false),
-      onTap: () {
-        Navigator.push(
-          context,
-          PremiumPageRoute(
-            child: EpisodeListScreen(
-              season: widget.series.seasons.first,
-              series: widget.series,
-              heroTag: 'hero_library_${widget.categoryTitle}_${widget.series.coreName}',
-              categoryTitle: widget.categoryTitle,
+      onTap: () async {
+        if (widget.series.seasons.isEmpty) return;
+        
+        final storage = ref.read(storageServiceProvider);
+        final tdlibService = ref.read(tdlibServiceProvider);
+        
+        const secureStorage = FlutterSecureStorage();
+        final overrideId = await secureStorage.read(key: 'metadata_override_${widget.series.coreName}');
+        
+        if (overrideId != null && overrideId.isNotEmpty) {
+          showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (c) => const Center(child: CircularProgressIndicator()),
+          );
+          
+          final metadataService = MetadataService();
+          SeriesMetadata? meta;
+          
+          if (widget.categoryTitle.toLowerCase() == 'anime') {
+            meta = await metadataService.fetchJikanByMalId(overrideId);
+          } else {
+            meta = await metadataService.fetchTmdbByImdbId(overrideId);
+          }
+          
+          if (context.mounted) Navigator.pop(context);
+          
+          if (context.mounted) {
+            Navigator.push(
+              context,
+              PremiumPageRoute(
+                child: SeriesDetailsScreen(
+                  series: widget.series,
+                  categoryTitle: widget.categoryTitle,
+                  metadata: meta,
+                ),
+              ),
+            );
+          }
+        } else {
+          Navigator.push(
+            context,
+            PremiumPageRoute(
+              child: SeriesDetailsScreen(
+                series: widget.series,
+                categoryTitle: widget.categoryTitle,
+                metadata: null,
+              ),
             ),
-          ),
-        );
+          );
+        }
+      },
+      onLongPress: () async {
+        final tdlibService = ref.read(tdlibServiceProvider);
+        final state = ref.read(authServiceProvider);
+        
+        if (state.user?.id == Constants.adminUserId) {
+          final result = await showDialog<String>(
+            context: context,
+            builder: (c) => AdminOverrideDialog(title: widget.series.coreName),
+          );
+          
+          if (result != null && result.trim().isNotEmpty) {
+            String? id;
+            if (widget.categoryTitle.toLowerCase() == 'anime') {
+              id = MetadataService.extractMalId(result.trim());
+            } else {
+              id = MetadataService.extractImdbId(result.trim());
+            }
+            
+            if (id != null) {
+              await tdlibService.saveMetadataOverride(widget.series.coreName, id);
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Metadata Linked successfully! Tap the folder to view.')));
+              }
+            } else {
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Invalid Link or ID')));
+              }
+            }
+          }
+        }
       },
       child: AnimatedScale(
         scale: _isTapped ? 0.98 : 1.0,

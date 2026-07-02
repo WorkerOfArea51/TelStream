@@ -741,4 +741,68 @@ class TdlibService {
       _clientId = null;
     }
   }
+
+  Future<void> saveMetadataOverride(String folderName, String imdbOrMalId) async {
+    try {
+      final channelId = await getOrCreateMetadataChannel();
+      if (channelId == 0) return;
+      
+      final data = jsonEncode({'folder': folderName, 'id': imdbOrMalId});
+      final inputMessageContent = td.InputMessageText(
+        text: td.FormattedText(text: data, entities: []),
+        disableWebPagePreview: true,
+        clearDraft: true,
+      );
+      
+      await sendAsync(td.SendMessage(
+        chatId: channelId,
+        messageThreadId: 0,
+        replyTo: null,
+        options: const td.MessageSendOptions(
+          disableNotification: true,
+          fromBackground: true,
+          protectContent: false,
+          updateOrderOfInstalledStickerSets: false,
+        ),
+        replyMarkup: null,
+        inputMessageContent: inputMessageContent,
+      ));
+      
+      const storage = FlutterSecureStorage();
+      final cacheKey = 'metadata_override_$folderName';
+      await storage.write(key: cacheKey, value: imdbOrMalId);
+      
+      Log.i('Saved metadata override for $folderName -> $imdbOrMalId');
+    } catch (e) {
+      Log.e('Failed to save metadata override', e);
+    }
+  }
+
+  Future<int> getOrCreateMetadataChannel() async {
+    const storage = FlutterSecureStorage();
+    final cachedId = await storage.read(key: 'metadata_channel_id');
+    if (cachedId != null && int.tryParse(cachedId) != null) {
+      return int.parse(cachedId);
+    }
+    
+    try {
+      final newChat = await sendAsync(const td.CreateNewSupergroupChat(
+        title: 'TelStream Metadata',
+        isForBroadcast: true,
+        isChannel: true,
+        description: 'Hidden channel storing metadata overrides for TelStream',
+        location: null,
+        messageAutoDeleteTime: 0,
+        forImport: false,
+      ));
+      
+      if (newChat is td.Chat) {
+        await storage.write(key: 'metadata_channel_id', value: newChat.id.toString());
+        return newChat.id;
+      }
+    } catch (e) {
+      Log.e('Failed to create metadata channel', e);
+    }
+    return 0;
+  }
 }

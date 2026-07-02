@@ -1,0 +1,211 @@
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import '../core/constants.dart';
+import '../core/logger.dart';
+
+class SeriesMetadata {
+  final String title;
+  final String synopsis;
+  final String posterUrl;
+  final String backdropUrl;
+  final String releaseYear;
+  final List<String> genres;
+  final String cast;
+  final String maturityRating;
+  final String trailerYoutubeId;
+
+  SeriesMetadata({
+    required this.title,
+    required this.synopsis,
+    required this.posterUrl,
+    required this.backdropUrl,
+    required this.releaseYear,
+    required this.genres,
+    required this.cast,
+    required this.maturityRating,
+    required this.trailerYoutubeId,
+  });
+
+  factory SeriesMetadata.empty() {
+    return SeriesMetadata(
+      title: '',
+      synopsis: '',
+      posterUrl: '',
+      backdropUrl: '',
+      releaseYear: '',
+      genres: [],
+      cast: '',
+      maturityRating: '',
+      trailerYoutubeId: '',
+    );
+  }
+}
+
+class MetadataService {
+  static const String _tmdbBaseUrl = 'https://api.themoviedb.org/3';
+  static const String _jikanBaseUrl = 'https://api.jikan.moe/v4';
+
+  Future<SeriesMetadata?> fetchTmdbByImdbId(String imdbId) async {
+    if (Constants.tmdbApiKey == 'YOUR_TMDB_API_KEY' || Constants.tmdbApiKey.isEmpty) {
+      Log.e('TMDB API Key is missing. Cannot fetch metadata.');
+      return null;
+    }
+
+    try {
+      // Step 1: Find TMDB ID from IMDB ID
+      final findUrl = Uri.parse('$_tmdbBaseUrl/find/$imdbId?external_source=imdb_id&api_key=${Constants.tmdbApiKey}');
+      final findRes = await http.get(findUrl);
+      if (findRes.statusCode != 200) return null;
+
+      final findData = jsonDecode(findRes.body);
+      bool isMovie = false;
+      int? tmdbId;
+
+      if (findData['tv_results'] != null && findData['tv_results'].isNotEmpty) {
+        tmdbId = findData['tv_results'][0]['id'];
+        isMovie = false;
+      } else if (findData['movie_results'] != null && findData['movie_results'].isNotEmpty) {
+        tmdbId = findData['movie_results'][0]['id'];
+        isMovie = true;
+      } else {
+        return null;
+      }
+
+      // Step 2: Fetch full details including videos and credits
+      final type = isMovie ? 'movie' : 'tv';
+      final detailsUrl = Uri.parse('$_tmdbBaseUrl/$type/$tmdbId?api_key=${Constants.tmdbApiKey}&append_to_response=videos,credits,content_ratings,release_dates');
+      final detailsRes = await http.get(detailsUrl);
+      if (detailsRes.statusCode != 200) return null;
+
+      final data = jsonDecode(detailsRes.body);
+
+      // Extract trailer
+      String trailerId = '';
+      if (data['videos'] != null && data['videos']['results'] != null) {
+        final List videos = data['videos']['results'];
+        final trailer = videos.firstWhere(
+          (v) => v['site'] == 'YouTube' && v['type'] == 'Trailer',
+          orElse: () => videos.isNotEmpty && videos.first['site'] == 'YouTube' ? videos.first : null,
+        );
+        if (trailer != null) {
+          trailerId = trailer['key'] ?? '';
+        }
+      }
+
+      // Extract cast
+      List<String> castList = [];
+      if (data['credits'] != null && data['credits']['cast'] != null) {
+        final List cast = data['credits']['cast'];
+        for (int i = 0; i < cast.length && i < 6; i++) {
+          castList.add(cast[i]['name']);
+        }
+      }
+
+      // Extract rating
+      String rating = 'NR';
+      if (isMovie) {
+        if (data['release_dates'] != null && data['release_dates']['results'] != null) {
+          final List results = data['release_dates']['results'];
+          final us = results.firstWhere((r) => r['iso_3166_1'] == 'US', orElse: () => null);
+          if (us != null && us['release_dates'] != null && us['release_dates'].isNotEmpty) {
+            rating = us['release_dates'][0]['certification'] ?? 'NR';
+          }
+        }
+      } else {
+        if (data['content_ratings'] != null && data['content_ratings']['results'] != null) {
+          final List results = data['content_ratings']['results'];
+          final us = results.firstWhere((r) => r['iso_3166_1'] == 'US', orElse: () => null);
+          if (us != null) {
+            rating = us['rating'] ?? 'NR';
+          }
+        }
+      }
+      if (rating.isEmpty) rating = 'NR';
+
+      // Genres
+      List<String> genres = [];
+      if (data['genres'] != null) {
+        final List g = data['genres'];
+        genres = g.map((e) => e['name'].toString()).toList();
+      }
+
+      final dateStr = isMovie ? (data['release_date'] ?? '') : (data['first_air_date'] ?? '');
+      final year = dateStr.isNotEmpty && dateStr.length >= 4 ? dateStr.substring(0, 4) : '';
+
+      return SeriesMetadata(
+        title: isMovie ? (data['title'] ?? data['original_title']) : (data['name'] ?? data['original_name']),
+        synopsis: data['overview'] ?? '',
+        posterUrl: data['poster_path'] != null ? 'https://image.tmdb.org/t/p/w500${data['poster_path']}' : '',
+        backdropUrl: data['backdrop_path'] != null ? 'https://image.tmdb.org/t/p/original${data['backdrop_path']}' : '',
+        releaseYear: year,
+        genres: genres,
+        cast: castList.join(', '),
+        maturityRating: rating,
+        trailerYoutubeId: trailerId,
+      );
+    } catch (e) {
+      Log.e('Failed to fetch TMDB details', e);
+      return null;
+    }
+  }
+
+  Future<SeriesMetadata?> fetchJikanByMalId(String malId) async {
+    try {
+      final url = Uri.parse('$_jikanBaseUrl/anime/$malId/full');
+      final res = await http.get(url);
+      if (res.statusCode != 200) return null;
+
+      final json = jsonDecode(res.body);
+      final data = json['data'];
+
+      if (data == null) return null;
+
+      String trailerId = '';
+      if (data['trailer'] != null && data['trailer']['youtube_id'] != null) {
+        trailerId = data['trailer']['youtube_id'];
+      }
+
+      List<String> genres = [];
+      if (data['genres'] != null) {
+        final List g = data['genres'];
+        genres = g.map((e) => e['name'].toString()).toList();
+      }
+
+      final dateStr = data['aired'] != null ? (data['aired']['from'] ?? '') : '';
+      final year = dateStr.isNotEmpty && dateStr.length >= 4 ? dateStr.substring(0, 4) : '';
+      
+      return SeriesMetadata(
+        title: data['title_english'] ?? data['title'] ?? '',
+        synopsis: data['synopsis'] ?? '',
+        posterUrl: data['images']?['jpg']?['large_image_url'] ?? '',
+        backdropUrl: trailerId.isNotEmpty ? 'https://img.youtube.com/vi/$trailerId/maxresdefault.jpg' : (data['images']?['jpg']?['large_image_url'] ?? ''), // Jikan has no backdrop
+        releaseYear: year,
+        genres: genres,
+        cast: 'Anime Cast', 
+        maturityRating: data['rating'] ?? 'NR',
+        trailerYoutubeId: trailerId,
+      );
+    } catch (e) {
+      Log.e('Failed to fetch Jikan details', e);
+      return null;
+    }
+  }
+
+  static String? extractImdbId(String url) {
+    final match = RegExp(r'title\/(tt\d+)').firstMatch(url);
+    if (match != null && match.groupCount >= 1) {
+      return match.group(1);
+    }
+    if (url.startsWith('tt')) return url;
+    return null;
+  }
+
+  static String? extractMalId(String url) {
+    final match = RegExp(r'anime\/(\d+)').firstMatch(url);
+    if (match != null && match.groupCount >= 1) {
+      return match.group(1);
+    }
+    if (int.tryParse(url) != null) return url;
+    return null;
+  }
+}

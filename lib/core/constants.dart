@@ -30,6 +30,9 @@ This release is a massive stability and security update, fixing over 200 issues 
   static const int apiId = Secrets.apiId;
   static const String apiHash = Secrets.apiHash;
 
+  static const String tmdbApiKey = Secrets.tmdbApiKey;
+  static const int adminUserId = Secrets.adminUserId;
+
   // Categories & Channels
   static const List<ChannelCategory> categories = [
     ChannelCategory(
