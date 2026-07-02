@@ -615,6 +615,12 @@ class _LibraryGridItemState extends ConsumerState<_LibraryGridItem> {
               }
             }
           }
+        } else if (me is td.User) {
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              content: Text('Access Denied. Your ID is ${me.id}. Set this in Github Secret ADMIN_USER_ID'),
+            ));
+          }
         }
       },
       child: AnimatedScale(
@@ -1302,6 +1308,12 @@ class _LibraryCompactItemState extends ConsumerState<_LibraryCompactItem> {
               }
             }
           }
+        } else if (me is td.User) {
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              content: Text('Access Denied. Your ID is ${me.id}. Set this in Github Secret ADMIN_USER_ID'),
+            ));
+          }
         }
       },
       child: AnimatedScale(
@@ -1493,6 +1505,12 @@ class _LibraryListItemState extends ConsumerState<_LibraryListItem> {
                 ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Invalid Link or ID')));
               }
             }
+          }
+        } else if (me is td.User) {
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              content: Text('Access Denied. Your ID is ${me.id}. Set this in Github Secret ADMIN_USER_ID'),
+            ));
           }
         }
       },
