@@ -14,16 +14,13 @@ class ChannelCategory {
 }
 
 class Constants {
-  static const String currentVersion = '2.10.2+40';
+  static const String currentVersion = '2.10.2+45';
   static const String changelog = '''
-### 🚀 What's New in v2.10.2+40
+### 🚀 What's New in v2.10.2+45
 
-This release is a massive stability and security update, fixing over 200 issues identified in a comprehensive source code audit! 🛡️
-
-* **🔒 Security**: Implemented strict SHA-256 hash verification for app updates, secured the TDLib database with a 32-byte encrypted key, added strict JSON type-checking to prevent storage crashes, and enabled atomic file saving to stop corrupted downloads.
-* **⚡ Concurrency & Sync**: The Download Manager now strictly limits concurrent active downloads to a maximum of 3 to eliminate CPU/Network bottlenecks. The Cloud Sync Service now correctly deduplicates standalone movies in the "Continue Watching" log by unique Telegram message IDs.
-* **📱 Platform Fixes**: Fixed a foreground service background crash and null-intent deliveries on Android 8+. Added UIBackgroundModes for continuous background audio on iOS. Added network entitlements for macOS. Included Wakelock Plus to stop your screen from falling asleep during long movies.
-* **🎨 Performance Improvements**: Added a 300ms debounce to all Search bars to eliminate UI stuttering while typing. Reduced the Video Player's auto-save frequency to reduce battery and disk usage. The root runApp has been safely moved outside the try block to guarantee a visible error screen on fatal init failure.
+* **👑 Admin Controls**: Integrated custom metadata (TMDB/MyAnimeList) overrides directly from the app. Long-press any series folder to set an override ID.
+* **🛡️ Security**: The admin panel is strictly locked to your personal numeric Telegram User ID via GitHub Secrets. Tap a folder to see your ID if access is denied!
+* **⚙️ Under The Hood**: Upgraded the underlying Android Gradle Plugin logic and the built-in video player.
 ''';
 
   // Telegram API Credentials from secrets.dart
