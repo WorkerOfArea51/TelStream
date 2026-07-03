@@ -744,36 +744,41 @@ class TdlibService {
 
   Future<void> saveMetadataOverride(String folderName, String imdbOrMalId) async {
     try {
-      final channelId = await getOrCreateMetadataChannel();
-      if (channelId == 0) return;
-      
-      final data = jsonEncode({'folder': folderName, 'id': imdbOrMalId});
-      final inputMessageContent = td.InputMessageText(
-        text: td.FormattedText(text: data, entities: []),
-        disableWebPagePreview: true,
-        clearDraft: true,
-      );
-      
-      await sendAsync(td.SendMessage(
-        chatId: channelId,
-        messageThreadId: 0,
-        replyTo: null,
-        options: const td.MessageSendOptions(
-          disableNotification: true,
-          fromBackground: true,
-          protectContent: false,
-          updateOrderOfInstalledStickerSets: false,
-          sendingId: 0,
-        ),
-        replyMarkup: null,
-        inputMessageContent: inputMessageContent,
-      ));
-      
-      const storage = FlutterSecureStorage();
+      final storage = FlutterSecureStorage();
       final cacheKey = 'metadata_override_$folderName';
       await storage.write(key: cacheKey, value: imdbOrMalId);
+      Log.i('Saved metadata override locally for $folderName -> $imdbOrMalId');
       
-      Log.i('Saved metadata override for $folderName -> $imdbOrMalId');
+      try {
+        final channelId = await getOrCreateMetadataChannel();
+        if (channelId != 0) {
+          final data = jsonEncode({'folder': folderName, 'id': imdbOrMalId});
+          final inputMessageContent = td.InputMessageText(
+            text: td.FormattedText(text: data, entities: []),
+            disableWebPagePreview: true,
+            clearDraft: true,
+          );
+          
+          await sendAsync(td.SendMessage(
+            chatId: channelId,
+            messageThreadId: 0,
+            replyTo: null,
+            options: const td.MessageSendOptions(
+              disableNotification: true,
+              fromBackground: true,
+              protectContent: false,
+              updateOrderOfInstalledStickerSets: false,
+              sendingId: 0,
+            ),
+            replyMarkup: null,
+            inputMessageContent: inputMessageContent,
+          ));
+          Log.i('Saved metadata override to Telegram for $folderName');
+        }
+      } catch (e) {
+        Log.e('Failed to sync metadata override to Telegram', e);
+      }
+      
     } catch (e) {
       Log.e('Failed to save metadata override', e);
     }
