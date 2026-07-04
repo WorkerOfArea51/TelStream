@@ -450,16 +450,20 @@ class _SeriesDetailsScreenState extends ConsumerState<SeriesDetailsScreen>
       return Container(
         color: Colors.black,
         child: SafeArea(
-          child: YoutubePlayer(
-            controller: _ytController!,
-            gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
-              Factory<VerticalDragGestureRecognizer>(
-                () => VerticalDragGestureRecognizer(),
-              ),
-              Factory<HorizontalDragGestureRecognizer>(
-                () => HorizontalDragGestureRecognizer(),
-              ),
-            },
+          child: AspectRatio(
+            aspectRatio:
+                1.1, // Gives enough vertical space for YouTube settings menu to not clip
+            child: YoutubePlayer(
+              controller: _ytController!,
+              gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
+                Factory<VerticalDragGestureRecognizer>(
+                  () => VerticalDragGestureRecognizer(),
+                ),
+                Factory<HorizontalDragGestureRecognizer>(
+                  () => HorizontalDragGestureRecognizer(),
+                ),
+              },
+            ),
           ),
         ),
       );
