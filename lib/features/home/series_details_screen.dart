@@ -294,156 +294,152 @@ class _SeriesDetailsScreenState extends ConsumerState<SeriesDetailsScreen>
 
     final meta = _currentMetadata!;
     return Scaffold(
-      body: Column(
-        children: [
-          if (_ytController != null && _trailerPlaying)
-            Stack(
-              children: [
-                _buildHero(meta),
-                Positioned(
-                  top: MediaQuery.of(context).padding.top + 8,
-                  left: 8,
-                  child: IconButton(
-                    icon: const Icon(
-                      Icons.arrow_back,
-                      color: Colors.white,
-                      shadows: [Shadow(color: Colors.black, blurRadius: 10)],
-                    ),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                ),
-              ],
-            ),
-          Expanded(
-            child: NestedScrollView(
-              headerSliverBuilder: (context, innerBoxIsScrolled) {
-                return [
-                  if (!(_ytController != null && _trailerPlaying))
-                    SliverAppBar(
-                      expandedHeight: 250,
-                      pinned: true,
-                      flexibleSpace: FlexibleSpaceBar(
-                        background: _buildHero(meta),
-                      ),
-                      leading: IconButton(
-                        icon: const Icon(Icons.arrow_back, color: Colors.white),
+      body: NestedScrollView(
+        headerSliverBuilder: (context, innerBoxIsScrolled) {
+          return [
+            if (_trailerPlaying && _ytController != null)
+              SliverToBoxAdapter(
+                child: Stack(
+                  children: [
+                    _buildHero(meta),
+                    Positioned(
+                      top: MediaQuery.of(context).padding.top + 8,
+                      left: 8,
+                      child: IconButton(
+                        icon: const Icon(
+                          Icons.arrow_back,
+                          color: Colors.white,
+                          shadows: [
+                            Shadow(color: Colors.black, blurRadius: 10),
+                          ],
+                        ),
                         onPressed: () => Navigator.pop(context),
                       ),
                     ),
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            meta.title,
-                            style: const TextStyle(
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
+                  ],
+                ),
+              ),
+            if (!(_trailerPlaying && _ytController != null))
+              SliverAppBar(
+                expandedHeight: 250,
+                pinned: true,
+                flexibleSpace: FlexibleSpaceBar(background: _buildHero(meta)),
+                leading: IconButton(
+                  icon: const Icon(Icons.arrow_back, color: Colors.white),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      meta.title,
+                      style: const TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Text(
+                          meta.releaseYear,
+                          style: const TextStyle(
+                            color: Colors.green,
+                            fontWeight: FontWeight.bold,
                           ),
-                          const SizedBox(height: 8),
-                          Row(
-                            children: [
-                              Text(
-                                meta.releaseYear,
-                                style: const TextStyle(
-                                  color: Colors.green,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 4,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.grey[800],
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: Text(
-                                  meta.maturityRating,
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.white70,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  meta.genres.join(', '),
-                                  style: const TextStyle(color: Colors.white70),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ],
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 4,
+                            vertical: 2,
                           ),
-                          const SizedBox(height: 16),
-                          const SizedBox(height: 16),
-                          Text(
-                            meta.synopsis,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 14,
-                              height: 1.4,
-                            ),
+                          decoration: BoxDecoration(
+                            color: Colors.grey[800],
+                            borderRadius: BorderRadius.circular(4),
                           ),
-                          const SizedBox(height: 16),
-                          Text(
-                            'Cast: ${meta.cast}',
+                          child: Text(
+                            meta.maturityRating,
                             style: const TextStyle(
-                              color: Colors.white54,
                               fontSize: 12,
+                              color: Colors.white70,
                             ),
                           ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  SliverPersistentHeader(
-                    pinned: true,
-                    delegate: _SliverAppBarDelegate(
-                      TabBar(
-                        controller: _tabController,
-                        indicatorColor: Colors.red,
-                        labelColor: Colors.white,
-                        unselectedLabelColor: Colors.white54,
-                        tabs: [
-                          Tab(
-                            text: widget.categoryTitle.toLowerCase() == 'movies'
-                                ? 'Media'
-                                : 'Episodes',
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            meta.genres.join(', '),
+                            style: const TextStyle(color: Colors.white70),
+                            overflow: TextOverflow.ellipsis,
                           ),
-                          const Tab(text: 'More Details'),
-                          const Tab(text: 'More Like This'),
-                        ],
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    const SizedBox(height: 16),
+                    Text(
+                      meta.synopsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        height: 1.4,
                       ),
                     ),
-                  ),
-                ];
-              },
-              body: TabBarView(
-                controller: _tabController,
-                children: [
-                  EpisodeListScreen(
-                    season: widget.series.seasons.first,
-                    series: widget.series,
-                    heroTag: 'hero_library_details_${widget.series.coreName}',
-                    categoryTitle: widget.categoryTitle,
-                    isEmbedded: true,
-                    onSeasonChanged: _onSeasonChanged,
-                  ),
-                  _buildMoreDetailsTab(meta),
-                  _buildMoreLikeThisTab(meta),
-                ],
+                    const SizedBox(height: 16),
+                    Text(
+                      'Cast: ${meta.cast}',
+                      style: const TextStyle(
+                        color: Colors.white54,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-        ],
+            SliverPersistentHeader(
+              pinned: true,
+              delegate: _SliverAppBarDelegate(
+                TabBar(
+                  controller: _tabController,
+                  indicatorColor: Colors.red,
+                  labelColor: Colors.white,
+                  unselectedLabelColor: Colors.white54,
+                  tabs: [
+                    Tab(
+                      text: widget.categoryTitle.toLowerCase() == 'movies'
+                          ? 'Media'
+                          : 'Episodes',
+                    ),
+                    const Tab(text: 'More Details'),
+                    const Tab(text: 'More Like This'),
+                  ],
+                ),
+              ),
+            ),
+          ];
+        },
+        body: TabBarView(
+          controller: _tabController,
+          children: [
+            EpisodeListScreen(
+              season: widget.series.seasons.first,
+              series: widget.series,
+              heroTag: 'hero_library_details_${widget.series.coreName}',
+              categoryTitle: widget.categoryTitle,
+              isEmbedded: true,
+              onSeasonChanged: _onSeasonChanged,
+            ),
+            _buildMoreDetailsTab(meta),
+            _buildMoreLikeThisTab(meta),
+          ],
+        ),
       ),
     );
   }
@@ -477,13 +473,27 @@ class _SeriesDetailsScreenState extends ConsumerState<SeriesDetailsScreen>
             ),
           ),
         ),
-        if (_ytController != null)
+        if (meta.trailerYoutubeId.isNotEmpty)
           Center(
             child: IconButton(
               iconSize: 64,
               icon: const Icon(Icons.play_circle_fill, color: Colors.white),
-              onPressed: () {
-                setState(() => _trailerPlaying = true);
+              onPressed: () async {
+                bool isDesktop =
+                    !kIsWeb &&
+                    (Platform.isWindows ||
+                        Platform.isLinux ||
+                        Platform.isMacOS);
+                if (isDesktop || _ytController == null) {
+                  final url = Uri.parse(
+                    'https://www.youtube.com/watch?v=${meta.trailerYoutubeId}',
+                  );
+                  if (await canLaunchUrl(url)) {
+                    await launchUrl(url);
+                  }
+                } else {
+                  setState(() => _trailerPlaying = true);
+                }
               },
             ),
           ),
