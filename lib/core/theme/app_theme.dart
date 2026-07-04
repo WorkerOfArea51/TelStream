@@ -29,7 +29,11 @@ class AppThemeExtension extends ThemeExtension<AppThemeExtension> {
       return this;
     }
     return AppThemeExtension(
-      settingsBackground: Color.lerp(settingsBackground, other.settingsBackground, t),
+      settingsBackground: Color.lerp(
+        settingsBackground,
+        other.settingsBackground,
+        t,
+      ),
       settingsAccent: Color.lerp(settingsAccent, other.settingsAccent, t),
     );
   }
@@ -41,12 +45,12 @@ class ColorThemePreset {
   final String name;
   final Color primaryColor;
   final Color settingsPrimaryColor;
-  
+
   // Backgrounds
   final Color scaffoldBgDark;
   final Color settingsBgDark;
   final Color cardBgDark;
-  
+
   final Color scaffoldBgLight;
   final Color settingsBgLight;
   final Color cardBgLight;
@@ -75,6 +79,18 @@ final List<ColorThemePreset> appThemes = [
     scaffoldBgDark: Colors.black,
     settingsBgDark: Colors.black,
     cardBgDark: Color(0xFF1C1C1E),
+    scaffoldBgLight: Color(0xFFF3F4F6),
+    settingsBgLight: Color(0xFFE5E7EB),
+    cardBgLight: Colors.white,
+  ),
+  const ColorThemePreset(
+    id: 'netflixRed',
+    name: 'Netflix Red',
+    primaryColor: Color(0xFFE50914), // Netflix Red
+    settingsPrimaryColor: Color(0xFFE50914),
+    scaffoldBgDark: Colors.black,
+    settingsBgDark: Color(0xFF141414),
+    cardBgDark: Color(0xFF1F1F1F),
     scaffoldBgLight: Color(0xFFF3F4F6),
     settingsBgLight: Color(0xFFE5E7EB),
     cardBgLight: Colors.white,
@@ -154,7 +170,11 @@ class AppThemeNotifier extends Notifier<AppThemeState> {
       themeMode: themeMode,
       colorThemeId: colorThemeId,
       lightTheme: _buildTheme(preset, false, false),
-      darkTheme: _buildTheme(preset, true, true), // Force amoled = true for Dark Mode
+      darkTheme: _buildTheme(
+        preset,
+        true,
+        true,
+      ), // Force amoled = true for Dark Mode
     );
   }
 
@@ -181,7 +201,11 @@ class AppThemeNotifier extends Notifier<AppThemeState> {
       themeMode: mode,
       colorThemeId: colorThemeId,
       lightTheme: _buildTheme(preset, false, false),
-      darkTheme: _buildTheme(preset, true, true), // Force amoled = true for Dark Mode
+      darkTheme: _buildTheme(
+        preset,
+        true,
+        true,
+      ), // Force amoled = true for Dark Mode
     );
   }
 
@@ -226,20 +250,28 @@ class AppThemeNotifier extends Notifier<AppThemeState> {
         surface: scaffoldBg,
       ),
       appBarTheme: AppBarTheme(
-        backgroundColor: isDark ? (isAmoled ? Colors.black : scaffoldBg) : Colors.transparent,
+        backgroundColor: isDark
+            ? (isAmoled ? Colors.black : scaffoldBg)
+            : Colors.transparent,
         elevation: 0,
         foregroundColor: textColor,
         iconTheme: IconThemeData(color: textColor),
       ),
       bottomNavigationBarTheme: BottomNavigationBarThemeData(
-        backgroundColor: isDark ? (isAmoled ? Colors.black : scaffoldBg) : Colors.white,
+        backgroundColor: isDark
+            ? (isAmoled ? Colors.black : scaffoldBg)
+            : Colors.white,
         selectedItemColor: preset.primaryColor,
         unselectedItemColor: subTextColor,
       ),
       navigationBarTheme: NavigationBarThemeData(
-        backgroundColor: isDark ? (isAmoled ? Colors.black : scaffoldBg) : Colors.white,
+        backgroundColor: isDark
+            ? (isAmoled ? Colors.black : scaffoldBg)
+            : Colors.white,
         indicatorColor: preset.primaryColor.withValues(alpha: 0.15),
-        indicatorShape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        indicatorShape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
         iconTheme: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) {
             return IconThemeData(color: preset.primaryColor);
@@ -249,7 +281,10 @@ class AppThemeNotifier extends Notifier<AppThemeState> {
         labelTextStyle: WidgetStateProperty.resolveWith((states) {
           final style = TextStyle(fontSize: 12, fontWeight: FontWeight.w500);
           if (states.contains(WidgetState.selected)) {
-            return style.copyWith(color: preset.primaryColor, fontWeight: FontWeight.bold);
+            return style.copyWith(
+              color: preset.primaryColor,
+              fontWeight: FontWeight.bold,
+            );
           }
           return style.copyWith(color: subTextColor);
         }),
@@ -257,7 +292,9 @@ class AppThemeNotifier extends Notifier<AppThemeState> {
       extensions: [
         AppThemeExtension(
           settingsBackground: settingsBg,
-          settingsAccent: isDark ? preset.settingsPrimaryColor : preset.primaryColor,
+          settingsAccent: isDark
+              ? preset.settingsPrimaryColor
+              : preset.primaryColor,
         ),
       ],
       textTheme: const TextTheme().apply(

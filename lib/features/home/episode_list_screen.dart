@@ -72,7 +72,9 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
 
   void _scrollToHighlightedEpisode() {
     if (widget.highlightMessageId == null) return;
-    final idx = _selectedSeason.episodes.indexWhere((ep) => ep.id == widget.highlightMessageId);
+    final idx = _selectedSeason.episodes.indexWhere(
+      (ep) => ep.id == widget.highlightMessageId,
+    );
     if (idx != -1) {
       Future.delayed(const Duration(milliseconds: 400), () {
         if (!mounted || !_scrollController.hasClients) return;
@@ -86,8 +88,6 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
     }
   }
 
-
-
   Future<void> _loadEpisodesDynamically() async {
     if (!mounted) return;
     setState(() {
@@ -99,20 +99,24 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
       final tdlibService = ref.read(tdlibServiceProvider);
       final posterId = _selectedSeason.posterMessage.id;
       final chatId = _selectedSeason.posterMessage.chatId;
-      
+
       final List<td.Message> collectedEpisodes = [];
       int currentFromId = posterId;
 
-      final response = await tdlibService.sendAsync(td.GetChatHistory(
-        chatId: chatId,
-        fromMessageId: currentFromId,
-        offset: -99,
-        limit: 100,
-        onlyLocal: false,
-      )).timeout(
-        const Duration(seconds: 10),
-        onTimeout: () => td.TdError(code: 408, message: "Request Timeout"),
-      );
+      final response = await tdlibService
+          .sendAsync(
+            td.GetChatHistory(
+              chatId: chatId,
+              fromMessageId: currentFromId,
+              offset: -99,
+              limit: 100,
+              onlyLocal: false,
+            ),
+          )
+          .timeout(
+            const Duration(seconds: 10),
+            onTimeout: () => td.TdError(code: 408, message: "Request Timeout"),
+          );
 
       if (response is td.TdError) {
         throw Exception("Failed to load episodes: ${response.message}");
@@ -176,15 +180,17 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
     super.dispose();
   }
 
-
-
   void _toggleFavorite() {
     ref.read(favoritesProvider.notifier).toggleFavorite(widget.series.coreName);
-    final isFavNow = ref.read(favoritesProvider).contains(widget.series.coreName);
+    final isFavNow = ref
+        .read(favoritesProvider)
+        .contains(widget.series.coreName);
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(isFavNow ? 'Added to Favorites!' : 'Removed from Favorites'),
+          content: Text(
+            isFavNow ? 'Added to Favorites!' : 'Removed from Favorites',
+          ),
           backgroundColor: Theme.of(context).colorScheme.primary,
           duration: const Duration(seconds: 2),
         ),
@@ -192,9 +198,10 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
     }
   }
 
-
-
-  Widget _buildLocalBackdrop(td.File? posterFile, td.Minithumbnail? minithumbnail) {
+  Widget _buildLocalBackdrop(
+    td.File? posterFile,
+    td.Minithumbnail? minithumbnail,
+  ) {
     return TdThumbnail(
       file: posterFile,
       minithumbnail: minithumbnail,
@@ -206,80 +213,7 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
   }
 
   Widget _buildResumePlayButton(BuildContext context, Color accentColor) {
-    final storage = ref.read(storageServiceProvider);
-    final lastWatchedMap = storage.getLastWatched();
-    
-    int resumeIndex = 0;
-    String btnText = 'Play Season 1';
-    
-    if (lastWatchedMap != null && lastWatchedMap['seriesName'] == widget.series.coreName) {
-      resumeIndex = lastWatchedMap['episodeIndex'] as int? ?? 0;
-      if (resumeIndex < _selectedSeason.episodes.length) {
-        btnText = widget.categoryTitle == 'Movies' ? 'Resume Movie' : 'Resume Episode ${resumeIndex + 1}';
-      }
-    } else if (_selectedSeason.episodes.isNotEmpty) {
-      btnText = widget.categoryTitle == 'Movies' ? 'Play Movie' : 'Play Episode 1';
-    }
-
-    if (_selectedSeason.episodes.isEmpty) {
-      return const SizedBox.shrink();
-    }
-
-    return Padding(
-      padding: const EdgeInsets.only(top: 16),
-      child: SizedBox(
-        width: double.infinity,
-        child: _TouchScale(
-          onTap: () {
-            final msg = _selectedSeason.episodes[resumeIndex];
-            int? fileId;
-            String title = 'Episode ${resumeIndex + 1}';
-            if (msg.content is td.MessageVideo) {
-              final video = msg.content as td.MessageVideo;
-              fileId = video.video.video.id;
-              title = video.video.fileName;
-            } else if (msg.content is td.MessageDocument) {
-              final doc = msg.content as td.MessageDocument;
-              fileId = doc.document.document.id;
-              title = doc.document.fileName;
-            }
-
-            if (fileId != null) {
-              final task = ref.read(downloadControllerProvider)[fileId];
-              final isDownloaded = task != null && task.isCompleted && task.localPath != null;
-
-              ref.read(pipControllerProvider.notifier).playVideo(
-                context,
-                messageId: msg.id,
-                videoFileId: fileId,
-                videoTitle: '${widget.series.coreName} - $title',
-                episodeList: _selectedSeason.episodes,
-                currentEpisodeIndex: resumeIndex,
-                seriesName: widget.series.coreName,
-                networkUrl: isDownloaded ? task.localPath : null,
-              );
-            }
-          },
-          child: ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: accentColor,
-              foregroundColor: accentColor.computeLuminance() > 0.5 ? Colors.black : Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              elevation: 2,
-            ),
-            icon: const Icon(Icons.play_arrow_rounded, size: 28),
-            label: Text(
-              btnText,
-              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, letterSpacing: 0.5),
-            ),
-            onPressed: () {},
-          ),
-        ),
-      ),
-    );
+    return const SizedBox.shrink();
   }
 
   @override
@@ -288,8 +222,8 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
     final provider = widget.categoryTitle == 'Anime'
         ? animeControllerProvider
         : widget.categoryTitle == 'Movies'
-            ? moviesControllerProvider
-            : webSeriesControllerProvider;
+        ? moviesControllerProvider
+        : webSeriesControllerProvider;
 
     final seriesListAsync = ref.watch(provider);
     final seriesList = seriesListAsync.value ?? [];
@@ -302,8 +236,11 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
       orElse: () => _selectedSeason,
     );
 
-    final isFavorite = ref.watch(favoritesProvider).contains(widget.series.coreName);
-    final effectiveHeroTag = widget.heroTag ?? 'hero_poster_grid_${widget.series.coreName}';
+    final isFavorite = ref
+        .watch(favoritesProvider)
+        .contains(widget.series.coreName);
+    final effectiveHeroTag =
+        widget.heroTag ?? 'hero_poster_grid_${widget.series.coreName}';
 
     td.File? posterFile;
     td.Minithumbnail? minithumbnail;
@@ -331,257 +268,298 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
         ),
       ),
       child: Scaffold(
-      backgroundColor: theme.scaffoldBackgroundColor,
-      floatingActionButton: FloatingActionButton(
-        onPressed: _toggleFavorite,
-        backgroundColor: isFavorite ? theme.colorScheme.secondary : theme.cardColor,
-        child: Icon(
-          isFavorite ? Icons.favorite : Icons.favorite_border,
-          color: isFavorite ? Colors.white : theme.iconTheme.color,
+        backgroundColor: theme.scaffoldBackgroundColor,
+        floatingActionButton: FloatingActionButton(
+          onPressed: _toggleFavorite,
+          backgroundColor: isFavorite
+              ? theme.colorScheme.secondary
+              : theme.cardColor,
+          child: Icon(
+            isFavorite ? Icons.favorite : Icons.favorite_border,
+            color: isFavorite ? Colors.white : theme.iconTheme.color,
+          ),
         ),
-      ),
-      body: CustomScrollView(
-        key: const PageStorageKey<String>('episode_list_scroll_view'),
-        controller: widget.isEmbedded ? null : _scrollController,
-        slivers: [
-          if (!widget.isEmbedded)
-            SliverAppBar(
-              expandedHeight: 250,
-              pinned: true,
-              backgroundColor: theme.scaffoldBackgroundColor,
-              actions: [
-                IconButton(
-                  icon: const Icon(Icons.link, color: Colors.white),
-                  tooltip: 'Tracker Matcher',
-                  onPressed: () {
-                    showModalBottomSheet(
-                      context: context,
-                      isScrollControlled: true,
-                      backgroundColor: Colors.transparent,
-                      builder: (context) => TrackerMatchDialog(
-                        seriesName: widget.series.coreName,
-                      ),
-                    );
-                  },
-                ),
-              ],
-              flexibleSpace: FlexibleSpaceBar(
-                background: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    _buildLocalBackdrop(posterFile, minithumbnail),
-                    BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-                      child: Container(color: Colors.black.withValues(alpha: 0.4)),
-                    ),
-                    Container(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            Colors.transparent,
-                            theme.scaffoldBackgroundColor.withValues(alpha: 0.8),
-                            theme.scaffoldBackgroundColor
-                          ],
-                          stops: const [0.4, 0.8, 1.0],
+        body: CustomScrollView(
+          key: const PageStorageKey<String>('episode_list_scroll_view'),
+          controller: widget.isEmbedded ? null : _scrollController,
+          slivers: [
+            if (!widget.isEmbedded)
+              SliverAppBar(
+                expandedHeight: 250,
+                pinned: true,
+                backgroundColor: theme.scaffoldBackgroundColor,
+                actions: [
+                  IconButton(
+                    icon: const Icon(Icons.link, color: Colors.white),
+                    tooltip: 'Tracker Matcher',
+                    onPressed: () {
+                      showModalBottomSheet(
+                        context: context,
+                        isScrollControlled: true,
+                        backgroundColor: Colors.transparent,
+                        builder: (context) => TrackerMatchDialog(
+                          seriesName: widget.series.coreName,
+                        ),
+                      );
+                    },
+                  ),
+                ],
+                flexibleSpace: FlexibleSpaceBar(
+                  background: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      _buildLocalBackdrop(posterFile, minithumbnail),
+                      BackdropFilter(
+                        filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+                        child: Container(
+                          color: Colors.black.withValues(alpha: 0.4),
                         ),
                       ),
-                    ),
-                  ],
+                      Container(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              Colors.transparent,
+                              theme.scaffoldBackgroundColor.withValues(
+                                alpha: 0.8,
+                              ),
+                              theme.scaffoldBackgroundColor,
+                            ],
+                            stops: const [0.4, 0.8, 1.0],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (!widget.isEmbedded) ...[
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Container(
-                          width: 105,
-                          height: 155,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(12),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.4),
-                                blurRadius: 10,
-                                offset: const Offset(0, 5),
-                              ),
-                            ],
-                            border: Border.all(color: Colors.white12, width: 0.5),
-                          ),
-                          clipBehavior: Clip.antiAlias,
-                          child: Hero(
-                            tag: effectiveHeroTag,
-                            child: ClipRRect(
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (!widget.isEmbedded) ...[
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            width: 105,
+                            height: 155,
+                            decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(12),
-                              child: TdThumbnail(
-                                file: posterFile,
-                                minithumbnail: minithumbnail,
-                                autoDownload: true,
-                                borderRadius: BorderRadius.zero,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.4),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 5),
+                                ),
+                              ],
+                              border: Border.all(
+                                color: Colors.white12,
+                                width: 0.5,
+                              ),
+                            ),
+                            clipBehavior: Clip.antiAlias,
+                            child: Hero(
+                              tag: effectiveHeroTag,
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(12),
+                                child: TdThumbnail(
+                                  file: posterFile,
+                                  minithumbnail: minithumbnail,
+                                  autoDownload: true,
+                                  borderRadius: BorderRadius.zero,
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                title,
-                                style: TextStyle(
-                                  color: isDark ? Colors.white : Colors.black87,
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.bold,
-                                  letterSpacing: 0.3,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                widget.categoryTitle == 'Movies'
-                                    ? 'Movie'
-                                    : '${selectedSeason.episodes.length} Episode${selectedSeason.episodes.length > 1 ? "s" : ""}',
-                                style: TextStyle(
-                                  color: isDark ? Colors.white70 : Colors.black87,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 14,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                  ],
-                  _buildResumePlayButton(context, settingsAccent),
-                  const SizedBox(height: 16),
-                  const Divider(color: Colors.white12, height: 1),
-                ],
-              ),
-            ),
-          ),
-          if (widget.series.seasons.length > 1)
-            SliverToBoxAdapter(
-              child: Container(
-                height: 48,
-                margin: const EdgeInsets.only(top: 8, bottom: 4),
-                child: ListView.builder(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  itemCount: widget.series.seasons.length,
-                  itemBuilder: (context, index) {
-                    final season = widget.series.seasons[index];
-                    final isSelected = season.seasonName == selectedSeason.seasonName;
-                    return Padding(
-                      padding: const EdgeInsets.only(right: 10),
-                      child: ChoiceChip(
-                        label: Text(
-                          season.seasonName,
-                          style: TextStyle(
-                            color: isSelected ? theme.colorScheme.onPrimary : theme.colorScheme.onSurface,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 13,
-                          ),
-                        ),
-                        selected: isSelected,
-                        selectedColor: theme.colorScheme.primary,
-                        backgroundColor: theme.cardColor,
-                        side: BorderSide(
-                          color: isSelected ? theme.colorScheme.primary : theme.dividerColor,
-                          width: 1,
-                        ),
-                        onSelected: (selected) {
-                          if (selected) {
-                            setState(() {
-                              _selectedSeason = season;
-                            });
-                            widget.onSeasonChanged?.call(index);
-                            if (season.episodes.isEmpty) {
-                              _loadEpisodesDynamically();
-                            }
-                          }
-                        },
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ),
-          SliverToBoxAdapter(
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 300),
-              switchInCurve: Curves.easeOut,
-              switchOutCurve: Curves.easeIn,
-              child: _isLoadingEpisodes
-                  ? ListView.builder(
-                      key: const ValueKey('loading'),
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      padding: const EdgeInsets.all(16),
-                      itemCount: 4,
-                      itemBuilder: (context, index) => const ShimmerEpisodeCard(),
-                    )
-                  : _errorMessage != null
-                      ? Center(
-                          key: const ValueKey('error'),
-                          child: Padding(
-                            padding: const EdgeInsets.all(32.0),
+                          const SizedBox(width: 16),
+                          Expanded(
                             child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text('Error: $_errorMessage', style: TextStyle(color: theme.colorScheme.error)),
-                                const SizedBox(height: 12),
-                                ElevatedButton(
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: theme.primaryColor,
-                                    foregroundColor: theme.primaryColor.computeLuminance() > 0.5 ? Colors.black : Colors.white,
+                                Text(
+                                  title,
+                                  style: TextStyle(
+                                    color: isDark
+                                        ? Colors.white
+                                        : Colors.black87,
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: 0.3,
                                   ),
-                                  onPressed: _loadEpisodesDynamically,
-                                  child: const Text('Retry'),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  widget.categoryTitle == 'Movies'
+                                      ? 'Movie'
+                                      : '${selectedSeason.episodes.length} Episode${selectedSeason.episodes.length > 1 ? "s" : ""}',
+                                  style: TextStyle(
+                                    color: isDark
+                                        ? Colors.white70
+                                        : Colors.black87,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                  ),
                                 ),
                               ],
                             ),
                           ),
-                        )
-                       : ListView.builder(
-                          key: ValueKey('${selectedSeason.seasonName}_${selectedSeason.episodes.length}'),
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          padding: const EdgeInsets.all(16),
-                          itemCount: selectedSeason.episodes.length,
-                          itemBuilder: (context, index) {
-                            final msg = selectedSeason.episodes[index];
-                            final isHighlighted = widget.highlightMessageId == msg.id;
-                            return _EpisodeCardItem(
-                              key: ValueKey(msg.id),
-                              msg: msg,
-                              index: index,
-                              season: selectedSeason,
-                              series: widget.series,
-                              onLongPress: _showMarkWatchedDialog,
-                              isHighlighted: isHighlighted,
-                            );
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+                    _buildResumePlayButton(context, settingsAccent),
+                    const SizedBox(height: 16),
+                    const Divider(color: Colors.white12, height: 1),
+                  ],
+                ),
+              ),
+            ),
+            if (widget.series.seasons.length > 1)
+              SliverToBoxAdapter(
+                child: Container(
+                  height: 48,
+                  margin: const EdgeInsets.only(top: 8, bottom: 4),
+                  child: ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    itemCount: widget.series.seasons.length,
+                    itemBuilder: (context, index) {
+                      final season = widget.series.seasons[index];
+                      final isSelected =
+                          season.seasonName == selectedSeason.seasonName;
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 10),
+                        child: ChoiceChip(
+                          label: Text(
+                            season.episodes.isNotEmpty
+                                ? '${season.seasonName} (${season.episodes.length} EP)'
+                                : season.seasonName,
+                            style: TextStyle(
+                              color: isSelected
+                                  ? theme.colorScheme.onPrimary
+                                  : theme.colorScheme.onSurface,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                            ),
+                          ),
+                          selected: isSelected,
+                          selectedColor: theme.colorScheme.primary,
+                          backgroundColor: theme.cardColor,
+                          side: BorderSide(
+                            color: isSelected
+                                ? theme.colorScheme.primary
+                                : theme.dividerColor,
+                            width: 1,
+                          ),
+                          onSelected: (selected) {
+                            if (selected) {
+                              setState(() {
+                                _selectedSeason = season;
+                              });
+                              widget.onSeasonChanged?.call(index);
+                              if (season.episodes.isEmpty) {
+                                _loadEpisodesDynamically();
+                              }
+                            }
                           },
                         ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+            SliverToBoxAdapter(
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 300),
+                switchInCurve: Curves.easeOut,
+                switchOutCurve: Curves.easeIn,
+                child: _isLoadingEpisodes
+                    ? ListView.builder(
+                        key: const ValueKey('loading'),
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        padding: const EdgeInsets.all(16),
+                        itemCount: 4,
+                        itemBuilder: (context, index) =>
+                            const ShimmerEpisodeCard(),
+                      )
+                    : _errorMessage != null
+                    ? Center(
+                        key: const ValueKey('error'),
+                        child: Padding(
+                          padding: const EdgeInsets.all(32.0),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                'Error: $_errorMessage',
+                                style: TextStyle(
+                                  color: theme.colorScheme.error,
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              ElevatedButton(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: theme.primaryColor,
+                                  foregroundColor:
+                                      theme.primaryColor.computeLuminance() >
+                                          0.5
+                                      ? Colors.black
+                                      : Colors.white,
+                                ),
+                                onPressed: _loadEpisodesDynamically,
+                                child: const Text('Retry'),
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                    : ListView.builder(
+                        key: ValueKey(
+                          '${selectedSeason.seasonName}_${selectedSeason.episodes.length}',
+                        ),
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        padding: const EdgeInsets.all(16),
+                        itemCount: selectedSeason.episodes.length,
+                        itemBuilder: (context, index) {
+                          final msg = selectedSeason.episodes[index];
+                          final isHighlighted =
+                              widget.highlightMessageId == msg.id;
+                          return _EpisodeCardItem(
+                            key: ValueKey(msg.id),
+                            msg: msg,
+                            index: index,
+                            season: selectedSeason,
+                            series: widget.series,
+                            onLongPress: _showMarkWatchedDialog,
+                            isHighlighted: isHighlighted,
+                          );
+                        },
+                      ),
+              ),
             ),
-          ),
-          const SliverToBoxAdapter(child: SizedBox(height: 120)),
-        ],
+            const SliverToBoxAdapter(child: SizedBox(height: 120)),
+          ],
+        ),
       ),
-    ),
-  );
-}
+    );
+  }
 
-  void _showMarkWatchedDialog(BuildContext context, td.Message msg, int index, String title) {
+  void _showMarkWatchedDialog(
+    BuildContext context,
+    td.Message msg,
+    int index,
+    String title,
+  ) {
     final storage = ref.read(storageServiceProvider);
     final theme = Theme.of(context);
 
@@ -600,14 +578,20 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
                 padding: const EdgeInsets.all(16.0),
                 child: Text(
                   title,
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
               const Divider(height: 1),
               ListTile(
-                leading: const Icon(Icons.check_circle_outline, color: Colors.green),
+                leading: const Icon(
+                  Icons.check_circle_outline,
+                  color: Colors.green,
+                ),
                 title: const Text('Mark as Watched'),
                 onTap: () async {
                   int duration = 0;
@@ -621,20 +605,29 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
                     await storage.saveVideoDuration(msg.id, resolvedDuration);
                   }
                   await storage.saveWatchPosition(msg.id, resolvedDuration);
-                  
-                  if (!storage.isIncognitoMode() && widget.series.coreName.isNotEmpty) {
-                    await ref.read(historyLogProvider.notifier).addToHistory(
-                      seriesName: widget.series.coreName,
-                      messageId: msg.id,
-                      episodeIndex: index,
-                      episodeTitle: title.replaceFirst('${widget.series.coreName} - ', ''),
-                      positionInSeconds: resolvedDuration,
-                      videoFileId: msg.content is td.MessageVideo
-                          ? (msg.content as td.MessageVideo).video.video.id
-                          : (msg.content as td.MessageDocument).document.document.id,
-                    );
+
+                  if (!storage.isIncognitoMode() &&
+                      widget.series.coreName.isNotEmpty) {
+                    await ref
+                        .read(historyLogProvider.notifier)
+                        .addToHistory(
+                          seriesName: widget.series.coreName,
+                          messageId: msg.id,
+                          episodeIndex: index,
+                          episodeTitle: title.replaceFirst(
+                            '${widget.series.coreName} - ',
+                            '',
+                          ),
+                          positionInSeconds: resolvedDuration,
+                          videoFileId: msg.content is td.MessageVideo
+                              ? (msg.content as td.MessageVideo).video.video.id
+                              : (msg.content as td.MessageDocument)
+                                    .document
+                                    .document
+                                    .id,
+                        );
                   }
-                  
+
                   if (context.mounted) {
                     setState(() {});
                     Navigator.pop(context);
@@ -642,7 +635,10 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.unpublished_outlined, color: Colors.redAccent),
+                leading: const Icon(
+                  Icons.unpublished_outlined,
+                  color: Colors.redAccent,
+                ),
                 title: const Text('Mark as Unwatched'),
                 onTap: () async {
                   await storage.saveWatchPosition(msg.id, 0);
@@ -727,8 +723,6 @@ class _EpisodeCardItemState extends ConsumerState<_EpisodeCardItem> {
     super.dispose();
   }
 
-
-
   @override
   Widget build(BuildContext context) {
     String fileTitle = 'Episode ${widget.index + 1}';
@@ -739,16 +733,24 @@ class _EpisodeCardItemState extends ConsumerState<_EpisodeCardItem> {
       final video = widget.msg.content as td.MessageVideo;
       fileTitle = video.video.fileName;
       fileId = video.video.video.id;
-      final sizeMb = (video.video.video.expectedSize / 1024 / 1024).toStringAsFixed(1);
+      final sizeMb = (video.video.video.expectedSize / 1024 / 1024)
+          .toStringAsFixed(1);
       final duration = Duration(seconds: video.video.duration);
-      final minutes = duration.inMinutes.remainder(60).toString().padLeft(2, '0');
-      final seconds = duration.inSeconds.remainder(60).toString().padLeft(2, '0');
+      final minutes = duration.inMinutes
+          .remainder(60)
+          .toString()
+          .padLeft(2, '0');
+      final seconds = duration.inSeconds
+          .remainder(60)
+          .toString()
+          .padLeft(2, '0');
       metadata = '$minutes:$seconds • $sizeMb MB';
     } else if (widget.msg.content is td.MessageDocument) {
       final doc = widget.msg.content as td.MessageDocument;
       fileTitle = doc.document.fileName;
       fileId = doc.document.document.id;
-      final sizeMb = (doc.document.document.expectedSize / 1024 / 1024).toStringAsFixed(1);
+      final sizeMb = (doc.document.document.expectedSize / 1024 / 1024)
+          .toStringAsFixed(1);
       metadata = '$sizeMb MB';
     }
 
@@ -774,12 +776,14 @@ class _EpisodeCardItemState extends ConsumerState<_EpisodeCardItem> {
       trailingWidget = IconButton(
         icon: Icon(Icons.download, color: settingsAccent, size: 22),
         onPressed: () {
-          ref.read(downloadControllerProvider.notifier).startDownload(
-            fileId!,
-            fileTitle,
-            messageId: widget.msg.id,
-            chatId: widget.msg.chatId,
-          );
+          ref
+              .read(downloadControllerProvider.notifier)
+              .startDownload(
+                fileId!,
+                fileTitle,
+                messageId: widget.msg.id,
+                chatId: widget.msg.chatId,
+              );
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('Starting download: $fileTitle'),
@@ -792,7 +796,9 @@ class _EpisodeCardItemState extends ConsumerState<_EpisodeCardItem> {
     } else if (!task.isCompleted) {
       trailingWidget = GestureDetector(
         onTap: () {
-          ref.read(downloadControllerProvider.notifier).cancelDownload(task!.fileId);
+          ref
+              .read(downloadControllerProvider.notifier)
+              .cancelDownload(task!.fileId);
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Download cancelled'),
@@ -819,10 +825,15 @@ class _EpisodeCardItemState extends ConsumerState<_EpisodeCardItem> {
         ),
       );
     } else {
-      trailingWidget = const Icon(Icons.check_circle, color: Colors.green, size: 22);
+      trailingWidget = const Icon(
+        Icons.check_circle,
+        color: Colors.green,
+        size: 22,
+      );
     }
 
-    final isDownloaded = task != null && task.isCompleted && task.localPath != null;
+    final isDownloaded =
+        task != null && task.isCompleted && task.localPath != null;
     final storage = ref.read(storageServiceProvider);
     final savedPos = storage.getWatchPosition(widget.msg.id);
     int duration = 0;
@@ -831,7 +842,9 @@ class _EpisodeCardItemState extends ConsumerState<_EpisodeCardItem> {
     } else {
       duration = storage.getVideoDuration(widget.msg.id);
     }
-    final double progressValue = (duration > 0) ? (savedPos / duration).clamp(0.0, 1.0) : 0.0;
+    final double progressValue = (duration > 0)
+        ? (savedPos / duration).clamp(0.0, 1.0)
+        : 0.0;
     final isCompleted = progressValue > 0.9;
 
     return GestureDetector(
@@ -839,16 +852,18 @@ class _EpisodeCardItemState extends ConsumerState<_EpisodeCardItem> {
       onTapUp: (_) => setState(() => _isTapped = false),
       onTapCancel: () => setState(() => _isTapped = false),
       onTap: () {
-        ref.read(pipControllerProvider.notifier).playVideo(
-          context,
-          messageId: widget.msg.id,
-          videoFileId: fileId!,
-          videoTitle: '${widget.series.coreName} - $fileTitle',
-          episodeList: widget.season.episodes,
-          currentEpisodeIndex: widget.index,
-          seriesName: widget.series.coreName,
-          networkUrl: isDownloaded ? task?.localPath : null,
-        );
+        ref
+            .read(pipControllerProvider.notifier)
+            .playVideo(
+              context,
+              messageId: widget.msg.id,
+              videoFileId: fileId!,
+              videoTitle: '${widget.series.coreName} - $fileTitle',
+              episodeList: widget.season.episodes,
+              currentEpisodeIndex: widget.index,
+              seriesName: widget.series.coreName,
+              networkUrl: isDownloaded ? task?.localPath : null,
+            );
       },
       onLongPress: () {
         widget.onLongPress(context, widget.msg, widget.index, fileTitle);
@@ -865,7 +880,9 @@ class _EpisodeCardItemState extends ConsumerState<_EpisodeCardItem> {
             border: Border.all(
               color: _isGlowing
                   ? settingsAccent
-                  : theme.colorScheme.onSurface.withValues(alpha: _isTapped ? 0.16 : 0.08),
+                  : theme.colorScheme.onSurface.withValues(
+                      alpha: _isTapped ? 0.16 : 0.08,
+                    ),
               width: _isGlowing || _isTapped ? 1.8 : 1.0,
             ),
             boxShadow: [
@@ -877,114 +894,124 @@ class _EpisodeCardItemState extends ConsumerState<_EpisodeCardItem> {
                 )
               else
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: _isTapped ? 0.15 : 0.08),
+                  color: Colors.black.withValues(
+                    alpha: _isTapped ? 0.15 : 0.08,
+                  ),
                   blurRadius: _isTapped ? 3 : 6,
                   offset: Offset(0, _isTapped ? 1.5 : 3),
                 ),
             ],
           ),
-            clipBehavior: Clip.antiAlias,
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  // Episode Thumbnail/Still preview
-                  Container(
-                    width: 105,
-                    height: 65,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.white10),
-                    ),
-                    clipBehavior: Clip.antiAlias,
-                    child: Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        _buildEpisodePlaceholder(widget.msg),
-                        Container(color: Colors.black26),
-                        Center(
+          clipBehavior: Clip.antiAlias,
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                // Episode Thumbnail/Still preview
+                Container(
+                  width: 105,
+                  height: 65,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.white10),
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      _buildEpisodePlaceholder(widget.msg),
+                      Container(color: Colors.black26),
+                      Center(
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                            color: Colors.black54,
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: Colors.white24,
+                              width: 0.5,
+                            ),
+                          ),
+                          child: Icon(
+                            isDownloaded
+                                ? Icons.download_done_rounded
+                                : Icons.play_arrow_rounded,
+                            color: isDownloaded ? Colors.green : Colors.white,
+                            size: 16,
+                          ),
+                        ),
+                      ),
+                      if (progressValue > 0.0)
+                        Positioned(
+                          left: 0,
+                          right: 0,
+                          bottom: 0,
                           child: Container(
-                            padding: const EdgeInsets.all(4),
-                            decoration: BoxDecoration(
-                              color: Colors.black54,
-                              shape: BoxShape.circle,
-                              border: Border.all(color: Colors.white24, width: 0.5),
-                            ),
-                            child: Icon(
-                              isDownloaded ? Icons.download_done_rounded : Icons.play_arrow_rounded,
-                              color: isDownloaded ? Colors.green : Colors.white,
-                              size: 16,
-                            ),
-                          ),
-                        ),
-                        if (progressValue > 0.0)
-                          Positioned(
-                            left: 0,
-                            right: 0,
-                            bottom: 0,
-                            child: Container(
-                              height: 3,
-                              color: Colors.black38,
-                              child: Align(
-                                alignment: Alignment.centerLeft,
-                                child: FractionallySizedBox(
-                                  widthFactor: progressValue,
-                                  child: Container(
-                                    color: settingsAccent,
-                                  ),
-                                ),
+                            height: 3,
+                            color: Colors.black38,
+                            child: Align(
+                              alignment: Alignment.centerLeft,
+                              child: FractionallySizedBox(
+                                widthFactor: progressValue,
+                                child: Container(color: settingsAccent),
                               ),
                             ),
                           ),
-                      ],
-                    ),
+                        ),
+                    ],
                   ),
-                  const SizedBox(width: 12),
-                  // Episode information details
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          widget.series.seasons.length == 1 && widget.season.episodes.length == 1 
-                              ? epTitle 
-                              : '${widget.index + 1}. $epTitle',
-                          style: TextStyle(
-                            color: isDark ? Colors.white : Colors.black87,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 13,
-                          ),
-                          maxLines: 3,
-                          overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(width: 12),
+                // Episode information details
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        widget.series.seasons.length == 1 &&
+                                widget.season.episodes.length == 1
+                            ? epTitle
+                            : '${widget.index + 1}. $epTitle',
+                        style: TextStyle(
+                          color: isDark ? Colors.white : Colors.black87,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
                         ),
-                        const SizedBox(height: 4),
-                        Row(
-                          children: [
-                            if (isCompleted) ...[
-                              const Icon(Icons.check_circle, color: Colors.green, size: 12),
-                              const SizedBox(width: 4),
-                            ],
-                            Text(
-                              isDownloaded ? '$metadata • Downloaded' : metadata,
-                              style: TextStyle(
-                                color: isDark ? Colors.white30 : Colors.black38,
-                                fontSize: 10,
-                              ),
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          if (isCompleted) ...[
+                            const Icon(
+                              Icons.check_circle,
+                              color: Colors.green,
+                              size: 12,
                             ),
+                            const SizedBox(width: 4),
                           ],
-                        ),
-                      ],
-                    ),
+                          Text(
+                            isDownloaded ? '$metadata • Downloaded' : metadata,
+                            style: TextStyle(
+                              color: isDark ? Colors.white30 : Colors.black38,
+                              fontSize: 10,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 8),
-                  trailingWidget,
-                ],
-              ),
+                ),
+                const SizedBox(width: 8),
+                trailingWidget,
+              ],
             ),
           ),
         ),
-      );
+      ),
+    );
   }
 
   Widget _buildEpisodePlaceholder(td.Message msg) {
@@ -1017,10 +1044,7 @@ class _TouchScale extends StatefulWidget {
   final Widget child;
   final VoidCallback onTap;
 
-  const _TouchScale({
-    required this.child,
-    required this.onTap,
-  });
+  const _TouchScale({required this.child, required this.onTap});
 
   @override
   State<_TouchScale> createState() => _TouchScaleState();
@@ -1063,7 +1087,8 @@ class _SwipeToAction extends StatefulWidget {
   State<_SwipeToAction> createState() => _SwipeToActionState();
 }
 
-class _SwipeToActionState extends State<_SwipeToAction> with SingleTickerProviderStateMixin {
+class _SwipeToActionState extends State<_SwipeToAction>
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   double _dragOffset = 0.0;
   static const double _threshold = 80.0;
@@ -1101,8 +1126,11 @@ class _SwipeToActionState extends State<_SwipeToAction> with SingleTickerProvide
     }
 
     final start = _dragOffset;
-    final curve = CurvedAnimation(parent: _controller, curve: Curves.easeOutBack);
-    
+    final curve = CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeOutBack,
+    );
+
     late VoidCallback listener;
     listener = () {
       setState(() {

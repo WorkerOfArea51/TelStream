@@ -544,7 +544,7 @@ extension on _SeriesDetailsScreenState {
   Widget _buildMoreDetailsTab(SeriesMetadata meta) {
     return SingleChildScrollView(
       key: const PageStorageKey<String>('more_details_tab'),
-      padding: const EdgeInsets.all(16.0),
+      padding: const EdgeInsets.symmetric(vertical: 16.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -573,7 +573,12 @@ extension on _SeriesDetailsScreenState {
           if (widget.categoryTitle.toLowerCase() == 'anime' &&
               meta.malId.isNotEmpty)
             Padding(
-              padding: const EdgeInsets.only(top: 24.0, bottom: 16.0),
+              padding: const EdgeInsets.only(
+                top: 24.0,
+                bottom: 16.0,
+                left: 16.0,
+                right: 16.0,
+              ),
               child: SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
@@ -609,7 +614,12 @@ extension on _SeriesDetailsScreenState {
             )
           else if (meta.imdbId.isNotEmpty)
             Padding(
-              padding: const EdgeInsets.only(top: 24.0, bottom: 16.0),
+              padding: const EdgeInsets.only(
+                top: 24.0,
+                bottom: 16.0,
+                left: 16.0,
+                right: 16.0,
+              ),
               child: SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
@@ -649,8 +659,12 @@ extension on _SeriesDetailsScreenState {
   }
 
   Widget _buildDetailRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12.0),
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFF2B2B2B),
+        border: Border(bottom: BorderSide(color: Colors.black, width: 2)),
+      ),
+      padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 16.0),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
