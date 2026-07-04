@@ -155,8 +155,19 @@ class _SeriesDetailsScreenState extends ConsumerState<SeriesDetailsScreen> with 
     final allSeries = seriesState.value ?? [];
     AnimeSeries? matchedSeries;
     
+    String cleanString(String input) {
+      var s = input.replaceAll('_', ' ').replaceAll('-', ' ');
+      s = s.replaceAll(RegExp(r'\b(?:19|20)\d{2}\b'), '');
+      s = s.replaceAll(RegExp(r'[^a-zA-Z0-9\s]'), '');
+      s = s.replaceAll(RegExp(r'\s+'), ' ');
+      return s.trim().toLowerCase();
+    }
+    
+    final targetClean = cleanString(rec.title);
+    
     for (final s in allSeries) {
-      if (s.coreName.toLowerCase() == normalizedRecTitle.toLowerCase()) {
+      final sClean = cleanString(s.coreName);
+      if (sClean == targetClean) {
         matchedSeries = s;
         break;
       }
