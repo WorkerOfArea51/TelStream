@@ -40,6 +40,7 @@ class SeriesMetadata {
   final String director;
   final String writers;
   final String imdbId;
+  final String malId;
   final List<RelatedContent> recommendations;
 
   SeriesMetadata({
@@ -65,6 +66,7 @@ class SeriesMetadata {
     this.director = '',
     this.writers = '',
     this.imdbId = '',
+    this.malId = '',
     this.recommendations = const [],
   });
 
@@ -86,8 +88,12 @@ class SeriesMetadata {
 class MetadataService {
   static const String _tmdbBaseUrl = 'https://api.themoviedb.org/3';
   static const String _jikanBaseUrl = 'https://api.jikan.moe/v4';
+  
+  static final Map<String, SeriesMetadata> _cache = {};
 
   Future<SeriesMetadata?> fetchTmdbByImdbId(String imdbId) async {
+    if (_cache.containsKey(imdbId)) return _cache[imdbId];
+    
     if (Constants.tmdbApiKey == 'YOUR_TMDB_API_KEY' || Constants.tmdbApiKey.isEmpty) {
       Log.e('TMDB API Key is missing. Cannot fetch metadata.');
       return null;
@@ -241,7 +247,7 @@ class MetadataService {
         }
       }
 
-      return SeriesMetadata(
+      final metadata = SeriesMetadata(
         title: isMovie ? (data['title'] ?? data['original_title']) : (data['name'] ?? data['original_name']),
         synopsis: data['overview'] ?? '',
         posterUrl: data['poster_path'] != null ? 'https://image.tmdb.org/t/p/w500${data['poster_path']}' : '',
@@ -262,6 +268,8 @@ class MetadataService {
         imdbId: imdbId,
         recommendations: recs,
       );
+      _cache[imdbId] = metadata;
+      return metadata;
     } catch (e) {
       Log.e('Failed to fetch TMDB details', e);
       return null;
@@ -269,6 +277,8 @@ class MetadataService {
   }
 
   Future<SeriesMetadata?> fetchJikanByMalId(String malId) async {
+    if (_cache.containsKey(malId)) return _cache[malId];
+    
     try {
       final url = Uri.parse('$_jikanBaseUrl/anime/$malId/full');
       final res = await http.get(url);
@@ -357,7 +367,7 @@ class MetadataService {
         episodesCount = '${data['episodes']} Episodes';
       }
 
-      return SeriesMetadata(
+      final metadata = SeriesMetadata(
         title: data['title_english'] ?? data['title'] ?? '',
         synopsis: data['synopsis'] ?? '',
         posterUrl: data['images']?['jpg']?['large_image_url'] ?? '',
@@ -375,8 +385,11 @@ class MetadataService {
         source: source,
         airedDates: airedDates,
         episodesCount: episodesCount,
+        malId: malId,
         recommendations: recs,
       );
+      _cache[malId] = metadata;
+      return metadata;
     } catch (e) {
       Log.e('Failed to fetch Jikan details', e);
       return null;
