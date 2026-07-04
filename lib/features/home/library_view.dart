@@ -18,28 +18,24 @@ import 'series_details_screen.dart';
 import 'widgets/admin_override_dialog.dart';
 import '../../services/firebase_metadata_service.dart';
 
-
 class LibraryView extends ConsumerStatefulWidget {
   final ChannelCategory category;
   final bool isActive;
-  
-  const LibraryView({
-    super.key,
-    required this.category,
-    this.isActive = true,
-  });
+
+  const LibraryView({super.key, required this.category, this.isActive = true});
 
   @override
   ConsumerState<LibraryView> createState() => _LibraryViewState();
 }
 
-class _LibraryViewState extends ConsumerState<LibraryView> with SingleTickerProviderStateMixin, WidgetsBindingObserver {
+class _LibraryViewState extends ConsumerState<LibraryView>
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   late final AsyncNotifierProvider<HomeController, List<AnimeSeries>> provider;
   late final TabController _subTabController;
   final ScrollController _scrollController = ScrollController();
   final TextEditingController _searchController = TextEditingController();
   Timer? _debounce;
-  
+
   bool _isSearching = false;
   int _activeSubTabIndex = 0;
 
@@ -47,14 +43,17 @@ class _LibraryViewState extends ConsumerState<LibraryView> with SingleTickerProv
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    
+
     // Select provider based on category
     provider = widget.category.title == 'Anime'
-        ? animeControllerProvider as AsyncNotifierProvider<HomeController, List<AnimeSeries>>
+        ? animeControllerProvider
+              as AsyncNotifierProvider<HomeController, List<AnimeSeries>>
         : widget.category.title == 'Movies'
-            ? moviesControllerProvider as AsyncNotifierProvider<HomeController, List<AnimeSeries>>
-            : webSeriesControllerProvider as AsyncNotifierProvider<HomeController, List<AnimeSeries>>;
-            
+        ? moviesControllerProvider
+              as AsyncNotifierProvider<HomeController, List<AnimeSeries>>
+        : webSeriesControllerProvider
+              as AsyncNotifierProvider<HomeController, List<AnimeSeries>>;
+
     _subTabController = TabController(length: 2, vsync: this);
     _subTabController.addListener(() {
       if (!_subTabController.indexIsChanging) {
@@ -65,7 +64,8 @@ class _LibraryViewState extends ConsumerState<LibraryView> with SingleTickerProv
     });
 
     _scrollController.addListener(() {
-      if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
+      if (_scrollController.position.pixels >=
+          _scrollController.position.maxScrollExtent - 200) {
         ref.read(provider.notifier).loadMore();
       }
     });
@@ -75,9 +75,9 @@ class _LibraryViewState extends ConsumerState<LibraryView> with SingleTickerProv
     final width = MediaQuery.of(context).size.width;
     final isCompact = layout == 'Compact';
     final isList = layout == 'List';
-    
+
     if (isList) return 1;
-    
+
     if (width > 1600) {
       return isCompact ? 10 : 8;
     } else if (width > 1200) {
@@ -131,7 +131,10 @@ class _LibraryViewState extends ConsumerState<LibraryView> with SingleTickerProv
               mainAxisSize: MainAxisSize.min,
               children: [
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 6,
+                  ),
                   child: Row(
                     children: [
                       Expanded(
@@ -142,11 +145,14 @@ class _LibraryViewState extends ConsumerState<LibraryView> with SingleTickerProv
                                   color: theme.scaffoldBackgroundColor,
                                   borderRadius: BorderRadius.circular(22),
                                   border: Border.all(
-                                    color: theme.colorScheme.onSurface.withValues(alpha: 0.12),
+                                    color: theme.colorScheme.onSurface
+                                        .withValues(alpha: 0.12),
                                     width: 1,
                                   ),
                                 ),
-                                padding: const EdgeInsets.symmetric(horizontal: 16),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                ),
                                 child: TextField(
                                   controller: _searchController,
                                   style: TextStyle(color: textColor),
@@ -155,19 +161,30 @@ class _LibraryViewState extends ConsumerState<LibraryView> with SingleTickerProv
                                     hintText: 'Search...',
                                     hintStyle: TextStyle(color: subTextColor),
                                     border: InputBorder.none,
-                                    icon: Icon(Icons.search, color: subTextColor, size: 20),
+                                    icon: Icon(
+                                      Icons.search,
+                                      color: subTextColor,
+                                      size: 20,
+                                    ),
                                   ),
                                   onChanged: (val) {
                                     _debounce?.cancel();
-                                    _debounce = Timer(const Duration(milliseconds: 300), () {
-                                      ref.read(provider.notifier).search(val);
-                                    });
+                                    _debounce = Timer(
+                                      const Duration(milliseconds: 300),
+                                      () {
+                                        ref.read(provider.notifier).search(val);
+                                      },
+                                    );
                                   },
                                 ),
                               )
                             : Text(
                                 '${ref.watch(provider.notifier).resolvedChatTitle} ${state.value != null ? "(${_getFilteredList(state.value!, favorites, isDownloadedOnly).length})" : ""}',
-                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: textColor),
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 18,
+                                  color: textColor,
+                                ),
                               ),
                       ),
                       if (_isSearching)
@@ -195,24 +212,37 @@ class _LibraryViewState extends ConsumerState<LibraryView> with SingleTickerProv
                           layout == 'Grid'
                               ? Icons.grid_view
                               : layout == 'Compact'
-                                  ? Icons.apps
-                                  : Icons.view_list,
+                              ? Icons.apps
+                              : Icons.view_list,
                           color: subTextColor,
                         ),
                         color: theme.cardColor,
                         onSelected: (String selectedLayout) {
-                          ref.read(videoSettingsProvider.notifier).updateSettings(
-                            settings.copyWithLayoutForCategory(widget.category.title, selectedLayout),
-                          );
+                          ref
+                              .read(videoSettingsProvider.notifier)
+                              .updateSettings(
+                                settings.copyWithLayoutForCategory(
+                                  widget.category.title,
+                                  selectedLayout,
+                                ),
+                              );
                         },
                         itemBuilder: (context) => [
                           PopupMenuItem(
                             value: 'Grid',
                             child: Row(
                               children: [
-                                Icon(Icons.grid_view, color: layout == 'Grid' ? theme.primaryColor : subTextColor),
+                                Icon(
+                                  Icons.grid_view,
+                                  color: layout == 'Grid'
+                                      ? theme.primaryColor
+                                      : subTextColor,
+                                ),
                                 const SizedBox(width: 12),
-                                Text('Grid View', style: TextStyle(color: textColor)),
+                                Text(
+                                  'Grid View',
+                                  style: TextStyle(color: textColor),
+                                ),
                               ],
                             ),
                           ),
@@ -220,9 +250,17 @@ class _LibraryViewState extends ConsumerState<LibraryView> with SingleTickerProv
                             value: 'Compact',
                             child: Row(
                               children: [
-                                Icon(Icons.apps, color: layout == 'Compact' ? theme.primaryColor : subTextColor),
+                                Icon(
+                                  Icons.apps,
+                                  color: layout == 'Compact'
+                                      ? theme.primaryColor
+                                      : subTextColor,
+                                ),
                                 const SizedBox(width: 12),
-                                Text('Compact Grid', style: TextStyle(color: textColor)),
+                                Text(
+                                  'Compact Grid',
+                                  style: TextStyle(color: textColor),
+                                ),
                               ],
                             ),
                           ),
@@ -230,9 +268,17 @@ class _LibraryViewState extends ConsumerState<LibraryView> with SingleTickerProv
                             value: 'List',
                             child: Row(
                               children: [
-                                Icon(Icons.view_list, color: layout == 'List' ? theme.primaryColor : subTextColor),
+                                Icon(
+                                  Icons.view_list,
+                                  color: layout == 'List'
+                                      ? theme.primaryColor
+                                      : subTextColor,
+                                ),
                                 const SizedBox(width: 12),
-                                Text('List View', style: TextStyle(color: textColor)),
+                                Text(
+                                  'List View',
+                                  style: TextStyle(color: textColor),
+                                ),
                               ],
                             ),
                           ),
@@ -245,10 +291,34 @@ class _LibraryViewState extends ConsumerState<LibraryView> with SingleTickerProv
                           ref.read(provider.notifier).setSortOrder(order);
                         },
                         itemBuilder: (context) => [
-                          PopupMenuItem(value: SortOrder.aToZ, child: Text('Name (A-Z)', style: TextStyle(color: textColor))),
-                          PopupMenuItem(value: SortOrder.zToA, child: Text('Name (Z-A)', style: TextStyle(color: textColor))),
-                          PopupMenuItem(value: SortOrder.newest, child: Text('Newest First', style: TextStyle(color: textColor))),
-                          PopupMenuItem(value: SortOrder.oldest, child: Text('Oldest First', style: TextStyle(color: textColor))),
+                          PopupMenuItem(
+                            value: SortOrder.aToZ,
+                            child: Text(
+                              'Name (A-Z)',
+                              style: TextStyle(color: textColor),
+                            ),
+                          ),
+                          PopupMenuItem(
+                            value: SortOrder.zToA,
+                            child: Text(
+                              'Name (Z-A)',
+                              style: TextStyle(color: textColor),
+                            ),
+                          ),
+                          PopupMenuItem(
+                            value: SortOrder.newest,
+                            child: Text(
+                              'Newest First',
+                              style: TextStyle(color: textColor),
+                            ),
+                          ),
+                          PopupMenuItem(
+                            value: SortOrder.oldest,
+                            child: Text(
+                              'Oldest First',
+                              style: TextStyle(color: textColor),
+                            ),
+                          ),
                         ],
                       ),
                     ],
@@ -283,8 +353,12 @@ class _LibraryViewState extends ConsumerState<LibraryView> with SingleTickerProv
       body: state.when(
         skipLoadingOnRefresh: false,
         data: (seriesList) {
-          final filteredList = _getFilteredList(seriesList, favorites, isDownloadedOnly);
-          
+          final filteredList = _getFilteredList(
+            seriesList,
+            favorites,
+            isDownloadedOnly,
+          );
+
           if (filteredList.isEmpty) {
             return _buildEmptyState();
           }
@@ -305,7 +379,10 @@ class _LibraryViewState extends ConsumerState<LibraryView> with SingleTickerProv
             child: CustomScrollView(
               controller: _scrollController,
               slivers: [
-                if (!_isSearching && _activeSubTabIndex == 0 && _searchController.text.isEmpty && filteredList.isNotEmpty)
+                if (!_isSearching &&
+                    _activeSubTabIndex == 0 &&
+                    _searchController.text.isEmpty &&
+                    filteredList.isNotEmpty)
                   SliverToBoxAdapter(
                     child: FeaturedCarousel(
                       seriesList: filteredList.take(5).toList(),
@@ -313,10 +390,18 @@ class _LibraryViewState extends ConsumerState<LibraryView> with SingleTickerProv
                       isActive: widget.isActive,
                     ),
                   ),
-                if (!_isSearching && _activeSubTabIndex == 0 && _searchController.text.isEmpty && filteredList.isNotEmpty)
+                if (!_isSearching &&
+                    _activeSubTabIndex == 0 &&
+                    _searchController.text.isEmpty &&
+                    filteredList.isNotEmpty)
                   _buildContinueWatchingSliver(context, filteredList),
                 SliverPadding(
-                  padding: const EdgeInsets.only(left: 12, right: 12, top: 12, bottom: 96),
+                  padding: const EdgeInsets.only(
+                    left: 12,
+                    right: 12,
+                    top: 12,
+                    bottom: 96,
+                  ),
                   sliver: layout == 'List'
                       ? SliverList(
                           delegate: SliverChildBuilderDelegate(
@@ -324,39 +409,55 @@ class _LibraryViewState extends ConsumerState<LibraryView> with SingleTickerProv
                               if (index == filteredList.length) {
                                 return Center(
                                   child: Padding(
-                                    padding: const EdgeInsets.symmetric(vertical: 16.0),
-                                    child: CircularProgressIndicator(color: theme.primaryColor),
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 16.0,
+                                    ),
+                                    child: CircularProgressIndicator(
+                                      color: theme.primaryColor,
+                                    ),
                                   ),
                                 );
                               }
-                              
+
                               final series = filteredList[index];
                               return _LibraryListItem(
                                 series: series,
                                 categoryTitle: widget.category.title,
                               );
                             },
-                            childCount: filteredList.length + (ref.watch(provider.notifier).hasMore ? 1 : 0),
+                            childCount:
+                                filteredList.length +
+                                (ref.watch(provider.notifier).hasMore ? 1 : 0),
                           ),
                         )
                       : SliverGrid(
-                          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: _getCrossAxisCount(context, layout),
-                            childAspectRatio: layout == 'Compact' ? 0.7 : 0.72,
-                            crossAxisSpacing: 12,
-                            mainAxisSpacing: 12,
-                          ),
+                          gridDelegate:
+                              SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: _getCrossAxisCount(
+                                  context,
+                                  layout,
+                                ),
+                                childAspectRatio: layout == 'Compact'
+                                    ? 0.7
+                                    : 0.72,
+                                crossAxisSpacing: 12,
+                                mainAxisSpacing: 12,
+                              ),
                           delegate: SliverChildBuilderDelegate(
                             (context, index) {
                               if (index == filteredList.length) {
                                 return Center(
                                   child: Padding(
-                                    padding: const EdgeInsets.symmetric(vertical: 16.0),
-                                    child: CircularProgressIndicator(color: theme.primaryColor),
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 16.0,
+                                    ),
+                                    child: CircularProgressIndicator(
+                                      color: theme.primaryColor,
+                                    ),
                                   ),
                                 );
                               }
-                              
+
                               final series = filteredList[index];
                               if (layout == 'Compact') {
                                 return _LibraryCompactItem(
@@ -366,7 +467,9 @@ class _LibraryViewState extends ConsumerState<LibraryView> with SingleTickerProv
                               }
                               return _buildGridItem(context, series);
                             },
-                            childCount: filteredList.length + (ref.watch(provider.notifier).hasMore ? 1 : 0),
+                            childCount:
+                                filteredList.length +
+                                (ref.watch(provider.notifier).hasMore ? 1 : 0),
                           ),
                         ),
                 ),
@@ -379,14 +482,24 @@ class _LibraryViewState extends ConsumerState<LibraryView> with SingleTickerProv
           final layout = settings.getLayoutForCategory(widget.category.title);
           if (layout == 'List') {
             return ListView.builder(
-              padding: const EdgeInsets.only(left: 12, right: 12, top: 12, bottom: 96),
+              padding: const EdgeInsets.only(
+                left: 12,
+                right: 12,
+                top: 12,
+                bottom: 96,
+              ),
               itemCount: 6,
               itemBuilder: (context, index) => const _LibraryListShimmerItem(),
             );
           }
           final isCompact = layout == 'Compact';
           return GridView.builder(
-            padding: const EdgeInsets.only(left: 12, right: 12, top: 12, bottom: 96),
+            padding: const EdgeInsets.only(
+              left: 12,
+              right: 12,
+              top: 12,
+              bottom: 96,
+            ),
             gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: _getCrossAxisCount(context, layout),
               childAspectRatio: isCompact ? 0.7 : 0.72,
@@ -397,12 +510,20 @@ class _LibraryViewState extends ConsumerState<LibraryView> with SingleTickerProv
             itemBuilder: (context, index) => const ShimmerCard(),
           );
         },
-        error: (err, stack) => Center(child: Text('Error: $err', style: TextStyle(color: theme.colorScheme.error))),
+        error: (err, stack) => Center(
+          child: Text(
+            'Error: $err',
+            style: TextStyle(color: theme.colorScheme.error),
+          ),
+        ),
       ),
     );
   }
 
-  Widget _buildContinueWatchingSliver(BuildContext context, List<AnimeSeries> seriesList) {
+  Widget _buildContinueWatchingSliver(
+    BuildContext context,
+    List<AnimeSeries> seriesList,
+  ) {
     final history = ref.watch(historyLogProvider);
     final storage = ref.read(storageServiceProvider);
     final allSeries = ref.read(provider.notifier).allSeries;
@@ -435,15 +556,23 @@ class _LibraryViewState extends ConsumerState<LibraryView> with SingleTickerProv
     );
   }
 
-  List<AnimeSeries> _getFilteredList(List<AnimeSeries> list, List<String> favorites, bool isDownloadedOnly) {
+  List<AnimeSeries> _getFilteredList(
+    List<AnimeSeries> list,
+    List<String> favorites,
+    bool isDownloadedOnly,
+  ) {
     var result = list;
     if (_activeSubTabIndex == 1) {
       result = result.where((s) => favorites.contains(s.coreName)).toList();
     }
     if (isDownloadedOnly) {
       final history = ref.read(storageServiceProvider).getHistoryLog();
-      final watchedSeriesNames = history.map((e) => e['seriesName'] as String).toSet();
-      result = result.where((s) => watchedSeriesNames.contains(s.coreName)).toList();
+      final watchedSeriesNames = history
+          .map((e) => e['seriesName'] as String)
+          .toSet();
+      result = result
+          .where((s) => watchedSeriesNames.contains(s.coreName))
+          .toList();
     }
     return result;
   }
@@ -454,21 +583,24 @@ class _LibraryViewState extends ConsumerState<LibraryView> with SingleTickerProv
     final subTextColor = isDark ? Colors.white70 : Colors.black54;
     // Return Tachiyomi styled empty layout with beautiful kaomoji
     final kaomoji = _activeSubTabIndex == 1 ? '(・_・;)' : '(・○・;)';
-    final message = _activeSubTabIndex == 1 ? 'No favorites in this category' : 'Your library is empty';
-    
+    final message = _activeSubTabIndex == 1
+        ? 'No favorites in this category'
+        : 'Your library is empty';
+
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Text(
             kaomoji,
-            style: TextStyle(fontSize: 48, color: theme.primaryColor, fontWeight: FontWeight.bold),
+            style: TextStyle(
+              fontSize: 48,
+              color: theme.primaryColor,
+              fontWeight: FontWeight.bold,
+            ),
           ),
           const SizedBox(height: 16),
-          Text(
-            message,
-            style: TextStyle(color: subTextColor, fontSize: 16),
-          ),
+          Text(message, style: TextStyle(color: subTextColor, fontSize: 16)),
           const SizedBox(height: 16),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -501,10 +633,7 @@ class _LibraryGridItem extends ConsumerStatefulWidget {
   final AnimeSeries series;
   final String categoryTitle;
 
-  const _LibraryGridItem({
-    required this.series,
-    required this.categoryTitle,
-  });
+  const _LibraryGridItem({required this.series, required this.categoryTitle});
 
   @override
   ConsumerState<_LibraryGridItem> createState() => _LibraryGridItemState();
@@ -516,9 +645,14 @@ class _LibraryGridItemState extends ConsumerState<_LibraryGridItem> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final totalEpisodes = widget.series.seasons.fold(0, (sum, s) => sum + s.episodes.length);
-    final latestPoster = widget.series.seasons.isNotEmpty ? widget.series.seasons.first.posterMessage : null;
-    
+    final totalEpisodes = widget.series.seasons.fold(
+      0,
+      (sum, s) => sum + s.episodes.length,
+    );
+    final latestPoster = widget.series.seasons.isNotEmpty
+        ? widget.series.seasons.first.posterMessage
+        : null;
+
     td.File? posterFile;
     td.Minithumbnail? minithumbnail;
     if (latestPoster != null && latestPoster.content is td.MessagePhoto) {
@@ -535,33 +669,34 @@ class _LibraryGridItemState extends ConsumerState<_LibraryGridItem> {
       onTapCancel: () => setState(() => _isTapped = false),
       onTap: () async {
         if (widget.series.seasons.isEmpty) return;
-        
 
         // Check for manual metadata
-        final overrideId = FirebaseMetadataService.getOverride(widget.series.coreName);
-        
+        final overrideId = FirebaseMetadataService.getOverride(
+          widget.series.coreName,
+        );
+
         if (overrideId != null && overrideId.isNotEmpty) {
           final overrideIds = overrideId.split(',');
           final firstId = overrideIds.first;
-          
+
           // Show loading
           showDialog(
             context: context,
             barrierDismissible: false,
             builder: (c) => const Center(child: CircularProgressIndicator()),
           );
-          
+
           final metadataService = MetadataService();
           SeriesMetadata? meta;
-          
+
           if (firstId.startsWith('tt')) {
             meta = await metadataService.fetchTmdbByImdbId(firstId);
           } else {
             meta = await metadataService.fetchJikanByMalId(firstId);
           }
-          
+
           if (context.mounted) Navigator.pop(context); // close loading
-          
+
           if (context.mounted) {
             Navigator.push(
               context,
@@ -592,10 +727,12 @@ class _LibraryGridItemState extends ConsumerState<_LibraryGridItem> {
       onLongPress: () async {
         final tdlibService = ref.read(tdlibServiceProvider);
         final me = await tdlibService.sendAsync(const td.GetMe());
-        
+
         // Only Admin can open
         if (me is td.User && me.id == Constants.adminUserId) {
-          final existingIds = FirebaseMetadataService.getOverride(widget.series.coreName);
+          final existingIds = FirebaseMetadataService.getOverride(
+            widget.series.coreName,
+          );
           final result = await showDialog<String>(
             context: context,
             builder: (c) => AdminOverrideDialog(
@@ -603,7 +740,7 @@ class _LibraryGridItemState extends ConsumerState<_LibraryGridItem> {
               initialText: existingIds,
             ),
           );
-          
+
           if (result != null && result.trim().isNotEmpty) {
             List<String> ids = [];
             final input = result.trim();
@@ -612,23 +749,39 @@ class _LibraryGridItemState extends ConsumerState<_LibraryGridItem> {
             } else {
               ids = MetadataService.extractAllMalIds(input);
             }
-            
+
             if (ids.isNotEmpty) {
-              await FirebaseMetadataService.saveOverride(widget.categoryTitle, widget.series.coreName, ids.join(','));
+              await FirebaseMetadataService.saveOverride(
+                widget.categoryTitle,
+                widget.series.coreName,
+                ids.join(','),
+              );
               if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Metadata Linked successfully! Tap the folder to view.')));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text(
+                      'Metadata Linked successfully! Tap the folder to view.',
+                    ),
+                  ),
+                );
               }
             } else {
               if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Invalid Link or ID')));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Invalid Link or ID')),
+                );
               }
             }
           }
         } else if (me is td.User) {
           if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-              content: Text('Access Denied. Your ID is ${me.id}. Set this in Github Secret ADMIN_USER_ID'),
-            ));
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  'Access Denied. Your ID is ${me.id}. Set this in Github Secret ADMIN_USER_ID',
+                ),
+              ),
+            );
           }
         }
       },
@@ -641,7 +794,9 @@ class _LibraryGridItemState extends ConsumerState<_LibraryGridItem> {
             color: theme.cardColor,
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
-              color: theme.colorScheme.onSurface.withValues(alpha: _isTapped ? 0.16 : 0.08),
+              color: theme.colorScheme.onSurface.withValues(
+                alpha: _isTapped ? 0.16 : 0.08,
+              ),
               width: _isTapped ? 1.5 : 1,
             ),
             boxShadow: [
@@ -649,7 +804,7 @@ class _LibraryGridItemState extends ConsumerState<_LibraryGridItem> {
                 color: Colors.black.withValues(alpha: 0.3),
                 blurRadius: _isTapped ? 4 : 8,
                 offset: Offset(0, _isTapped ? 2 : 4),
-              )
+              ),
             ],
           ),
           clipBehavior: Clip.hardEdge,
@@ -657,7 +812,8 @@ class _LibraryGridItemState extends ConsumerState<_LibraryGridItem> {
             fit: StackFit.expand,
             children: [
               Hero(
-                tag: 'hero_library_${widget.categoryTitle}_${widget.series.coreName}',
+                tag:
+                    'hero_library_${widget.categoryTitle}_${widget.series.coreName}',
                 child: TdThumbnail(
                   file: posterFile,
                   minithumbnail: minithumbnail,
@@ -667,7 +823,7 @@ class _LibraryGridItemState extends ConsumerState<_LibraryGridItem> {
                   borderRadius: BorderRadius.zero,
                 ),
               ),
-                
+
               Container(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
@@ -682,7 +838,7 @@ class _LibraryGridItemState extends ConsumerState<_LibraryGridItem> {
                   ),
                 ),
               ),
-              
+
               Positioned(
                 left: 10,
                 right: 10,
@@ -699,13 +855,16 @@ class _LibraryGridItemState extends ConsumerState<_LibraryGridItem> {
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
-              
+
               // Glassmorphic pill badge for total episodes available
               Positioned(
                 top: 8,
                 left: 8,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.black.withValues(alpha: 0.65),
                     borderRadius: BorderRadius.circular(12),
@@ -714,7 +873,11 @@ class _LibraryGridItemState extends ConsumerState<_LibraryGridItem> {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.play_circle_fill, color: theme.primaryColor, size: 10),
+                      Icon(
+                        Icons.play_circle_fill,
+                        color: theme.primaryColor,
+                        size: 10,
+                      ),
                       const SizedBox(width: 4),
                       Text(
                         totalEpisodes.toString(),
@@ -820,11 +983,14 @@ class _FeaturedCarouselState extends State<FeaturedCarousel> {
             itemCount: widget.seriesList.length,
             itemBuilder: (context, index) {
               final series = widget.seriesList[index];
-              final latestPoster = series.seasons.isNotEmpty ? series.seasons.first.posterMessage : null;
-              
+              final latestPoster = series.seasons.isNotEmpty
+                  ? series.seasons.first.posterMessage
+                  : null;
+
               td.File? posterFile;
               td.Minithumbnail? minithumbnail;
-              if (latestPoster != null && latestPoster.content is td.MessagePhoto) {
+              if (latestPoster != null &&
+                  latestPoster.content is td.MessagePhoto) {
                 final photo = latestPoster.content as td.MessagePhoto;
                 if (photo.photo.sizes.isNotEmpty) {
                   posterFile = photo.photo.sizes.last.photo;
@@ -842,28 +1008,67 @@ class _FeaturedCarouselState extends State<FeaturedCarousel> {
                   } else {
                     value = _currentPage == index ? 1.0 : 0.9;
                   }
-                  return Transform.scale(
-                    scale: value,
-                    child: child,
-                  );
+                  return Transform.scale(scale: value, child: child);
                 },
                 child: GestureDetector(
-                  onTap: () {
+                  onTap: () async {
                     if (series.seasons.isEmpty) return;
-                    Navigator.push(
-                      context,
-                      PremiumPageRoute(
-                        child: EpisodeListScreen(
-                          season: series.seasons.first,
-                          series: series,
-                          heroTag: 'hero_featured_${widget.categoryTitle}_${series.coreName}',
-                          categoryTitle: widget.categoryTitle,
-                        ),
-                      ),
+                    final overrideId = FirebaseMetadataService.getOverride(
+                      series.coreName,
                     );
+                    if (overrideId != null && overrideId.isNotEmpty) {
+                      final overrideIds = overrideId.split(',');
+                      final firstId = overrideIds.first;
+
+                      showDialog(
+                        context: context,
+                        barrierDismissible: false,
+                        builder: (c) =>
+                            const Center(child: CircularProgressIndicator()),
+                      );
+
+                      final metadataService = MetadataService();
+                      SeriesMetadata? meta;
+
+                      if (firstId.startsWith('tt')) {
+                        meta = await metadataService.fetchTmdbByImdbId(firstId);
+                      } else {
+                        meta = await metadataService.fetchJikanByMalId(firstId);
+                      }
+
+                      if (context.mounted) Navigator.pop(context);
+
+                      if (context.mounted) {
+                        Navigator.push(
+                          context,
+                          PremiumPageRoute(
+                            child: SeriesDetailsScreen(
+                              series: series,
+                              categoryTitle: widget.categoryTitle,
+                              metadata: meta,
+                              overrideIds: overrideIds,
+                            ),
+                          ),
+                        );
+                      }
+                    } else {
+                      Navigator.push(
+                        context,
+                        PremiumPageRoute(
+                          child: SeriesDetailsScreen(
+                            series: series,
+                            categoryTitle: widget.categoryTitle,
+                            metadata: null,
+                          ),
+                        ),
+                      );
+                    }
                   },
                   child: Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+                    margin: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 12,
+                    ),
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(16),
                       boxShadow: [
@@ -871,7 +1076,7 @@ class _FeaturedCarouselState extends State<FeaturedCarousel> {
                           color: Colors.black.withValues(alpha: 0.4),
                           blurRadius: 8,
                           offset: const Offset(0, 4),
-                        )
+                        ),
                       ],
                     ),
                     clipBehavior: Clip.antiAlias,
@@ -879,7 +1084,8 @@ class _FeaturedCarouselState extends State<FeaturedCarousel> {
                       fit: StackFit.expand,
                       children: [
                         Hero(
-                          tag: 'hero_featured_${widget.categoryTitle}_${series.coreName}',
+                          tag:
+                              'hero_featured_${widget.categoryTitle}_${series.coreName}',
                           child: TdThumbnail(
                             file: posterFile,
                             minithumbnail: minithumbnail,
@@ -911,7 +1117,10 @@ class _FeaturedCarouselState extends State<FeaturedCarousel> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
                                 decoration: BoxDecoration(
                                   color: theme.primaryColor,
                                   borderRadius: BorderRadius.circular(6),
@@ -919,7 +1128,11 @@ class _FeaturedCarouselState extends State<FeaturedCarousel> {
                                 child: Text(
                                   'FEATURED',
                                   style: TextStyle(
-                                    color: theme.primaryColor.computeLuminance() > 0.5 ? Colors.black : Colors.white,
+                                    color:
+                                        theme.primaryColor.computeLuminance() >
+                                            0.5
+                                        ? Colors.black
+                                        : Colors.white,
                                     fontSize: 10,
                                     fontWeight: FontWeight.bold,
                                     letterSpacing: 1.0,
@@ -938,7 +1151,7 @@ class _FeaturedCarouselState extends State<FeaturedCarousel> {
                                       color: Colors.black54,
                                       blurRadius: 4,
                                       offset: Offset(0, 2),
-                                    )
+                                    ),
                                   ],
                                 ),
                                 maxLines: 1,
@@ -965,7 +1178,9 @@ class _FeaturedCarouselState extends State<FeaturedCarousel> {
               width: _currentPage == index ? 16 : 8,
               height: 8,
               decoration: BoxDecoration(
-                color: _currentPage == index ? theme.primaryColor : (isDark ? Colors.white24 : Colors.black26),
+                color: _currentPage == index
+                    ? theme.primaryColor
+                    : (isDark ? Colors.white24 : Colors.black26),
                 borderRadius: BorderRadius.circular(4),
               ),
             ),
@@ -1003,7 +1218,11 @@ class ContinueWatchingShelf extends StatelessWidget {
           padding: const EdgeInsets.only(left: 16.0, top: 16.0, bottom: 12.0),
           child: Row(
             children: [
-              Icon(Icons.play_circle_outline, color: theme.primaryColor, size: 20),
+              Icon(
+                Icons.play_circle_outline,
+                color: theme.primaryColor,
+                size: 20,
+              ),
               const SizedBox(width: 8),
               Text(
                 'Continue Watching',
@@ -1029,10 +1248,10 @@ class ContinueWatchingShelf extends StatelessWidget {
               final episodeTitle = item['episodeTitle'] as String;
               final msgId = item['messageId'] as int;
               final pos = item['position'] as int;
-              
+
               final storage = ref.read(storageServiceProvider);
               final dur = storage.getVideoDuration(msgId);
-              
+
               double progress = 0.0;
               if (dur > 0) {
                 progress = (pos / dur).clamp(0.0, 1.0);
@@ -1041,7 +1260,9 @@ class ContinueWatchingShelf extends StatelessWidget {
               // Resolve poster
               AnimeSeries? matchedSeries;
               try {
-                matchedSeries = seriesList.firstWhere((s) => s.coreName == seriesName);
+                matchedSeries = seriesList.firstWhere(
+                  (s) => s.coreName == seriesName,
+                );
               } catch (_) {}
 
               td.File? posterFile;
@@ -1062,7 +1283,9 @@ class ContinueWatchingShelf extends StatelessWidget {
                 margin: const EdgeInsets.symmetric(horizontal: 6.0),
                 decoration: BoxDecoration(
                   color: theme.cardColor,
-                  borderRadius: BorderRadius.circular(20), // Premium M3 Expressive card style
+                  borderRadius: BorderRadius.circular(
+                    20,
+                  ), // Premium M3 Expressive card style
                   border: Border.all(
                     color: theme.colorScheme.onSurface.withValues(alpha: 0.08),
                     width: 1,
@@ -1071,7 +1294,8 @@ class ContinueWatchingShelf extends StatelessWidget {
                 clipBehavior: Clip.antiAlias,
                 child: InkWell(
                   onTap: () {
-                    if (matchedSeries != null && matchedSeries.seasons.isNotEmpty) {
+                    if (matchedSeries != null &&
+                        matchedSeries.seasons.isNotEmpty) {
                       AnimeSeason selectedSeason = matchedSeries.seasons.first;
                       for (final season in matchedSeries.seasons) {
                         if (season.episodes.any((ep) => ep.id == msgId)) {
@@ -1086,7 +1310,8 @@ class ContinueWatchingShelf extends StatelessWidget {
                           child: EpisodeListScreen(
                             season: selectedSeason,
                             series: matchedSeries,
-                            heroTag: 'hero_continue_watching_${categoryTitle}_${matchedSeries.coreName}',
+                            heroTag:
+                                'hero_continue_watching_${categoryTitle}_${matchedSeries.coreName}',
                             categoryTitle: categoryTitle,
                             highlightMessageId: msgId,
                           ),
@@ -1186,7 +1411,9 @@ class ContinueWatchingShelf extends StatelessWidget {
                             value: progress,
                             minHeight: 3,
                             backgroundColor: Colors.white12,
-                            valueColor: AlwaysStoppedAnimation<Color>(theme.primaryColor),
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              theme.primaryColor,
+                            ),
                           ),
                         ),
                     ],
@@ -1212,7 +1439,8 @@ class _LibraryCompactItem extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<_LibraryCompactItem> createState() => _LibraryCompactItemState();
+  ConsumerState<_LibraryCompactItem> createState() =>
+      _LibraryCompactItemState();
 }
 
 class _LibraryCompactItemState extends ConsumerState<_LibraryCompactItem> {
@@ -1221,9 +1449,14 @@ class _LibraryCompactItemState extends ConsumerState<_LibraryCompactItem> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final totalEpisodes = widget.series.seasons.fold(0, (sum, s) => sum + s.episodes.length);
-    final latestPoster = widget.series.seasons.isNotEmpty ? widget.series.seasons.first.posterMessage : null;
-    
+    final totalEpisodes = widget.series.seasons.fold(
+      0,
+      (sum, s) => sum + s.episodes.length,
+    );
+    final latestPoster = widget.series.seasons.isNotEmpty
+        ? widget.series.seasons.first.posterMessage
+        : null;
+
     td.File? posterFile;
     td.Minithumbnail? minithumbnail;
     if (latestPoster != null && latestPoster.content is td.MessagePhoto) {
@@ -1240,31 +1473,32 @@ class _LibraryCompactItemState extends ConsumerState<_LibraryCompactItem> {
       onTapCancel: () => setState(() => _isTapped = false),
       onTap: () async {
         if (widget.series.seasons.isEmpty) return;
-        
 
-        final overrideId = FirebaseMetadataService.getOverride(widget.series.coreName);
-        
+        final overrideId = FirebaseMetadataService.getOverride(
+          widget.series.coreName,
+        );
+
         if (overrideId != null && overrideId.isNotEmpty) {
           final overrideIds = overrideId.split(',');
           final firstId = overrideIds.first;
-          
+
           showDialog(
             context: context,
             barrierDismissible: false,
             builder: (c) => const Center(child: CircularProgressIndicator()),
           );
-          
+
           final metadataService = MetadataService();
           SeriesMetadata? meta;
-          
+
           if (widget.categoryTitle.toLowerCase() == 'anime') {
             meta = await metadataService.fetchJikanByMalId(firstId);
           } else {
             meta = await metadataService.fetchTmdbByImdbId(firstId);
           }
-          
+
           if (context.mounted) Navigator.pop(context);
-          
+
           if (context.mounted) {
             Navigator.push(
               context,
@@ -1294,9 +1528,11 @@ class _LibraryCompactItemState extends ConsumerState<_LibraryCompactItem> {
       onLongPress: () async {
         final tdlibService = ref.read(tdlibServiceProvider);
         final me = await tdlibService.sendAsync(const td.GetMe());
-        
+
         if (me is td.User && me.id == Constants.adminUserId) {
-          final existingIds = FirebaseMetadataService.getOverride(widget.series.coreName);
+          final existingIds = FirebaseMetadataService.getOverride(
+            widget.series.coreName,
+          );
           final result = await showDialog<String>(
             context: context,
             builder: (c) => AdminOverrideDialog(
@@ -1304,7 +1540,7 @@ class _LibraryCompactItemState extends ConsumerState<_LibraryCompactItem> {
               initialText: existingIds,
             ),
           );
-          
+
           if (result != null && result.trim().isNotEmpty) {
             List<String> ids = [];
             final input = result.trim();
@@ -1317,23 +1553,39 @@ class _LibraryCompactItemState extends ConsumerState<_LibraryCompactItem> {
                 ids = MetadataService.extractAllMalIds(input);
               }
             }
-            
+
             if (ids.isNotEmpty) {
-              await FirebaseMetadataService.saveOverride(widget.categoryTitle, widget.series.coreName, ids.join(','));
+              await FirebaseMetadataService.saveOverride(
+                widget.categoryTitle,
+                widget.series.coreName,
+                ids.join(','),
+              );
               if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Metadata Linked successfully! Tap the folder to view.')));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text(
+                      'Metadata Linked successfully! Tap the folder to view.',
+                    ),
+                  ),
+                );
               }
             } else {
               if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Invalid Link or ID')));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Invalid Link or ID')),
+                );
               }
             }
           }
         } else if (me is td.User) {
           if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-              content: Text('Access Denied. Your ID is ${me.id}. Set this in Github Secret ADMIN_USER_ID'),
-            ));
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  'Access Denied. Your ID is ${me.id}. Set this in Github Secret ADMIN_USER_ID',
+                ),
+              ),
+            );
           }
         }
       },
@@ -1346,7 +1598,9 @@ class _LibraryCompactItemState extends ConsumerState<_LibraryCompactItem> {
             color: theme.cardColor,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: theme.colorScheme.onSurface.withValues(alpha: _isTapped ? 0.16 : 0.08),
+              color: theme.colorScheme.onSurface.withValues(
+                alpha: _isTapped ? 0.16 : 0.08,
+              ),
               width: _isTapped ? 1.5 : 1,
             ),
             boxShadow: [
@@ -1354,7 +1608,7 @@ class _LibraryCompactItemState extends ConsumerState<_LibraryCompactItem> {
                 color: Colors.black.withValues(alpha: 0.3),
                 blurRadius: _isTapped ? 4 : 8,
                 offset: Offset(0, _isTapped ? 2 : 4),
-              )
+              ),
             ],
           ),
           clipBehavior: Clip.hardEdge,
@@ -1362,7 +1616,8 @@ class _LibraryCompactItemState extends ConsumerState<_LibraryCompactItem> {
             fit: StackFit.expand,
             children: [
               Hero(
-                tag: 'hero_library_${widget.categoryTitle}_${widget.series.coreName}',
+                tag:
+                    'hero_library_${widget.categoryTitle}_${widget.series.coreName}',
                 child: TdThumbnail(
                   file: posterFile,
                   minithumbnail: minithumbnail,
@@ -1372,12 +1627,15 @@ class _LibraryCompactItemState extends ConsumerState<_LibraryCompactItem> {
                   borderRadius: BorderRadius.zero,
                 ),
               ),
-              
+
               Positioned(
                 top: 6,
                 left: 6,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 3,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.black.withValues(alpha: 0.75),
                     borderRadius: BorderRadius.circular(10),
@@ -1386,7 +1644,11 @@ class _LibraryCompactItemState extends ConsumerState<_LibraryCompactItem> {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.play_circle_fill, color: theme.primaryColor, size: 9),
+                      Icon(
+                        Icons.play_circle_fill,
+                        color: theme.primaryColor,
+                        size: 9,
+                      ),
                       const SizedBox(width: 3),
                       Text(
                         totalEpisodes.toString(),
@@ -1412,10 +1674,7 @@ class _LibraryListItem extends ConsumerStatefulWidget {
   final AnimeSeries series;
   final String categoryTitle;
 
-  const _LibraryListItem({
-    required this.series,
-    required this.categoryTitle,
-  });
+  const _LibraryListItem({required this.series, required this.categoryTitle});
 
   @override
   ConsumerState<_LibraryListItem> createState() => _LibraryListItemState();
@@ -1430,10 +1689,15 @@ class _LibraryListItemState extends ConsumerState<_LibraryListItem> {
     final isDark = theme.brightness == Brightness.dark;
     final textColor = isDark ? Colors.white : Colors.black87;
     final subTextColor = isDark ? Colors.white60 : Colors.black54;
-    final totalEpisodes = widget.series.seasons.fold(0, (sum, s) => sum + s.episodes.length);
+    final totalEpisodes = widget.series.seasons.fold(
+      0,
+      (sum, s) => sum + s.episodes.length,
+    );
 
-    final latestPoster = widget.series.seasons.isNotEmpty ? widget.series.seasons.first.posterMessage : null;
-    
+    final latestPoster = widget.series.seasons.isNotEmpty
+        ? widget.series.seasons.first.posterMessage
+        : null;
+
     td.File? posterFile;
     td.Minithumbnail? minithumbnail;
     if (latestPoster != null && latestPoster.content is td.MessagePhoto) {
@@ -1450,31 +1714,32 @@ class _LibraryListItemState extends ConsumerState<_LibraryListItem> {
       onTapCancel: () => setState(() => _isTapped = false),
       onTap: () async {
         if (widget.series.seasons.isEmpty) return;
-        
 
-        final overrideId = FirebaseMetadataService.getOverride(widget.series.coreName);
-        
+        final overrideId = FirebaseMetadataService.getOverride(
+          widget.series.coreName,
+        );
+
         if (overrideId != null && overrideId.isNotEmpty) {
           final overrideIds = overrideId.split(',');
           final firstId = overrideIds.first;
-          
+
           showDialog(
             context: context,
             barrierDismissible: false,
             builder: (c) => const Center(child: CircularProgressIndicator()),
           );
-          
+
           final metadataService = MetadataService();
           SeriesMetadata? meta;
-          
+
           if (widget.categoryTitle.toLowerCase() == 'anime') {
             meta = await metadataService.fetchJikanByMalId(firstId);
           } else {
             meta = await metadataService.fetchTmdbByImdbId(firstId);
           }
-          
+
           if (context.mounted) Navigator.pop(context);
-          
+
           if (context.mounted) {
             Navigator.push(
               context,
@@ -1504,9 +1769,11 @@ class _LibraryListItemState extends ConsumerState<_LibraryListItem> {
       onLongPress: () async {
         final tdlibService = ref.read(tdlibServiceProvider);
         final me = await tdlibService.sendAsync(const td.GetMe());
-        
+
         if (me is td.User && me.id == Constants.adminUserId) {
-          final existingIds = FirebaseMetadataService.getOverride(widget.series.coreName);
+          final existingIds = FirebaseMetadataService.getOverride(
+            widget.series.coreName,
+          );
           final result = await showDialog<String>(
             context: context,
             builder: (c) => AdminOverrideDialog(
@@ -1514,7 +1781,7 @@ class _LibraryListItemState extends ConsumerState<_LibraryListItem> {
               initialText: existingIds,
             ),
           );
-          
+
           if (result != null && result.trim().isNotEmpty) {
             List<String> ids = [];
             final input = result.trim();
@@ -1527,23 +1794,39 @@ class _LibraryListItemState extends ConsumerState<_LibraryListItem> {
                 ids = MetadataService.extractAllMalIds(input);
               }
             }
-            
+
             if (ids.isNotEmpty) {
-              await FirebaseMetadataService.saveOverride(widget.categoryTitle, widget.series.coreName, ids.join(','));
+              await FirebaseMetadataService.saveOverride(
+                widget.categoryTitle,
+                widget.series.coreName,
+                ids.join(','),
+              );
               if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Metadata Linked successfully! Tap the folder to view.')));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text(
+                      'Metadata Linked successfully! Tap the folder to view.',
+                    ),
+                  ),
+                );
               }
             } else {
               if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Invalid Link or ID')));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Invalid Link or ID')),
+                );
               }
             }
           }
         } else if (me is td.User) {
           if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-              content: Text('Access Denied. Your ID is ${me.id}. Set this in Github Secret ADMIN_USER_ID'),
-            ));
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  'Access Denied. Your ID is ${me.id}. Set this in Github Secret ADMIN_USER_ID',
+                ),
+              ),
+            );
           }
         }
       },
@@ -1558,7 +1841,9 @@ class _LibraryListItemState extends ConsumerState<_LibraryListItem> {
             color: theme.cardColor,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: theme.colorScheme.onSurface.withValues(alpha: _isTapped ? 0.16 : 0.08),
+              color: theme.colorScheme.onSurface.withValues(
+                alpha: _isTapped ? 0.16 : 0.08,
+              ),
               width: _isTapped ? 1.5 : 1,
             ),
             boxShadow: [
@@ -1566,7 +1851,7 @@ class _LibraryListItemState extends ConsumerState<_LibraryListItem> {
                 color: Colors.black.withValues(alpha: 0.15),
                 blurRadius: _isTapped ? 2 : 4,
                 offset: Offset(0, _isTapped ? 1 : 2),
-              )
+              ),
             ],
           ),
           padding: const EdgeInsets.all(8),
@@ -1580,7 +1865,8 @@ class _LibraryListItemState extends ConsumerState<_LibraryListItem> {
                 ),
                 clipBehavior: Clip.hardEdge,
                 child: Hero(
-                  tag: 'hero_library_${widget.categoryTitle}_${widget.series.coreName}',
+                  tag:
+                      'hero_library_${widget.categoryTitle}_${widget.series.coreName}',
                   child: TdThumbnail(
                     file: posterFile,
                     minithumbnail: minithumbnail,
@@ -1618,7 +1904,11 @@ class _LibraryListItemState extends ConsumerState<_LibraryListItem> {
                             style: TextStyle(color: subTextColor, fontSize: 12),
                           ),
                         ] else ...[
-                          Icon(Icons.play_circle_outline, size: 12, color: subTextColor),
+                          Icon(
+                            Icons.play_circle_outline,
+                            size: 12,
+                            color: subTextColor,
+                          ),
                           const SizedBox(width: 4),
                           Text(
                             '$totalEpisodes Episode${totalEpisodes > 1 ? "s" : ""}',

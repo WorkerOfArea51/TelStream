@@ -43,7 +43,11 @@ class EpisodeListScreen extends ConsumerStatefulWidget {
   ConsumerState<EpisodeListScreen> createState() => _EpisodeListScreenState();
 }
 
-class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
+class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
   late AnimeSeason _selectedSeason;
   bool _isLoadingEpisodes = false;
   String? _errorMessage;
@@ -218,6 +222,7 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     // Watch HomeController provider to dynamically update the view with synchronized edits in real-time
     final provider = widget.categoryTitle == 'Anime'
         ? animeControllerProvider
@@ -422,7 +427,8 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
                 ),
               ),
             ),
-            if (widget.series.seasons.length > 1)
+            if (widget.series.seasons.length > 1 ||
+                widget.categoryTitle != 'Movies')
               SliverToBoxAdapter(
                 child: Container(
                   height: 48,
