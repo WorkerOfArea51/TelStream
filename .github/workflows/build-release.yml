@@ -55,7 +55,7 @@ jobs:
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
-          flutter build apk --split-per-abi --target-platform android-arm,android-arm64 --release --build-number=${{ github.run_number }}
+          flutter build apk --split-per-abi --target-platform android-arm,android-arm64 --release --build-number=${{ github.run_number }} --dart-define=FIREBASE_DB_URL=${{ secrets.FIREBASE_DB_URL }}
           cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk build/app/outputs/flutter-apk/telstream-arm64.apk
           cp build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk build/app/outputs/flutter-apk/telstream-arm32.apk
 
@@ -89,7 +89,7 @@ jobs:
           echo "class Secrets { static const int apiId = ${{ secrets.TELEGRAM_API_ID }}; static const String apiHash = '${{ secrets.TELEGRAM_API_HASH }}'; static const String buildTag = 'Build #${{ github.run_number }}'; static const int animeChannelId = ${{ secrets.ANIME_CHANNEL_ID || -1002633457020 }}; static const String animeInviteLink = '${{ secrets.ANIME_INVITE_LINK || 'https://t.me/+AkdK7gDbYWRmZTc1' }}'; static const int movieChannelId = ${{ secrets.MOVIE_CHANNEL_ID || -1004421932120 }}; static const String movieInviteLink = '${{ secrets.MOVIE_INVITE_LINK || 'https://t.me/+dx2YihneVQczNTM1' }}'; static const int webSeriesChannelId = ${{ secrets.WEBSERIES_CHANNEL_ID || -1004440703680 }}; static const String webSeriesInviteLink = '${{ secrets.WEBSERIES_INVITE_LINK || 'https://t.me/+FiQ7kG8Ofh5jMDU1' }}'; static const String tmdbApiKey = '${{ secrets.TMDB_API_KEY || 'YOUR_TMDB_API_KEY' }}'; static const String traktApiKey = '${{ secrets.TRAKT_API_KEY || '05553e1be851c22a76f7df2b8a7c29be60cb5038ecbe6e80b2a7587dfb38ea47' }}'; static const String malClientId = '${{ secrets.MAL_CLIENT_ID || '829f046ef3294326127b407137f62c0a' }}'; static const int adminUserId = ${{ secrets.ADMIN_USER_ID || 123456789 }}; }" > lib/core/secrets.dart
 
       - name: Build Windows Application
-        run: flutter build windows --release
+        run: flutter build windows --release --dart-define=FIREBASE_DB_URL=${{ secrets.FIREBASE_DB_URL }}
 
       - name: Fetch prebuilt Windows tdjson.dll
         shell: pwsh

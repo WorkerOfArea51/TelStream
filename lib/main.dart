@@ -12,6 +12,7 @@ import 'features/auth/auth_controller.dart';
 import 'features/auth/splash_screen.dart';
 import 'services/storage_service.dart';
 import 'services/streaming_proxy_service.dart';
+import 'services/firebase_metadata_service.dart';
 import 'core/theme/app_theme.dart';
 
 void main() async {
@@ -35,6 +36,7 @@ void main() async {
       // Parallelize independent initializations for faster cold startup
       await Future.wait([
         container.read(storageServiceProvider).init(),
+        FirebaseMetadataService.loadAllMetadata(),
         TdPlugin.initialize(Platform.isAndroid ? 'libtdjson.so' : (Platform.isWindows ? 'tdjson.dll' : null)),
       ]);
       

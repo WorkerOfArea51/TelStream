@@ -30,6 +30,13 @@ class SeriesMetadata {
   final String status;
   final String runtime;
   final String productionCompanies;
+  final String userScore;
+  final String rank;
+  final String source;
+  final String airedDates;
+  final String episodesCount;
+  final String spokenLanguages;
+  final String budgetRevenue;
   final List<RelatedContent> recommendations;
 
   SeriesMetadata({
@@ -45,6 +52,13 @@ class SeriesMetadata {
     this.status = '',
     this.runtime = '',
     this.productionCompanies = '',
+    this.userScore = '',
+    this.rank = '',
+    this.source = '',
+    this.airedDates = '',
+    this.episodesCount = '',
+    this.spokenLanguages = '',
+    this.budgetRevenue = '',
     this.recommendations = const [],
   });
 
@@ -186,6 +200,25 @@ class MetadataService {
         }
       }
 
+      String userScore = '';
+      if (data['vote_average'] != null) {
+        userScore = '${(data['vote_average'] * 10).toInt()}%';
+      }
+
+      String spokenLanguages = '';
+      if (data['spoken_languages'] != null) {
+        final List sl = data['spoken_languages'];
+        spokenLanguages = sl.map((e) => e['english_name'] ?? e['name']).join(', ');
+      }
+
+      String budgetRevenue = '';
+      if (isMovie && data['budget'] != null && data['budget'] > 0) {
+        budgetRevenue = 'Budget: \$${(data['budget'] / 1000000).toStringAsFixed(1)}M';
+        if (data['revenue'] != null && data['revenue'] > 0) {
+          budgetRevenue += ' / Box Office: \$${(data['revenue'] / 1000000).toStringAsFixed(1)}M';
+        }
+      }
+
       return SeriesMetadata(
         title: isMovie ? (data['title'] ?? data['original_title']) : (data['name'] ?? data['original_name']),
         synopsis: data['overview'] ?? '',
@@ -199,6 +232,9 @@ class MetadataService {
         status: status,
         runtime: runtime,
         productionCompanies: productionCompanies,
+        userScore: userScore,
+        spokenLanguages: spokenLanguages,
+        budgetRevenue: budgetRevenue,
         recommendations: recs,
       );
     } catch (e) {
@@ -266,6 +302,28 @@ class MetadataService {
         Log.e('Failed to fetch Jikan recommendations', e);
       }
       
+      String userScore = '';
+      if (data['score'] != null) {
+        userScore = '${data['score']} / 10';
+      }
+
+      String rank = '';
+      if (data['rank'] != null) {
+        rank = '#${data['rank']}';
+      }
+
+      String source = data['source'] ?? '';
+      
+      String airedDates = '';
+      if (data['aired'] != null && data['aired']['string'] != null) {
+        airedDates = data['aired']['string'];
+      }
+
+      String episodesCount = '';
+      if (data['episodes'] != null) {
+        episodesCount = '${data['episodes']} Episodes';
+      }
+
       return SeriesMetadata(
         title: data['title_english'] ?? data['title'] ?? '',
         synopsis: data['synopsis'] ?? '',
@@ -279,6 +337,11 @@ class MetadataService {
         status: status,
         runtime: runtime,
         productionCompanies: productionCompanies,
+        userScore: userScore,
+        rank: rank,
+        source: source,
+        airedDates: airedDates,
+        episodesCount: episodesCount,
         recommendations: recs,
       );
     } catch (e) {

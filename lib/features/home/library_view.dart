@@ -16,6 +16,7 @@ import '../../services/tdlib_service.dart';
 import '../../services/metadata_service.dart';
 import 'series_details_screen.dart';
 import 'widgets/admin_override_dialog.dart';
+import '../../services/firebase_metadata_service.dart';
 
 
 class LibraryView extends ConsumerStatefulWidget {
@@ -537,8 +538,7 @@ class _LibraryGridItemState extends ConsumerState<_LibraryGridItem> {
         
 
         // Check for manual metadata
-        const secureStorage = FlutterSecureStorage();
-        final overrideId = await secureStorage.read(key: 'metadata_override_${widget.series.coreName}');
+        final overrideId = FirebaseMetadataService.getOverride(widget.series.coreName);
         
         if (overrideId != null && overrideId.isNotEmpty) {
           final overrideIds = overrideId.split(',');
@@ -595,9 +595,13 @@ class _LibraryGridItemState extends ConsumerState<_LibraryGridItem> {
         
         // Only Admin can open
         if (me is td.User && me.id == Constants.adminUserId) {
+          final existingIds = FirebaseMetadataService.getOverride(widget.series.coreName);
           final result = await showDialog<String>(
             context: context,
-            builder: (c) => AdminOverrideDialog(title: widget.series.coreName),
+            builder: (c) => AdminOverrideDialog(
+              title: widget.series.coreName,
+              initialText: existingIds,
+            ),
           );
           
           if (result != null && result.trim().isNotEmpty) {
@@ -610,7 +614,7 @@ class _LibraryGridItemState extends ConsumerState<_LibraryGridItem> {
             }
             
             if (ids.isNotEmpty) {
-              await tdlibService.saveMetadataOverride(widget.series.coreName, ids.join(','));
+              await FirebaseMetadataService.saveOverride(widget.series.coreName, ids.join(','));
               if (context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Metadata Linked successfully! Tap the folder to view.')));
               }
@@ -1238,8 +1242,7 @@ class _LibraryCompactItemState extends ConsumerState<_LibraryCompactItem> {
         if (widget.series.seasons.isEmpty) return;
         
 
-        const secureStorage = FlutterSecureStorage();
-        final overrideId = await secureStorage.read(key: 'metadata_override_${widget.series.coreName}');
+        final overrideId = FirebaseMetadataService.getOverride(widget.series.coreName);
         
         if (overrideId != null && overrideId.isNotEmpty) {
           final overrideIds = overrideId.split(',');
@@ -1293,9 +1296,13 @@ class _LibraryCompactItemState extends ConsumerState<_LibraryCompactItem> {
         final me = await tdlibService.sendAsync(const td.GetMe());
         
         if (me is td.User && me.id == Constants.adminUserId) {
+          final existingIds = FirebaseMetadataService.getOverride(widget.series.coreName);
           final result = await showDialog<String>(
             context: context,
-            builder: (c) => AdminOverrideDialog(title: widget.series.coreName),
+            builder: (c) => AdminOverrideDialog(
+              title: widget.series.coreName,
+              initialText: existingIds,
+            ),
           );
           
           if (result != null && result.trim().isNotEmpty) {
@@ -1312,7 +1319,7 @@ class _LibraryCompactItemState extends ConsumerState<_LibraryCompactItem> {
             }
             
             if (ids.isNotEmpty) {
-              await tdlibService.saveMetadataOverride(widget.series.coreName, ids.join(','));
+              await FirebaseMetadataService.saveOverride(widget.series.coreName, ids.join(','));
               if (context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Metadata Linked successfully! Tap the folder to view.')));
               }
@@ -1445,8 +1452,7 @@ class _LibraryListItemState extends ConsumerState<_LibraryListItem> {
         if (widget.series.seasons.isEmpty) return;
         
 
-        const secureStorage = FlutterSecureStorage();
-        final overrideId = await secureStorage.read(key: 'metadata_override_${widget.series.coreName}');
+        final overrideId = FirebaseMetadataService.getOverride(widget.series.coreName);
         
         if (overrideId != null && overrideId.isNotEmpty) {
           final overrideIds = overrideId.split(',');
@@ -1500,9 +1506,13 @@ class _LibraryListItemState extends ConsumerState<_LibraryListItem> {
         final me = await tdlibService.sendAsync(const td.GetMe());
         
         if (me is td.User && me.id == Constants.adminUserId) {
+          final existingIds = FirebaseMetadataService.getOverride(widget.series.coreName);
           final result = await showDialog<String>(
             context: context,
-            builder: (c) => AdminOverrideDialog(title: widget.series.coreName),
+            builder: (c) => AdminOverrideDialog(
+              title: widget.series.coreName,
+              initialText: existingIds,
+            ),
           );
           
           if (result != null && result.trim().isNotEmpty) {
@@ -1519,7 +1529,7 @@ class _LibraryListItemState extends ConsumerState<_LibraryListItem> {
             }
             
             if (ids.isNotEmpty) {
-              await tdlibService.saveMetadataOverride(widget.series.coreName, ids.join(','));
+              await FirebaseMetadataService.saveOverride(widget.series.coreName, ids.join(','));
               if (context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Metadata Linked successfully! Tap the folder to view.')));
               }

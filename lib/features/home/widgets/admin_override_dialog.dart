@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 
 class AdminOverrideDialog extends StatefulWidget {
   final String title;
-  const AdminOverrideDialog({super.key, required this.title});
+  final String? initialText;
+  const AdminOverrideDialog({super.key, required this.title, this.initialText});
 
   @override
   State<AdminOverrideDialog> createState() => _AdminOverrideDialogState();
@@ -10,6 +11,14 @@ class AdminOverrideDialog extends StatefulWidget {
 
 class _AdminOverrideDialogState extends State<AdminOverrideDialog> {
   final _controller = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initialText != null) {
+      _controller.text = widget.initialText!;
+    }
+  }
 
   @override
   void dispose() {

@@ -8,6 +8,7 @@ import '../../models/anime_models.dart';
 import 'episode_list_screen.dart';
 import 'home_controller.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import '../../services/firebase_metadata_service.dart';
 
 class SeriesDetailsScreen extends ConsumerStatefulWidget {
   final AnimeSeries series;
@@ -89,7 +90,55 @@ class _SeriesDetailsScreenState extends ConsumerState<SeriesDetailsScreen> with 
     }
   }
 
-  Future<void> _openRecommendation(BuildContext context, RelatedContent rec) async {
+  void _openRecommendation(BuildContext context, RelatedContent rec) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: Colors.grey[900],
+        title: Text(rec.title, style: const TextStyle(color: Colors.white)),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (rec.posterUrl.isNotEmpty)
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Image.network(rec.posterUrl, height: 200, fit: BoxFit.cover),
+                ),
+              const SizedBox(height: 16),
+              Text(
+                rec.synopsis.isNotEmpty ? rec.synopsis : 'Recommendation from TMDB/Jikan.',
+                style: const TextStyle(color: Colors.white70),
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.orange,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  onPressed: () => _handleWatchNow(context, rec),
+                  child: const Text('Watch Now', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close', style: TextStyle(color: Colors.white54)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _handleWatchNow(BuildContext context, RelatedContent rec) async {
+    Navigator.pop(context); // Close the popup first
+    
     final isMovie = widget.categoryTitle.toLowerCase() == 'movies';
     final normalizedRecTitle = HomeController.normalizeSeriesName(rec.title, isMovie: isMovie);
     
@@ -114,8 +163,7 @@ class _SeriesDetailsScreenState extends ConsumerState<SeriesDetailsScreen> with 
     
     if (matchedSeries != null) {
       // It's uploaded! Fetch override if exists, then navigate
-      const secureStorage = FlutterSecureStorage();
-      final overrideId = await secureStorage.read(key: 'metadata_override_${matchedSeries.coreName}');
+      final overrideId = FirebaseMetadataService.getOverride(matchedSeries.coreName);
       
       List<String>? overrideIds;
       SeriesMetadata? newMeta;
@@ -128,7 +176,7 @@ class _SeriesDetailsScreenState extends ConsumerState<SeriesDetailsScreen> with 
         );
         
         overrideIds = overrideId.split(',');
-        final firstId = overrideIds.first;
+        final firstId = overrideIds!.first;
         final metadataService = MetadataService();
         
         if (widget.categoryTitle.toLowerCase() == 'anime') {
@@ -154,37 +202,26 @@ class _SeriesDetailsScreenState extends ConsumerState<SeriesDetailsScreen> with 
         );
       }
     } else {
-      // Not uploaded, show the dialog
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          backgroundColor: Colors.grey[900],
-          title: Text(rec.title, style: const TextStyle(color: Colors.white)),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (rec.posterUrl.isNotEmpty)
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: Image.network(rec.posterUrl, height: 200, fit: BoxFit.cover),
-                  ),
-                const SizedBox(height: 16),
-                Text(
-                  rec.synopsis.isNotEmpty ? rec.synopsis : 'Recommendation from TMDB/Jikan.',
-                  style: const TextStyle(color: Colors.white70),
-                ),
-              ],
+      // Not uploaded, show friendly popup
+      if (context.mounted) {
+        showDialog(
+          context: context,
+          builder: (c) => AlertDialog(
+            backgroundColor: Colors.grey[900],
+            title: const Text('Not Available', style: TextStyle(color: Colors.white)),
+            content: const Text(
+              'This movie/series is not available yet. Please go to the About page and request it on Telegram!',
+              style: TextStyle(color: Colors.white70),
             ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(c),
+                child: const Text('OK', style: TextStyle(color: Colors.orange)),
+              ),
+            ],
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Close'),
-            ),
-          ],
-        ),
-      );
+        );
+      }
     }
   }
 
@@ -213,7 +250,7 @@ class _SeriesDetailsScreenState extends ConsumerState<SeriesDetailsScreen> with 
       body: CustomScrollView(
         slivers: [
           SliverAppBar(
-            expandedHeight: 250,
+            expandedHeight: (_ytController != null && _trailerPlaying) ? 400 : 250,
             pinned: true,
             flexibleSpace: FlexibleSpaceBar(
               background: _buildHero(meta),
@@ -387,15 +424,14 @@ extension on _SeriesDetailsScreenState {
         children: [
           if (meta.status.isNotEmpty) _buildDetailRow('Status', meta.status),
           if (meta.runtime.isNotEmpty) _buildDetailRow('Duration', meta.runtime),
-          if (meta.releaseYear.isNotEmpty) _buildDetailRow('Release Year', meta.releaseYear),
-          if (meta.maturityRating.isNotEmpty) _buildDetailRow('Age Rating', meta.maturityRating),
-          if (meta.genres.isNotEmpty) _buildDetailRow('Genres', meta.genres.join(', ')),
+          if (meta.episodesCount.isNotEmpty) _buildDetailRow('Episodes', meta.episodesCount),
+          if (meta.userScore.isNotEmpty) _buildDetailRow('Score', meta.userScore),
+          if (meta.rank.isNotEmpty) _buildDetailRow('Rank', meta.rank),
+          if (meta.airedDates.isNotEmpty) _buildDetailRow('Aired', meta.airedDates),
+          if (meta.source.isNotEmpty) _buildDetailRow('Source', meta.source),
+          if (meta.spokenLanguages.isNotEmpty) _buildDetailRow('Languages', meta.spokenLanguages),
+          if (meta.budgetRevenue.isNotEmpty) _buildDetailRow('Financials', meta.budgetRevenue),
           if (meta.productionCompanies.isNotEmpty) _buildDetailRow('Studios', meta.productionCompanies),
-          if (meta.cast.isNotEmpty && meta.cast != 'Anime Cast') _buildDetailRow('Cast', meta.cast),
-          const SizedBox(height: 24),
-          const Text('Synopsis', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 8),
-          Text(meta.synopsis, style: const TextStyle(color: Colors.white70, fontSize: 14, height: 1.5)),
         ],
       ),
     );
