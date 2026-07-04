@@ -70,13 +70,14 @@ class CustomVideoControls extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<CustomVideoControls> createState() => _CustomVideoControlsState();
+  ConsumerState<CustomVideoControls> createState() =>
+      _CustomVideoControlsState();
 }
 
 class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
   bool _showControls = true;
   Timer? _hideTimer;
-  
+
   bool _isLocked = false;
   bool _isFullscreen = true;
   double _currentSpeed = 1.0;
@@ -88,7 +89,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
   bool _showRatioPanel = false;
   bool _showSpeedPanel = false;
   bool _showMoreOptionsPanel = false;
-  
+
   StreamSubscription<bool>? _bufferingSubscription;
   bool _isBuffering = false;
   bool _isBlendingSubtitles = false;
@@ -96,18 +97,18 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
   StreamSubscription? _tracksListSubscription;
   double? _dragBottomMargin;
   double? _dragHorizontalOffset;
-  
+
   bool _showTrackSelectorPanel = false;
   String _trackSelectorTitle = '';
   bool _trackSelectorIsSubtitle = false;
   Map<String, String> _trackCodecs = {};
-  
+
   // Gestures
   double _currentVolume = 100.0;
   double _currentBrightness = 1.0;
   bool _showVolumeIndicator = false;
   bool _showBrightnessIndicator = false;
-   bool _showSeekIndicator = false;
+  bool _showSeekIndicator = false;
   String _seekDirection = '';
   bool _isPhysicalBrightnessSupported = false;
   Timer? _brightnessSaveTimer;
@@ -155,7 +156,6 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
   Duration? _abRepeatB;
   bool _quickActionsExpanded = false;
 
-
   // Sleep timer variables
   Timer? _sleepTimer;
   int? _sleepTimerMinutes;
@@ -194,26 +194,28 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     if (widget.expectedSize <= 0) return true;
     final totalDuration = widget.player.state.duration;
     if (totalDuration.inMilliseconds <= 0) return false;
-    
-    final isDownloadedCompleted = widget.downloadedPrefixSize >= widget.expectedSize;
+
+    final isDownloadedCompleted =
+        widget.downloadedPrefixSize >= widget.expectedSize;
     if (isDownloadedCompleted) return true;
-    
+
     final fraction = position.inSeconds / totalDuration.inSeconds;
     final byteOffset = fraction * widget.expectedSize;
-    
+
     if (byteOffset < widget.downloadedPrefixSize) return true;
-    
+
     final activeEnd = widget.activeDownloadOffset + widget.activeDownloadedSize;
     if (byteOffset >= widget.activeDownloadOffset && byteOffset < activeEnd) {
       return true;
     }
-    
+
     return false;
   }
 
   void _throttledSeek(Duration target) {
     final now = DateTime.now();
-    if (_lastDragSeekTime == null || now.difference(_lastDragSeekTime!).inMilliseconds > 150) {
+    if (_lastDragSeekTime == null ||
+        now.difference(_lastDragSeekTime!).inMilliseconds > 150) {
       _lastDragSeekTime = now;
       _performSeek(target);
     }
@@ -237,7 +239,12 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
         titleLower.contains('op2');
   }
 
-  bool _isChapterOutro(VideoChapter ch, double start, double end, double totalDuration) {
+  bool _isChapterOutro(
+    VideoChapter ch,
+    double start,
+    double end,
+    double totalDuration,
+  ) {
     final titleLower = ch.title.toLowerCase().trim();
     return titleLower.contains('outro') ||
         titleLower.contains('ending') ||
@@ -321,13 +328,17 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
 
   Future<void> _takeScreenshot() async {
     try {
-      final hasPermission = await ref.read(permissionServiceProvider).requestStoragePermission();
+      final hasPermission = await ref
+          .read(permissionServiceProvider)
+          .requestStoragePermission();
       if (!hasPermission) {
         _showSkipToast('Storage permission denied');
         return;
       }
 
-      final Uint8List? screenshotBytes = await widget.player.screenshot(format: 'image/png');
+      final Uint8List? screenshotBytes = await widget.player.screenshot(
+        format: 'image/png',
+      );
       if (screenshotBytes == null || screenshotBytes.isEmpty) {
         _showSkipToast('Failed to capture screenshot');
         return;
@@ -340,9 +351,15 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
       if (customPath != null && customPath.isNotEmpty) {
         baseDir = Directory('$customPath/Screenshots');
       } else if (Platform.isAndroid) {
-        final telstreamRoot = Directory('/storage/emulated/0/TelStream/Screenshots');
-        final downloadDir = Directory('/storage/emulated/0/Download/TelStream/Screenshots');
-        final picturesDir = Directory('/storage/emulated/0/Pictures/TelStream/Screenshots');
+        final telstreamRoot = Directory(
+          '/storage/emulated/0/TelStream/Screenshots',
+        );
+        final downloadDir = Directory(
+          '/storage/emulated/0/Download/TelStream/Screenshots',
+        );
+        final picturesDir = Directory(
+          '/storage/emulated/0/Pictures/TelStream/Screenshots',
+        );
 
         try {
           if (!telstreamRoot.existsSync()) {
@@ -375,9 +392,13 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
         baseDir.createSync(recursive: true);
       }
 
-      final cleanTitle = widget.videoTitle.replaceAll(RegExp(r'[^\w\-\.]'), '_');
+      final cleanTitle = widget.videoTitle.replaceAll(
+        RegExp(r'[^\w\-\.]'),
+        '_',
+      );
       final timestamp = DateTime.now().millisecondsSinceEpoch;
-      final filePath = '${baseDir.path}/Screenshot_${cleanTitle}_$timestamp.png';
+      final filePath =
+          '${baseDir.path}/Screenshot_${cleanTitle}_$timestamp.png';
       final file = File(filePath);
       await file.writeAsBytes(screenshotBytes);
 
@@ -417,23 +438,29 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color: isActive ? accentColor.withValues(alpha: 0.18) : Colors.black.withValues(alpha: 0.4),
+                  color: isActive
+                      ? accentColor.withValues(alpha: 0.18)
+                      : Colors.black.withValues(alpha: 0.4),
                   shape: BoxShape.circle,
                   border: Border.all(
                     color: isActive ? accentColor : Colors.white12,
                     width: isActive ? 1.5 : 1.0,
                   ),
-                  boxShadow: isActive ? [
-                    BoxShadow(
-                      color: accentColor.withValues(alpha: 0.25),
-                      blurRadius: 6,
-                      spreadRadius: 0.5,
-                    )
-                  ] : null,
+                  boxShadow: isActive
+                      ? [
+                          BoxShadow(
+                            color: accentColor.withValues(alpha: 0.25),
+                            blurRadius: 6,
+                            spreadRadius: 0.5,
+                          ),
+                        ]
+                      : null,
                 ),
                 child: Icon(
                   icon,
-                  color: isActive ? accentColor : Colors.white.withValues(alpha: 0.9),
+                  color: isActive
+                      ? accentColor
+                      : Colors.white.withValues(alpha: 0.9),
                   size: 20,
                 ),
               ),
@@ -487,7 +514,9 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
         onTap: _showEqualizerDialog,
       ),
       _buildCircularActionButton(
-        icon: _sleepTimerSecondsRemaining != null ? Icons.snooze : Icons.snooze_outlined,
+        icon: _sleepTimerSecondsRemaining != null
+            ? Icons.snooze
+            : Icons.snooze_outlined,
         label: 'Sleep Timer',
         isActive: _sleepTimerSecondsRemaining != null,
         onTap: _showSleepTimerSelector,
@@ -504,9 +533,11 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
         isActive: ref.watch(videoSettingsProvider).showStatsForNerds,
         onTap: () {
           final s = ref.read(videoSettingsProvider);
-          ref.read(videoSettingsProvider.notifier).updateSettings(
-            s.copyWith(showStatsForNerds: !s.showStatsForNerds),
-          );
+          ref
+              .read(videoSettingsProvider.notifier)
+              .updateSettings(
+                s.copyWith(showStatsForNerds: !s.showStatsForNerds),
+              );
         },
       ),
     ];
@@ -519,9 +550,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
           scrollDirection: Axis.horizontal,
           physics: const BouncingScrollPhysics(),
           padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Row(
-            children: items,
-          ),
+          child: Row(children: items),
         ),
       );
     }
@@ -543,10 +572,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
               duration: const Duration(milliseconds: 300),
               curve: Curves.easeInOut,
               child: _quickActionsExpanded
-                  ? Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: remaining,
-                    )
+                  ? Row(mainAxisSize: MainAxisSize.min, children: remaining)
                   : const SizedBox.shrink(),
             ),
             Padding(
@@ -566,7 +592,9 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                       iconSize: 20,
                       padding: EdgeInsets.zero,
                       icon: Icon(
-                        _quickActionsExpanded ? Icons.arrow_back : Icons.arrow_forward,
+                        _quickActionsExpanded
+                            ? Icons.arrow_back
+                            : Icons.arrow_forward,
                         color: Colors.white,
                       ),
                       onPressed: () {
@@ -579,7 +607,11 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                   const SizedBox(height: 6),
                   Text(
                     _quickActionsExpanded ? 'Less' : 'More',
-                    style: const TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.w500),
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                 ],
               ),
@@ -646,21 +678,29 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
         _statsTimer?.cancel();
         return;
       }
-      
+
       final player = widget.player;
       final nativePlayer = player.platform;
       if (nativePlayer is NativePlayer) {
         try {
           final results = await Future.wait([
             nativePlayer.getProperty('hwdec-current').catchError((_) => 'no'),
-            nativePlayer.getProperty('video-out-params/w').catchError((_) => ''),
-            nativePlayer.getProperty('video-out-params/h').catchError((_) => ''),
+            nativePlayer
+                .getProperty('video-out-params/w')
+                .catchError((_) => ''),
+            nativePlayer
+                .getProperty('video-out-params/h')
+                .catchError((_) => ''),
             nativePlayer.getProperty('container-fps').catchError((_) => ''),
-            nativePlayer.getProperty('demuxer-cache-duration').catchError((_) => '0'),
-            nativePlayer.getProperty('demuxer-cache-state').catchError((_) => '{}'),
+            nativePlayer
+                .getProperty('demuxer-cache-duration')
+                .catchError((_) => '0'),
+            nativePlayer
+                .getProperty('demuxer-cache-state')
+                .catchError((_) => '{}'),
             nativePlayer.getProperty('frame-drop-count').catchError((_) => '0'),
           ]);
-          
+
           final hwdec = results[0];
           final w = results[1];
           final h = results[2];
@@ -668,7 +708,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
           final cacheDuration = results[4];
           final cacheStateStr = results[5];
           final frameDrops = results[6];
-          
+
           double cacheMb = 0.0;
           if (cacheStateStr.isNotEmpty && cacheStateStr != '{}') {
             try {
@@ -676,12 +716,19 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                 final bytesIdx = cacheStateStr.indexOf('"fw-bytes":');
                 if (bytesIdx != -1) {
                   final endIdx = cacheStateStr.indexOf(',', bytesIdx);
-                  final bytesStr = cacheStateStr.substring(bytesIdx + 11, endIdx != -1 ? endIdx : cacheStateStr.length).replaceAll(RegExp(r'[^\d]'), '');
+                  final bytesStr = cacheStateStr
+                      .substring(
+                        bytesIdx + 11,
+                        endIdx != -1 ? endIdx : cacheStateStr.length,
+                      )
+                      .replaceAll(RegExp(r'[^\d]'), '');
                   final bytesVal = int.tryParse(bytesStr) ?? 0;
                   cacheMb = bytesVal / (1024 * 1024);
                 }
               } else {
-                final match = RegExp(r'fw-bytes=(\d+)').firstMatch(cacheStateStr);
+                final match = RegExp(
+                  r'fw-bytes=(\d+)',
+                ).firstMatch(cacheStateStr);
                 if (match != null) {
                   final bytesVal = int.tryParse(match.group(1) ?? '0') ?? 0;
                   cacheMb = bytesVal / (1024 * 1024);
@@ -689,12 +736,19 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
               }
             } catch (_) {}
           }
-          
+
           final proxy = ref.read(streamingProxyServiceProvider);
           int? activeFileId;
-          final playingUrl = widget.player.state.playlist.index >= 0 && 
-                            widget.player.state.playlist.index < widget.player.state.playlist.medias.length
-              ? widget.player.state.playlist.medias[widget.player.state.playlist.index].uri
+          final playingUrl =
+              widget.player.state.playlist.index >= 0 &&
+                  widget.player.state.playlist.index <
+                      widget.player.state.playlist.medias.length
+              ? widget
+                    .player
+                    .state
+                    .playlist
+                    .medias[widget.player.state.playlist.index]
+                    .uri
               : '';
           if (playingUrl.startsWith('http://127.0.0.1:')) {
             final uri = Uri.tryParse(playingUrl);
@@ -705,21 +759,23 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
               }
             }
           }
-          
+
           String speedStr = '0 KB/s';
           if (activeFileId != null) {
             final cachedFile = proxy.getCachedFile(activeFileId);
             if (cachedFile != null) {
               final currentDownloaded = cachedFile.local.downloadedSize;
-              final lastDownloaded = _lastDownloadedBytes[activeFileId] ?? currentDownloaded;
+              final lastDownloaded =
+                  _lastDownloadedBytes[activeFileId] ?? currentDownloaded;
               final diff = currentDownloaded - lastDownloaded;
               _lastDownloadedBytes[activeFileId] = currentDownloaded;
-              
+
               if (diff > 0) {
                 if (diff < 1024 * 1024) {
                   speedStr = '${(diff / 1024).toStringAsFixed(1)} KB/s';
                 } else {
-                  speedStr = '${(diff / (1024 * 1024)).toStringAsFixed(2)} MB/s';
+                  speedStr =
+                      '${(diff / (1024 * 1024)).toStringAsFixed(2)} MB/s';
                 }
               } else if (cachedFile.local.isDownloadingCompleted) {
                 speedStr = 'Completed (Local Disk)';
@@ -728,15 +784,16 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
               }
             }
           }
-          
+
           if (mounted) {
             setState(() {
               _nerdStats = {
-                'Resolution & FPS': w.isNotEmpty && h.isNotEmpty 
+                'Resolution & FPS': w.isNotEmpty && h.isNotEmpty
                     ? '$w x $h @ ${double.tryParse(fps)?.toStringAsFixed(2) ?? fps} fps'
                     : 'Loading...',
                 'Decoder': hwdec == 'no' ? 'Software' : hwdec,
-                'Forward Buffer': '${cacheMb.toStringAsFixed(1)} MB (${double.tryParse(cacheDuration)?.toStringAsFixed(1) ?? cacheDuration}s)',
+                'Forward Buffer':
+                    '${cacheMb.toStringAsFixed(1)} MB (${double.tryParse(cacheDuration)?.toStringAsFixed(1) ?? cacheDuration}s)',
                 'Download Speed': speedStr,
                 'Frame Drops': frameDrops,
               };
@@ -769,13 +826,16 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     _initAspectRatio();
     if (widget.player.platform is NativePlayer) {
       try {
-        (widget.player.platform as NativePlayer).getProperty('audio-delay').then((delayStr) {
-          if (mounted) {
-            setState(() {
-              _audioDelay = double.tryParse(delayStr) ?? 0.0;
-            });
-          }
-        }).catchError((_) {});
+        (widget.player.platform as NativePlayer)
+            .getProperty('audio-delay')
+            .then((delayStr) {
+              if (mounted) {
+                setState(() {
+                  _audioDelay = double.tryParse(delayStr) ?? 0.0;
+                });
+              }
+            })
+            .catchError((_) {});
       } catch (_) {}
     }
     _bufferingSubscription = widget.player.stream.buffering.listen((buffering) {
@@ -791,26 +851,38 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
       _checkAbRepeat(pos);
       if (!_blendSubtitlesChecked && pos.inSeconds > 0) {
         _blendSubtitlesChecked = true;
-        _updateBlendSubtitlesForTrack(widget.player, widget.player.state.track.subtitle);
+        _updateBlendSubtitlesForTrack(
+          widget.player,
+          widget.player.state.track.subtitle,
+        );
       }
     });
     _durationSubscription = widget.player.stream.duration.listen((dur) {
       if (dur.inSeconds > 0) {
         _loadChapters();
-        _updateBlendSubtitlesForTrack(widget.player, widget.player.state.track.subtitle);
+        _updateBlendSubtitlesForTrack(
+          widget.player,
+          widget.player.state.track.subtitle,
+        );
       }
     });
     _trackSubscription = widget.player.stream.track.listen((track) {
       _updateBlendSubtitlesForTrack(widget.player, track.subtitle);
     });
     _tracksListSubscription = widget.player.stream.tracks.listen((_) {
-      _updateBlendSubtitlesForTrack(widget.player, widget.player.state.track.subtitle);
+      _updateBlendSubtitlesForTrack(
+        widget.player,
+        widget.player.state.track.subtitle,
+      );
       if (_showTrackSelectorPanel) {
         _loadTrackCodecs();
       }
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _updateBlendSubtitlesForTrack(widget.player, widget.player.state.track.subtitle);
+      _updateBlendSubtitlesForTrack(
+        widget.player,
+        widget.player.state.track.subtitle,
+      );
     });
     _playlistSubscription = widget.player.stream.playlist.listen((_) {
       if (mounted) {
@@ -844,7 +916,9 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
       _currentVolume = widget.player.state.volume;
       _subtitleDelay = ref.read(videoSettingsProvider).subtitleDelay;
 
-      _bufferingSubscription = widget.player.stream.buffering.listen((buffering) {
+      _bufferingSubscription = widget.player.stream.buffering.listen((
+        buffering,
+      ) {
         if (mounted) {
           setState(() {
             _isBuffering = buffering;
@@ -856,20 +930,29 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
         _checkAbRepeat(pos);
         if (!_blendSubtitlesChecked && pos.inSeconds > 0) {
           _blendSubtitlesChecked = true;
-          _updateBlendSubtitlesForTrack(widget.player, widget.player.state.track.subtitle);
+          _updateBlendSubtitlesForTrack(
+            widget.player,
+            widget.player.state.track.subtitle,
+          );
         }
       });
       _durationSubscription = widget.player.stream.duration.listen((dur) {
         if (dur.inSeconds > 0) {
           _loadChapters();
-          _updateBlendSubtitlesForTrack(widget.player, widget.player.state.track.subtitle);
+          _updateBlendSubtitlesForTrack(
+            widget.player,
+            widget.player.state.track.subtitle,
+          );
         }
       });
       _trackSubscription = widget.player.stream.track.listen((track) {
         _updateBlendSubtitlesForTrack(widget.player, track.subtitle);
       });
       _tracksListSubscription = widget.player.stream.tracks.listen((_) {
-        _updateBlendSubtitlesForTrack(widget.player, widget.player.state.track.subtitle);
+        _updateBlendSubtitlesForTrack(
+          widget.player,
+          widget.player.state.track.subtitle,
+        );
         if (_showTrackSelectorPanel) {
           _loadTrackCodecs();
         }
@@ -888,9 +971,12 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
         }
         Future.delayed(const Duration(milliseconds: 500), _loadChapters);
       });
-      
+
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        _updateBlendSubtitlesForTrack(widget.player, widget.player.state.track.subtitle);
+        _updateBlendSubtitlesForTrack(
+          widget.player,
+          widget.player.state.track.subtitle,
+        );
       });
     }
   }
@@ -907,7 +993,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
         widget.player.setVolume(_currentVolume);
       }
     } catch (_) {}
-    
+
     try {
       _volumeSubscription = FlutterVolumeController.addListener((volume) {
         if (mounted && !_showVolumeIndicator) {
@@ -918,7 +1004,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
         }
       });
     } catch (_) {}
-    
+
     final savedBrightness = ref.read(storageServiceProvider).getBrightness();
     if (mounted) {
       setState(() {
@@ -927,14 +1013,14 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     }
 
     try {
-      await ScreenBrightness().setApplicationScreenBrightness(_currentBrightness);
+      await ScreenBrightness().setApplicationScreenBrightness(
+        _currentBrightness,
+      );
       _isPhysicalBrightnessSupported = true;
     } catch (_) {
       _isPhysicalBrightnessSupported = false;
     }
   }
-
-
 
   @override
   void dispose() {
@@ -971,8 +1057,9 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
   void _checkAutoNextTrigger(Duration pos) {
     final settings = ref.read(videoSettingsProvider);
     if (!settings.autoplayNextVideo) return;
-    if (widget.isPip || !widget.hasNextEpisode || widget.onNextEpisode == null) return;
-    
+    if (widget.isPip || !widget.hasNextEpisode || widget.onNextEpisode == null)
+      return;
+
     final dur = widget.player.state.duration;
     if (dur.inSeconds <= 0) return;
 
@@ -981,10 +1068,16 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     if (pos.inSeconds < dur.inSeconds * 0.5) return;
 
     final remaining = dur.inSeconds - pos.inSeconds;
-    
+
     final bool isOutro = _isCurrentPositionInOutro(pos);
-    final outroThreshold = ref.read(storageServiceProvider).getVideoSettings()['outro_threshold_seconds'] as int? ?? 45;
-    final bool shouldTrigger = isOutro || (remaining <= outroThreshold && remaining > 0);
+    final outroThreshold =
+        ref
+                .read(storageServiceProvider)
+                .getVideoSettings()['outro_threshold_seconds']
+            as int? ??
+        45;
+    final bool shouldTrigger =
+        isOutro || (remaining <= outroThreshold && remaining > 0);
 
     if (shouldTrigger && !_autoNextCancelled && !_autoNextTriggered) {
       _autoNextTriggered = true;
@@ -994,7 +1087,8 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
         _cancelAutoNextCountdown();
         _autoNextTriggered = false;
       }
-      _autoNextCancelled = false; // Reset cancelled state since we are back in normal play region
+      _autoNextCancelled =
+          false; // Reset cancelled state since we are back in normal play region
     }
   }
 
@@ -1002,8 +1096,13 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     _autoNextTimer?.cancel();
     _autoNextSlideInTimer?.cancel();
     _autoNextDismissTimer?.cancel();
-    
-    final outroThreshold = ref.read(storageServiceProvider).getVideoSettings()['outro_threshold_seconds'] as int? ?? 45;
+
+    final outroThreshold =
+        ref
+                .read(storageServiceProvider)
+                .getVideoSettings()['outro_threshold_seconds']
+            as int? ??
+        45;
     final dur = widget.player.state.duration;
     final pos = widget.player.state.position;
     final remaining = (dur.inSeconds - pos.inSeconds).clamp(1, outroThreshold);
@@ -1013,7 +1112,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
       _autoNextSecondsRemaining = remaining;
       _autoNextSlideIn = false;
     });
-    
+
     _autoNextSlideInTimer = Timer(const Duration(milliseconds: 200), () {
       if (mounted) {
         setState(() {
@@ -1021,7 +1120,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
         });
       }
     });
-    
+
     // Automatically slide out the card to the right side after 3 seconds if controls are not showing
     _autoNextDismissTimer = Timer(const Duration(seconds: 3), () {
       if (mounted && _showAutoNextCountdown && !_showControls) {
@@ -1030,10 +1129,11 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
         });
       }
     });
-    
+
     _autoNextTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (mounted) {
-        if (!widget.player.state.playing) return; // Pause countdown if video is paused!
+        if (!widget.player.state.playing)
+          return; // Pause countdown if video is paused!
         setState(() {
           if (_autoNextSecondsRemaining > 1) {
             _autoNextSecondsRemaining--;
@@ -1112,7 +1212,11 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
   }
 
   void _toggleControls() {
-    if (_showTrackSelectorPanel || _showRatioPanel || _showSpeedPanel || _showChaptersPanel || _showMoreOptionsPanel) {
+    if (_showTrackSelectorPanel ||
+        _showRatioPanel ||
+        _showSpeedPanel ||
+        _showChaptersPanel ||
+        _showMoreOptionsPanel) {
       setState(() {
         _showTrackSelectorPanel = false;
         _showRatioPanel = false;
@@ -1160,7 +1264,11 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     });
   }
 
-  void _handleDoubleTap(TapDownDetails details, double screenWidth, int seekDuration) {
+  void _handleDoubleTap(
+    TapDownDetails details,
+    double screenWidth,
+    int seekDuration,
+  ) {
     if (_isLocked) return;
 
     final x = details.globalPosition.dx;
@@ -1181,7 +1289,8 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     _doubleTapSeekTimer?.cancel();
 
     setState(() {
-      if ((isLeft && _showRightSeekOverlay) || (!isLeft && _showLeftSeekOverlay)) {
+      if ((isLeft && _showRightSeekOverlay) ||
+          (!isLeft && _showLeftSeekOverlay)) {
         // Switch sides, reset accumulation
         _doubleTapStartPosition = widget.player.state.position;
         _doubleTapSeekAccumulated = seekDuration;
@@ -1207,15 +1316,21 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     });
 
     final target = isLeft
-        ? _doubleTapStartPosition! - Duration(seconds: _doubleTapSeekAccumulated)
-        : _doubleTapStartPosition! + Duration(seconds: _doubleTapSeekAccumulated);
+        ? _doubleTapStartPosition! -
+              Duration(seconds: _doubleTapSeekAccumulated)
+        : _doubleTapStartPosition! +
+              Duration(seconds: _doubleTapSeekAccumulated);
 
     final dur = widget.player.state.duration;
     final clampedTarget = Duration(
-        seconds: target.inSeconds.clamp(0, dur.inSeconds > 0 ? dur.inSeconds : 86400));
+      seconds: target.inSeconds.clamp(
+        0,
+        dur.inSeconds > 0 ? dur.inSeconds : 86400,
+      ),
+    );
 
     final safeTarget = _clampSeekTarget(clampedTarget, showMessage: true);
-    
+
     _doubleTapSeekTimer = Timer(const Duration(milliseconds: 300), () {
       if (mounted) {
         _performSeek(safeTarget);
@@ -1277,7 +1392,8 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     });
     _sleepTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (mounted) {
-        if (_sleepTimerSecondsRemaining != null && _sleepTimerSecondsRemaining! > 1) {
+        if (_sleepTimerSecondsRemaining != null &&
+            _sleepTimerSecondsRemaining! > 1) {
           setState(() {
             _sleepTimerSecondsRemaining = _sleepTimerSecondsRemaining! - 1;
           });
@@ -1325,7 +1441,10 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
           builder: (context, setDialogState) {
             return Dialog(
               backgroundColor: Colors.transparent,
-              insetPadding: const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
+              insetPadding: const EdgeInsets.symmetric(
+                horizontal: 40,
+                vertical: 24,
+              ),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(24),
                 child: BackdropFilter(
@@ -1363,11 +1482,16 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                         if (_sleepTimerSecondsRemaining != null) ...[
                           const SizedBox(height: 16),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
                             decoration: BoxDecoration(
                               color: settingsAccent.withValues(alpha: 0.12),
                               borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: settingsAccent.withValues(alpha: 0.3)),
+                              border: Border.all(
+                                color: settingsAccent.withValues(alpha: 0.3),
+                              ),
                             ),
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1391,11 +1515,15 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                                   style: TextButton.styleFrom(
                                     padding: EdgeInsets.zero,
                                     minimumSize: Size.zero,
-                                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                    tapTargetSize:
+                                        MaterialTapTargetSize.shrinkWrap,
                                   ),
                                   child: const Text(
                                     'Cancel Timer',
-                                    style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold),
+                                    style: TextStyle(
+                                      color: Colors.redAccent,
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
                                 ),
                               ],
@@ -1417,12 +1545,18 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                               borderRadius: BorderRadius.circular(16),
                               child: Container(
                                 width: 100,
-                                padding: const EdgeInsets.symmetric(vertical: 16),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 16,
+                                ),
                                 decoration: BoxDecoration(
-                                  color: isSelected ? settingsAccent : Colors.white.withValues(alpha: 0.05),
+                                  color: isSelected
+                                      ? settingsAccent
+                                      : Colors.white.withValues(alpha: 0.05),
                                   borderRadius: BorderRadius.circular(16),
                                   border: Border.all(
-                                    color: isSelected ? settingsAccent : Colors.white10,
+                                    color: isSelected
+                                        ? settingsAccent
+                                        : Colors.white10,
                                     width: 1.5,
                                   ),
                                 ),
@@ -1432,7 +1566,9 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                                     Text(
                                       '$mins',
                                       style: TextStyle(
-                                        color: isSelected ? Colors.black : Colors.white,
+                                        color: isSelected
+                                            ? Colors.black
+                                            : Colors.white,
                                         fontSize: 22,
                                         fontWeight: FontWeight.w900,
                                       ),
@@ -1441,7 +1577,9 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                                     Text(
                                       'Mins',
                                       style: TextStyle(
-                                        color: isSelected ? Colors.black87 : Colors.white54,
+                                        color: isSelected
+                                            ? Colors.black87
+                                            : Colors.white54,
                                         fontSize: 12,
                                         fontWeight: FontWeight.bold,
                                       ),
@@ -1462,7 +1600,10 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                             },
                             child: Text(
                               'Test with 10s',
-                              style: TextStyle(color: settingsAccent.withValues(alpha: 0.6), fontSize: 12),
+                              style: TextStyle(
+                                color: settingsAccent.withValues(alpha: 0.6),
+                                fontSize: 12,
+                              ),
                             ),
                           ),
                         ),
@@ -1489,10 +1630,12 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
           final List<VideoChapter> loadedChapters = [];
           final futures = <Future<List<String?>>>[];
           for (int i = 0; i < count; i++) {
-            futures.add(Future.wait([
-              platform.getProperty('chapter-list/$i/title'),
-              platform.getProperty('chapter-list/$i/time'),
-            ]));
+            futures.add(
+              Future.wait([
+                platform.getProperty('chapter-list/$i/title'),
+                platform.getProperty('chapter-list/$i/time'),
+              ]),
+            );
           }
           final results = await Future.wait(futures);
           for (int i = 0; i < count; i++) {
@@ -1500,10 +1643,12 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
             final timeStr = results[i][1];
             final timeDouble = double.tryParse(timeStr ?? '');
             if (timeDouble != null) {
-              loadedChapters.add(VideoChapter(
-                title: title,
-                position: Duration(milliseconds: (timeDouble * 1000).round()),
-              ));
+              loadedChapters.add(
+                VideoChapter(
+                  title: title,
+                  position: Duration(milliseconds: (timeDouble * 1000).round()),
+                ),
+              );
             }
           }
           if (mounted) {
@@ -1520,7 +1665,10 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
 
     if (mounted && _chaptersLoadAttempts < 5) {
       _chaptersLoadAttempts++;
-      _chaptersRetryTimer = Timer(const Duration(milliseconds: 500), _loadChapters);
+      _chaptersRetryTimer = Timer(
+        const Duration(milliseconds: 500),
+        _loadChapters,
+      );
     } else {
       if (mounted) {
         setState(() {
@@ -1531,13 +1679,12 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     }
   }
 
-
   int _getActiveChapterIndex(Duration currentPos) {
     if (_chapters.isEmpty) return -1;
     for (int i = 0; i < _chapters.length; i++) {
       final start = _chapters[i].position;
-      final end = (i + 1 < _chapters.length) 
-          ? _chapters[i + 1].position 
+      final end = (i + 1 < _chapters.length)
+          ? _chapters[i + 1].position
           : widget.player.state.duration;
       if (currentPos >= start && currentPos < end) {
         return i;
@@ -1565,7 +1712,8 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
         final currentPos = snapshot.data ?? widget.player.state.position;
         final activeIndex = _getActiveChapterIndex(currentPos);
 
-        final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
+        final isLandscape =
+            MediaQuery.of(context).orientation == Orientation.landscape;
 
         return ClipRRect(
           borderRadius: isLandscape
@@ -1576,7 +1724,9 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
             child: Container(
               height: isLandscape ? double.infinity : 340,
               decoration: BoxDecoration(
-                color: const Color(0x990A0F1D), // Slate 950 with 60% opacity for premium glassmorphism
+                color: const Color(
+                  0x990A0F1D,
+                ), // Slate 950 with 60% opacity for premium glassmorphism
                 borderRadius: isLandscape
                     ? const BorderRadius.horizontal(left: Radius.circular(30))
                     : const BorderRadius.vertical(top: Radius.circular(24)),
@@ -1606,14 +1756,13 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                     ),
                     const SizedBox(height: 8),
                     Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 8,
+                      ),
                       child: Row(
                         children: [
-                          Icon(
-                            Icons.list,
-                            color: settingsAccent,
-                            size: 24,
-                          ),
+                          Icon(Icons.list, color: settingsAccent, size: 24),
                           const SizedBox(width: 12),
                           const Text(
                             'Chapters',
@@ -1626,8 +1775,12 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                           ),
                           const Spacer(),
                           IconButton(
-                            icon: const Icon(Icons.close, color: Colors.white60),
-                            onPressed: () => setState(() => _showChaptersPanel = false),
+                            icon: const Icon(
+                              Icons.close,
+                              color: Colors.white60,
+                            ),
+                            onPressed: () =>
+                                setState(() => _showChaptersPanel = false),
                           ),
                         ],
                       ),
@@ -1642,26 +1795,46 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                           ? const Center(
                               child: Text(
                                 'No chapters available',
-                                style: TextStyle(color: Colors.white38, fontSize: 15),
+                                style: TextStyle(
+                                  color: Colors.white38,
+                                  fontSize: 15,
+                                ),
                               ),
                             )
                           : ListView.builder(
-                              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 20,
+                                vertical: 8,
+                              ),
                               itemCount: _chapters.length,
                               itemBuilder: (context, index) {
                                 final chapter = _chapters[index];
                                 final isSelected = index == activeIndex;
-                                
-                                final start = chapter.position.inSeconds.toDouble();
-                                final totalDuration = widget.player.state.duration.inSeconds.toDouble();
+
+                                final start = chapter.position.inSeconds
+                                    .toDouble();
+                                final totalDuration = widget
+                                    .player
+                                    .state
+                                    .duration
+                                    .inSeconds
+                                    .toDouble();
                                 final end = (index + 1 < _chapters.length)
-                                    ? _chapters[index + 1].position.inSeconds.toDouble()
-                                    : (totalDuration > 0 ? totalDuration : start + 90.0);
-                                    
+                                    ? _chapters[index + 1].position.inSeconds
+                                          .toDouble()
+                                    : (totalDuration > 0
+                                          ? totalDuration
+                                          : start + 90.0);
+
                                 String displayTitle = chapter.title;
                                 if (_isChapterIntro(chapter, start, end)) {
                                   displayTitle = 'Intro';
-                                } else if (_isChapterOutro(chapter, start, end, totalDuration)) {
+                                } else if (_isChapterOutro(
+                                  chapter,
+                                  start,
+                                  end,
+                                  totalDuration,
+                                )) {
                                   displayTitle = 'Credits';
                                 }
 
@@ -1669,47 +1842,79 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                                   padding: const EdgeInsets.only(bottom: 8),
                                   child: InkWell(
                                     onTap: () {
-                                      final safeTarget = _clampSeekTarget(chapter.position, showMessage: false);
+                                      final safeTarget = _clampSeekTarget(
+                                        chapter.position,
+                                        showMessage: false,
+                                      );
                                       _performSeek(safeTarget);
                                       setState(() {
                                         _showChaptersPanel = false;
                                         _showSeekIndicator = true;
-                                        _seekDirection = 'Chapter: $displayTitle';
+                                        _seekDirection =
+                                            'Chapter: $displayTitle';
                                       });
-                                      Future.delayed(const Duration(milliseconds: 1000), () {
-                                        if (mounted) {
-                                          setState(() => _showSeekIndicator = false);
-                                        }
-                                      });
+                                      Future.delayed(
+                                        const Duration(milliseconds: 1000),
+                                        () {
+                                          if (mounted) {
+                                            setState(
+                                              () => _showSeekIndicator = false,
+                                            );
+                                          }
+                                        },
+                                      );
                                     },
                                     borderRadius: BorderRadius.circular(12),
                                     child: AnimatedContainer(
-                                      duration: const Duration(milliseconds: 150),
-                                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                      duration: const Duration(
+                                        milliseconds: 150,
+                                      ),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 16,
+                                        vertical: 12,
+                                      ),
                                       decoration: BoxDecoration(
-                                        color: isSelected 
-                                            ? settingsAccent.withValues(alpha: 0.12) 
-                                            : Colors.white.withValues(alpha: 0.04),
+                                        color: isSelected
+                                            ? settingsAccent.withValues(
+                                                alpha: 0.12,
+                                              )
+                                            : Colors.white.withValues(
+                                                alpha: 0.04,
+                                              ),
                                         borderRadius: BorderRadius.circular(12),
                                         border: Border.all(
-                                          color: isSelected 
-                                              ? settingsAccent.withValues(alpha: 0.4) 
-                                              : Colors.white.withValues(alpha: 0.05),
+                                          color: isSelected
+                                              ? settingsAccent.withValues(
+                                                  alpha: 0.4,
+                                                )
+                                              : Colors.white.withValues(
+                                                  alpha: 0.05,
+                                                ),
                                           width: 1,
                                         ),
                                       ),
                                       child: Row(
                                         children: [
                                           Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 8,
+                                              vertical: 4,
+                                            ),
                                             decoration: BoxDecoration(
-                                              color: isSelected ? settingsAccent.withValues(alpha: 0.2) : Colors.white10,
-                                              borderRadius: BorderRadius.circular(8),
+                                              color: isSelected
+                                                  ? settingsAccent.withValues(
+                                                      alpha: 0.2,
+                                                    )
+                                                  : Colors.white10,
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
                                             ),
                                             child: Text(
                                               _formatDuration(chapter.position),
                                               style: TextStyle(
-                                                color: isSelected ? settingsAccent : Colors.white70,
+                                                color: isSelected
+                                                    ? settingsAccent
+                                                    : Colors.white70,
                                                 fontSize: 12,
                                                 fontWeight: FontWeight.bold,
                                               ),
@@ -1720,8 +1925,12 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                                             child: Text(
                                               displayTitle,
                                               style: TextStyle(
-                                                color: isSelected ? settingsAccent : Colors.white,
-                                                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                                color: isSelected
+                                                    ? settingsAccent
+                                                    : Colors.white,
+                                                fontWeight: isSelected
+                                                    ? FontWeight.bold
+                                                    : FontWeight.normal,
                                                 fontSize: 15,
                                               ),
                                               maxLines: 1,
@@ -1752,13 +1961,17 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     );
   }
 
-  Duration _clampSeekTarget(Duration targetPosition, {bool showMessage = true}) {
+  Duration _clampSeekTarget(
+    Duration targetPosition, {
+    bool showMessage = true,
+  }) {
     if (widget.onSeek != null) return targetPosition;
     if (widget.expectedSize <= 0) return targetPosition;
     final totalDuration = widget.player.state.duration;
     if (totalDuration.inMilliseconds <= 0) return targetPosition;
 
-    final isDownloadedCompleted = widget.downloadedPrefixSize >= widget.expectedSize;
+    final isDownloadedCompleted =
+        widget.downloadedPrefixSize >= widget.expectedSize;
     if (isDownloadedCompleted) return targetPosition;
 
     final double fraction = widget.downloadedPrefixSize / widget.expectedSize;
@@ -1767,7 +1980,8 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     if (targetPosition.inMilliseconds > maxPlayableMs) {
       if (showMessage) {
         final now = DateTime.now();
-        if (_lastSeekWarningTime == null || now.difference(_lastSeekWarningTime!).inSeconds > 2) {
+        if (_lastSeekWarningTime == null ||
+            now.difference(_lastSeekWarningTime!).inSeconds > 2) {
           _lastSeekWarningTime = now;
           ScaffoldMessenger.of(context).hideCurrentSnackBar();
           ScaffoldMessenger.of(context).showSnackBar(
@@ -1794,13 +2008,13 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     _isScaleGesture = false;
     _isVerticalDrag = false;
     _isHorizontalDrag = false;
-    
+
     _baseScale = _scale;
     _basePanOffset = _panOffset;
-    
+
     _swipeStartPosition = widget.player.state.position;
     _swipeTargetPosition = _swipeStartPosition;
-    
+
     _hideTimer?.cancel();
   }
 
@@ -1829,10 +2043,14 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     if (_isScaleGesture) return;
 
     // 2. Determine drag type
-    if (_dragStartFocalPoint != null && !_isVerticalDrag && !_isHorizontalDrag) {
-      final double deltaX = (details.focalPoint.dx - _dragStartFocalPoint!.dx).abs();
-      final double deltaY = (details.focalPoint.dy - _dragStartFocalPoint!.dy).abs();
-      
+    if (_dragStartFocalPoint != null &&
+        !_isVerticalDrag &&
+        !_isHorizontalDrag) {
+      final double deltaX = (details.focalPoint.dx - _dragStartFocalPoint!.dx)
+          .abs();
+      final double deltaY = (details.focalPoint.dy - _dragStartFocalPoint!.dy)
+          .abs();
+
       if (deltaX > 10 || deltaY > 10) {
         if (deltaX > deltaY) {
           if (swipeSeek) {
@@ -1851,7 +2069,8 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
       final duration = widget.player.state.duration;
       if (duration.inSeconds == 0) return;
 
-      final double totalDeltaX = details.focalPoint.dx - _dragStartFocalPoint!.dx;
+      final double totalDeltaX =
+          details.focalPoint.dx - _dragStartFocalPoint!.dx;
       final settings = ref.read(videoSettingsProvider);
       double sensitivityMultiplier = 1.0;
       if (settings.gestureSensitivity == 'Low') {
@@ -1859,24 +2078,30 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
       } else if (settings.gestureSensitivity == 'High') {
         sensitivityMultiplier = 1.5;
       }
-      final secondsOffset = ((totalDeltaX / (screenWidth / 2)) * 60 * sensitivityMultiplier).toInt();
-      
+      final secondsOffset =
+          ((totalDeltaX / (screenWidth / 2)) * 60 * sensitivityMultiplier)
+              .toInt();
+
       setState(() {
         final newSeconds = (_swipeStartPosition.inSeconds + secondsOffset)
             .clamp(0, duration.inSeconds);
         _swipeTargetPosition = Duration(seconds: newSeconds);
         _showSeekIndicator = true;
-        
-        final diff = _swipeTargetPosition.inSeconds - _swipeStartPosition.inSeconds;
+
+        final diff =
+            _swipeTargetPosition.inSeconds - _swipeStartPosition.inSeconds;
         final sign = diff >= 0 ? '+' : '';
-        _seekDirection = 'Swipe: ${_formatDuration(_swipeTargetPosition)} ($sign${diff}s)';
+        _seekDirection =
+            'Swipe: ${_formatDuration(_swipeTargetPosition)} ($sign${diff}s)';
       });
     } else if (_isVerticalDrag && _scale <= 1.0) {
       final double deltaY = details.focalPointDelta.dy;
       final settings = ref.read(videoSettingsProvider);
       final isLeft = _dragStartFocalPoint!.dx <= screenWidth / 2;
-      final action = isLeft ? settings.leftSwipeGesture : settings.rightSwipeGesture;
-      
+      final action = isLeft
+          ? settings.leftSwipeGesture
+          : settings.rightSwipeGesture;
+
       if (action == 'Volume' && volGestures) {
         _performVerticalSwipeAction('Volume', deltaY);
       } else if (action == 'Brightness' && brightGestures) {
@@ -1886,7 +2111,8 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
       }
     } else if (_scale > 1.0) {
       setState(() {
-        _panOffset = _basePanOffset + (details.focalPoint - _dragStartFocalPoint!);
+        _panOffset =
+            _basePanOffset + (details.focalPoint - _dragStartFocalPoint!);
       });
     }
   }
@@ -1897,17 +2123,22 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
         _isSwipingToSeek = false;
         _showSeekIndicator = false;
       });
-      final safeTarget = _clampSeekTarget(_swipeTargetPosition, showMessage: true);
+      final safeTarget = _clampSeekTarget(
+        _swipeTargetPosition,
+        showMessage: true,
+      );
       _performSeek(safeTarget);
     }
     if (_showSpeedIndicator) {
       widget.player.seek(widget.player.state.position);
     }
-    
+
     // Final hardware state synchronization
     if (_showVolumeIndicator) {
       try {
-        FlutterVolumeController.setVolume((_currentVolume / 100.0).clamp(0.0, 1.0));
+        FlutterVolumeController.setVolume(
+          (_currentVolume / 100.0).clamp(0.0, 1.0),
+        );
       } catch (_) {}
     }
     if (_showBrightnessIndicator) {
@@ -1938,20 +2169,25 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     }
 
     if (actionType == 'Volume') {
-      final bool volumeBoost = ref.read(storageServiceProvider).getVolumeBoostEnabled();
+      final bool volumeBoost = ref
+          .read(storageServiceProvider)
+          .getVolumeBoostEnabled();
       final maxVol = volumeBoost ? 200.0 : 100.0;
       setState(() {
         _currentVolume -= deltaY * 0.2 * sensitivityMultiplier;
         _currentVolume = _currentVolume.clamp(0.0, maxVol);
-        
+
         final now = DateTime.now();
-        if (now.difference(_lastVolumeCallTime) > const Duration(milliseconds: 80)) {
+        if (now.difference(_lastVolumeCallTime) >
+            const Duration(milliseconds: 80)) {
           _lastVolumeCallTime = now;
           try {
-            FlutterVolumeController.setVolume((_currentVolume / 100.0).clamp(0.0, 1.0));
+            FlutterVolumeController.setVolume(
+              (_currentVolume / 100.0).clamp(0.0, 1.0),
+            );
           } catch (_) {}
         }
-        
+
         widget.player.setVolume(_currentVolume);
         _showVolumeIndicator = true;
       });
@@ -1959,18 +2195,21 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
       setState(() {
         _currentBrightness -= (deltaY / 300) * sensitivityMultiplier;
         _currentBrightness = _currentBrightness.clamp(0.0, 1.0);
-        
+
         final now = DateTime.now();
-        if (now.difference(_lastBrightnessCallTime) > const Duration(milliseconds: 80)) {
+        if (now.difference(_lastBrightnessCallTime) >
+            const Duration(milliseconds: 80)) {
           _lastBrightnessCallTime = now;
           try {
-            ScreenBrightness().setApplicationScreenBrightness(_currentBrightness);
+            ScreenBrightness().setApplicationScreenBrightness(
+              _currentBrightness,
+            );
             _isPhysicalBrightnessSupported = true;
           } catch (_) {
             _isPhysicalBrightnessSupported = false;
           }
         }
-        
+
         _showBrightnessIndicator = true;
       });
       _saveBrightnessDebounced(_currentBrightness);
@@ -1996,7 +2235,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
         if (_nightModeActive) {
           filters.add('lavfi=[dynaudnorm]');
         }
-        
+
         final settings = ref.read(videoSettingsProvider);
         if (settings.equalizerEnabled) {
           final bands = settings.equalizerBands;
@@ -2016,9 +2255,11 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
         }
 
         if (settings.dynamicRangeCompression != _nightModeActive) {
-          ref.read(videoSettingsProvider.notifier).updateSettings(
-            settings.copyWith(dynamicRangeCompression: _nightModeActive),
-          );
+          ref
+              .read(videoSettingsProvider.notifier)
+              .updateSettings(
+                settings.copyWith(dynamicRangeCompression: _nightModeActive),
+              );
         }
       }
     } catch (e) {
@@ -2091,7 +2332,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
       case '2.39:1':
         customRatio = 2.39;
         break;
-      
+
       default:
         boxFit = BoxFit.contain;
         customRatio = null;
@@ -2114,11 +2355,16 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
 
   String _getRatioLabel(String value) {
     switch (value) {
-      case 'fit': return 'Fit';
-      case 'fill': return 'Fill';
-      case 'original': return 'Original';
-      case 'stretch': return 'Stretch';
-      default: return value;
+      case 'fit':
+        return 'Fit';
+      case 'fill':
+        return 'Fill';
+      case 'original':
+        return 'Original';
+      case 'stretch':
+        return 'Stretch';
+      default:
+        return value;
     }
   }
 
@@ -2169,7 +2415,12 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     _startHideTimer();
   }
 
-  Widget _buildScreenRatioButton(String ratioId, IconData icon, String label, Color settingsAccent) {
+  Widget _buildScreenRatioButton(
+    String ratioId,
+    IconData icon,
+    String label,
+    Color settingsAccent,
+  ) {
     final isSelected = _currentAspectRatioString == ratioId;
     return GestureDetector(
       onTap: () => _applyAspectRatioString(ratioId),
@@ -2177,11 +2428,17 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            width: 50, height: 50,
+            width: 50,
+            height: 50,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: isSelected ? settingsAccent : Colors.white.withValues(alpha: 0.08),
-              border: Border.all(color: isSelected ? settingsAccent : Colors.transparent, width: 2),
+              color: isSelected
+                  ? settingsAccent
+                  : Colors.white.withValues(alpha: 0.08),
+              border: Border.all(
+                color: isSelected ? settingsAccent : Colors.transparent,
+                width: 2,
+              ),
             ),
             child: Icon(icon, color: Colors.white, size: 24),
           ),
@@ -2207,8 +2464,13 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(20),
-          color: isSelected ? settingsAccent : Colors.white.withValues(alpha: 0.08),
-          border: Border.all(color: isSelected ? settingsAccent : Colors.white24, width: 1),
+          color: isSelected
+              ? settingsAccent
+              : Colors.white.withValues(alpha: 0.08),
+          border: Border.all(
+            color: isSelected ? settingsAccent : Colors.white24,
+            width: 1,
+          ),
         ),
         child: Text(
           ratioId,
@@ -2240,12 +2502,19 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
               children: [
                 Text(
                   title,
-                  style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   subtitle,
-                  style: TextStyle(color: Colors.white.withValues(alpha: 0.45), fontSize: 12),
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.45),
+                    fontSize: 12,
+                  ),
                 ),
               ],
             ),
@@ -2262,7 +2531,8 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
 
   Widget _buildRatioPanel() {
     final double screenHeight = MediaQuery.of(context).size.height;
-    final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
+    final isLandscape =
+        MediaQuery.of(context).orientation == Orientation.landscape;
     final theme = Theme.of(context);
     final customTheme = theme.extension<AppThemeExtension>();
     final settingsAccent = customTheme?.settingsAccent ?? theme.primaryColor;
@@ -2273,7 +2543,9 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
       ),
       height: isLandscape ? double.infinity : null,
       decoration: BoxDecoration(
-        color: const Color(0xEB0A0F1D), // Slate 950 with 92% opacity - clean translucency (no blur)
+        color: const Color(
+          0xEB0A0F1D,
+        ), // Slate 950 with 92% opacity - clean translucency (no blur)
         borderRadius: isLandscape
             ? const BorderRadius.horizontal(left: Radius.circular(30))
             : const BorderRadius.vertical(top: Radius.circular(24)),
@@ -2319,60 +2591,123 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                   children: [
                     const Text(
                       'Screen',
-                      style: TextStyle(color: Colors.white54, fontSize: 12, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        color: Colors.white54,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     const SizedBox(height: 12),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: [
-                        _buildScreenRatioButton('fit', Icons.crop_free_rounded, 'Fit', settingsAccent),
-                        _buildScreenRatioButton('fill', Icons.zoom_out_map_rounded, 'Fill', settingsAccent),
-                        _buildScreenRatioButton('original', Icons.crop_square_rounded, 'Original', settingsAccent),
-                        _buildScreenRatioButton('stretch', Icons.aspect_ratio_rounded, 'Stretch', settingsAccent),
+                        _buildScreenRatioButton(
+                          'fit',
+                          Icons.crop_free_rounded,
+                          'Fit',
+                          settingsAccent,
+                        ),
+                        _buildScreenRatioButton(
+                          'fill',
+                          Icons.zoom_out_map_rounded,
+                          'Fill',
+                          settingsAccent,
+                        ),
+                        _buildScreenRatioButton(
+                          'original',
+                          Icons.crop_square_rounded,
+                          'Original',
+                          settingsAccent,
+                        ),
+                        _buildScreenRatioButton(
+                          'stretch',
+                          Icons.aspect_ratio_rounded,
+                          'Stretch',
+                          settingsAccent,
+                        ),
                       ],
                     ),
                     const SizedBox(height: 20),
-                    
+
                     const Text(
                       'Standard',
-                      style: TextStyle(color: Colors.white54, fontSize: 12, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        color: Colors.white54,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     const SizedBox(height: 12),
                     SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
                       child: Row(
-                        children: [
-                          _buildPillRatioButton('16:9', settingsAccent),
-                          _buildPillRatioButton('4:3', settingsAccent),
-                          _buildPillRatioButton('18:9', settingsAccent),
-                          _buildPillRatioButton('19.5:9', settingsAccent),
-                          _buildPillRatioButton('20:9', settingsAccent),
-                          _buildPillRatioButton('21:9', settingsAccent),
-                        ].map((w) => Padding(padding: const EdgeInsets.only(right: 8.0), child: w)).toList(),
+                        children:
+                            [
+                                  _buildPillRatioButton('16:9', settingsAccent),
+                                  _buildPillRatioButton('4:3', settingsAccent),
+                                  _buildPillRatioButton('18:9', settingsAccent),
+                                  _buildPillRatioButton(
+                                    '19.5:9',
+                                    settingsAccent,
+                                  ),
+                                  _buildPillRatioButton('20:9', settingsAccent),
+                                  _buildPillRatioButton('21:9', settingsAccent),
+                                ]
+                                .map(
+                                  (w) => Padding(
+                                    padding: const EdgeInsets.only(right: 8.0),
+                                    child: w,
+                                  ),
+                                )
+                                .toList(),
                       ),
                     ),
                     const SizedBox(height: 20),
-                    
+
                     const Text(
                       'Cinema',
-                      style: TextStyle(color: Colors.white54, fontSize: 12, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        color: Colors.white54,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     const SizedBox(height: 12),
                     SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
                       child: Row(
-                        children: [
-                          _buildPillRatioButton('1.85:1', settingsAccent),
-                          _buildPillRatioButton('2.21:1', settingsAccent),
-                          _buildPillRatioButton('2.35:1', settingsAccent),
-                          _buildPillRatioButton('2.39:1', settingsAccent),
-                        ].map((w) => Padding(padding: const EdgeInsets.only(right: 8.0), child: w)).toList(),
+                        children:
+                            [
+                                  _buildPillRatioButton(
+                                    '1.85:1',
+                                    settingsAccent,
+                                  ),
+                                  _buildPillRatioButton(
+                                    '2.21:1',
+                                    settingsAccent,
+                                  ),
+                                  _buildPillRatioButton(
+                                    '2.35:1',
+                                    settingsAccent,
+                                  ),
+                                  _buildPillRatioButton(
+                                    '2.39:1',
+                                    settingsAccent,
+                                  ),
+                                ]
+                                .map(
+                                  (w) => Padding(
+                                    padding: const EdgeInsets.only(right: 8.0),
+                                    child: w,
+                                  ),
+                                )
+                                .toList(),
                       ),
                     ),
                     const SizedBox(height: 20),
                     const Divider(color: Colors.white10, height: 1),
                     const SizedBox(height: 12),
-                    
+
                     _buildSwitchRow(
                       title: 'Remember ratio',
                       subtitle: 'Remember ratio for all videos.',
@@ -2381,9 +2716,13 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                         setState(() {
                           _rememberRatio = val;
                         });
-                        ref.read(storageServiceProvider).setRememberAspectRatio(val);
+                        ref
+                            .read(storageServiceProvider)
+                            .setRememberAspectRatio(val);
                         if (val) {
-                          ref.read(storageServiceProvider).setSavedAspectRatio(_currentAspectRatioString);
+                          ref
+                              .read(storageServiceProvider)
+                              .setSavedAspectRatio(_currentAspectRatioString);
                         }
                       },
                       settingsAccent: settingsAccent,
@@ -2397,7 +2736,9 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                         setState(() {
                           _tapToSwitchRatio = val;
                         });
-                        ref.read(storageServiceProvider).setTapToSwitchAspectRatio(val);
+                        ref
+                            .read(storageServiceProvider)
+                            .setTapToSwitchAspectRatio(val);
                       },
                       settingsAccent: settingsAccent,
                     ),
@@ -2451,28 +2792,45 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
       widget.player.setSubtitleTrack(track);
       final settings = ref.read(videoSettingsProvider);
       final isNativeSub = settings.subtitleRendererMode == 'native';
-      _applySubtitleProperty('sub-visibility', (track.id == 'no' || !isNativeSub) ? 'no' : 'yes');
+      _applySubtitleProperty(
+        'sub-visibility',
+        (track.id == 'no' || !isNativeSub) ? 'no' : 'yes',
+      );
       _updateBlendSubtitlesForTrack(widget.player, track);
-      
+
       final activeAudio = widget.player.state.track.audio;
       String audioLangCategory = 'other';
-      final lower = (activeAudio.language ?? activeAudio.title ?? '').toLowerCase();
-      if (lower.contains('jpn') || lower.contains('ja') || lower.contains('japanese')) {
+      final lower = (activeAudio.language ?? activeAudio.title ?? '')
+          .toLowerCase();
+      if (lower.contains('jpn') ||
+          lower.contains('ja') ||
+          lower.contains('japanese')) {
         audioLangCategory = 'jpn';
-      } else if (lower.contains('eng') || lower.contains('en') || lower.contains('english')) {
+      } else if (lower.contains('eng') ||
+          lower.contains('en') ||
+          lower.contains('english')) {
         audioLangCategory = 'eng';
       }
-      
-      final trackPrefVal = track.id == 'no' ? 'no' : (track.language ?? track.title ?? track.id);
-      storage.setPreferredSubtitleTrackForAudioLanguage(audioLangCategory, trackPrefVal);
-      Log.i('Saved subtitle preference ($trackPrefVal) for audio language category ($audioLangCategory)');
+
+      final trackPrefVal = track.id == 'no'
+          ? 'no'
+          : (track.language ?? track.title ?? track.id);
+      storage.setPreferredSubtitleTrackForAudioLanguage(
+        audioLangCategory,
+        trackPrefVal,
+      );
+      Log.i(
+        'Saved subtitle preference ($trackPrefVal) for audio language category ($audioLangCategory)',
+      );
 
       Future.delayed(const Duration(milliseconds: 300), () {
         if (mounted) {
           final activeSub = widget.player.state.track.subtitle;
           Log.i('Active subtitle track verified: ${activeSub.id}');
           if (activeSub.id != track.id && track.id != 'no') {
-            Log.w('Discrepancy in subtitle track verification. Retrying setSubtitleTrack...');
+            Log.w(
+              'Discrepancy in subtitle track verification. Retrying setSubtitleTrack...',
+            );
             widget.player.setSubtitleTrack(track);
           }
         }
@@ -2480,7 +2838,9 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     } else {
       final activeSub = widget.player.state.track.subtitle;
       widget.player.setAudioTrack(track);
-      final audioPrefVal = track.id == 'auto' ? 'auto' : (track.language ?? track.title ?? track.id);
+      final audioPrefVal = track.id == 'auto'
+          ? 'auto'
+          : (track.language ?? track.title ?? track.id);
       storage.setPreferredAudioTrack(audioPrefVal);
       Log.i('Saved audio preference ($audioPrefVal)');
 
@@ -2488,14 +2848,14 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
         if (mounted) {
           final newTracks = widget.player.state.tracks.subtitle;
           SubtitleTrack matchedSub = activeSub;
-          
+
           for (final t in newTracks) {
             if (t.id == activeSub.id) {
               matchedSub = t;
               break;
             }
           }
-          
+
           if (matchedSub.id != activeSub.id) {
             for (final t in newTracks) {
               if ((t.title != null && t.title == activeSub.title) ||
@@ -2508,14 +2868,21 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
 
           widget.player.setSubtitleTrack(matchedSub);
           _updateBlendSubtitlesForTrack(widget.player, matchedSub);
-          Log.i('Re-applied subtitle track after audio track change: ${matchedSub.id} (originally: ${activeSub.id})');
+          Log.i(
+            'Re-applied subtitle track after audio track change: ${matchedSub.id} (originally: ${activeSub.id})',
+          );
         }
       });
     }
     setState(() {
       _showTrackSelectorPanel = false;
       _showSeekIndicator = true;
-      _seekDirection = '$_trackSelectorTitle: ${track.id == 'auto' ? 'Auto' : track.id == 'no' ? 'None' : (track.title ?? 'Track ${track.id}')}';
+      _seekDirection =
+          '$_trackSelectorTitle: ${track.id == 'auto'
+              ? 'Auto'
+              : track.id == 'no'
+              ? 'None'
+              : (track.title ?? 'Track ${track.id}')}';
     });
     Future.delayed(const Duration(milliseconds: 1000), () {
       if (mounted) {
@@ -2527,9 +2894,11 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
-    final isPortrait = MediaQuery.of(context).orientation == Orientation.portrait;
+    final isPortrait =
+        MediaQuery.of(context).orientation == Orientation.portrait;
     final settings = ref.watch(videoSettingsProvider);
-    if (settings.showStatsForNerds && (_statsTimer == null || !_statsTimer!.isActive)) {
+    if (settings.showStatsForNerds &&
+        (_statsTimer == null || !_statsTimer!.isActive)) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) _startStatsTimer();
       });
@@ -2562,9 +2931,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
       resolvedFontFamily = 'Roboto';
     }
 
-    final subtitleConfig = const SubtitleViewConfiguration(
-      visible: false,
-    );
+    final subtitleConfig = const SubtitleViewConfiguration(visible: false);
 
     return GestureDetector(
       onTap: _toggleControls,
@@ -2578,7 +2945,11 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
         settings.horizontalSwipeToSeek,
       ),
       onScaleEnd: _handleScaleEnd,
-      onDoubleTapDown: (details) => _handleDoubleTap(details, screenWidth, settings.doubleTapSeekDuration),
+      onDoubleTapDown: (details) => _handleDoubleTap(
+        details,
+        screenWidth,
+        settings.doubleTapSeekDuration,
+      ),
       onLongPressStart: (details) {
         if (_isLocked || !settings.dynamicSpeedOverlay) return;
         final speed = settings.longPressSpeed;
@@ -2604,9 +2975,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
           // Video Layer with Pinch to Zoom
           if (_isBuffering || widget.customBuffering)
             const Center(
-              child: CircularProgressIndicator(
-                color: Colors.orange,
-              ),
+              child: CircularProgressIndicator(color: Colors.orange),
             ),
           Transform.translate(
             offset: _panOffset,
@@ -2620,11 +2989,13 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
               ),
             ),
           ),
-          
+
           // Simulated Brightness
           if (!_isPhysicalBrightnessSupported && _currentBrightness < 1.0)
             IgnorePointer(
-              child: Container(color: Colors.black.withValues(alpha: 1.0 - _currentBrightness)),
+              child: Container(
+                color: Colors.black.withValues(alpha: 1.0 - _currentBrightness),
+              ),
             ),
 
           // Custom Subtitle Overlay (Flutter Text Overlay Mode)
@@ -2633,15 +3004,21 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
               stream: widget.player.stream.subtitle,
               builder: (context, snapshot) {
                 final subtitleLines = snapshot.data;
-                if (subtitleLines == null || subtitleLines.isEmpty) return const Positioned(child: SizedBox.shrink());
-                
+                if (subtitleLines == null || subtitleLines.isEmpty)
+                  return const Positioned(child: SizedBox.shrink());
+
                 final subtitleText = subtitleLines.join('\n');
                 // Strip any raw ASS/SSA tags (like {\an8}, {\pos(x,y)}, etc.) to keep plain text clean in overlay mode
-                final cleanText = subtitleText.replaceAll(RegExp(r'\{[^}]*\}'), '').trim();
-                if (cleanText.isEmpty) return const Positioned(child: SizedBox.shrink());
+                final cleanText = subtitleText
+                    .replaceAll(RegExp(r'\{[^}]*\}'), '')
+                    .trim();
+                if (cleanText.isEmpty)
+                  return const Positioned(child: SizedBox.shrink());
 
-                final activeBottomMargin = _dragBottomMargin ?? settings.subtitleBottomMargin;
-                final activeHorizontalOffset = _dragHorizontalOffset ?? settings.subtitleHorizontalOffset;
+                final activeBottomMargin =
+                    _dragBottomMargin ?? settings.subtitleBottomMargin;
+                final activeHorizontalOffset =
+                    _dragHorizontalOffset ?? settings.subtitleHorizontalOffset;
                 final screenHeight = MediaQuery.of(context).size.height;
                 final screenWidth = MediaQuery.of(context).size.width;
 
@@ -2655,22 +3032,35 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                       behavior: HitTestBehavior.opaque,
                       onPanStart: (_) {
                         _dragBottomMargin = settings.subtitleBottomMargin;
-                        _dragHorizontalOffset = settings.subtitleHorizontalOffset;
+                        _dragHorizontalOffset =
+                            settings.subtitleHorizontalOffset;
                       },
                       onPanUpdate: (details) {
                         setState(() {
-                          _dragBottomMargin = (_dragBottomMargin! - details.delta.dy).clamp(10.0, screenHeight - 120.0);
-                          _dragHorizontalOffset = (_dragHorizontalOffset! + details.delta.dx).clamp(-screenWidth / 2 + 50.0, screenWidth / 2 - 50.0);
+                          _dragBottomMargin =
+                              (_dragBottomMargin! - details.delta.dy).clamp(
+                                10.0,
+                                screenHeight - 120.0,
+                              );
+                          _dragHorizontalOffset =
+                              (_dragHorizontalOffset! + details.delta.dx).clamp(
+                                -screenWidth / 2 + 50.0,
+                                screenWidth / 2 - 50.0,
+                              );
                         });
                       },
                       onPanEnd: (_) {
-                        if (_dragBottomMargin != null && _dragHorizontalOffset != null) {
-                          ref.read(videoSettingsProvider.notifier).updateSettings(
-                            settings.copyWith(
-                              subtitleBottomMargin: _dragBottomMargin,
-                              subtitleHorizontalOffset: _dragHorizontalOffset,
-                            ),
-                          );
+                        if (_dragBottomMargin != null &&
+                            _dragHorizontalOffset != null) {
+                          ref
+                              .read(videoSettingsProvider.notifier)
+                              .updateSettings(
+                                settings.copyWith(
+                                  subtitleBottomMargin: _dragBottomMargin,
+                                  subtitleHorizontalOffset:
+                                      _dragHorizontalOffset,
+                                ),
+                              );
                         }
                         setState(() {
                           _dragBottomMargin = null;
@@ -2678,7 +3068,10 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                         });
                       },
                       child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
                         child: Text(
                           cleanText,
                           textAlign: TextAlign.center,
@@ -2689,14 +3082,46 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                             fontWeight: FontWeight.bold,
                             height: 1.2,
                             shadows: const [
-                              Shadow(offset: Offset(-1.5, -1.5), color: Colors.black, blurRadius: 2.0),
-                              Shadow(offset: Offset(1.5, -1.5), color: Colors.black, blurRadius: 2.0),
-                              Shadow(offset: Offset(1.5, 1.5), color: Colors.black, blurRadius: 2.0),
-                              Shadow(offset: Offset(-1.5, 1.5), color: Colors.black, blurRadius: 2.0),
-                              Shadow(offset: Offset(-1.5, 0.0), color: Colors.black, blurRadius: 2.0),
-                              Shadow(offset: Offset(1.5, 0.0), color: Colors.black, blurRadius: 2.0),
-                              Shadow(offset: Offset(0.0, -1.5), color: Colors.black, blurRadius: 2.0),
-                              Shadow(offset: Offset(0.0, 1.5), color: Colors.black, blurRadius: 2.0),
+                              Shadow(
+                                offset: Offset(-1.5, -1.5),
+                                color: Colors.black,
+                                blurRadius: 2.0,
+                              ),
+                              Shadow(
+                                offset: Offset(1.5, -1.5),
+                                color: Colors.black,
+                                blurRadius: 2.0,
+                              ),
+                              Shadow(
+                                offset: Offset(1.5, 1.5),
+                                color: Colors.black,
+                                blurRadius: 2.0,
+                              ),
+                              Shadow(
+                                offset: Offset(-1.5, 1.5),
+                                color: Colors.black,
+                                blurRadius: 2.0,
+                              ),
+                              Shadow(
+                                offset: Offset(-1.5, 0.0),
+                                color: Colors.black,
+                                blurRadius: 2.0,
+                              ),
+                              Shadow(
+                                offset: Offset(1.5, 0.0),
+                                color: Colors.black,
+                                blurRadius: 2.0,
+                              ),
+                              Shadow(
+                                offset: Offset(0.0, -1.5),
+                                color: Colors.black,
+                                blurRadius: 2.0,
+                              ),
+                              Shadow(
+                                offset: Offset(0.0, 1.5),
+                                color: Colors.black,
+                                blurRadius: 2.0,
+                              ),
                             ],
                           ),
                         ),
@@ -2833,13 +3258,20 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
 
           // Indicators
           if (_showBrightnessIndicator && !_isLocked)
-            Positioned(top: 100, left: 40, child: _buildOSD(Icons.light_mode, _currentBrightness)),
+            Positioned(
+              top: 100,
+              left: 40,
+              child: _buildOSD(Icons.light_mode, _currentBrightness),
+            ),
           if (_showVolumeIndicator && !_isLocked)
             Positioned(
-              top: 100, right: 40,
+              top: 100,
+              right: 40,
               child: _buildOSD(
                 _currentVolume == 0 ? Icons.volume_off : Icons.volume_up,
-                _currentVolume > 100 ? (_currentVolume - 100) / 100 : _currentVolume / 100,
+                _currentVolume > 100
+                    ? (_currentVolume - 100) / 100
+                    : _currentVolume / 100,
                 isBoosted: _currentVolume > 100,
               ),
             ),
@@ -2850,14 +3282,21 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
               right: _dragStartFocalPoint!.dx > screenWidth / 2 ? 40 : null,
               child: Container(
                 padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(12)),
+                decoration: BoxDecoration(
+                  color: Colors.black54,
+                  borderRadius: BorderRadius.circular(12),
+                ),
                 child: Column(
                   children: [
                     const Icon(Icons.speed, color: Colors.white, size: 28),
                     const SizedBox(height: 8),
                     Text(
                       '${_currentSpeed.toStringAsFixed(2)}x',
-                      style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ],
                 ),
@@ -2866,9 +3305,22 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
           if (_showSeekIndicator && !_isLocked)
             Center(
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(20)),
-                child: Text(_seekDirection, style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 12,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.black54,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  _seekDirection,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ),
             ),
 
@@ -2906,10 +3358,6 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
               ),
             ),
 
-
-
-
-
           // Controls UI Overlay
           if (_showControls && !_isLocked)
             IgnorePointer(
@@ -2930,10 +3378,17 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
               ),
             ),
 
-          if (_showControls && !_isLocked && !_showTrackSelectorPanel && !_showRatioPanel && !_showSpeedPanel && !_showMoreOptionsPanel) ...[
+          if (_showControls &&
+              !_isLocked &&
+              !_showTrackSelectorPanel &&
+              !_showRatioPanel &&
+              !_showSpeedPanel &&
+              !_showMoreOptionsPanel) ...[
             // Top Bar & Quick Actions
             Positioned(
-              top: 40, left: 16, right: 16,
+              top: 40,
+              left: 16,
+              right: 16,
               child: PlayerHeaderBar(
                 videoTitle: widget.videoTitle,
                 onBack: widget.onBack,
@@ -2941,10 +3396,8 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                 formatSleepTimeRemaining: _formatSleepTimeRemaining,
                 decoderModeLabel: _getDecoderModeLabel(),
                 onToggleDecoderMode: _toggleDecoderMode,
-                onShowSubtitles: () => _showTrackSelector(
-                  title: 'Subtitles',
-                  isSubtitle: true,
-                ),
+                onShowSubtitles: () =>
+                    _showTrackSelector(title: 'Subtitles', isSubtitle: true),
                 onShowAudioTracks: () => _showTrackSelector(
                   title: 'Audio Tracks',
                   isSubtitle: false,
@@ -2957,11 +3410,10 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                     _showControls = false;
                   });
                 },
-                quickActionRow: _buildQuickActionRow(),
                 settingsAccent: settingsAccent,
               ),
             ),
-            
+
             // Middle-Right Screenshot Camera Button
             Positioned(
               right: 16,
@@ -2976,7 +3428,10 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                       shape: ExpressiveShape.squircle,
                       size: 44,
                       onTap: _takeScreenshot,
-                      child: const Icon(Icons.camera_alt_rounded, color: Colors.white),
+                      child: const Icon(
+                        Icons.camera_alt_rounded,
+                        color: Colors.white,
+                      ),
                     ),
                   ),
                 ),
@@ -2985,7 +3440,9 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
 
             // Bottom Bar seekbar and playback controls
             Positioned(
-              bottom: 16, left: 16, right: 16,
+              bottom: 16,
+              left: 16,
+              right: 16,
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -3001,7 +3458,8 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                     throttledSeek: _throttledSeek,
                     cancelHideTimer: () => _hideTimer?.cancel(),
                     startHideTimer: _startHideTimer,
-                    clampSeekTarget: (target) => _clampSeekTarget(target, showMessage: false),
+                    clampSeekTarget: (target) =>
+                        _clampSeekTarget(target, showMessage: false),
                     onSeekPerformed: _performSeek,
                     chapters: _chapters,
                   ),
@@ -3017,29 +3475,43 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                                 Material3ExpressiveContainer(
                                   shape: ExpressiveShape.capsule,
                                   size: 44,
-                                  onTap: widget.hasPrevEpisode ? widget.onPrevEpisode : null,
-                                  inactiveColor: Colors.white.withValues(alpha: 0.12),
+                                  onTap: widget.hasPrevEpisode
+                                      ? widget.onPrevEpisode
+                                      : null,
+                                  inactiveColor: Colors.white.withValues(
+                                    alpha: 0.12,
+                                  ),
                                   child: Icon(
                                     Icons.skip_previous_rounded,
-                                    color: widget.hasPrevEpisode ? Colors.white : Colors.white24,
+                                    color: widget.hasPrevEpisode
+                                        ? Colors.white
+                                        : Colors.white24,
                                   ),
                                 ),
                                 const SizedBox(width: 24),
                                 StreamBuilder<bool>(
                                   stream: widget.player.stream.playing,
                                   builder: (context, snapshot) {
-                                    return Material3ExpressiveSquigglyPlayButton(player: widget.player);
+                                    return Material3ExpressiveSquigglyPlayButton(
+                                      player: widget.player,
+                                    );
                                   },
                                 ),
                                 const SizedBox(width: 24),
                                 Material3ExpressiveContainer(
                                   shape: ExpressiveShape.capsule,
                                   size: 44,
-                                  onTap: widget.hasNextEpisode ? widget.onNextEpisode : null,
-                                  inactiveColor: Colors.white.withValues(alpha: 0.12),
+                                  onTap: widget.hasNextEpisode
+                                      ? widget.onNextEpisode
+                                      : null,
+                                  inactiveColor: Colors.white.withValues(
+                                    alpha: 0.12,
+                                  ),
                                   child: Icon(
                                     Icons.skip_next_rounded,
-                                    color: widget.hasNextEpisode ? Colors.white : Colors.white24,
+                                    color: widget.hasNextEpisode
+                                        ? Colors.white
+                                        : Colors.white24,
                                   ),
                                 ),
                               ],
@@ -3056,7 +3528,10 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                                     setState(() => _isLocked = true);
                                     _startHideTimer();
                                   },
-                                  child: const Icon(Icons.lock_open_rounded, color: Colors.white70),
+                                  child: const Icon(
+                                    Icons.lock_open_rounded,
+                                    color: Colors.white70,
+                                  ),
                                 ),
                                 Row(
                                   mainAxisSize: MainAxisSize.min,
@@ -3065,23 +3540,42 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                                       color: Colors.transparent,
                                       child: InkWell(
                                         onTap: () {
-                                          final target = widget.player.state.position + const Duration(seconds: 90);
-                                          final safeTarget = _clampSeekTarget(target, showMessage: false);
+                                          final target =
+                                              widget.player.state.position +
+                                              const Duration(seconds: 90);
+                                          final safeTarget = _clampSeekTarget(
+                                            target,
+                                            showMessage: false,
+                                          );
                                           _performSeek(safeTarget);
                                         },
                                         borderRadius: BorderRadius.circular(20),
                                         child: Container(
                                           height: 32,
-                                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 10,
+                                            vertical: 4,
+                                          ),
                                           decoration: BoxDecoration(
-                                            borderRadius: BorderRadius.circular(16),
-                                            border: Border.all(color: Colors.white24, width: 1),
-                                            color: Colors.white.withValues(alpha: 0.08),
+                                            borderRadius: BorderRadius.circular(
+                                              16,
+                                            ),
+                                            border: Border.all(
+                                              color: Colors.white24,
+                                              width: 1,
+                                            ),
+                                            color: Colors.white.withValues(
+                                              alpha: 0.08,
+                                            ),
                                           ),
                                           child: const Row(
                                             mainAxisSize: MainAxisSize.min,
                                             children: [
-                                              Icon(Icons.fast_forward, color: Colors.white, size: 12),
+                                              Icon(
+                                                Icons.fast_forward,
+                                                color: Colors.white,
+                                                size: 12,
+                                              ),
                                               SizedBox(width: 4),
                                               Text(
                                                 '+90s',
@@ -3102,11 +3596,18 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                                       onPressed: _showSpeedSelectorDialog,
                                       child: Text(
                                         'Speed (${_currentSpeed}x)',
-                                        style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w600,
+                                        ),
                                       ),
                                     ),
                                     IconButton(
-                                      icon: const Icon(Icons.fit_screen_outlined, color: Colors.white),
+                                      icon: const Icon(
+                                        Icons.fit_screen_outlined,
+                                        color: Colors.white,
+                                      ),
                                       iconSize: 24,
                                       onPressed: _handleAspectRatioButtonTap,
                                     ),
@@ -3130,7 +3631,10 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                                   child: ClipRRect(
                                     borderRadius: BorderRadius.circular(14),
                                     child: BackdropFilter(
-                                      filter: ImageFilter.blur(sigmaX: 5.0, sigmaY: 5.0),
+                                      filter: ImageFilter.blur(
+                                        sigmaX: 5.0,
+                                        sigmaY: 5.0,
+                                      ),
                                       child: Material3ExpressiveContainer(
                                         shape: ExpressiveShape.squircle,
                                         size: 40,
@@ -3138,7 +3642,10 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                                           setState(() => _isLocked = true);
                                           _startHideTimer();
                                         },
-                                        child: const Icon(Icons.lock_open_rounded, color: Colors.white),
+                                        child: const Icon(
+                                          Icons.lock_open_rounded,
+                                          color: Colors.white,
+                                        ),
                                       ),
                                     ),
                                   ),
@@ -3151,24 +3658,38 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                                     Material3ExpressiveContainer(
                                       shape: ExpressiveShape.capsule,
                                       size: 44,
-                                      onTap: widget.hasPrevEpisode ? widget.onPrevEpisode : null,
-                                      inactiveColor: Colors.white.withValues(alpha: 0.12),
+                                      onTap: widget.hasPrevEpisode
+                                          ? widget.onPrevEpisode
+                                          : null,
+                                      inactiveColor: Colors.white.withValues(
+                                        alpha: 0.12,
+                                      ),
                                       child: Icon(
                                         Icons.skip_previous_rounded,
-                                        color: widget.hasPrevEpisode ? Colors.white : Colors.white24,
+                                        color: widget.hasPrevEpisode
+                                            ? Colors.white
+                                            : Colors.white24,
                                       ),
                                     ),
-                                     const SizedBox(width: 24),
-                                     Material3ExpressiveSquigglyPlayButton(player: widget.player),
-                                     const SizedBox(width: 24),
+                                    const SizedBox(width: 24),
+                                    Material3ExpressiveSquigglyPlayButton(
+                                      player: widget.player,
+                                    ),
+                                    const SizedBox(width: 24),
                                     Material3ExpressiveContainer(
                                       shape: ExpressiveShape.capsule,
                                       size: 44,
-                                      onTap: widget.hasNextEpisode ? widget.onNextEpisode : null,
-                                      inactiveColor: Colors.white.withValues(alpha: 0.12),
+                                      onTap: widget.hasNextEpisode
+                                          ? widget.onNextEpisode
+                                          : null,
+                                      inactiveColor: Colors.white.withValues(
+                                        alpha: 0.12,
+                                      ),
                                       child: Icon(
                                         Icons.skip_next_rounded,
-                                        color: widget.hasNextEpisode ? Colors.white : Colors.white24,
+                                        color: widget.hasNextEpisode
+                                            ? Colors.white
+                                            : Colors.white24,
                                       ),
                                     ),
                                   ],
@@ -3186,23 +3707,43 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                                         color: Colors.transparent,
                                         child: InkWell(
                                           onTap: () {
-                                            final target = widget.player.state.position + const Duration(seconds: 90);
-                                            final safeTarget = _clampSeekTarget(target, showMessage: false);
+                                            final target =
+                                                widget.player.state.position +
+                                                const Duration(seconds: 90);
+                                            final safeTarget = _clampSeekTarget(
+                                              target,
+                                              showMessage: false,
+                                            );
                                             _performSeek(safeTarget);
                                           },
-                                          borderRadius: BorderRadius.circular(20),
+                                          borderRadius: BorderRadius.circular(
+                                            20,
+                                          ),
                                           child: Container(
                                             height: 36,
-                                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 14,
+                                              vertical: 6,
+                                            ),
                                             decoration: BoxDecoration(
-                                              borderRadius: BorderRadius.circular(18),
-                                              border: Border.all(color: Colors.white24, width: 1),
-                                              color: Colors.white.withValues(alpha: 0.08),
+                                              borderRadius:
+                                                  BorderRadius.circular(18),
+                                              border: Border.all(
+                                                color: Colors.white24,
+                                                width: 1,
+                                              ),
+                                              color: Colors.white.withValues(
+                                                alpha: 0.08,
+                                              ),
                                             ),
                                             child: const Row(
                                               mainAxisSize: MainAxisSize.min,
                                               children: [
-                                                Icon(Icons.fast_forward, color: Colors.white, size: 14),
+                                                Icon(
+                                                  Icons.fast_forward,
+                                                  color: Colors.white,
+                                                  size: 14,
+                                                ),
                                                 SizedBox(width: 4),
                                                 Text(
                                                   '+90s',
@@ -3223,11 +3764,18 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                                         onPressed: _showSpeedSelectorDialog,
                                         child: Text(
                                           'Speed (${_currentSpeed}x)',
-                                          style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w600,
+                                          ),
                                         ),
                                       ),
                                       IconButton(
-                                        icon: const Icon(Icons.fit_screen_outlined, color: Colors.white),
+                                        icon: const Icon(
+                                          Icons.fit_screen_outlined,
+                                          color: Colors.white,
+                                        ),
                                         iconSize: 24,
                                         onPressed: _handleAspectRatioButtonTap,
                                       ),
@@ -3289,7 +3837,10 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                             ElevatedButton(
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: settingsAccent,
-                                foregroundColor: settingsAccent.computeLuminance() > 0.5 ? Colors.black : Colors.white,
+                                foregroundColor:
+                                    settingsAccent.computeLuminance() > 0.5
+                                    ? Colors.black
+                                    : Colors.white,
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(8),
                                 ),
@@ -3303,7 +3854,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                               child: const Text('Play Now'),
                             ),
                           ],
-                        )
+                        ),
                       ],
                     ),
                   ),
@@ -3323,7 +3874,10 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                   child: BackdropFilter(
                     filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 12,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.black87,
                         borderRadius: BorderRadius.circular(20),
@@ -3342,7 +3896,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                 ),
               ),
             ),
-          
+
           // Stats for Nerds Overlay
           if (settings.showStatsForNerds && _nerdStats.isNotEmpty)
             Positioned(
@@ -3406,9 +3960,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
           if (_showTrackSelectorPanel)
             GestureDetector(
               onTap: () => setState(() => _showTrackSelectorPanel = false),
-              child: Container(
-                color: Colors.black26,
-              ),
+              child: Container(color: Colors.black26),
             ),
           AnimatedPositioned(
             duration: const Duration(milliseconds: 300),
@@ -3424,14 +3976,20 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
               trackCodecs: _trackCodecs,
               currentRendererMode: settings.subtitleRendererMode,
               onRendererModeChanged: (newMode) {
-                ref.read(videoSettingsProvider.notifier).updateSettings(
-                  settings.copyWith(subtitleRendererMode: newMode),
-                );
+                ref
+                    .read(videoSettingsProvider.notifier)
+                    .updateSettings(
+                      settings.copyWith(subtitleRendererMode: newMode),
+                    );
                 setState(() {});
               },
-              currentDecoderMode: ref.read(storageServiceProvider).getHardwareDecoderMode(),
+              currentDecoderMode: ref
+                  .read(storageServiceProvider)
+                  .getHardwareDecoderMode(),
               onDecoderModeChanged: (newDecoderMode) async {
-                await ref.read(storageServiceProvider).setHardwareDecoderMode(newDecoderMode);
+                await ref
+                    .read(storageServiceProvider)
+                    .setHardwareDecoderMode(newDecoderMode);
                 try {
                   if (widget.player.platform is NativePlayer) {
                     final nativePlayer = widget.player.platform as NativePlayer;
@@ -3453,12 +4011,17 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                 final roundedVal = double.parse(val.toStringAsFixed(1));
                 if (widget.player.platform is NativePlayer) {
                   try {
-                    (widget.player.platform as NativePlayer).setProperty('sub-delay', roundedVal.toString());
+                    (widget.player.platform as NativePlayer).setProperty(
+                      'sub-delay',
+                      roundedVal.toString(),
+                    );
                   } catch (_) {}
                 }
                 ref.read(storageServiceProvider).setSubtitleDelay(roundedVal);
                 final s = ref.read(videoSettingsProvider);
-                ref.read(videoSettingsProvider.notifier).updateSettings(s.copyWith(subtitleDelay: roundedVal));
+                ref
+                    .read(videoSettingsProvider.notifier)
+                    .updateSettings(s.copyWith(subtitleDelay: roundedVal));
                 setState(() {
                   _subtitleDelay = roundedVal;
                 });
@@ -3476,23 +4039,23 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
               currentFontSize: settings.subtitleFontSize,
               onFontSizeChanged: (val) {
                 ref.read(storageServiceProvider).setSubtitleFontSize(val);
-                ref.read(videoSettingsProvider.notifier).updateSettings(
-                  settings.copyWith(subtitleFontSize: val),
-                );
+                ref
+                    .read(videoSettingsProvider.notifier)
+                    .updateSettings(settings.copyWith(subtitleFontSize: val));
               },
               currentFontColor: settings.subtitleColor,
               onFontColorChanged: (val) {
                 ref.read(storageServiceProvider).setSubtitleColor(val);
-                ref.read(videoSettingsProvider.notifier).updateSettings(
-                  settings.copyWith(subtitleColor: val),
-                );
+                ref
+                    .read(videoSettingsProvider.notifier)
+                    .updateSettings(settings.copyWith(subtitleColor: val));
               },
               currentFontFamily: settings.subtitleFont,
               onFontFamilyChanged: (val) {
                 ref.read(storageServiceProvider).setSubtitleFont(val);
-                ref.read(videoSettingsProvider.notifier).updateSettings(
-                  settings.copyWith(subtitleFont: val),
-                );
+                ref
+                    .read(videoSettingsProvider.notifier)
+                    .updateSettings(settings.copyWith(subtitleFont: val));
               },
             ),
           ),
@@ -3501,9 +4064,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
           if (_showRatioPanel)
             GestureDetector(
               onTap: () => setState(() => _showRatioPanel = false),
-              child: Container(
-                color: Colors.black26,
-              ),
+              child: Container(color: Colors.black26),
             ),
           AnimatedPositioned(
             duration: const Duration(milliseconds: 300),
@@ -3520,9 +4081,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
           if (_showChaptersPanel)
             GestureDetector(
               onTap: () => setState(() => _showChaptersPanel = false),
-              child: Container(
-                color: Colors.black26,
-              ),
+              child: Container(color: Colors.black26),
             ),
           AnimatedPositioned(
             duration: const Duration(milliseconds: 300),
@@ -3539,9 +4098,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
           if (_showSpeedPanel)
             GestureDetector(
               onTap: () => setState(() => _showSpeedPanel = false),
-              child: Container(
-                color: Colors.black26,
-              ),
+              child: Container(color: Colors.black26),
             ),
           AnimatedPositioned(
             duration: const Duration(milliseconds: 300),
@@ -3571,9 +4128,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
           if (_showMoreOptionsPanel)
             GestureDetector(
               onTap: () => setState(() => _showMoreOptionsPanel = false),
-              child: Container(
-                color: Colors.black26,
-              ),
+              child: Container(color: Colors.black26),
             ),
           AnimatedPositioned(
             duration: const Duration(milliseconds: 300),
@@ -3597,17 +4152,25 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     final displayValue = value.clamp(0.0, 1.0);
     return Container(
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(12)),
+      decoration: BoxDecoration(
+        color: Colors.black54,
+        borderRadius: BorderRadius.circular(12),
+      ),
       child: Column(
         children: [
           Icon(icon, color: isBoosted ? Colors.amber : Colors.white, size: 28),
           const SizedBox(height: 8),
           Container(
-            width: 4, height: 100,
-            decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(2)),
+            width: 4,
+            height: 100,
+            decoration: BoxDecoration(
+              color: Colors.white24,
+              borderRadius: BorderRadius.circular(2),
+            ),
             alignment: Alignment.bottomCenter,
             child: Container(
-              width: 4, height: 100 * displayValue,
+              width: 4,
+              height: 100 * displayValue,
               decoration: BoxDecoration(
                 color: isBoosted ? Colors.amber : settingsAccent,
                 borderRadius: BorderRadius.circular(2),
@@ -3618,7 +4181,11 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
             const SizedBox(height: 4),
             const Text(
               'BOOST',
-              style: TextStyle(color: Colors.amber, fontSize: 8, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                color: Colors.amber,
+                fontSize: 8,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ],
         ],
@@ -3628,7 +4195,8 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
 
   Widget _buildMoreOptionsPanel() {
     final double screenHeight = MediaQuery.of(context).size.height;
-    final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
+    final isLandscape =
+        MediaQuery.of(context).orientation == Orientation.landscape;
     final theme = Theme.of(context);
     final customTheme = theme.extension<AppThemeExtension>();
     final settingsAccent = customTheme?.settingsAccent ?? theme.primaryColor;
@@ -3636,8 +4204,10 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     // Resolve current Repeat Mode Index
     final PlaylistMode mode = widget.player.state.playlistMode;
     final bool shuffle = widget.player.state.shuffle;
-    final bool autoplayNext = ref.watch(videoSettingsProvider).autoplayNextVideo;
-    
+    final bool autoplayNext = ref
+        .watch(videoSettingsProvider)
+        .autoplayNextVideo;
+
     int activeIdx = 0;
     String modeLabel = 'Order';
     if (shuffle) {
@@ -3663,7 +4233,9 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
       ),
       height: isLandscape ? double.infinity : null,
       decoration: BoxDecoration(
-        color: const Color(0xEB0A0F1D), // Slate 950 with 92% opacity - clean translucency (no blur)
+        color: const Color(
+          0xEB0A0F1D,
+        ), // Slate 950 with 92% opacity - clean translucency (no blur)
         borderRadius: isLandscape
             ? const BorderRadius.horizontal(left: Radius.circular(30))
             : const BorderRadius.vertical(top: Radius.circular(24)),
@@ -3686,7 +4258,8 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
               children: [
                 IconButton(
                   icon: const Icon(Icons.arrow_back, color: Colors.white),
-                  onPressed: () => setState(() => _showMoreOptionsPanel = false),
+                  onPressed: () =>
+                      setState(() => _showMoreOptionsPanel = false),
                 ),
                 const SizedBox(width: 8),
                 const Text(
@@ -3707,17 +4280,27 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    _buildQuickActionRow(),
+                    const SizedBox(height: 16),
                     // Repeat Mode Selector
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         const Text(
                           'Repeat Mode',
-                          style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                         Text(
                           modeLabel,
-                          style: TextStyle(color: settingsAccent, fontSize: 13, fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                            color: settingsAccent,
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ],
                     ),
@@ -3761,13 +4344,17 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                                 curve: Curves.easeInOut,
                                 margin: const EdgeInsets.all(4),
                                 decoration: BoxDecoration(
-                                  color: isSelected ? settingsAccent : Colors.transparent,
+                                  color: isSelected
+                                      ? settingsAccent
+                                      : Colors.transparent,
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: Center(
                                   child: Icon(
                                     ic,
-                                    color: isSelected ? Colors.black : Colors.white70,
+                                    color: isSelected
+                                        ? Colors.black
+                                        : Colors.white70,
                                     size: 20,
                                   ),
                                 ),
@@ -3794,38 +4381,46 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
         case 0: // Order
           widget.player.setPlaylistMode(PlaylistMode.none);
           widget.player.setShuffle(false);
-          ref.read(videoSettingsProvider.notifier).updateSettings(settings.copyWith(autoplayNextVideo: true));
+          ref
+              .read(videoSettingsProvider.notifier)
+              .updateSettings(settings.copyWith(autoplayNextVideo: true));
           _showSkipToast('Repeat Mode: Order');
           break;
         case 1: // Repeat One
           widget.player.setPlaylistMode(PlaylistMode.single);
           widget.player.setShuffle(false);
-          ref.read(videoSettingsProvider.notifier).updateSettings(settings.copyWith(autoplayNextVideo: true));
+          ref
+              .read(videoSettingsProvider.notifier)
+              .updateSettings(settings.copyWith(autoplayNextVideo: true));
           _showSkipToast('Repeat Mode: Repeat One');
           break;
         case 2: // Shuffle
           widget.player.setPlaylistMode(PlaylistMode.none);
           widget.player.setShuffle(true);
-          ref.read(videoSettingsProvider.notifier).updateSettings(settings.copyWith(autoplayNextVideo: true));
+          ref
+              .read(videoSettingsProvider.notifier)
+              .updateSettings(settings.copyWith(autoplayNextVideo: true));
           _showSkipToast('Repeat Mode: Shuffle');
           break;
         case 3: // Repeat All
           widget.player.setPlaylistMode(PlaylistMode.loop);
           widget.player.setShuffle(false);
-          ref.read(videoSettingsProvider.notifier).updateSettings(settings.copyWith(autoplayNextVideo: true));
+          ref
+              .read(videoSettingsProvider.notifier)
+              .updateSettings(settings.copyWith(autoplayNextVideo: true));
           _showSkipToast('Repeat Mode: Repeat All');
           break;
         case 4: // Single Play (Stop after current)
           widget.player.setPlaylistMode(PlaylistMode.none);
           widget.player.setShuffle(false);
-          ref.read(videoSettingsProvider.notifier).updateSettings(settings.copyWith(autoplayNextVideo: false));
+          ref
+              .read(videoSettingsProvider.notifier)
+              .updateSettings(settings.copyWith(autoplayNextVideo: false));
           _showSkipToast('Repeat Mode: Single Play');
           break;
       }
     });
   }
-
-
 
   Future<void> _pickLocalSubtitleFile() async {
     try {
@@ -3837,16 +4432,16 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
       if (result != null && result.files.single.path != null) {
         final pickedFile = File(result.files.single.path!);
         final fileName = result.files.single.name;
-        
+
         final tempDir = await getTemporaryDirectory();
         final safeName = fileName.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_');
         final targetFile = File('${tempDir.path}/local_$safeName');
-        
+
         await pickedFile.copy(targetFile.path);
         Log.i('Local subtitle picked and copied to: ${targetFile.path}');
-        
+
         widget.player.setSubtitleTrack(SubtitleTrack.uri(targetFile.path));
-        
+
         if (mounted) {
           setState(() {
             _showTrackSelectorPanel = false;
@@ -3901,7 +4496,12 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
             if (pipState == null) {
               return const SizedBox(
                 height: 100,
-                child: Center(child: Text('No active queue', style: TextStyle(color: Colors.white70))),
+                child: Center(
+                  child: Text(
+                    'No active queue',
+                    style: TextStyle(color: Colors.white70),
+                  ),
+                ),
               );
             }
 
@@ -3910,7 +4510,12 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
 
             return Container(
               height: MediaQuery.of(context).size.height * 0.7,
-              padding: const EdgeInsets.only(top: 16, left: 16, right: 16, bottom: 8),
+              padding: const EdgeInsets.only(
+                top: 16,
+                left: 16,
+                right: 16,
+                bottom: 8,
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -3919,23 +4524,48 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                     children: [
                       Row(
                         children: [
-                          Icon(Icons.playlist_play_rounded, color: settingsAccent, size: 28),
+                          Icon(
+                            Icons.playlist_play_rounded,
+                            color: settingsAccent,
+                            size: 28,
+                          ),
                           const SizedBox(width: 8),
                           Text(
                             'Play Queue (${queue.length})',
-                            style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ],
                       ),
                       Row(
                         children: [
                           TextButton.icon(
-                            onPressed: () => _showAddFromDownloadsDialog(context, setModalState),
-                            icon: const Icon(Icons.add_rounded, size: 18, color: Colors.blueAccent),
-                            label: const Text('Add Downloads', style: TextStyle(color: Colors.blueAccent, fontSize: 12, fontWeight: FontWeight.bold)),
+                            onPressed: () => _showAddFromDownloadsDialog(
+                              context,
+                              setModalState,
+                            ),
+                            icon: const Icon(
+                              Icons.add_rounded,
+                              size: 18,
+                              color: Colors.blueAccent,
+                            ),
+                            label: const Text(
+                              'Add Downloads',
+                              style: TextStyle(
+                                color: Colors.blueAccent,
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                           ),
                           IconButton(
-                            icon: const Icon(Icons.close, color: Colors.white60),
+                            icon: const Icon(
+                              Icons.close,
+                              color: Colors.white60,
+                            ),
                             onPressed: () {
                               Navigator.pop(context);
                               _startHideTimer();
@@ -3948,14 +4578,23 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                   const Divider(color: Colors.white24, height: 16),
                   Expanded(
                     child: queue.isEmpty
-                        ? const Center(child: Text('Queue is empty', style: TextStyle(color: Colors.white30)))
+                        ? const Center(
+                            child: Text(
+                              'Queue is empty',
+                              style: TextStyle(color: Colors.white30),
+                            ),
+                          )
                         : ReorderableListView.builder(
                             itemCount: queue.length,
                             onReorderItem: (oldIndex, newIndex) {
                               // onReorderItem provides the adjusted newIndex (as if the item is already removed).
                               // Since pipControllerProvider.reorderQueue expects the raw onReorder index, we adjust it back.
-                              final rawNewIndex = oldIndex < newIndex ? newIndex + 1 : newIndex;
-                              ref.read(pipControllerProvider.notifier).reorderQueue(oldIndex, rawNewIndex);
+                              final rawNewIndex = oldIndex < newIndex
+                                  ? newIndex + 1
+                                  : newIndex;
+                              ref
+                                  .read(pipControllerProvider.notifier)
+                                  .reorderQueue(oldIndex, rawNewIndex);
                               setModalState(() {});
                             },
                             itemBuilder: (context, index) {
@@ -3964,16 +4603,27 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
 
                               return ListTile(
                                 key: ValueKey('${item.videoFileId}_$index'),
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
                                 leading: Icon(
-                                  isCurrent ? Icons.play_arrow_rounded : Icons.drag_handle_rounded,
-                                  color: isCurrent ? settingsAccent : Colors.white38,
+                                  isCurrent
+                                      ? Icons.play_arrow_rounded
+                                      : Icons.drag_handle_rounded,
+                                  color: isCurrent
+                                      ? settingsAccent
+                                      : Colors.white38,
                                 ),
                                 title: Text(
                                   item.videoTitle,
                                   style: TextStyle(
-                                    color: isCurrent ? settingsAccent : Colors.white,
-                                    fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
+                                    color: isCurrent
+                                        ? settingsAccent
+                                        : Colors.white,
+                                    fontWeight: isCurrent
+                                        ? FontWeight.bold
+                                        : FontWeight.normal,
                                     fontSize: 13,
                                   ),
                                   maxLines: 2,
@@ -3983,27 +4633,50 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                                     ? Text(
                                         item.seriesName,
                                         style: TextStyle(
-                                          color: isCurrent ? settingsAccent.withValues(alpha: 0.7) : Colors.white54,
+                                          color: isCurrent
+                                              ? settingsAccent.withValues(
+                                                  alpha: 0.7,
+                                                )
+                                              : Colors.white54,
                                           fontSize: 11,
                                         ),
                                       )
                                     : null,
                                 trailing: isCurrent
                                     ? Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                          vertical: 2,
+                                        ),
                                         decoration: BoxDecoration(
-                                          color: settingsAccent.withValues(alpha: 0.12),
-                                          borderRadius: BorderRadius.circular(12),
+                                          color: settingsAccent.withValues(
+                                            alpha: 0.12,
+                                          ),
+                                          borderRadius: BorderRadius.circular(
+                                            12,
+                                          ),
                                         ),
                                         child: Text(
                                           'Playing',
-                                          style: TextStyle(color: settingsAccent, fontSize: 10, fontWeight: FontWeight.bold),
+                                          style: TextStyle(
+                                            color: settingsAccent,
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.bold,
+                                          ),
                                         ),
                                       )
                                     : IconButton(
-                                        icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent, size: 20),
+                                        icon: const Icon(
+                                          Icons.delete_outline_rounded,
+                                          color: Colors.redAccent,
+                                          size: 20,
+                                        ),
                                         onPressed: () {
-                                          ref.read(pipControllerProvider.notifier).removeFromQueue(index);
+                                          ref
+                                              .read(
+                                                pipControllerProvider.notifier,
+                                              )
+                                              .removeFromQueue(index);
                                           setModalState(() {});
                                         },
                                       ),
@@ -4011,7 +4684,11 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                                     ? null
                                     : () {
                                         Navigator.pop(context);
-                                        ref.read(pipControllerProvider.notifier).playQueueIndex(context, index);
+                                        ref
+                                            .read(
+                                              pipControllerProvider.notifier,
+                                            )
+                                            .playQueueIndex(context, index);
                                       },
                               );
                             },
@@ -4028,14 +4705,19 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     });
   }
 
-  void _showAddFromDownloadsDialog(BuildContext context, StateSetter setModalState) {
+  void _showAddFromDownloadsDialog(
+    BuildContext context,
+    StateSetter setModalState,
+  ) {
     final theme = Theme.of(context);
     final customTheme = theme.extension<AppThemeExtension>();
     final settingsAccent = customTheme?.settingsAccent ?? theme.primaryColor;
 
     final downloadTasks = ref.read(downloadControllerProvider);
     final completedDownloads = downloadTasks.entries
-        .where((entry) => entry.value.isCompleted && entry.value.localPath != null)
+        .where(
+          (entry) => entry.value.isCompleted && entry.value.localPath != null,
+        )
         .toList();
 
     showModalBottomSheet(
@@ -4057,7 +4739,11 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                 children: [
                   const Text(
                     'Add Completed Downloads',
-                    style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   IconButton(
                     icon: const Icon(Icons.close, color: Colors.white60),
@@ -4081,30 +4767,47 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                           final task = entry.value;
 
                           return ListTile(
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            leading: Icon(Icons.download_done_rounded, color: settingsAccent),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            leading: Icon(
+                              Icons.download_done_rounded,
+                              color: settingsAccent,
+                            ),
                             title: Text(
                               task.title,
-                              style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                              ),
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
                             ),
-                            trailing: const Icon(Icons.add_rounded, color: Colors.blueAccent),
+                            trailing: const Icon(
+                              Icons.add_rounded,
+                              color: Colors.blueAccent,
+                            ),
                             onTap: () {
-                              ref.read(pipControllerProvider.notifier).addToQueue(
-                                PlayQueueItem(
-                                  messageId: task.fileId,
-                                  videoFileId: task.fileId,
-                                  videoTitle: task.title,
-                                  seriesName: 'Offline Library',
-                                  networkUrl: task.localPath,
-                                ),
-                              );
+                              ref
+                                  .read(pipControllerProvider.notifier)
+                                  .addToQueue(
+                                    PlayQueueItem(
+                                      messageId: task.fileId,
+                                      videoFileId: task.fileId,
+                                      videoTitle: task.title,
+                                      seriesName: 'Offline Library',
+                                      networkUrl: task.localPath,
+                                    ),
+                                  );
                               Navigator.pop(context);
                               setModalState(() {});
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
-                                  content: Text('Added to Queue: ${task.title}'),
+                                  content: Text(
+                                    'Added to Queue: ${task.title}',
+                                  ),
                                   backgroundColor: settingsAccent,
                                   duration: const Duration(seconds: 2),
                                 ),
@@ -4122,10 +4825,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
   }
 
   void _showEqualizerDialog() {
-    EqualizerDialog.show(
-      context,
-      onFiltersUpdated: _updateAudioFilters,
-    );
+    EqualizerDialog.show(context, onFiltersUpdated: _updateAudioFilters);
   }
 
   void _showAudioDelayDialog() {
@@ -4141,9 +4841,10 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     );
   }
 
-
-
-  Future<void> _updateBlendSubtitlesForTrack(Player player, SubtitleTrack track) async {
+  Future<void> _updateBlendSubtitlesForTrack(
+    Player player,
+    SubtitleTrack track,
+  ) async {
     try {
       if (player.platform is NativePlayer) {
         final nativePlayer = player.platform as NativePlayer;
@@ -4169,14 +4870,16 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
           }
           return;
         }
-        
+
         final settings = ref.read(videoSettingsProvider);
         final targetLibass = settings.subtitleRendererMode == 'native';
         final useNativeBlending = targetLibass;
-        
+
         if (useNativeBlending) {
           nativePlayer.setProperty('blend-subtitles', 'yes');
-          Log.i('Native blending subtitle enabled. Set blend-subtitles to yes.');
+          Log.i(
+            'Native blending subtitle enabled. Set blend-subtitles to yes.',
+          );
           if (mounted && !_isBlendingSubtitles) {
             setState(() {
               _isBlendingSubtitles = true;
@@ -4184,37 +4887,48 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
           }
         } else {
           nativePlayer.setProperty('blend-subtitles', 'no');
-          Log.i('Native blending subtitle disabled. Set blend-subtitles to no.');
+          Log.i(
+            'Native blending subtitle disabled. Set blend-subtitles to no.',
+          );
           if (mounted && _isBlendingSubtitles) {
             setState(() {
               _isBlendingSubtitles = false;
             });
           }
-          
+
           // Show SnackBar warning if on Android and using direct hardware decoding with a graphical/ASS track
           // ONLY if not in Flutter overlay mode (which handles rendering anyway)
           final isTargetAssOrPgs = settings.subtitleRendererMode == 'native';
           if (Platform.isAndroid && mounted && isTargetAssOrPgs) {
             try {
-              final countStr = await nativePlayer.getProperty('track-list/count');
+              final countStr = await nativePlayer.getProperty(
+                'track-list/count',
+              );
               final count = int.tryParse(countStr) ?? 0;
               for (int i = 0; i < count; i++) {
-                final type = await nativePlayer.getProperty('track-list/$i/type');
+                final type = await nativePlayer.getProperty(
+                  'track-list/$i/type',
+                );
                 final id = await nativePlayer.getProperty('track-list/$i/id');
                 if (type == 'sub' && id == targetId) {
-                  final codec = (await nativePlayer.getProperty('track-list/$i/codec')).toLowerCase();
-                  final isGraphical = codec.contains('pgs') || 
-                                      codec.contains('hdmv') || 
-                                      codec.contains('dvd') || 
-                                      codec.contains('vob') || 
-                                      codec.contains('dvb') ||
-                                      codec == 'xsub';
+                  final codec = (await nativePlayer.getProperty(
+                    'track-list/$i/codec',
+                  )).toLowerCase();
+                  final isGraphical =
+                      codec.contains('pgs') ||
+                      codec.contains('hdmv') ||
+                      codec.contains('dvd') ||
+                      codec.contains('vob') ||
+                      codec.contains('dvb') ||
+                      codec == 'xsub';
                   final isAss = codec.contains('ass') || codec.contains('ssa');
                   if (mounted) {
                     if (isGraphical) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
-                          content: Text('PGS/graphical subtitles require HW+ (Compatible) or SW decoder to render on Android.'),
+                          content: Text(
+                            'PGS/graphical subtitles require HW+ (Compatible) or SW decoder to render on Android.',
+                          ),
                           backgroundColor: Colors.orange,
                           duration: Duration(seconds: 4),
                         ),
@@ -4222,7 +4936,9 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                     } else if (isAss) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
-                          content: Text('ASS/SSA subtitles rendered in text mode. Switch to HW+ or SW for full native styling.'),
+                          content: Text(
+                            'ASS/SSA subtitles rendered in text mode. Switch to HW+ or SW for full native styling.',
+                          ),
                           backgroundColor: Colors.blueGrey,
                           duration: Duration(seconds: 4),
                         ),
@@ -4313,7 +5029,6 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     _showSkipToast(toastText);
     setState(() {});
   }
-
 }
 
 class Material3ExpressiveSquigglyPlayButton extends StatefulWidget {
@@ -4329,10 +5044,12 @@ class Material3ExpressiveSquigglyPlayButton extends StatefulWidget {
   });
 
   @override
-  State<Material3ExpressiveSquigglyPlayButton> createState() => _Material3ExpressiveSquigglyPlayButtonState();
+  State<Material3ExpressiveSquigglyPlayButton> createState() =>
+      _Material3ExpressiveSquigglyPlayButtonState();
 }
 
-class _Material3ExpressiveSquigglyPlayButtonState extends State<Material3ExpressiveSquigglyPlayButton>
+class _Material3ExpressiveSquigglyPlayButtonState
+    extends State<Material3ExpressiveSquigglyPlayButton>
     with SingleTickerProviderStateMixin {
   late final AnimationController _animationController;
   late final StreamSubscription<bool> _playingSubscription;
@@ -4342,7 +5059,7 @@ class _Material3ExpressiveSquigglyPlayButtonState extends State<Material3Express
   void initState() {
     super.initState();
     _isPlaying = widget.player.state.playing;
-    
+
     _animationController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 8),
@@ -4377,7 +5094,9 @@ class _Material3ExpressiveSquigglyPlayButtonState extends State<Material3Express
     return AnimatedBuilder(
       animation: _animationController,
       builder: (context, child) {
-        final double phase = _isPlaying ? _animationController.value * 2 * math.pi : 0.0;
+        final double phase = _isPlaying
+            ? _animationController.value * 2 * math.pi
+            : 0.0;
         return CustomPaint(
           size: Size(widget.size, widget.size),
           painter: SquigglyPainter(
@@ -4435,7 +5154,8 @@ class SquigglyPainter extends CustomPainter {
 
     for (int i = 0; i <= steps; i++) {
       final angle = (i * 2 * math.pi) / steps;
-      final radius = baseRadius + waveAmplitude * math.cos(waves * angle + phase);
+      final radius =
+          baseRadius + waveAmplitude * math.cos(waves * angle + phase);
       final x = centerX + radius * math.cos(angle);
       final y = centerY + radius * math.sin(angle);
 
@@ -4531,8 +5251,6 @@ class _CachedVideoWidgetState extends State<CachedVideoWidget> {
 
   @override
   Widget build(BuildContext context) {
-    return RepaintBoundary(
-      child: _cachedWidget,
-    );
+    return RepaintBoundary(child: _cachedWidget);
   }
 }

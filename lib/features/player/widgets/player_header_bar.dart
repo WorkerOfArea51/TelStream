@@ -13,7 +13,6 @@ class PlayerHeaderBar extends StatelessWidget {
   final VoidCallback onShowAudioTracks;
   final VoidCallback onShowQueue;
   final VoidCallback onShowMoreOptions;
-  final Widget quickActionRow;
   final Color settingsAccent;
 
   const PlayerHeaderBar({
@@ -28,7 +27,6 @@ class PlayerHeaderBar extends StatelessWidget {
     required this.onShowAudioTracks,
     required this.onShowQueue,
     required this.onShowMoreOptions,
-    required this.quickActionRow,
     required this.settingsAccent,
   });
 
@@ -69,6 +67,7 @@ class PlayerHeaderBar extends StatelessWidget {
                   ),
                   const SizedBox(width: 16),
                 ],
+                const SizedBox(width: 16),
                 // HW+ Decoder Mode Button
                 Material3ExpressiveContainer(
                   shape: ExpressiveShape.squircle,
@@ -94,7 +93,11 @@ class PlayerHeaderBar extends StatelessWidget {
                   size: 38,
                   onTap: onShowSubtitles,
                   inactiveColor: Colors.white.withValues(alpha: 0.12),
-                  child: const Icon(Icons.closed_caption_outlined, color: Colors.white, size: 20),
+                  child: const Icon(
+                    Icons.closed_caption_outlined,
+                    color: Colors.white,
+                    size: 20,
+                  ),
                 ),
                 const SizedBox(width: 16),
 
@@ -104,7 +107,11 @@ class PlayerHeaderBar extends StatelessWidget {
                   size: 38,
                   onTap: onShowAudioTracks,
                   inactiveColor: Colors.white.withValues(alpha: 0.12),
-                  child: const Icon(Icons.music_note_outlined, color: Colors.white, size: 20),
+                  child: const Icon(
+                    Icons.music_note_outlined,
+                    color: Colors.white,
+                    size: 20,
+                  ),
                 ),
                 const SizedBox(width: 16),
 
@@ -114,7 +121,11 @@ class PlayerHeaderBar extends StatelessWidget {
                   size: 38,
                   onTap: onShowQueue,
                   inactiveColor: Colors.white.withValues(alpha: 0.12),
-                  child: const Icon(Icons.playlist_play_outlined, color: Colors.white, size: 20),
+                  child: const Icon(
+                    Icons.playlist_play_outlined,
+                    color: Colors.white,
+                    size: 20,
+                  ),
                 ),
                 const SizedBox(width: 16),
 
@@ -124,14 +135,17 @@ class PlayerHeaderBar extends StatelessWidget {
                   size: 38,
                   onTap: onShowMoreOptions,
                   inactiveColor: Colors.white.withValues(alpha: 0.12),
-                  child: const Icon(Icons.more_vert, color: Colors.white, size: 20),
+                  child: const Icon(
+                    Icons.more_vert,
+                    color: Colors.white,
+                    size: 20,
+                  ),
                 ),
                 const SizedBox(width: 16),
               ],
             ),
           ],
         ),
-        quickActionRow,
       ],
     );
   }
@@ -142,11 +156,7 @@ class MarqueeText extends StatefulWidget {
   final String text;
   final TextStyle style;
 
-  const MarqueeText({
-    super.key,
-    required this.text,
-    required this.style,
-  });
+  const MarqueeText({super.key, required this.text, required this.style});
 
   @override
   State<MarqueeText> createState() => _MarqueeTextState();
@@ -193,7 +203,7 @@ class _MarqueeTextState extends State<MarqueeText> {
       if (max <= 0) return;
 
       _isScrolling = true;
-      
+
       // Wait a moment at the start
       await Future.delayed(const Duration(seconds: 2));
       if (!mounted || !_scrollController.hasClients) {
@@ -208,7 +218,9 @@ class _MarqueeTextState extends State<MarqueeText> {
       }
 
       // Scroll to the end
-      final duration = Duration(milliseconds: (currentMax * 35).clamp(1000, 20000).toInt());
+      final duration = Duration(
+        milliseconds: (currentMax * 35).clamp(1000, 20000).toInt(),
+      );
       await _scrollController.animateTo(
         currentMax,
         duration: duration,
@@ -239,11 +251,7 @@ class _MarqueeTextState extends State<MarqueeText> {
       controller: _scrollController,
       scrollDirection: Axis.horizontal,
       physics: const NeverScrollableScrollPhysics(),
-      child: Text(
-        widget.text,
-        style: widget.style,
-        maxLines: 1,
-      ),
+      child: Text(widget.text, style: widget.style, maxLines: 1),
     );
   }
 }
