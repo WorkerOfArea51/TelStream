@@ -264,21 +264,39 @@ class _SeriesDetailsScreenState extends ConsumerState<SeriesDetailsScreen> with 
 
     final meta = _currentMetadata!;
     return Scaffold(
-      body: NestedScrollView(
-        headerSliverBuilder: (context, innerBoxIsScrolled) {
-          return [
-            SliverAppBar(
-              expandedHeight: (_ytController != null && _trailerPlaying) ? 550 : 250,
-              pinned: true,
-              flexibleSpace: FlexibleSpaceBar(
-                background: _buildHero(meta),
-              ),
-              leading: IconButton(
-                icon: const Icon(Icons.arrow_back, color: Colors.white),
-                onPressed: () => Navigator.pop(context),
-              ),
+      body: Column(
+        children: [
+          if (_ytController != null && _trailerPlaying)
+            Stack(
+              children: [
+                _buildHero(meta),
+                Positioned(
+                  top: MediaQuery.of(context).padding.top + 8,
+                  left: 8,
+                  child: IconButton(
+                    icon: const Icon(Icons.arrow_back, color: Colors.white, shadows: [Shadow(color: Colors.black, blurRadius: 10)]),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ),
+              ],
             ),
-            SliverToBoxAdapter(
+          Expanded(
+            child: NestedScrollView(
+              headerSliverBuilder: (context, innerBoxIsScrolled) {
+                return [
+                  if (!(_ytController != null && _trailerPlaying))
+                    SliverAppBar(
+                      expandedHeight: 250,
+                      pinned: true,
+                      flexibleSpace: FlexibleSpaceBar(
+                        background: _buildHero(meta),
+                      ),
+                      leading: IconButton(
+                        icon: const Icon(Icons.arrow_back, color: Colors.white),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                    ),
+                  SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.all(16.0),
                 child: Column(
