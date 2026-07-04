@@ -25,7 +25,24 @@ class FirebaseMetadataService {
       
       if (response.statusCode == 200 && response.body != 'null') {
         final Map<String, dynamic> data = json.decode(response.body);
-        _cache = data.map((key, value) => MapEntry(_decodeKey(key), value.toString()));
+        _cache.clear();
+        
+        data.forEach((key, value) {
+          if (value is Map<String, dynamic>) {
+            // Check if this is a Category node containing encoded keys
+            value.forEach((subKey, subValue) {
+              if (subValue is Map<String, dynamic> && subValue.containsKey('id')) {
+                _cache[_decodeKey(subKey)] = subValue['id'].toString();
+              } else {
+                _cache[_decodeKey(subKey)] = subValue.toString();
+              }
+            });
+          } else {
+            // Legacy flat structure
+            _cache[_decodeKey(key)] = value.toString();
+          }
+        });
+        
         Log.i('Successfully loaded ${_cache.length} metadata overrides from Firebase.');
       } else {
         Log.i('Firebase metadata is empty or returned status: ${response.statusCode}');
@@ -41,7 +58,7 @@ class FirebaseMetadataService {
   }
 
   /// Saves a new override to Firebase and updates the local cache.
-  static Future<void> saveOverride(String coreName, String ids) async {
+  static Future<void> saveOverride(String category, String coreName, String ids) async {
     if (_baseUrl.isEmpty) {
       Log.w('Firebase DB URL is not set. Cannot save override.');
       return;
@@ -54,13 +71,20 @@ class FirebaseMetadataService {
     // Sync to Firebase in the background
     try {
       final safeKey = _encodeKey(coreName);
+      final safeCategory = category.replaceAll(' ', ''); // E.g., 'Web Series' -> 'WebSeries'
+      
+      final payload = json.encode({
+        'title': coreName,
+        'id': ids,
+      });
+
       final response = await http.put(
-        Uri.parse('$_baseUrl/metadata/$safeKey.json'),
-        body: json.encode(ids),
+        Uri.parse('$_baseUrl/metadata/$safeCategory/$safeKey.json'),
+        body: payload,
       ).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
-        Log.i('Successfully synced metadata override to Firebase for $coreName');
+        Log.i('Successfully synced metadata override to Firebase for $coreName in $safeCategory');
       } else {
         Log.e('Failed to sync to Firebase. Status: ${response.statusCode}, Body: ${response.body}');
       }

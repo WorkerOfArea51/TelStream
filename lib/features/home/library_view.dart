@@ -614,7 +614,7 @@ class _LibraryGridItemState extends ConsumerState<_LibraryGridItem> {
             }
             
             if (ids.isNotEmpty) {
-              await FirebaseMetadataService.saveOverride(widget.series.coreName, ids.join(','));
+              await FirebaseMetadataService.saveOverride(widget.categoryTitle, widget.series.coreName, ids.join(','));
               if (context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Metadata Linked successfully! Tap the folder to view.')));
               }
@@ -1319,7 +1319,7 @@ class _LibraryCompactItemState extends ConsumerState<_LibraryCompactItem> {
             }
             
             if (ids.isNotEmpty) {
-              await FirebaseMetadataService.saveOverride(widget.series.coreName, ids.join(','));
+              await FirebaseMetadataService.saveOverride(widget.categoryTitle, widget.series.coreName, ids.join(','));
               if (context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Metadata Linked successfully! Tap the folder to view.')));
               }
@@ -1529,7 +1529,7 @@ class _LibraryListItemState extends ConsumerState<_LibraryListItem> {
             }
             
             if (ids.isNotEmpty) {
-              await FirebaseMetadataService.saveOverride(widget.series.coreName, ids.join(','));
+              await FirebaseMetadataService.saveOverride(widget.categoryTitle, widget.series.coreName, ids.join(','));
               if (context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Metadata Linked successfully! Tap the folder to view.')));
               }
