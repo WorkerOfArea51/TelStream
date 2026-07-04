@@ -37,6 +37,9 @@ class SeriesMetadata {
   final String episodesCount;
   final String spokenLanguages;
   final String budgetRevenue;
+  final String director;
+  final String writers;
+  final String imdbId;
   final List<RelatedContent> recommendations;
 
   SeriesMetadata({
@@ -59,6 +62,9 @@ class SeriesMetadata {
     this.episodesCount = '',
     this.spokenLanguages = '',
     this.budgetRevenue = '',
+    this.director = '',
+    this.writers = '',
+    this.imdbId = '',
     this.recommendations = const [],
   });
 
@@ -128,12 +134,28 @@ class MetadataService {
         }
       }
 
-      // Extract cast
+      // Extract cast, director, and writers
       List<String> castList = [];
-      if (data['credits'] != null && data['credits']['cast'] != null) {
-        final List cast = data['credits']['cast'];
-        for (int i = 0; i < cast.length && i < 6; i++) {
-          castList.add(cast[i]['name']);
+      List<String> directors = [];
+      List<String> writers = [];
+      if (data['credits'] != null) {
+        if (data['credits']['cast'] != null) {
+          final List cast = data['credits']['cast'];
+          for (int i = 0; i < cast.length && i < 6; i++) {
+            castList.add(cast[i]['name']);
+          }
+        }
+        if (data['credits']['crew'] != null) {
+          final List crew = data['credits']['crew'];
+          for (var member in crew) {
+            if (member['job'] == 'Director') {
+              directors.add(member['name']);
+            } else if (member['department'] == 'Writing' || member['job'] == 'Screenplay' || member['job'] == 'Writer') {
+              if (!writers.contains(member['name'])) {
+                writers.add(member['name']);
+              }
+            }
+          }
         }
       }
 
@@ -235,6 +257,9 @@ class MetadataService {
         userScore: userScore,
         spokenLanguages: spokenLanguages,
         budgetRevenue: budgetRevenue,
+        director: directors.join(', '),
+        writers: writers.join(', '),
+        imdbId: imdbId,
         recommendations: recs,
       );
     } catch (e) {

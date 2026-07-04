@@ -9,6 +9,7 @@ import 'episode_list_screen.dart';
 import 'home_controller.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../../services/firebase_metadata_service.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class SeriesDetailsScreen extends ConsumerStatefulWidget {
   final AnimeSeries series;
@@ -250,7 +251,7 @@ class _SeriesDetailsScreenState extends ConsumerState<SeriesDetailsScreen> with 
       body: CustomScrollView(
         slivers: [
           SliverAppBar(
-            expandedHeight: (_ytController != null && _trailerPlaying) ? 400 : 250,
+            expandedHeight: (_ytController != null && _trailerPlaying) ? 550 : 250,
             pinned: true,
             flexibleSpace: FlexibleSpaceBar(
               background: _buildHero(meta),
@@ -422,6 +423,9 @@ extension on _SeriesDetailsScreenState {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          if (meta.director.isNotEmpty) _buildDetailRow('Director', meta.director),
+          if (meta.writers.isNotEmpty) _buildDetailRow('Writers', meta.writers),
+          if (meta.cast.isNotEmpty) _buildDetailRow('Stars', meta.cast),
           if (meta.status.isNotEmpty) _buildDetailRow('Status', meta.status),
           if (meta.runtime.isNotEmpty) _buildDetailRow('Duration', meta.runtime),
           if (meta.episodesCount.isNotEmpty) _buildDetailRow('Episodes', meta.episodesCount),
@@ -432,6 +436,38 @@ extension on _SeriesDetailsScreenState {
           if (meta.spokenLanguages.isNotEmpty) _buildDetailRow('Languages', meta.spokenLanguages),
           if (meta.budgetRevenue.isNotEmpty) _buildDetailRow('Financials', meta.budgetRevenue),
           if (meta.productionCompanies.isNotEmpty) _buildDetailRow('Studios', meta.productionCompanies),
+          
+          if (meta.imdbId.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 24.0, bottom: 16.0),
+              child: SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () async {
+                    final url = Uri.parse('https://www.imdb.com/title/${meta.imdbId}/');
+                    if (await canLaunchUrl(url)) {
+                      await launchUrl(url, mode: LaunchMode.externalApplication);
+                    }
+                  },
+                  icon: const Icon(Icons.open_in_new, color: Colors.black),
+                  label: const Text(
+                    'Check on IMDB',
+                    style: TextStyle(
+                      color: Colors.black,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.amber, // IMDB Yellow
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
     );
