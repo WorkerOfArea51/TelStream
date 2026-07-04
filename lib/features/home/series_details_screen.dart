@@ -1,5 +1,6 @@
 import 'dart:io' show Platform;
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:youtube_player_iframe/youtube_player_iframe.dart';
@@ -448,7 +449,19 @@ class _SeriesDetailsScreenState extends ConsumerState<SeriesDetailsScreen>
     if (_ytController != null && _trailerPlaying) {
       return Container(
         color: Colors.black,
-        child: SafeArea(child: YoutubePlayer(controller: _ytController!)),
+        child: SafeArea(
+          child: YoutubePlayer(
+            controller: _ytController!,
+            gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
+              Factory<VerticalDragGestureRecognizer>(
+                () => VerticalDragGestureRecognizer(),
+              ),
+              Factory<HorizontalDragGestureRecognizer>(
+                () => HorizontalDragGestureRecognizer(),
+              ),
+            },
+          ),
+        ),
       );
     }
 
