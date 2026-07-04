@@ -259,98 +259,98 @@ class _SeriesDetailsScreenState extends ConsumerState<SeriesDetailsScreen> with 
 
     final meta = _currentMetadata!;
     return Scaffold(
-      body: CustomScrollView(
-        slivers: [
-          SliverAppBar(
-            expandedHeight: (_ytController != null && _trailerPlaying) ? 550 : 250,
-            pinned: true,
-            flexibleSpace: FlexibleSpaceBar(
-              background: _buildHero(meta),
+      body: NestedScrollView(
+        headerSliverBuilder: (context, innerBoxIsScrolled) {
+          return [
+            SliverAppBar(
+              expandedHeight: (_ytController != null && _trailerPlaying) ? 550 : 250,
+              pinned: true,
+              flexibleSpace: FlexibleSpaceBar(
+                background: _buildHero(meta),
+              ),
+              leading: IconButton(
+                icon: const Icon(Icons.arrow_back, color: Colors.white),
+                onPressed: () => Navigator.pop(context),
+              ),
             ),
-            leading: IconButton(
-              icon: const Icon(Icons.arrow_back, color: Colors.white),
-              onPressed: () => Navigator.pop(context),
-            ),
-          ),
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    meta.title,
-                    style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white),
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Text(meta.releaseYear, style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                        decoration: BoxDecoration(color: Colors.grey[800], borderRadius: BorderRadius.circular(4)),
-                        child: Text(meta.maturityRating, style: const TextStyle(fontSize: 12, color: Colors.white70)),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          meta.genres.join(', '),
-                          style: const TextStyle(color: Colors.white70),
-                          overflow: TextOverflow.ellipsis,
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      meta.title,
+                      style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Text(meta.releaseYear, style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                          decoration: BoxDecoration(color: Colors.grey[800], borderRadius: BorderRadius.circular(4)),
+                          child: Text(meta.maturityRating, style: const TextStyle(fontSize: 12, color: Colors.white70)),
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  const SizedBox(height: 16),
-                  Text(
-                    meta.synopsis,
-                    style: const TextStyle(color: Colors.white, fontSize: 14, height: 1.4),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Cast: ${meta.cast}',
-                    style: const TextStyle(color: Colors.white54, fontSize: 12),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          SliverPersistentHeader(
-            pinned: true,
-            delegate: _SliverAppBarDelegate(
-              TabBar(
-                controller: _tabController,
-                indicatorColor: Colors.red,
-                labelColor: Colors.white,
-                unselectedLabelColor: Colors.white54,
-                tabs: [
-                  Tab(text: widget.categoryTitle.toLowerCase() == 'movies' ? 'Media' : 'Episodes'),
-                  const Tab(text: 'More Details'),
-                  const Tab(text: 'More Like This'),
-                ],
-              ),
-            ),
-          ),
-          SliverFillRemaining(
-            child: TabBarView(
-              controller: _tabController,
-              children: [
-                EpisodeListScreen(
-                  season: widget.series.seasons.first,
-                  series: widget.series,
-                  heroTag: 'hero_library_details_${widget.series.coreName}',
-                  categoryTitle: widget.categoryTitle,
-                  isEmbedded: true,
-                  onSeasonChanged: _onSeasonChanged,
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            meta.genres.join(', '),
+                            style: const TextStyle(color: Colors.white70),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    const SizedBox(height: 16),
+                    Text(
+                      meta.synopsis,
+                      style: const TextStyle(color: Colors.white, fontSize: 14, height: 1.4),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Cast: ${meta.cast}',
+                      style: const TextStyle(color: Colors.white54, fontSize: 12),
+                    ),
+                  ],
                 ),
-                _buildMoreDetailsTab(meta),
-                _buildMoreLikeThisTab(meta),
-              ],
+              ),
             ),
-          ),
-        ],
+            SliverPersistentHeader(
+              pinned: true,
+              delegate: _SliverAppBarDelegate(
+                TabBar(
+                  controller: _tabController,
+                  indicatorColor: Colors.red,
+                  labelColor: Colors.white,
+                  unselectedLabelColor: Colors.white54,
+                  tabs: [
+                    Tab(text: widget.categoryTitle.toLowerCase() == 'movies' ? 'Media' : 'Episodes'),
+                    const Tab(text: 'More Details'),
+                    const Tab(text: 'More Like This'),
+                  ],
+                ),
+              ),
+            ),
+          ];
+        },
+        body: TabBarView(
+          controller: _tabController,
+          children: [
+            EpisodeListScreen(
+              season: widget.series.seasons.first,
+              series: widget.series,
+              heroTag: 'hero_library_details_${widget.series.coreName}',
+              categoryTitle: widget.categoryTitle,
+              isEmbedded: true,
+              onSeasonChanged: _onSeasonChanged,
+            ),
+            _buildMoreDetailsTab(meta),
+            _buildMoreLikeThisTab(meta),
+          ],
+        ),
       ),
     );
   }

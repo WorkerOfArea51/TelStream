@@ -341,7 +341,7 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
         ),
       ),
       body: CustomScrollView(
-        controller: _scrollController,
+        controller: widget.isEmbedded ? null : _scrollController,
         slivers: [
           if (!widget.isEmbedded)
             SliverAppBar(

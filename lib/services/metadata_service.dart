@@ -280,8 +280,16 @@ class MetadataService {
       if (data == null) return null;
 
       String trailerId = '';
-      if (data['trailer'] != null && data['trailer']['youtube_id'] != null) {
-        trailerId = data['trailer']['youtube_id'];
+      if (data['trailer'] != null) {
+        if (data['trailer']['youtube_id'] != null) {
+          trailerId = data['trailer']['youtube_id'];
+        } else if (data['trailer']['embed_url'] != null) {
+          final embedUrl = data['trailer']['embed_url'].toString();
+          final match = RegExp(r'embed\/([a-zA-Z0-9_-]+)').firstMatch(embedUrl);
+          if (match != null && match.groupCount >= 1) {
+            trailerId = match.group(1)!;
+          }
+        }
       }
 
       List<String> genres = [];
