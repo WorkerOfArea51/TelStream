@@ -341,6 +341,7 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen> {
         ),
       ),
       body: CustomScrollView(
+        key: const PageStorageKey<String>('episode_list_scroll_view'),
         controller: widget.isEmbedded ? null : _scrollController,
         slivers: [
           if (!widget.isEmbedded)

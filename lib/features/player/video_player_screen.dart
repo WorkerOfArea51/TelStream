@@ -98,12 +98,16 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
     _initDownload();
     
     if (!widget.isPip) {
-      WakelockPlus.enable();
-      SystemChrome.setPreferredOrientations([
-        DeviceOrientation.landscapeLeft,
-        DeviceOrientation.landscapeRight,
-      ]);
-      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+      try {
+        WakelockPlus.enable();
+      } catch (_) {}
+      try {
+        SystemChrome.setPreferredOrientations([
+          DeviceOrientation.landscapeLeft,
+          DeviceOrientation.landscapeRight,
+        ]);
+        SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+      } catch (_) {}
     } else {
       _resetOrientationAndUI();
     }

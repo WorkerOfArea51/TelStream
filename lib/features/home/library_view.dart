@@ -695,7 +695,7 @@ class _LibraryGridItemState extends ConsumerState<_LibraryGridItem> {
                     fontWeight: FontWeight.bold,
                     letterSpacing: 0.2,
                   ),
-                  maxLines: 2,
+                  maxLines: 4,
                   overflow: TextOverflow.ellipsis,
                 ),
               ),

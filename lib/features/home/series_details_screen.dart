@@ -48,7 +48,7 @@ class _SeriesDetailsScreenState extends ConsumerState<SeriesDetailsScreen> with 
   void _initYtController(SeriesMetadata? meta) {
     if (meta != null && meta.trailerYoutubeId.isNotEmpty) {
       _ytController = YoutubePlayerController.fromVideoId(
-        videoId: widget.metadata!.trailerYoutubeId,
+        videoId: meta.trailerYoutubeId,
         autoPlay: false,
         params: const YoutubePlayerParams(
           showControls: true,
@@ -430,6 +430,7 @@ class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
 extension on _SeriesDetailsScreenState {
   Widget _buildMoreDetailsTab(SeriesMetadata meta) {
     return SingleChildScrollView(
+      key: const PageStorageKey<String>('more_details_tab'),
       padding: const EdgeInsets.all(16.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -448,7 +449,38 @@ extension on _SeriesDetailsScreenState {
           if (meta.budgetRevenue.isNotEmpty) _buildDetailRow('Financials', meta.budgetRevenue),
           if (meta.productionCompanies.isNotEmpty) _buildDetailRow('Studios', meta.productionCompanies),
           
-          if (meta.imdbId.isNotEmpty)
+          if (widget.categoryTitle.toLowerCase() == 'anime' && meta.malId.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 24.0, bottom: 16.0),
+              child: SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () async {
+                    final url = Uri.parse('https://myanimelist.net/anime/${meta.malId}');
+                    if (await canLaunchUrl(url)) {
+                      await launchUrl(url, mode: LaunchMode.externalApplication);
+                    }
+                  },
+                  icon: const Icon(Icons.open_in_new, color: Colors.white),
+                  label: const Text(
+                    'Check on MyAnimeList',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF2E51A2), // MAL Blue
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+              ),
+            )
+          else if (meta.imdbId.isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(top: 24.0, bottom: 16.0),
               child: SizedBox(
@@ -515,6 +547,7 @@ extension on _SeriesDetailsScreenState {
       );
     }
     return GridView.builder(
+      key: const PageStorageKey<String>('more_like_this_tab'),
       padding: const EdgeInsets.all(16),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 3,
