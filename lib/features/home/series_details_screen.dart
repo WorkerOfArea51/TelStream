@@ -28,10 +28,12 @@ class SeriesDetailsScreen extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<SeriesDetailsScreen> createState() => _SeriesDetailsScreenState();
+  ConsumerState<SeriesDetailsScreen> createState() =>
+      _SeriesDetailsScreenState();
 }
 
-class _SeriesDetailsScreenState extends ConsumerState<SeriesDetailsScreen> with SingleTickerProviderStateMixin {
+class _SeriesDetailsScreenState extends ConsumerState<SeriesDetailsScreen>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
   YoutubePlayerController? _ytController;
   bool _trailerPlaying = false;
@@ -43,13 +45,15 @@ class _SeriesDetailsScreenState extends ConsumerState<SeriesDetailsScreen> with 
     super.initState();
     _currentMetadata = widget.metadata;
     _tabController = TabController(length: 3, vsync: this);
-    
+
     _initYtController(_currentMetadata);
   }
 
   void _initYtController(SeriesMetadata? meta) {
     if (meta != null && meta.trailerYoutubeId.isNotEmpty) {
-      bool isDesktop = !kIsWeb && (Platform.isWindows || Platform.isLinux || Platform.isMacOS);
+      bool isDesktop =
+          !kIsWeb &&
+          (Platform.isWindows || Platform.isLinux || Platform.isMacOS);
       if (!isDesktop) {
         _ytController = YoutubePlayerController.fromVideoId(
           videoId: meta.trailerYoutubeId,
@@ -70,15 +74,17 @@ class _SeriesDetailsScreenState extends ConsumerState<SeriesDetailsScreen> with 
 
   Future<void> _onSeasonChanged(int newIndex) async {
     if (widget.overrideIds == null || widget.overrideIds!.isEmpty) return;
-    
-    int idIndex = newIndex < widget.overrideIds!.length ? newIndex : widget.overrideIds!.length - 1;
+
+    int idIndex = newIndex < widget.overrideIds!.length
+        ? newIndex
+        : widget.overrideIds!.length - 1;
     String targetId = widget.overrideIds![idIndex];
-    
+
     setState(() {
       _isLoadingMetadata = true;
       _trailerPlaying = false;
     });
-    
+
     SeriesMetadata? newMeta;
     final metadataService = MetadataService();
     if (targetId.startsWith('tt')) {
@@ -86,7 +92,7 @@ class _SeriesDetailsScreenState extends ConsumerState<SeriesDetailsScreen> with 
     } else {
       newMeta = await metadataService.fetchJikanByMalId(targetId);
     }
-    
+
     if (mounted) {
       setState(() {
         _currentMetadata = newMeta ?? _currentMetadata;
@@ -109,11 +115,17 @@ class _SeriesDetailsScreenState extends ConsumerState<SeriesDetailsScreen> with 
               if (rec.posterUrl.isNotEmpty)
                 ClipRRect(
                   borderRadius: BorderRadius.circular(8),
-                  child: Image.network(rec.posterUrl, height: 200, fit: BoxFit.cover),
+                  child: Image.network(
+                    rec.posterUrl,
+                    height: 200,
+                    fit: BoxFit.cover,
+                  ),
                 ),
               const SizedBox(height: 16),
               Text(
-                rec.synopsis.isNotEmpty ? rec.synopsis : 'Recommendation from TMDB/Jikan.',
+                rec.synopsis.isNotEmpty
+                    ? rec.synopsis
+                    : 'Recommendation from TMDB/Jikan.',
                 style: const TextStyle(color: Colors.white70),
               ),
               const SizedBox(height: 24),
@@ -123,10 +135,19 @@ class _SeriesDetailsScreenState extends ConsumerState<SeriesDetailsScreen> with 
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.orange,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                   ),
                   onPressed: () => _handleWatchNow(context, rec),
-                  child: const Text('Watch Now', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+                  child: const Text(
+                    'Watch Now',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -144,10 +165,13 @@ class _SeriesDetailsScreenState extends ConsumerState<SeriesDetailsScreen> with 
 
   Future<void> _handleWatchNow(BuildContext context, RelatedContent rec) async {
     Navigator.pop(context); // Close the popup first
-    
+
     final isMovie = widget.categoryTitle.toLowerCase() == 'movies';
-    final normalizedRecTitle = HomeController.normalizeSeriesName(rec.title, isMovie: isMovie);
-    
+    final normalizedRecTitle = HomeController.normalizeSeriesName(
+      rec.title,
+      isMovie: isMovie,
+    );
+
     AsyncValue<List<AnimeSeries>> seriesState;
     if (isMovie) {
       seriesState = ref.read(moviesControllerProvider);
@@ -156,10 +180,10 @@ class _SeriesDetailsScreenState extends ConsumerState<SeriesDetailsScreen> with 
     } else {
       seriesState = ref.read(animeControllerProvider);
     }
-    
+
     final allSeries = seriesState.value ?? [];
     AnimeSeries? matchedSeries;
-    
+
     String cleanString(String input) {
       var s = input.replaceAll('_', ' ').replaceAll('-', ' ');
       s = s.replaceAll(RegExp(r'\b(?:19|20)\d{2}\b'), '');
@@ -167,9 +191,9 @@ class _SeriesDetailsScreenState extends ConsumerState<SeriesDetailsScreen> with 
       s = s.replaceAll(RegExp(r'\s+'), ' ');
       return s.trim().toLowerCase();
     }
-    
+
     final targetClean = cleanString(rec.title);
-    
+
     for (final s in allSeries) {
       final sClean = cleanString(s.coreName);
       if (sClean == targetClean) {
@@ -177,34 +201,36 @@ class _SeriesDetailsScreenState extends ConsumerState<SeriesDetailsScreen> with 
         break;
       }
     }
-    
+
     if (matchedSeries != null) {
       // It's uploaded! Fetch override if exists, then navigate
-      final overrideId = FirebaseMetadataService.getOverride(matchedSeries.coreName);
-      
+      final overrideId = FirebaseMetadataService.getOverride(
+        matchedSeries.coreName,
+      );
+
       List<String>? overrideIds;
       SeriesMetadata? newMeta;
-      
+
       if (overrideId != null && overrideId.isNotEmpty) {
         showDialog(
           context: context,
           barrierDismissible: false,
           builder: (c) => const Center(child: CircularProgressIndicator()),
         );
-        
+
         overrideIds = overrideId.split(',');
         final firstId = overrideIds!.first;
         final metadataService = MetadataService();
-        
+
         if (widget.categoryTitle.toLowerCase() == 'anime') {
           newMeta = await metadataService.fetchJikanByMalId(firstId);
         } else {
           newMeta = await metadataService.fetchTmdbByImdbId(firstId);
         }
-        
+
         if (context.mounted) Navigator.pop(context);
       }
-      
+
       if (context.mounted) {
         Navigator.push(
           context,
@@ -225,7 +251,10 @@ class _SeriesDetailsScreenState extends ConsumerState<SeriesDetailsScreen> with 
           context: context,
           builder: (c) => AlertDialog(
             backgroundColor: Colors.grey[900],
-            title: const Text('Not Available', style: TextStyle(color: Colors.white)),
+            title: const Text(
+              'Not Available',
+              style: TextStyle(color: Colors.white),
+            ),
             content: const Text(
               'This movie/series is not available yet. Please go to the About page and request it on Telegram!',
               style: TextStyle(color: Colors.white70),
@@ -255,7 +284,8 @@ class _SeriesDetailsScreenState extends ConsumerState<SeriesDetailsScreen> with 
       return EpisodeListScreen(
         season: widget.series.seasons.first,
         series: widget.series,
-        heroTag: 'hero_library_${widget.categoryTitle}_${widget.series.coreName}',
+        heroTag:
+            'hero_library_${widget.categoryTitle}_${widget.series.coreName}',
         categoryTitle: widget.categoryTitle,
         isEmbedded: false,
         onSeasonChanged: _onSeasonChanged,
@@ -274,7 +304,11 @@ class _SeriesDetailsScreenState extends ConsumerState<SeriesDetailsScreen> with 
                   top: MediaQuery.of(context).padding.top + 8,
                   left: 8,
                   child: IconButton(
-                    icon: const Icon(Icons.arrow_back, color: Colors.white, shadows: [Shadow(color: Colors.black, blurRadius: 10)]),
+                    icon: const Icon(
+                      Icons.arrow_back,
+                      color: Colors.white,
+                      shadows: [Shadow(color: Colors.black, blurRadius: 10)],
+                    ),
                     onPressed: () => Navigator.pop(context),
                   ),
                 ),
@@ -297,83 +331,119 @@ class _SeriesDetailsScreenState extends ConsumerState<SeriesDetailsScreen> with 
                       ),
                     ),
                   SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      meta.title,
-                      style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white),
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Text(meta.releaseYear, style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                          decoration: BoxDecoration(color: Colors.grey[800], borderRadius: BorderRadius.circular(4)),
-                          child: Text(meta.maturityRating, style: const TextStyle(fontSize: 12, color: Colors.white70)),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            meta.genres.join(', '),
-                            style: const TextStyle(color: Colors.white70),
-                            overflow: TextOverflow.ellipsis,
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            meta.title,
+                            style: const TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
                           ),
-                        ),
-                      ],
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              Text(
+                                meta.releaseYear,
+                                style: const TextStyle(
+                                  color: Colors.green,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 4,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.grey[800],
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  meta.maturityRating,
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.white70,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  meta.genres.join(', '),
+                                  style: const TextStyle(color: Colors.white70),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          const SizedBox(height: 16),
+                          Text(
+                            meta.synopsis,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 14,
+                              height: 1.4,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'Cast: ${meta.cast}',
+                            style: const TextStyle(
+                              color: Colors.white54,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                    const SizedBox(height: 16),
-                    const SizedBox(height: 16),
-                    Text(
-                      meta.synopsis,
-                      style: const TextStyle(color: Colors.white, fontSize: 14, height: 1.4),
+                  ),
+                  SliverPersistentHeader(
+                    pinned: true,
+                    delegate: _SliverAppBarDelegate(
+                      TabBar(
+                        controller: _tabController,
+                        indicatorColor: Colors.red,
+                        labelColor: Colors.white,
+                        unselectedLabelColor: Colors.white54,
+                        tabs: [
+                          Tab(
+                            text: widget.categoryTitle.toLowerCase() == 'movies'
+                                ? 'Media'
+                                : 'Episodes',
+                          ),
+                          const Tab(text: 'More Details'),
+                          const Tab(text: 'More Like This'),
+                        ],
+                      ),
                     ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Cast: ${meta.cast}',
-                      style: const TextStyle(color: Colors.white54, fontSize: 12),
-                    ),
-                  ],
-                ),
+                  ),
+                ];
+              },
+              body: TabBarView(
+                controller: _tabController,
+                children: [
+                  EpisodeListScreen(
+                    season: widget.series.seasons.first,
+                    series: widget.series,
+                    heroTag: 'hero_library_details_${widget.series.coreName}',
+                    categoryTitle: widget.categoryTitle,
+                    isEmbedded: true,
+                    onSeasonChanged: _onSeasonChanged,
+                  ),
+                  _buildMoreDetailsTab(meta),
+                  _buildMoreLikeThisTab(meta),
+                ],
               ),
             ),
-            SliverPersistentHeader(
-              pinned: true,
-              delegate: _SliverAppBarDelegate(
-                TabBar(
-                  controller: _tabController,
-                  indicatorColor: Colors.red,
-                  labelColor: Colors.white,
-                  unselectedLabelColor: Colors.white54,
-                  tabs: [
-                    Tab(text: widget.categoryTitle.toLowerCase() == 'movies' ? 'Media' : 'Episodes'),
-                    const Tab(text: 'More Details'),
-                    const Tab(text: 'More Like This'),
-                  ],
-                ),
-              ),
-            ),
-          ];
-        },
-        body: TabBarView(
-          controller: _tabController,
-          children: [
-            EpisodeListScreen(
-              season: widget.series.seasons.first,
-              series: widget.series,
-              heroTag: 'hero_library_details_${widget.series.coreName}',
-              categoryTitle: widget.categoryTitle,
-              isEmbedded: true,
-              onSeasonChanged: _onSeasonChanged,
-            ),
-            _buildMoreDetailsTab(meta),
-            _buildMoreLikeThisTab(meta),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -382,11 +452,7 @@ class _SeriesDetailsScreenState extends ConsumerState<SeriesDetailsScreen> with 
     if (_ytController != null && _trailerPlaying) {
       return Container(
         color: Colors.black,
-        child: SafeArea(
-          child: YoutubePlayer(
-            controller: _ytController!,
-          ),
-        ),
+        child: SafeArea(child: YoutubePlayer(controller: _ytController!)),
       );
     }
 
@@ -437,11 +503,12 @@ class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
   double get maxExtent => _tabBar.preferredSize.height;
 
   @override
-  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
-    return Container(
-      color: Colors.black,
-      child: _tabBar,
-    );
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
+    return Container(color: Colors.black, child: _tabBar);
   }
 
   @override
@@ -458,30 +525,44 @@ extension on _SeriesDetailsScreenState {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (meta.director.isNotEmpty) _buildDetailRow('Director', meta.director),
+          if (meta.director.isNotEmpty)
+            _buildDetailRow('Director', meta.director),
           if (meta.writers.isNotEmpty) _buildDetailRow('Writers', meta.writers),
           if (meta.cast.isNotEmpty) _buildDetailRow('Stars', meta.cast),
           if (meta.status.isNotEmpty) _buildDetailRow('Status', meta.status),
-          if (meta.runtime.isNotEmpty) _buildDetailRow('Duration', meta.runtime),
-          if (meta.episodesCount.isNotEmpty) _buildDetailRow('Episodes', meta.episodesCount),
-          if (meta.userScore.isNotEmpty) _buildDetailRow('Score', meta.userScore),
+          if (meta.runtime.isNotEmpty)
+            _buildDetailRow('Duration', meta.runtime),
+          if (meta.episodesCount.isNotEmpty)
+            _buildDetailRow('Episodes', meta.episodesCount),
+          if (meta.userScore.isNotEmpty)
+            _buildDetailRow('Score', meta.userScore),
           if (meta.rank.isNotEmpty) _buildDetailRow('Rank', meta.rank),
-          if (meta.airedDates.isNotEmpty) _buildDetailRow('Aired', meta.airedDates),
+          if (meta.airedDates.isNotEmpty)
+            _buildDetailRow('Aired', meta.airedDates),
           if (meta.source.isNotEmpty) _buildDetailRow('Source', meta.source),
-          if (meta.spokenLanguages.isNotEmpty) _buildDetailRow('Languages', meta.spokenLanguages),
-          if (meta.budgetRevenue.isNotEmpty) _buildDetailRow('Financials', meta.budgetRevenue),
-          if (meta.productionCompanies.isNotEmpty) _buildDetailRow('Studios', meta.productionCompanies),
-          
-          if (widget.categoryTitle.toLowerCase() == 'anime' && meta.malId.isNotEmpty)
+          if (meta.spokenLanguages.isNotEmpty)
+            _buildDetailRow('Languages', meta.spokenLanguages),
+          if (meta.budgetRevenue.isNotEmpty)
+            _buildDetailRow('Financials', meta.budgetRevenue),
+          if (meta.productionCompanies.isNotEmpty)
+            _buildDetailRow('Studios', meta.productionCompanies),
+
+          if (widget.categoryTitle.toLowerCase() == 'anime' &&
+              meta.malId.isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(top: 24.0, bottom: 16.0),
               child: SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
                   onPressed: () async {
-                    final url = Uri.parse('https://myanimelist.net/anime/${meta.malId}');
+                    final url = Uri.parse(
+                      'https://myanimelist.net/anime/${meta.malId}',
+                    );
                     if (await canLaunchUrl(url)) {
-                      await launchUrl(url, mode: LaunchMode.externalApplication);
+                      await launchUrl(
+                        url,
+                        mode: LaunchMode.externalApplication,
+                      );
                     }
                   },
                   icon: const Icon(Icons.open_in_new, color: Colors.white),
@@ -510,9 +591,14 @@ extension on _SeriesDetailsScreenState {
                 width: double.infinity,
                 child: ElevatedButton.icon(
                   onPressed: () async {
-                    final url = Uri.parse('https://www.imdb.com/title/${meta.imdbId}/');
+                    final url = Uri.parse(
+                      'https://www.imdb.com/title/${meta.imdbId}/',
+                    );
                     if (await canLaunchUrl(url)) {
-                      await launchUrl(url, mode: LaunchMode.externalApplication);
+                      await launchUrl(
+                        url,
+                        mode: LaunchMode.externalApplication,
+                      );
                     }
                   },
                   icon: const Icon(Icons.open_in_new, color: Colors.black),
@@ -566,7 +652,10 @@ extension on _SeriesDetailsScreenState {
   Widget _buildMoreLikeThisTab(SeriesMetadata meta) {
     if (meta.recommendations.isEmpty) {
       return const Center(
-        child: Text('No recommendations available', style: TextStyle(color: Colors.white54)),
+        child: Text(
+          'No recommendations available',
+          style: TextStyle(color: Colors.white54),
+        ),
       );
     }
     return GridView.builder(
@@ -587,7 +676,12 @@ extension on _SeriesDetailsScreenState {
             borderRadius: BorderRadius.circular(8),
             child: rec.posterUrl.isNotEmpty
                 ? Image.network(rec.posterUrl, fit: BoxFit.cover)
-                : Container(color: Colors.grey[800], child: const Center(child: Icon(Icons.movie, color: Colors.white54))),
+                : Container(
+                    color: Colors.grey[800],
+                    child: const Center(
+                      child: Icon(Icons.movie, color: Colors.white54),
+                    ),
+                  ),
           ),
         );
       },
