@@ -954,7 +954,7 @@ class _EpisodeCardItemState extends ConsumerState<_EpisodeCardItem> {
                             fontWeight: FontWeight.bold,
                             fontSize: 13,
                           ),
-                          maxLines: 1,
+                          maxLines: 3,
                           overflow: TextOverflow.ellipsis,
                         ),
                         const SizedBox(height: 4),
