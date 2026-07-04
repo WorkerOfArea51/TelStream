@@ -1,3 +1,5 @@
+import 'dart:io' show Platform;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:youtube_player_iframe/youtube_player_iframe.dart';
@@ -47,16 +49,19 @@ class _SeriesDetailsScreenState extends ConsumerState<SeriesDetailsScreen> with 
 
   void _initYtController(SeriesMetadata? meta) {
     if (meta != null && meta.trailerYoutubeId.isNotEmpty) {
-      _ytController = YoutubePlayerController.fromVideoId(
-        videoId: meta.trailerYoutubeId,
-        autoPlay: false,
-        params: const YoutubePlayerParams(
-          showControls: true,
-          mute: false,
-          showFullscreenButton: true,
-          loop: false,
-        ),
-      );
+      bool isDesktop = !kIsWeb && (Platform.isWindows || Platform.isLinux || Platform.isMacOS);
+      if (!isDesktop) {
+        _ytController = YoutubePlayerController.fromVideoId(
+          videoId: meta.trailerYoutubeId,
+          autoPlay: false,
+          params: const YoutubePlayerParams(
+            showControls: true,
+            mute: false,
+            showFullscreenButton: true,
+            loop: false,
+          ),
+        );
+      }
     } else {
       _ytController?.close();
       _ytController = null;
