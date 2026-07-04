@@ -1374,30 +1374,55 @@ class ContinueWatchingShelf extends StatelessWidget {
                         left: 8,
                         right: 8,
                         bottom: 6,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                        child: Row(
                           children: [
-                            Text(
-                              seriesName,
-                              style: TextStyle(
-                                color: isDark ? Colors.white : Colors.black87,
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    seriesName,
+                                    style: TextStyle(
+                                      color: isDark
+                                          ? Colors.white
+                                          : Colors.black87,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    episodeTitle,
+                                    style: TextStyle(
+                                      color: isDark
+                                          ? Colors.white54
+                                          : Colors.black54,
+                                      fontSize: 10,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  const SizedBox(height: 6),
+                                ],
                               ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
                             ),
-                            const SizedBox(height: 2),
-                            Text(
-                              episodeTitle,
-                              style: TextStyle(
-                                color: isDark ? Colors.white54 : Colors.black54,
-                                fontSize: 10,
+                            Material3ExpressiveContainer(
+                              shape: ExpressiveShape.squircle,
+                              size: 32,
+                              onTap: () {
+                                ref
+                                    .read(historyLogProvider.notifier)
+                                    .removeFromHistory(msgId);
+                              },
+                              inactiveColor: Colors.transparent,
+                              child: Icon(
+                                Icons.delete_outline,
+                                color: isDark ? Colors.white70 : Colors.black54,
+                                size: 18,
                               ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
                             ),
-                            const SizedBox(height: 6),
                           ],
                         ),
                       ),

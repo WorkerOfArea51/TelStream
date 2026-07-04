@@ -22,7 +22,8 @@ class StorageService {
   Map<String, dynamic> _data = {
     'history': <String, int>{}, // messageId (String) -> position in seconds
     'favorites': <String>[], // coreName
-    'last_watched': null, // { 'seriesName': String, 'messageId': int, 'episodeIndex': int }
+    'last_watched':
+        null, // { 'seriesName': String, 'messageId': int, 'episodeIndex': int }
   };
 
   String? _localFontPath;
@@ -34,24 +35,24 @@ class StorageService {
     final backupPath = '$primaryPath.bak';
     _file = File(primaryPath);
     final backupFile = File(backupPath);
-    
+
     // Extract subtitle font for Android/iOS/Windows platforms to local storage
     try {
       final fontDir = Directory('${directory.path}/fonts');
       if (!await fontDir.exists()) {
         await fontDir.create(recursive: true);
       }
-      
+
       final fontNames = [
         'Roboto-Regular.ttf',
         'Roboto.ttf',
         'Arial.ttf',
         'sans-serif.ttf',
-        'DejaVuSans.ttf'
+        'DejaVuSans.ttf',
       ];
-      
+
       _localFontPath = File('${fontDir.path}/Roboto-Regular.ttf').path;
-      
+
       bool needsWrite = false;
       for (final name in fontNames) {
         if (!await File('${fontDir.path}/$name').exists()) {
@@ -59,14 +60,16 @@ class StorageService {
           break;
         }
       }
-      
+
       if (needsWrite) {
-        final byteData = await rootBundle.load('assets/fonts/Roboto-Regular.ttf');
+        final byteData = await rootBundle.load(
+          'assets/fonts/Roboto-Regular.ttf',
+        );
         final bytes = byteData.buffer.asUint8List(
           byteData.offsetInBytes,
           byteData.lengthInBytes,
         );
-        
+
         for (final name in fontNames) {
           final fontFile = File('${fontDir.path}/$name');
           if (!await fontFile.exists()) {
@@ -78,15 +81,17 @@ class StorageService {
     } catch (e, stack) {
       Log.e('Failed to copy subtitle font', e, stack);
     }
-    
+
     bool loaded = false;
-    
+
     if (await _file!.exists()) {
       try {
         final content = await _file!.readAsString();
         final decoded = json.decode(content);
         if (decoded is! Map<String, dynamic>) {
-          throw const FormatException('Storage file does not contain a JSON object');
+          throw const FormatException(
+            'Storage file does not contain a JSON object',
+          );
         }
         _data = decoded;
         loaded = true;
@@ -95,13 +100,15 @@ class StorageService {
         Log.w('Primary user storage corrupted, trying backup: $e');
       }
     }
-    
+
     if (!loaded && await backupFile.exists()) {
       try {
         final content = await backupFile.readAsString();
         final decoded = json.decode(content);
         if (decoded is! Map<String, dynamic>) {
-          throw const FormatException('Backup storage file does not contain a JSON object');
+          throw const FormatException(
+            'Backup storage file does not contain a JSON object',
+          );
         }
         _data = decoded;
         loaded = true;
@@ -112,7 +119,7 @@ class StorageService {
         Log.e('Backup user storage also corrupted', e, stackTrace);
       }
     }
-    
+
     if (!loaded) {
       Log.w('No valid user storage found, starting fresh');
       _data = {
@@ -142,23 +149,29 @@ class StorageService {
     bool requiresMigrationSave = false;
     if (_data.containsKey('anilist_token')) {
       _anilistTokenCache = _data['anilist_token'] as String?;
-      if (_anilistTokenCache != null) await _secureStorage.write(key: 'anilist_token', value: _anilistTokenCache);
+      if (_anilistTokenCache != null)
+        await _secureStorage.write(
+          key: 'anilist_token',
+          value: _anilistTokenCache,
+        );
       _data.remove('anilist_token');
       requiresMigrationSave = true;
     }
     if (_data.containsKey('mal_token')) {
       _malTokenCache = _data['mal_token'] as String?;
-      if (_malTokenCache != null) await _secureStorage.write(key: 'mal_token', value: _malTokenCache);
+      if (_malTokenCache != null)
+        await _secureStorage.write(key: 'mal_token', value: _malTokenCache);
       _data.remove('mal_token');
       requiresMigrationSave = true;
     }
     if (_data.containsKey('trakt_token')) {
       _traktTokenCache = _data['trakt_token'] as String?;
-      if (_traktTokenCache != null) await _secureStorage.write(key: 'trakt_token', value: _traktTokenCache);
+      if (_traktTokenCache != null)
+        await _secureStorage.write(key: 'trakt_token', value: _traktTokenCache);
       _data.remove('trakt_token');
       requiresMigrationSave = true;
     }
-    
+
     if (requiresMigrationSave) {
       await _save();
       Log.i('Migrated OAuth tokens to secure storage.');
@@ -169,13 +182,13 @@ class StorageService {
     final completer = Completer<void>();
     final previous = _writeChain;
     _writeChain = completer.future;
-    
+
     if (previous != null) {
       try {
         await previous;
       } catch (_) {}
     }
-    
+
     try {
       await _executeSave();
     } finally {
@@ -189,20 +202,21 @@ class StorageService {
         final tmpFile = File('${_file!.path}.tmp');
         final backupFile = File('${_file!.path}.bak');
         final content = json.encode(_data);
-        
+
         await tmpFile.writeAsString(content);
-        
+
         final tempContent = await tmpFile.readAsString();
         json.decode(tempContent); // Verify valid JSON
-        
+
         if (await _file!.exists()) {
           if (await backupFile.exists()) {
             await backupFile.delete();
           }
           await _file!.copy(backupFile.path);
-          await _file!.delete(); // Delete target file first to support Windows rename behavior
+          await _file!
+              .delete(); // Delete target file first to support Windows rename behavior
         }
-        
+
         await tmpFile.rename(_file!.path);
       } catch (e, stackTrace) {
         Log.e('Failed to save user storage atomically', e, stackTrace);
@@ -253,7 +267,11 @@ class StorageService {
     return _data['history'][messageId.toString()] ?? 0;
   }
 
-  Future<void> setLastWatched(String seriesName, int messageId, int episodeIndex) async {
+  Future<void> setLastWatched(
+    String seriesName,
+    int messageId,
+    int episodeIndex,
+  ) async {
     if (isIncognitoMode()) return;
     _data['last_watched'] = {
       'seriesName': seriesName,
@@ -278,15 +296,13 @@ class StorageService {
     required int videoFileId,
   }) async {
     if (isIncognitoMode()) return;
-    
+
     _data['history_log'] ??= [];
     final List<dynamic> logs = List.from(_data['history_log']);
-    
+
     // Remove if already exists for this messageId to avoid duplicates in the timeline
-    logs.removeWhere((item) => 
-      item['messageId'] == messageId
-    );
-    
+    logs.removeWhere((item) => item['messageId'] == messageId);
+
     logs.insert(0, {
       'seriesName': seriesName,
       'messageId': messageId,
@@ -296,12 +312,12 @@ class StorageService {
       'position': positionInSeconds,
       'videoFileId': videoFileId,
     });
-    
+
     // Limit log size to 200 items
     if (logs.length > 200) {
       logs.removeLast();
     }
-    
+
     _data['history_log'] = logs;
     await _save();
   }
@@ -309,8 +325,18 @@ class StorageService {
   List<Map<String, dynamic>> getHistoryLog() {
     if (_data['history_log'] == null) return [];
     return List<Map<String, dynamic>>.from(
-      (_data['history_log'] as List).map((item) => Map<String, dynamic>.from(item))
+      (_data['history_log'] as List).map(
+        (item) => Map<String, dynamic>.from(item),
+      ),
     );
+  }
+
+  Future<void> removeFromHistoryLog(int messageId) async {
+    if (_data['history_log'] == null) return;
+    final List<dynamic> logs = List.from(_data['history_log']);
+    logs.removeWhere((item) => item['messageId'] == messageId);
+    _data['history_log'] = logs;
+    await _save();
   }
 
   Future<void> clearHistoryLog() async {
@@ -349,13 +375,13 @@ class StorageService {
   Future<void> toggleFavorite(String coreName) async {
     _data['favorites'] ??= <dynamic>[];
     List<String> favs = List<String>.from(_data['favorites']);
-    
+
     if (favs.contains(coreName)) {
       favs.remove(coreName);
     } else {
       favs.add(coreName);
     }
-    
+
     _data['favorites'] = favs;
     await _save();
   }
@@ -414,8 +440,12 @@ class StorageService {
 
   Map<int, String> getDownloadedFiles() {
     if (_data['downloaded_files'] == null) return {};
-    final Map<String, dynamic> rawMap = Map<String, dynamic>.from(_data['downloaded_files']);
-    return rawMap.map((key, value) => MapEntry(int.parse(key), value as String));
+    final Map<String, dynamic> rawMap = Map<String, dynamic>.from(
+      _data['downloaded_files'],
+    );
+    return rawMap.map(
+      (key, value) => MapEntry(int.parse(key), value as String),
+    );
   }
 
   Future<void> addDownloadedFile(int fileId, String filePath) async {
@@ -435,8 +465,12 @@ class StorageService {
 
   Map<int, String> getActiveDownloads() {
     if (_data['active_downloads'] == null) return {};
-    final Map<String, dynamic> rawMap = Map<String, dynamic>.from(_data['active_downloads']);
-    return rawMap.map((key, value) => MapEntry(int.parse(key), value as String));
+    final Map<String, dynamic> rawMap = Map<String, dynamic>.from(
+      _data['active_downloads'],
+    );
+    return rawMap.map(
+      (key, value) => MapEntry(int.parse(key), value as String),
+    );
   }
 
   List<int> getActiveDownloadsOrder() {
@@ -452,14 +486,14 @@ class StorageService {
   Future<void> addActiveDownload(int fileId, String title) async {
     _data['active_downloads'] ??= <String, dynamic>{};
     _data['active_downloads'][fileId.toString()] = title;
-    
+
     _data['active_downloads_order'] ??= <dynamic>[];
     final order = List<int>.from(_data['active_downloads_order']);
     if (!order.contains(fileId)) {
       order.add(fileId);
       _data['active_downloads_order'] = order;
     }
-    
+
     await _save();
   }
 
@@ -467,13 +501,13 @@ class StorageService {
     if (_data['active_downloads'] != null) {
       _data['active_downloads'].remove(fileId.toString());
     }
-    
+
     if (_data['active_downloads_order'] != null) {
       final order = List<int>.from(_data['active_downloads_order']);
       order.remove(fileId);
       _data['active_downloads_order'] = order;
     }
-    
+
     await _save();
   }
 
@@ -509,7 +543,7 @@ class StorageService {
   }
 
   // --- Screen Brightness Memory ---
-  
+
   double getBrightness() {
     return (_data['brightness'] as num?)?.toDouble() ?? 0.7;
   }
@@ -586,7 +620,10 @@ class StorageService {
     return _data['sub_pref_by_audio_lang'][audioLang] as String?;
   }
 
-  Future<void> setPreferredSubtitleTrackForAudioLanguage(String audioLang, String? value) async {
+  Future<void> setPreferredSubtitleTrackForAudioLanguage(
+    String audioLang,
+    String? value,
+  ) async {
     _data['sub_pref_by_audio_lang'] ??= <String, dynamic>{};
     if (value == null) {
       _data['sub_pref_by_audio_lang'].remove(audioLang);
@@ -595,8 +632,6 @@ class StorageService {
     }
     await _save();
   }
-
-
 
   // --- MAL ID Cache ---
 
@@ -739,7 +774,9 @@ class StorageService {
   }
 
   String getSubtitleRenderer() {
-    return getVideoSettings()['subtitleRendererMode'] as String? ?? _data['subtitle_renderer'] as String? ?? 'flutter';
+    return getVideoSettings()['subtitleRendererMode'] as String? ??
+        _data['subtitle_renderer'] as String? ??
+        'flutter';
   }
 
   Future<void> setSubtitleRenderer(String value) async {
@@ -824,12 +861,15 @@ class StorageService {
     await _save();
   }
 
-  Future<void> unlinkTrackerForSeries(String seriesName, String trackerType) async {
+  Future<void> unlinkTrackerForSeries(
+    String seriesName,
+    String trackerType,
+  ) async {
     final cacheKey = trackerType == 'anilist'
         ? 'anilist_id_cache'
         : trackerType == 'mal'
-            ? 'mal_id_cache'
-            : 'trakt_id_cache';
+        ? 'mal_id_cache'
+        : 'trakt_id_cache';
     if (_data[cacheKey] != null) {
       (_data[cacheKey] as Map).remove(seriesName);
       await _save();
@@ -843,7 +883,9 @@ class StorageService {
 
   Future<void> addRecentNetworkStream(String url) async {
     _data['recent_network_streams'] ??= <dynamic>[];
-    final List<String> list = List<String>.from(_data['recent_network_streams']);
+    final List<String> list = List<String>.from(
+      _data['recent_network_streams'],
+    );
     list.remove(url);
     list.insert(0, url);
     if (list.length > 20) {
@@ -855,7 +897,9 @@ class StorageService {
 
   Future<void> removeRecentNetworkStream(String url) async {
     if (_data['recent_network_streams'] != null) {
-      final List<String> list = List<String>.from(_data['recent_network_streams']);
+      final List<String> list = List<String>.from(
+        _data['recent_network_streams'],
+      );
       list.remove(url);
       _data['recent_network_streams'] = list;
       await _save();
@@ -915,7 +959,9 @@ class FavoritesNotifier extends Notifier<List<String>> {
   }
 }
 
-final favoritesProvider = NotifierProvider<FavoritesNotifier, List<String>>(FavoritesNotifier.new);
+final favoritesProvider = NotifierProvider<FavoritesNotifier, List<String>>(
+  FavoritesNotifier.new,
+);
 
 class LastWatchedNotifier extends Notifier<Map<String, dynamic>?> {
   @override
@@ -924,7 +970,9 @@ class LastWatchedNotifier extends Notifier<Map<String, dynamic>?> {
   }
 
   void updateLastWatched(String seriesName, int messageId, int episodeIndex) {
-    ref.read(storageServiceProvider).setLastWatched(seriesName, messageId, episodeIndex);
+    ref
+        .read(storageServiceProvider)
+        .setLastWatched(seriesName, messageId, episodeIndex);
     state = {
       'seriesName': seriesName,
       'messageId': messageId,
@@ -933,7 +981,10 @@ class LastWatchedNotifier extends Notifier<Map<String, dynamic>?> {
   }
 }
 
-final lastWatchedProvider = NotifierProvider<LastWatchedNotifier, Map<String, dynamic>?>(LastWatchedNotifier.new);
+final lastWatchedProvider =
+    NotifierProvider<LastWatchedNotifier, Map<String, dynamic>?>(
+      LastWatchedNotifier.new,
+    );
 
 class DownloadedOnlyNotifier extends Notifier<bool> {
   @override
@@ -948,7 +999,9 @@ class DownloadedOnlyNotifier extends Notifier<bool> {
   }
 }
 
-final downloadedOnlyProvider = NotifierProvider<DownloadedOnlyNotifier, bool>(DownloadedOnlyNotifier.new);
+final downloadedOnlyProvider = NotifierProvider<DownloadedOnlyNotifier, bool>(
+  DownloadedOnlyNotifier.new,
+);
 
 class IncognitoModeNotifier extends Notifier<bool> {
   @override
@@ -963,7 +1016,9 @@ class IncognitoModeNotifier extends Notifier<bool> {
   }
 }
 
-final incognitoModeProvider = NotifierProvider<IncognitoModeNotifier, bool>(IncognitoModeNotifier.new);
+final incognitoModeProvider = NotifierProvider<IncognitoModeNotifier, bool>(
+  IncognitoModeNotifier.new,
+);
 
 class HistoryLogNotifier extends Notifier<List<Map<String, dynamic>>> {
   @override
@@ -991,6 +1046,12 @@ class HistoryLogNotifier extends Notifier<List<Map<String, dynamic>>> {
     state = storage.getHistoryLog();
   }
 
+  Future<void> removeFromHistory(int messageId) async {
+    final storage = ref.read(storageServiceProvider);
+    await storage.removeFromHistoryLog(messageId);
+    state = storage.getHistoryLog();
+  }
+
   Future<void> clearHistory() async {
     final storage = ref.read(storageServiceProvider);
     await storage.clearHistoryLog();
@@ -998,7 +1059,10 @@ class HistoryLogNotifier extends Notifier<List<Map<String, dynamic>>> {
   }
 }
 
-final historyLogProvider = NotifierProvider<HistoryLogNotifier, List<Map<String, dynamic>>>(HistoryLogNotifier.new);
+final historyLogProvider =
+    NotifierProvider<HistoryLogNotifier, List<Map<String, dynamic>>>(
+      HistoryLogNotifier.new,
+    );
 
 class RecentNetworkStreamsNotifier extends Notifier<List<String>> {
   @override
@@ -1019,7 +1083,10 @@ class RecentNetworkStreamsNotifier extends Notifier<List<String>> {
   }
 }
 
-final recentNetworkStreamsProvider = NotifierProvider<RecentNetworkStreamsNotifier, List<String>>(RecentNetworkStreamsNotifier.new);
+final recentNetworkStreamsProvider =
+    NotifierProvider<RecentNetworkStreamsNotifier, List<String>>(
+      RecentNetworkStreamsNotifier.new,
+    );
 
 class SearchHistoryNotifier extends Notifier<List<String>> {
   final String arg;
@@ -1063,6 +1130,7 @@ class SearchHistoryNotifier extends Notifier<List<String>> {
   }
 }
 
-final searchHistoryProvider = NotifierProvider.family<SearchHistoryNotifier, List<String>, String>(SearchHistoryNotifier.new);
-
-
+final searchHistoryProvider =
+    NotifierProvider.family<SearchHistoryNotifier, List<String>, String>(
+      SearchHistoryNotifier.new,
+    );
