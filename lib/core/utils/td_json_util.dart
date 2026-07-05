@@ -16,7 +16,12 @@ class TdJsonUtil {
           return item;
         }).toList();
       } else {
-        out[key] = value;
+        // Fix for TDLib dart package bug where int64 is serialized as int but expects String during fromJson
+        if (key == 'media_album_id' && value is int) {
+          out[key] = value.toString();
+        } else {
+          out[key] = value;
+        }
       }
     }
 
