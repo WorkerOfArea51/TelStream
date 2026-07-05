@@ -110,11 +110,6 @@ class PipController extends Notifier<PipVideoState?> {
       try {
         oldPlayer.stop();
       } catch (_) {}
-      Future.delayed(const Duration(milliseconds: 300), () {
-        try {
-          oldPlayer.dispose();
-        } catch (_) {}
-      });
     }
     _activePlayer = player;
   }
@@ -140,9 +135,6 @@ class PipController extends Notifier<PipVideoState?> {
     isTransitioning = true;
     final oldActivePlayer = _activePlayer;
     if (oldActivePlayer != null) {
-      try {
-        oldActivePlayer.dispose();
-      } catch (_) {}
       _activePlayer = null;
     }
 
@@ -150,6 +142,9 @@ class PipController extends Notifier<PipVideoState?> {
     int initialIndex = 0;
 
     if (episodeList != null && episodeList.isNotEmpty && currentEpisodeIndex != null) {
+      if (currentEpisodeIndex < 0 || currentEpisodeIndex >= episodeList.length) {
+        currentEpisodeIndex = 0;
+      }
       for (int i = 0; i < episodeList.length; i++) {
         final msg = episodeList[i];
         int? fileId;
@@ -226,9 +221,6 @@ class PipController extends Notifier<PipVideoState?> {
     final wasPip = currentState.isPip;
     final oldActivePlayer = _activePlayer;
     if (oldActivePlayer != null) {
-      try {
-        oldActivePlayer.dispose();
-      } catch (_) {}
       _activePlayer = null;
     }
 
@@ -345,11 +337,6 @@ class PipController extends Notifier<PipVideoState?> {
       try {
         playerToDispose.stop();
       } catch (_) {}
-      Future.delayed(const Duration(milliseconds: 300), () {
-        try {
-          playerToDispose.dispose();
-        } catch (_) {}
-      });
     }
   }
 }

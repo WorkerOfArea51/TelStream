@@ -83,6 +83,17 @@ class AuthController extends Notifier<AuthState> {
   void resetAuth() {
     _isResetting = true;
     initializeTdlib();
+    
+    // Fallback timeout in case TDLib hangs during close/reset
+    Future.delayed(const Duration(seconds: 4), () {
+      if (_isResetting) {
+        _isResetting = false;
+        if (state.step != AuthStep.waitingForNumber && state.step != AuthStep.authenticated) {
+          Log.w('TDLib reset timeout reached. Forcing re-initialization.');
+          initializeTdlib();
+        }
+      }
+    });
   }
 
   void _handleAuthStateChange(td.AuthorizationState authState) {

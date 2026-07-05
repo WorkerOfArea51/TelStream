@@ -54,6 +54,7 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
     try {
       final tdlib = ref.read(tdlibServiceProvider);
       final me = await tdlib.sendAsync(const td.GetMe());
+      if (!mounted) return;
       if (me is td.User) {
         setState(() {
           _currentUser = me;
@@ -76,6 +77,7 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
               limit: 0,
               synchronous: true,
             ));
+            if (!mounted) return;
             if (res is td.File && res.local.path.isNotEmpty) {
               setState(() {
                 _localPhotoPath = res.local.path;
@@ -97,6 +99,7 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
       }
     } catch (e) {
       debugPrint("Error loading telegram user: $e");
+      if (!mounted) return;
       setState(() {
         _isLoadingUser = false;
       });

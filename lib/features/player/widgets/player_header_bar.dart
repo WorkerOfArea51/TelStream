@@ -67,7 +67,7 @@ class PlayerHeaderBar extends StatelessWidget {
                   ),
                   const SizedBox(width: 16),
                 ],
-                const SizedBox(width: 16),
+                const SizedBox(width: 32),
                 // HW+ Decoder Mode Button
                 Material3ExpressiveContainer(
                   shape: ExpressiveShape.squircle,

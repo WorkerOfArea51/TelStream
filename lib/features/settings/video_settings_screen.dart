@@ -4,13 +4,19 @@ import 'settings_provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../../services/storage_service.dart';
 
-class VideoSettingsScreen extends ConsumerWidget {
+class VideoSettingsScreen extends ConsumerStatefulWidget {
   const VideoSettingsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<VideoSettingsScreen> createState() => _VideoSettingsScreenState();
+}
+
+class _VideoSettingsScreenState extends ConsumerState<VideoSettingsScreen> {
+  @override
+  Widget build(BuildContext context) {
     final settings = ref.watch(videoSettingsProvider);
     final notifier = ref.read(videoSettingsProvider.notifier);
+    final storage = ref.watch(storageServiceProvider);
 
     final theme = Theme.of(context);
     final customTheme = theme.extension<AppThemeExtension>();
@@ -327,9 +333,9 @@ class VideoSettingsScreen extends ConsumerWidget {
                 ListTile(
                   title: Text('OpenSubtitles API Key', style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
                   subtitle: Text(
-                    settings.openSubtitlesApiKey.isEmpty
+                    storage.getOpenSubtitlesApiKey().isEmpty
                         ? 'Not configured (Search will be public/limited)'
-                        : '••••••••${settings.openSubtitlesApiKey.length > 4 ? settings.openSubtitlesApiKey.substring(settings.openSubtitlesApiKey.length - 4) : ""}',
+                        : '••••••••${storage.getOpenSubtitlesApiKey().length > 4 ? storage.getOpenSubtitlesApiKey().substring(storage.getOpenSubtitlesApiKey().length - 4) : ""}',
                     style: TextStyle(color: isDark ? Colors.white54 : Colors.black54, fontSize: 12),
                   ),
                   trailing: const Icon(Icons.edit, size: 20),
@@ -338,10 +344,11 @@ class VideoSettingsScreen extends ConsumerWidget {
                       context,
                       'OpenSubtitles API Key',
                       'Enter your OpenSubtitles REST API key:',
-                      settings.openSubtitlesApiKey,
+                      storage.getOpenSubtitlesApiKey(),
                     );
                     if (newKey != null) {
-                      notifier.updateSettings(settings.copyWith(openSubtitlesApiKey: newKey));
+                      await storage.setOpenSubtitlesApiKey(newKey);
+                      setState(() {});
                     }
                   },
                 ),
@@ -349,9 +356,9 @@ class VideoSettingsScreen extends ConsumerWidget {
                 ListTile(
                   title: Text('SubDL API Key', style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
                   subtitle: Text(
-                    settings.subdlApiKey.isEmpty
+                    storage.getSubdlApiKey().isEmpty
                         ? 'Not configured (Required for SubDL search)'
-                        : '••••••••${settings.subdlApiKey.length > 4 ? settings.subdlApiKey.substring(settings.subdlApiKey.length - 4) : ""}',
+                        : '••••••••${storage.getSubdlApiKey().length > 4 ? storage.getSubdlApiKey().substring(storage.getSubdlApiKey().length - 4) : ""}',
                     style: TextStyle(color: isDark ? Colors.white54 : Colors.black54, fontSize: 12),
                   ),
                   trailing: const Icon(Icons.edit, size: 20),
@@ -360,10 +367,11 @@ class VideoSettingsScreen extends ConsumerWidget {
                       context,
                       'SubDL API Key',
                       'Enter your SubDL API key:',
-                      settings.subdlApiKey,
+                      storage.getSubdlApiKey(),
                     );
                     if (newKey != null) {
-                      notifier.updateSettings(settings.copyWith(subdlApiKey: newKey));
+                      await storage.setSubdlApiKey(newKey);
+                      setState(() {});
                     }
                   },
                 ),

@@ -31,8 +31,6 @@ class VideoSettings {
   final String animeLayout;
   final String moviesLayout;
   final String webSeriesLayout;
-  final String openSubtitlesApiKey;
-  final String subdlApiKey;
   final String preferredSubtitleProvider;
   final String customMpvOptions;
   final bool showStatsForNerds;
@@ -77,8 +75,6 @@ class VideoSettings {
     this.animeLayout = 'Grid',
     this.moviesLayout = 'Grid',
     this.webSeriesLayout = 'Grid',
-    this.openSubtitlesApiKey = '',
-    this.subdlApiKey = '',
     this.preferredSubtitleProvider = 'opensubtitles',
     this.customMpvOptions = '',
     this.showStatsForNerds = false,
@@ -150,8 +146,6 @@ class VideoSettings {
     String? animeLayout,
     String? moviesLayout,
     String? webSeriesLayout,
-    String? openSubtitlesApiKey,
-    String? subdlApiKey,
     String? preferredSubtitleProvider,
     String? customMpvOptions,
     bool? showStatsForNerds,
@@ -196,8 +190,6 @@ class VideoSettings {
       animeLayout: animeLayout ?? this.animeLayout,
       moviesLayout: moviesLayout ?? this.moviesLayout,
       webSeriesLayout: webSeriesLayout ?? this.webSeriesLayout,
-      openSubtitlesApiKey: openSubtitlesApiKey ?? this.openSubtitlesApiKey,
-      subdlApiKey: subdlApiKey ?? this.subdlApiKey,
       preferredSubtitleProvider: preferredSubtitleProvider ?? this.preferredSubtitleProvider,
       customMpvOptions: customMpvOptions ?? this.customMpvOptions,
       showStatsForNerds: showStatsForNerds ?? this.showStatsForNerds,
@@ -245,8 +237,6 @@ class VideoSettings {
       'animeLayout': animeLayout,
       'moviesLayout': moviesLayout,
       'webSeriesLayout': webSeriesLayout,
-      'openSubtitlesApiKey': openSubtitlesApiKey,
-      'subdlApiKey': subdlApiKey,
       'preferredSubtitleProvider': preferredSubtitleProvider,
       'customMpvOptions': customMpvOptions,
       'showStatsForNerds': showStatsForNerds,
@@ -294,8 +284,6 @@ class VideoSettings {
       animeLayout: json['animeLayout'] ?? json['libraryLayout'] ?? 'Grid',
       moviesLayout: json['moviesLayout'] ?? json['libraryLayout'] ?? 'Grid',
       webSeriesLayout: json['webSeriesLayout'] ?? json['libraryLayout'] ?? 'Grid',
-      openSubtitlesApiKey: json['openSubtitlesApiKey'] ?? '',
-      subdlApiKey: json['subdlApiKey'] ?? '',
       preferredSubtitleProvider: json['preferredSubtitleProvider'] ?? 'opensubtitles',
       customMpvOptions: json['customMpvOptions'] ?? '',
       showStatsForNerds: json['showStatsForNerds'] ?? false,

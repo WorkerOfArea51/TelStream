@@ -101,8 +101,11 @@ class MetadataService {
 
     try {
       // Step 1: Find TMDB ID from IMDB ID
-      final findUrl = Uri.parse('$_tmdbBaseUrl/find/$imdbId?external_source=imdb_id&api_key=${Constants.tmdbApiKey}');
-      final findRes = await http.get(findUrl);
+      final findUrl = Uri.parse('$_tmdbBaseUrl/find/$imdbId?external_source=imdb_id');
+      final findRes = await http.get(
+        findUrl,
+        headers: {'Authorization': 'Bearer ${Constants.tmdbApiKey}', 'Accept': 'application/json'},
+      );
       if (findRes.statusCode != 200) return null;
 
       final findData = jsonDecode(findRes.body);
@@ -121,8 +124,11 @@ class MetadataService {
 
       // Step 2: Fetch full details including videos and credits
       final type = isMovie ? 'movie' : 'tv';
-      final detailsUrl = Uri.parse('$_tmdbBaseUrl/$type/$tmdbId?api_key=${Constants.tmdbApiKey}&append_to_response=videos,credits,content_ratings,release_dates,recommendations');
-      final detailsRes = await http.get(detailsUrl);
+      final detailsUrl = Uri.parse('$_tmdbBaseUrl/$type/$tmdbId?append_to_response=videos,credits,content_ratings,release_dates,recommendations');
+      final detailsRes = await http.get(
+        detailsUrl,
+        headers: {'Authorization': 'Bearer ${Constants.tmdbApiKey}', 'Accept': 'application/json'},
+      );
       if (detailsRes.statusCode != 200) return null;
 
       final data = jsonDecode(detailsRes.body);

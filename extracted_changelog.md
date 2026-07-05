@@ -24,6 +24,14 @@ This release is a massive stability and security update, fixing over 200 issues 
 * **Storage Writes Throttling**: Reduced the Video Player's auto-save frequency from 10s to 30s and suspended writes while paused to reduce battery and disk usage.
 * **Startup Stability**: The root `runApp` has been safely moved outside the `try` block to guarantee a visible error screen on fatal init failure.
 
+#### 🎨 UI & UX Refinements
+* **Core Insider Links**: Fixed the hero slider so external Telegram announcement links open properly instead of crashing the series details screen.
+* **Tab Synchronization**: Fixed a bug where toggling between the "More Details" and "Episodes" tabs would reset your selected season back to Season 1.
+* **Season Consistency**: Forced season selection tabs to appear for all shows (including movies) for a consistent layout.
+* **Library Interface**: Refactored the library by removing the bulky "Favorites" tab and placing marked items neatly into a 3-dot overflow menu.
+* **Cleaner Episode Lists**: Removed the gigantic, redundant "Play/Resume" button from the top of episode lists to reduce clutter.
+* **Player Ergonomics**: Added wider touch padding and spacing around the hardware decoder (HW+) toggle in the video player.
+
 ---
 
 ### 🛠️ Build Information

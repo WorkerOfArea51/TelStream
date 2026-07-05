@@ -62,8 +62,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
   bool _isInitializing = true;
   bool _initialTrackSelectionDone = false;
 
-  StreamSubscription? _tracksSubscription;
-  StreamSubscription? _bufferingSubscription;
+  final List<StreamSubscription> _subscriptions = [];
   Timer? _saveTimer;
   bool _nextEpisodePreloaded = false;
   Timer? _preloadCooldownTimer;
@@ -248,11 +247,13 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
           durSub = player.stream.duration.listen((dur) {
             if (dur.inSeconds > 0) {
               durSub.cancel();
+              _subscriptions.remove(durSub);
               if (mounted) {
                 performRobustStartupSeek();
               }
             }
           });
+          _subscriptions.add(durSub);
         }
       } else {
         if (mounted) {
@@ -587,8 +588,10 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
     // Redundant pause/stop removed to prevent race conditions during player disposal
 
     _updatesSubscription?.cancel();
-    _tracksSubscription?.cancel();
-    _bufferingSubscription?.cancel();
+    for (final sub in _subscriptions) {
+      sub.cancel();
+    }
+    _subscriptions.clear();
     _saveTimer?.cancel();
     _preloadCooldownTimer?.cancel();
     
@@ -1051,10 +1054,12 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
       setState(() {
         _isInitializing = true;
         _isPlaying = false;
+        _updatesSubscription?.cancel();
+        for (final sub in _subscriptions) {
+          sub.cancel();
+        }
+        _subscriptions.clear();
       });
-
-      _tracksSubscription?.cancel();
-      _bufferingSubscription?.cancel();
       
       _pipController.clearActivePlayer(player);
       
@@ -1292,10 +1297,8 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
   }
 
   void _setupPlayerListeners() {
-    _tracksSubscription?.cancel();
-    _bufferingSubscription?.cancel();
 
-    player.stream.playing.listen((playing) {
+    _subscriptions.add(player.stream.playing.listen((playing) {
       if (playing) {
         if (!widget.isPip) WakelockPlus.enable();
       } else {
@@ -1305,9 +1308,9 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
           }
         });
       }
-    });
+    }));
 
-    _tracksSubscription = player.stream.tracks.listen((tracks) {
+    _subscriptions.add(player.stream.tracks.listen((tracks) {
       if (tracks.audio.isEmpty && tracks.subtitle.isEmpty) return;
       if (_initialTrackSelectionDone) return;
       _initialTrackSelectionDone = true;
@@ -1328,11 +1331,9 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
       }
 
       // Apply audio track if resolved and not already set
-      if (targetAudioTrack != null) {
-        if (player.state.track.audio != targetAudioTrack) {
-          player.setAudioTrack(targetAudioTrack);
-          Log.i('Automatically applied preferred audio track: ${targetAudioTrack.language ?? targetAudioTrack.title ?? targetAudioTrack.id}');
-        }
+      if (targetAudioTrack != null && player.state.track.audio != targetAudioTrack) {
+        player.setAudioTrack(targetAudioTrack);
+        Log.i('Auto-selected preferred audio track: ${targetAudioTrack.title ?? targetAudioTrack.language ?? targetAudioTrack.id}');
       } else {
         targetAudioTrack = player.state.track.audio;
       }
@@ -1426,9 +1427,9 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
 
       // Update blend-subtitles based on selected track codec
       _updateBlendSubtitlesForTrack(player, selectedTrack ?? player.state.track.subtitle);
-    });
+    }));
 
-    _bufferingSubscription = player.stream.buffering.listen((buffering) {
+    _subscriptions.add(player.stream.buffering.listen((buffering) {
       if (mounted) {
         setState(() {
           _isBuffering = buffering;
@@ -1439,7 +1440,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
       if (buffering && _nextEpisodePreloaded) {
         _cancelPreloadOfNextEpisode();
       }
-    });
+    }));
   }
 
   void _updateAudioFilters() {

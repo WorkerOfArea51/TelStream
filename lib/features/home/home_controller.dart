@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/foundation.dart';
 import 'package:tdlib/td_api.dart' as td;
 import '../../core/constants.dart';
 import '../../core/secrets.dart';
@@ -74,9 +75,9 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
 
     final tdlibService = ref.watch(tdlibServiceProvider);
     
-    ref.listen(favoritesProvider, (previous, next) {
+    ref.listen(favoritesProvider, (previous, next) async {
       if (_showFavoritesOnly && state.value != null) {
-        state = AsyncValue.data(_applySearchAndSort(_allSeries));
+        if (!_isDisposed) state = AsyncValue.data(await _applySearchAndSort(_allSeries));
       }
     });
 
@@ -90,7 +91,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
               _rawMessageIds.add(event.message.id);
               _allSeries = _parseMessages(_rawMessages);
               if (state.value != null) {
-                state = AsyncValue.data(_applySearchAndSort(_allSeries));
+                if (!_isDisposed) state = AsyncValue.data(await _applySearchAndSort(_allSeries));
               }
               _triggerReleaseYearsSync();
               if (_cacheLoadComplete) {
@@ -122,7 +123,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
             if (changed) {
               _allSeries = _parseMessages(_rawMessages);
               if (state.value != null) {
-                state = AsyncValue.data(_applySearchAndSort(_allSeries));
+                if (!_isDisposed) state = AsyncValue.data(await _applySearchAndSort(_allSeries));
               }
               if (_cacheLoadComplete) {
                 _saveCatalogCache();
@@ -159,17 +160,17 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
     }
   }
 
-  void setSortOrder(SortOrder order) {
+  void setSortOrder(SortOrder order) async {
     _sortOrder = order;
     if (state.value != null) {
-      state = AsyncValue.data(_applySearchAndSort(_allSeries));
+      if (!_isDisposed) state = AsyncValue.data(await _applySearchAndSort(_allSeries));
     }
   }
 
-  void toggleFavoritesFilter() {
+  void toggleFavoritesFilter() async {
     _showFavoritesOnly = !_showFavoritesOnly;
     if (state.value != null) {
-      state = AsyncValue.data(_applySearchAndSort(_allSeries));
+      if (!_isDisposed) state = AsyncValue.data(await _applySearchAndSort(_allSeries));
     }
   }
 
@@ -178,7 +179,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
     _currentQuery = query;
     
     if (state.value != null || _allSeries.isNotEmpty) {
-      state = AsyncValue.data(_applySearchAndSort(_allSeries));
+      if (!_isDisposed) state = AsyncValue.data(await _applySearchAndSort(_allSeries));
     }
   }
 
@@ -223,7 +224,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
           if (changed) {
             _rawMessages.sort((a, b) => b.id.compareTo(a.id));
             _allSeries = _parseMessages(_rawMessages);
-            state = AsyncValue.data(_applySearchAndSort(_allSeries));
+            if (!_isDisposed) state = AsyncValue.data(await _applySearchAndSort(_allSeries));
             _triggerReleaseYearsSync();
           }
         });
@@ -274,7 +275,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
         _cacheLoadComplete = true; // Cache loading completes the full load, subsequent sync starts incremental
         _hasMore = false; // Prevent UI from calling loadMore() on startup
         Log.i('Loaded ${cachedList.length} series from catalog cache for category ${category.title} instantly');
-        return _applySearchAndSort(_allSeries);
+        return await _applySearchAndSort(_allSeries);
       }
     } catch (e, stack) {
       Log.e('Failed to load catalog cache for ${category.title}, falling back to TDLib local DB load', e, stack);
@@ -351,7 +352,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
     _allSeries = _parseMessages(_rawMessages);
     _cacheLoadComplete = !_hasMore;
     Log.i('[_fetchInitial] Completed for category: ${category.title}, found ${_allSeries.length} series');
-    return _applySearchAndSort(_allSeries);
+    return await _applySearchAndSort(_allSeries);
   }
 
   Future<void> _saveCatalogCache() async {
@@ -453,7 +454,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
               if (isNearEnd || now.difference(lastUiUpdateTime) > const Duration(milliseconds: 1500)) {
                 _rawMessages.sort((a, b) => b.id.compareTo(a.id));
                 _allSeries = _parseMessages(_rawMessages);
-                state = AsyncValue.data(_applySearchAndSort(_allSeries));
+                if (!_isDisposed) state = AsyncValue.data(await _applySearchAndSort(_allSeries));
                 _triggerReleaseYearsSync();
                 if (_cacheLoadComplete) {
                   _saveCatalogCache();
@@ -483,7 +484,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
       if (changed) {
         _rawMessages.sort((a, b) => b.id.compareTo(a.id));
         _allSeries = _parseMessages(_rawMessages);
-        state = AsyncValue.data(_applySearchAndSort(_allSeries));
+        if (!_isDisposed) state = AsyncValue.data(await _applySearchAndSort(_allSeries));
         _triggerReleaseYearsSync();
       }
 
@@ -753,8 +754,8 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
     return _parseMessages(raw);
   }
 
-  List<AnimeSeries> applySearchAndSortForTesting(List<AnimeSeries> list) {
-    return _applySearchAndSort(list);
+  Future<List<AnimeSeries>> applySearchAndSortForTesting(List<AnimeSeries> list) async {
+    return await _applySearchAndSort(list);
   }
 
   List<AnimeSeries> _parseMessages(List<td.Message> raw) {
@@ -961,123 +962,30 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
     return 9999;
   }
   
-  List<AnimeSeries> _applySearchAndSort(List<AnimeSeries> list) {
+  Future<List<AnimeSeries>> _applySearchAndSort(List<AnimeSeries> list) async {
     final StorageService storage = testStorage ?? ref.read(storageServiceProvider);
+    final favs = storage.getFavorites();
+    final releaseYears = <String, int>{};
     
-    // 0. Apply Favorites Filter
-    List<AnimeSeries> favoritesFiltered = list;
-    if (_showFavoritesOnly) {
-      final favs = storage.getFavorites();
-      favoritesFiltered = list.where((s) => favs.contains(s.coreName)).toList();
-    }
-
-    // 1. Apply Search Filter
-    List<AnimeSeries> filtered = favoritesFiltered;
-    if (_currentQuery.isNotEmpty) {
-      final queryWords = _currentQuery.toLowerCase().split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
-      
-      filtered = favoritesFiltered.where((series) {
-        final seriesName = series.coreName.toLowerCase();
-        final seasonNames = series.seasons.map((s) => s.fullTitle.toLowerCase()).join(' ');
-        final releaseYears = series.seasons
-            .map((s) => s.getReleaseYear(storage))
-            .where((y) => y != null && y > 0)
-            .join(' ');
-        final fullText = '$seriesName $seasonNames $releaseYears';
-        
-        final textWords = fullText.split(RegExp(r'[^a-z0-9]+')).where((w) => w.isNotEmpty).toList();
-        
-        bool allWordsMatch = true;
-        for (var qw in queryWords) {
-          bool wordFound = false;
-          for (var tw in textWords) {
-            if (tw.startsWith(qw) || tw.contains(qw)) {
-              wordFound = true;
-              break;
-            }
-            // Fuzzy match (Levenshtein) for typos (e.g. deliusion -> delusion)
-            if (qw.length > 4 && tw.length > 4) {
-              if (_levenshtein(qw, tw) <= 2) {
-                wordFound = true;
-                break;
-              }
-            }
-          }
-          if (!wordFound) {
-            allWordsMatch = false;
-            break;
-          }
-        }
-        
-        return allWordsMatch;
-      }).toList();
-    }
-
-    List<AnimeSeries> sorted = List.from(filtered);
-
-    // 3. Apply Sorting
-    switch (_sortOrder) {
-      case SortOrder.aToZ:
-        sorted.sort((a, b) => a.coreName.compareTo(b.coreName));
-        break;
-      case SortOrder.zToA:
-        sorted.sort((a, b) => b.coreName.compareTo(a.coreName));
-        break;
-      case SortOrder.newest:
-        sorted.sort((a, b) {
-          final idA = a.seasons.isNotEmpty ? a.seasons.last.posterMessage.id : 0;
-          final idB = b.seasons.isNotEmpty ? b.seasons.last.posterMessage.id : 0;
-          return idB.compareTo(idA); // Newest/highest poster message ID first
-        });
-        break;
-      case SortOrder.oldest:
-        sorted.sort((a, b) {
-          final idA = a.seasons.isNotEmpty ? a.seasons.first.posterMessage.id : 0;
-          final idB = b.seasons.isNotEmpty ? b.seasons.first.posterMessage.id : 0;
-          return idA.compareTo(idB); // Oldest/lowest poster message ID first
-        });
-        break;
-    }
-
-    // 4. Sort seasons within each series strictly chronologically by their Telegram message ID ascending (older/earlier posts first)
-    // Exception: For Naruto, sort by season number ascending to correct accidental out-of-order uploads.
-    for (var series in sorted) {
-      final key = series.coreName.toLowerCase().replaceAll(RegExp(r'[^a-zA-Z0-9]'), '');
-      if (key == 'naruto') {
-        series.seasons.sort((a, b) {
-          final keyA = SeasonSortKey.fromSeason(a, storage);
-          final keyB = SeasonSortKey.fromSeason(b, storage);
-          int cmp = keyA.seasonNum.compareTo(keyB.seasonNum);
-          if (cmp != 0) return cmp;
-          cmp = keyA.partNum.compareTo(keyB.partNum);
-          if (cmp != 0) return cmp;
-          return keyA.messageId.compareTo(keyB.messageId);
-        });
-      } else {
-        series.seasons.sort((a, b) => a.posterMessage.id.compareTo(b.posterMessage.id));
+    for (final s in list) {
+      for (final season in s.seasons) {
+        releaseYears[season.fullTitle] = season.getReleaseYear(storage) ?? 0;
       }
     }
     
-    return sorted;
+    final payload = _SearchPayload(
+      list: list,
+      currentQuery: _currentQuery,
+      sortOrder: _sortOrder,
+      favorites: favs.toSet(),
+      showFavoritesOnly: _showFavoritesOnly,
+      releaseYears: releaseYears,
+    );
+    
+    return await compute(_computeSearchAndSortIsolate, payload);
   }
 
-  int _levenshtein(String a, String b) {
-    if (a.isEmpty) return b.length;
-    if (b.isEmpty) return a.length;
-    List<int> v0 = List.generate(b.length + 1, (i) => i);
-    List<int> v1 = List.filled(b.length + 1, 0);
-    for (int i = 0; i < a.length; i++) {
-      v1[0] = i + 1;
-      for (int j = 0; j < b.length; j++) {
-        int cost = (a[i] == b[j]) ? 0 : 1;
-        v1[j + 1] = [v1[j] + 1, v0[j + 1] + 1, v0[j] + cost].reduce((min, val) => val < min ? val : min);
-      }
-      for (int j = 0; j <= b.length; j++) {
-        v0[j] = v1[j];
-      }
-    }
-    return v1[b.length];
-  }
+
 
   void _triggerReleaseYearsSync() {
     _releaseYearsTimer?.cancel();
@@ -1149,7 +1057,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
           updateCount++;
           if (updateCount % 4 == 0 || season == seasonsToFetch.last) {
             if (state.value != null && !_isDisposed) {
-              state = AsyncValue.data(_applySearchAndSort(_allSeries));
+              if (!_isDisposed) state = AsyncValue.data(await _applySearchAndSort(_allSeries));
             }
           }
         }
@@ -1338,7 +1246,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
           _rawMessages[idx] = res;
           _allSeries = _parseMessages(_rawMessages);
           if (state.value != null) {
-            state = AsyncValue.data(_applySearchAndSort(_allSeries));
+            if (!_isDisposed) state = AsyncValue.data(await _applySearchAndSort(_allSeries));
           }
           if (_cacheLoadComplete) {
             _saveCatalogCache();
@@ -1497,5 +1405,132 @@ class SeasonSortKey implements Comparable<SeasonSortKey> {
   int compareTo(SeasonSortKey other) {
     return messageId.compareTo(other.messageId);
   }
+}
+
+class _SearchPayload {
+  final List<AnimeSeries> list;
+  final String currentQuery;
+  final SortOrder sortOrder;
+  final Set<String> favorites;
+  final bool showFavoritesOnly;
+  final Map<String, int> releaseYears;
+
+  _SearchPayload({
+    required this.list,
+    required this.currentQuery,
+    required this.sortOrder,
+    required this.favorites,
+    required this.showFavoritesOnly,
+    required this.releaseYears,
+  });
+}
+
+int _levenshtein(String a, String b) {
+  if (a.isEmpty) return b.length;
+  if (b.isEmpty) return a.length;
+  List<int> v0 = List.generate(b.length + 1, (i) => i);
+  List<int> v1 = List.filled(b.length + 1, 0);
+  for (int i = 0; i < a.length; i++) {
+    v1[0] = i + 1;
+    for (int j = 0; j < b.length; j++) {
+      int cost = (a[i] == b[j]) ? 0 : 1;
+      v1[j + 1] = [v1[j] + 1, v0[j + 1] + 1, v0[j] + cost].reduce((min, val) => val < min ? val : min);
+    }
+    for (int j = 0; j <= b.length; j++) {
+      v0[j] = v1[j];
+    }
+  }
+  return v1[b.length];
+}
+
+List<AnimeSeries> _computeSearchAndSortIsolate(_SearchPayload payload) {
+  List<AnimeSeries> favoritesFiltered = payload.list;
+  if (payload.showFavoritesOnly) {
+    favoritesFiltered = payload.list.where((s) => payload.favorites.contains(s.coreName)).toList();
+  }
+
+  List<AnimeSeries> filtered = favoritesFiltered;
+  if (payload.currentQuery.isNotEmpty) {
+    final queryWords = payload.currentQuery.toLowerCase().split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
+    
+    filtered = favoritesFiltered.where((series) {
+      final seriesName = series.coreName.toLowerCase();
+      final seasonNames = series.seasons.map((s) => s.fullTitle.toLowerCase()).join(' ');
+      final releaseYears = series.seasons
+          .map((s) => payload.releaseYears[s.fullTitle])
+          .where((y) => y != null && y > 0)
+          .join(' ');
+      final fullText = '$seriesName $seasonNames $releaseYears';
+      
+      final textWords = fullText.split(RegExp(r'[^a-z0-9]+')).where((w) => w.isNotEmpty).toList();
+      
+      bool allWordsMatch = true;
+      for (var qw in queryWords) {
+        bool wordFound = false;
+        for (var tw in textWords) {
+          if (tw.startsWith(qw) || tw.contains(qw)) {
+            wordFound = true;
+            break;
+          }
+          if (qw.length > 4 && tw.length > 4) {
+            if (_levenshtein(qw, tw) <= 2) {
+              wordFound = true;
+              break;
+            }
+          }
+        }
+        if (!wordFound) {
+          allWordsMatch = false;
+          break;
+        }
+      }
+      return allWordsMatch;
+    }).toList();
+  }
+
+  List<AnimeSeries> sorted = List.from(filtered);
+
+  switch (payload.sortOrder) {
+    case SortOrder.aToZ:
+      sorted.sort((a, b) => a.coreName.compareTo(b.coreName));
+      break;
+    case SortOrder.zToA:
+      sorted.sort((a, b) => b.coreName.compareTo(a.coreName));
+      break;
+    case SortOrder.newest:
+      sorted.sort((a, b) {
+        final idA = a.seasons.isNotEmpty ? a.seasons.last.posterMessage.id : 0;
+        final idB = b.seasons.isNotEmpty ? b.seasons.last.posterMessage.id : 0;
+        return idB.compareTo(idA);
+      });
+      break;
+    case SortOrder.oldest:
+      sorted.sort((a, b) {
+        final idA = a.seasons.isNotEmpty ? a.seasons.first.posterMessage.id : 0;
+        final idB = b.seasons.isNotEmpty ? b.seasons.first.posterMessage.id : 0;
+        return idA.compareTo(idB);
+      });
+      break;
+  }
+
+  for (var series in sorted) {
+    final key = series.coreName.toLowerCase().replaceAll(RegExp(r'[^a-zA-Z0-9]'), '');
+    if (key == 'naruto') {
+      series.seasons.sort((a, b) {
+        // Can't use storage in isolate, so use basic parsing
+        final matchA = RegExp(r'(?i)season\s*(\d+)').firstMatch(a.seasonName);
+        final matchB = RegExp(r'(?i)season\s*(\d+)').firstMatch(b.seasonName);
+        final sA = matchA != null ? (int.tryParse(matchA.group(1)!) ?? 0) : 0;
+        final sB = matchB != null ? (int.tryParse(matchB.group(1)!) ?? 0) : 0;
+        int cmp = sA.compareTo(sB);
+        if (cmp != 0) return cmp;
+        return a.posterMessage.id.compareTo(b.posterMessage.id);
+      });
+    } else {
+      series.seasons.sort((a, b) => a.posterMessage.id.compareTo(b.posterMessage.id));
+    }
+  }
+
+  return sorted;
 }
 

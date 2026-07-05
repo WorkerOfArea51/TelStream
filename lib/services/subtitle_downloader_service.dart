@@ -32,11 +32,12 @@ class SubtitleDownloaderService {
   Future<List<SubtitleMatch>> searchSubtitles(String query, {String lang = 'eng'}) async {
     final settings = _ref.read(videoSettingsProvider);
     final provider = settings.preferredSubtitleProvider;
+    final storage = _ref.read(storageServiceProvider);
 
     if (provider == 'subdl') {
-      return _searchSubDL(query, lang: lang, apiKey: settings.subdlApiKey);
+      return _searchSubDL(query, lang: lang, apiKey: storage.getSubdlApiKey());
     } else {
-      return _searchOpenSubtitles(query, lang: lang, apiKey: settings.openSubtitlesApiKey);
+      return _searchOpenSubtitles(query, lang: lang, apiKey: storage.getOpenSubtitlesApiKey());
     }
   }
 
@@ -172,6 +173,7 @@ class SubtitleDownloaderService {
   Future<String?> downloadSubtitle(String downloadUrl, String fileName, {String? subtitleId}) async {
     try {
       final settings = _ref.read(videoSettingsProvider);
+      final storage = _ref.read(storageServiceProvider);
       final provider = settings.preferredSubtitleProvider;
       
       List<int> bytes;
@@ -188,8 +190,9 @@ class SubtitleDownloaderService {
           'Content-Type': 'application/json',
           'User-Agent': 'TelStream v2.7.0',
         };
-        if (settings.openSubtitlesApiKey.isNotEmpty) {
-          headers['Api-Key'] = settings.openSubtitlesApiKey;
+        final openSubtitlesKey = storage.getOpenSubtitlesApiKey();
+        if (openSubtitlesKey.isNotEmpty) {
+          headers['Api-Key'] = openSubtitlesKey;
         }
 
         final downloadLinkResponse = await http.post(
@@ -237,8 +240,13 @@ class SubtitleDownloaderService {
       }
 
       List<int> decodedBytes = bytes;
+      const maxDecompressedBytes = 50 * 1024 * 1024; // 50 MB hard cap
+
       if (downloadUrl.endsWith('.gz') || (bytes.length > 2 && bytes[0] == 0x1f && bytes[1] == 0x8b)) {
         decodedBytes = gzip.decode(bytes);
+        if (decodedBytes.length > maxDecompressedBytes) {
+          throw const HttpException('Decompressed GZIP size exceeds 50MB limit.');
+        }
       }
 
       if (downloadUrl.endsWith('.zip') || (bytes.length > 4 && bytes[0] == 0x50 && bytes[1] == 0x4B && bytes[2] == 0x03 && bytes[3] == 0x04)) {
@@ -246,7 +254,16 @@ class SubtitleDownloaderService {
         bool found = false;
         for (final file in archive) {
           if (file.isFile && (file.name.endsWith('.srt') || file.name.endsWith('.vtt') || file.name.endsWith('.ass'))) {
-            decodedBytes = file.content as List<int>;
+            if (file.size > maxDecompressedBytes) {
+              Log.w('Skipping oversized subtitle entry: ${file.name} (${file.size} bytes)');
+              continue;
+            }
+            final content = file.content as List<int>;
+            if (content.length > maxDecompressedBytes) {
+              Log.w('Decompressed entry exceeds cap: ${file.name}');
+              continue;
+            }
+            decodedBytes = content;
             fileName = file.name;
             found = true;
             break;
@@ -265,7 +282,8 @@ class SubtitleDownloaderService {
       return file.path;
       
     } catch (e) {
-      Log.e('Failed to download subtitle from $downloadUrl', e);
+      final safeUrl = Uri.tryParse(downloadUrl)?.replace(query: '').toString() ?? 'unknown_url';
+      Log.e('Failed to download subtitle from $safeUrl', e);
       rethrow;
     }
   }

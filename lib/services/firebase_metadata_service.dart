@@ -25,24 +25,25 @@ class FirebaseMetadataService {
       
       if (response.statusCode == 200 && response.body != 'null') {
         final Map<String, dynamic> data = json.decode(response.body);
-        _cache.clear();
+        final Map<String, String> newCache = {};
         
         data.forEach((key, value) {
           if (value is Map<String, dynamic>) {
             // Check if this is a Category node containing encoded keys
             value.forEach((subKey, subValue) {
               if (subValue is Map<String, dynamic> && subValue.containsKey('id')) {
-                _cache[_decodeKey(subKey)] = subValue['id'].toString();
+                newCache[_decodeKey(subKey)] = subValue['id'].toString();
               } else {
-                _cache[_decodeKey(subKey)] = subValue.toString();
+                newCache[_decodeKey(subKey)] = subValue.toString();
               }
             });
           } else {
             // Legacy flat structure
-            _cache[_decodeKey(key)] = value.toString();
+            newCache[_decodeKey(key)] = value.toString();
           }
         });
         
+        _cache = newCache;
         Log.i('Successfully loaded ${_cache.length} metadata overrides from Firebase.');
       } else {
         Log.i('Firebase metadata is empty or returned status: ${response.statusCode}');

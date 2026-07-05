@@ -4,7 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
-import 'package:path_provider/path_provider.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/logger.dart';
 
@@ -266,7 +266,7 @@ class _AiringCalendarTab extends ConsumerWidget {
                         ? CachedNetworkImage(
                             imageUrl: imageUrl,
                             fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) {
+                            errorWidget: (context, url, error) {
                               return Container(
                                 color: Colors.grey.shade900,
                                 child: Icon(Icons.movie, color: settingsAccent, size: 40),
@@ -427,113 +427,3 @@ class _AiringCalendarTab extends ConsumerWidget {
   }
 }
 
-class CachedNetworkImage extends StatefulWidget {
-  final String imageUrl;
-  final BoxFit fit;
-  final Widget Function(BuildContext, Object, StackTrace?)? errorBuilder;
-  final Widget? loadingBuilder;
-
-  const CachedNetworkImage({
-    super.key,
-    required this.imageUrl,
-    this.fit = BoxFit.cover,
-    this.errorBuilder,
-    this.loadingBuilder,
-  });
-
-  @override
-  State<CachedNetworkImage> createState() => _CachedNetworkImageState();
-}
-
-class _CachedNetworkImageState extends State<CachedNetworkImage> {
-  File? _localFile;
-  bool _isLoading = true;
-  bool _hasError = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadImage();
-  }
-
-  @override
-  void didUpdateWidget(CachedNetworkImage oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.imageUrl != widget.imageUrl) {
-      _loadImage();
-    }
-  }
-
-  Future<void> _loadImage() async {
-    if (widget.imageUrl.isEmpty) {
-      if (mounted) setState(() { _isLoading = false; _hasError = true; });
-      return;
-    }
-
-    try {
-      final cacheDir = await getTemporaryDirectory();
-      // Generate a simple unique filename from the URL
-      final fileName = 'poster_${widget.imageUrl.hashCode}.jpg';
-      final file = File('${cacheDir.path}/$fileName');
-
-      if (await file.exists()) {
-        final length = await file.length();
-        if (length > 0) {
-          if (mounted) {
-            setState(() {
-              _localFile = file;
-              _isLoading = false;
-              _hasError = false;
-            });
-          }
-          return;
-        }
-      }
-
-      // Download the image
-      final response = await http.get(Uri.parse(widget.imageUrl)).timeout(const Duration(seconds: 8));
-      if (response.statusCode == 200) {
-        await file.writeAsBytes(response.bodyBytes);
-        if (mounted) {
-          setState(() {
-            _localFile = file;
-            _isLoading = false;
-            _hasError = false;
-          });
-        }
-      } else {
-        throw Exception('Failed to download image (status code ${response.statusCode})');
-      }
-    } catch (e) {
-      Log.w('Failed to load/cache poster image: $e');
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-          _hasError = true;
-        });
-      }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (_isLoading) {
-      return widget.loadingBuilder ?? const Center(child: CircularProgressIndicator(strokeWidth: 2, color: Colors.orange));
-    }
-    if (_hasError || _localFile == null) {
-      return widget.errorBuilder != null
-          ? widget.errorBuilder!(context, 'Error', null)
-          : const Center(child: Icon(Icons.broken_image, color: Colors.white24));
-    }
-    return Image.file(
-      _localFile!,
-      fit: widget.fit,
-      errorBuilder: (context, error, stackTrace) {
-        // Fallback if the cached file is corrupted
-        return widget.errorBuilder != null
-            ? widget.errorBuilder!(context, error, stackTrace)
-            : const Center(child: Icon(Icons.broken_image, color: Colors.white24));
-      },
-    );
-  }
-}

@@ -420,15 +420,11 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen>
                       ),
                       const SizedBox(height: 16),
                     ],
-                    _buildResumePlayButton(context, settingsAccent),
-                    const SizedBox(height: 16),
                     const Divider(color: Colors.white12, height: 1),
                   ],
                 ),
               ),
             ),
-            if (widget.series.seasons.length > 1 ||
-                widget.categoryTitle != 'Movies')
               SliverToBoxAdapter(
                 child: Container(
                   height: 48,

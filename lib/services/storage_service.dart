@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:synchronized/synchronized.dart';
 import '../core/logger.dart';
 import '../core/utils/path_helper.dart';
 
@@ -13,11 +14,13 @@ final storageServiceProvider = Provider<StorageService>((ref) {
 
 class StorageService {
   File? _file;
-  Future? _writeChain;
+  final Lock _lock = Lock();
   final _secureStorage = const FlutterSecureStorage();
   String? _anilistTokenCache;
   String? _malTokenCache;
   String? _traktTokenCache;
+  String? _openSubtitlesApiKeyCache;
+  String? _subdlApiKeyCache;
 
   Map<String, dynamic> _data = {
     'history': <String, int>{}, // messageId (String) -> position in seconds
@@ -145,6 +148,8 @@ class StorageService {
     _anilistTokenCache = await _secureStorage.read(key: 'anilist_token');
     _malTokenCache = await _secureStorage.read(key: 'mal_token');
     _traktTokenCache = await _secureStorage.read(key: 'trakt_token');
+    _openSubtitlesApiKeyCache = await _secureStorage.read(key: 'os_api_key');
+    _subdlApiKeyCache = await _secureStorage.read(key: 'subdl_api_key');
 
     bool requiresMigrationSave = false;
     if (_data.containsKey('anilist_token')) {
@@ -172,6 +177,24 @@ class StorageService {
       requiresMigrationSave = true;
     }
 
+    if (_data.containsKey('video_settings')) {
+      final vs = _data['video_settings'] as Map<String, dynamic>;
+      if (vs.containsKey('openSubtitlesApiKey')) {
+        _openSubtitlesApiKeyCache = vs['openSubtitlesApiKey'] as String?;
+        if (_openSubtitlesApiKeyCache != null)
+          await _secureStorage.write(key: 'os_api_key', value: _openSubtitlesApiKeyCache);
+        vs.remove('openSubtitlesApiKey');
+        requiresMigrationSave = true;
+      }
+      if (vs.containsKey('subdlApiKey')) {
+        _subdlApiKeyCache = vs['subdlApiKey'] as String?;
+        if (_subdlApiKeyCache != null)
+          await _secureStorage.write(key: 'subdl_api_key', value: _subdlApiKeyCache);
+        vs.remove('subdlApiKey');
+        requiresMigrationSave = true;
+      }
+    }
+
     if (requiresMigrationSave) {
       await _save();
       Log.i('Migrated OAuth tokens to secure storage.');
@@ -179,21 +202,9 @@ class StorageService {
   }
 
   Future<void> _save() async {
-    final completer = Completer<void>();
-    final previous = _writeChain;
-    _writeChain = completer.future;
-
-    if (previous != null) {
-      try {
-        await previous;
-      } catch (_) {}
-    }
-
-    try {
+    await _lock.synchronized(() async {
       await _executeSave();
-    } finally {
-      completer.complete();
-    }
+    });
   }
 
   Future<void> _executeSave() async {
@@ -213,11 +224,20 @@ class StorageService {
             await backupFile.delete();
           }
           await _file!.copy(backupFile.path);
-          await _file!
-              .delete(); // Delete target file first to support Windows rename behavior
         }
 
-        await tmpFile.rename(_file!.path);
+        try {
+          if (Platform.isWindows) {
+            await tmpFile.copy(_file!.path);
+            await tmpFile.delete();
+          } else {
+            await tmpFile.rename(_file!.path);
+          }
+        } catch (_) {
+          // Fallback if rename fails
+          await tmpFile.copy(_file!.path);
+          await tmpFile.delete();
+        }
       } catch (e, stackTrace) {
         Log.e('Failed to save user storage atomically', e, stackTrace);
       }
@@ -723,6 +743,32 @@ class StorageService {
       await _secureStorage.delete(key: 'trakt_token');
     } else {
       await _secureStorage.write(key: 'trakt_token', value: value);
+    }
+  }
+
+  String getOpenSubtitlesApiKey() {
+    return _openSubtitlesApiKeyCache ?? '';
+  }
+
+  Future<void> setOpenSubtitlesApiKey(String? value) async {
+    _openSubtitlesApiKeyCache = value;
+    if (value == null || value.isEmpty) {
+      await _secureStorage.delete(key: 'os_api_key');
+    } else {
+      await _secureStorage.write(key: 'os_api_key', value: value);
+    }
+  }
+
+  String getSubdlApiKey() {
+    return _subdlApiKeyCache ?? '';
+  }
+
+  Future<void> setSubdlApiKey(String? value) async {
+    _subdlApiKeyCache = value;
+    if (value == null || value.isEmpty) {
+      await _secureStorage.delete(key: 'subdl_api_key');
+    } else {
+      await _secureStorage.write(key: 'subdl_api_key', value: value);
     }
   }
 

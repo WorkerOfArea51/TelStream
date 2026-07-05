@@ -40,6 +40,7 @@ class _SeriesDetailsScreenState extends ConsumerState<SeriesDetailsScreen>
   bool _trailerPlaying = false;
   SeriesMetadata? _currentMetadata;
   bool _isLoadingMetadata = false;
+  int _selectedSeasonIndex = 0;
 
   @override
   void initState() {
@@ -82,6 +83,7 @@ class _SeriesDetailsScreenState extends ConsumerState<SeriesDetailsScreen>
     String targetId = widget.overrideIds![idIndex];
 
     setState(() {
+      _selectedSeasonIndex = newIndex;
       _isLoadingMetadata = true;
       _trailerPlaying = false;
     });
@@ -430,7 +432,7 @@ class _SeriesDetailsScreenState extends ConsumerState<SeriesDetailsScreen>
           controller: _tabController,
           children: [
             EpisodeListScreen(
-              season: widget.series.seasons.first,
+              season: widget.series.seasons[_selectedSeasonIndex],
               series: widget.series,
               heroTag: 'hero_library_details_${widget.series.coreName}',
               categoryTitle: widget.categoryTitle,

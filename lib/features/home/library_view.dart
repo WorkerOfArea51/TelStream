@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:tdlib/td_api.dart' as td;
 import '../../core/constants.dart';
 import '../../models/anime_models.dart';
@@ -32,13 +33,12 @@ class LibraryView extends ConsumerStatefulWidget {
 class _LibraryViewState extends ConsumerState<LibraryView>
     with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   late final AsyncNotifierProvider<HomeController, List<AnimeSeries>> provider;
-  late final TabController _subTabController;
   final ScrollController _scrollController = ScrollController();
   final TextEditingController _searchController = TextEditingController();
   Timer? _debounce;
 
   bool _isSearching = false;
-  int _activeSubTabIndex = 0;
+  bool _showFavoritesOnly = false;
 
   @override
   void initState() {
@@ -55,14 +55,7 @@ class _LibraryViewState extends ConsumerState<LibraryView>
         : webSeriesControllerProvider
               as AsyncNotifierProvider<HomeController, List<AnimeSeries>>;
 
-    _subTabController = TabController(length: 2, vsync: this);
-    _subTabController.addListener(() {
-      if (!_subTabController.indexIsChanging) {
-        setState(() {
-          _activeSubTabIndex = _subTabController.index;
-        });
-      }
-    });
+
 
     _scrollController.addListener(() {
       if (_scrollController.position.pixels >=
@@ -94,7 +87,6 @@ class _LibraryViewState extends ConsumerState<LibraryView>
   void dispose() {
     _debounce?.cancel();
     WidgetsBinding.instance.removeObserver(this);
-    _subTabController.dispose();
     _scrollController.dispose();
     _searchController.dispose();
     super.dispose();
@@ -322,27 +314,35 @@ class _LibraryViewState extends ConsumerState<LibraryView>
                           ),
                         ],
                       ),
-                    ],
-                  ),
-                ),
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 16),
-                  child: Divider(color: Colors.white10, height: 1),
-                ),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: TabBar(
-                    controller: _subTabController,
-                    isScrollable: true,
-                    tabAlignment: TabAlignment.start,
-                    indicatorColor: theme.primaryColor,
-                    labelColor: theme.primaryColor,
-                    unselectedLabelColor: subTextColor,
-                    indicatorSize: TabBarIndicatorSize.label,
-                    dividerColor: Colors.transparent,
-                    tabs: const [
-                      Tab(text: 'All'),
-                      Tab(text: 'Favorites'),
+                      PopupMenuButton<String>(
+                        icon: Icon(Icons.more_vert, color: subTextColor),
+                        color: theme.cardColor,
+                        onSelected: (String value) {
+                          if (value == 'toggle_favorites') {
+                            setState(() {
+                              _showFavoritesOnly = !_showFavoritesOnly;
+                            });
+                          }
+                        },
+                        itemBuilder: (context) => [
+                          PopupMenuItem(
+                            value: 'toggle_favorites',
+                            child: Row(
+                              children: [
+                                Icon(
+                                  _showFavoritesOnly ? Icons.bookmark : Icons.bookmark_border,
+                                  color: _showFavoritesOnly ? theme.primaryColor : subTextColor,
+                                ),
+                                const SizedBox(width: 12),
+                                Text(
+                                  _showFavoritesOnly ? 'Hide Marked' : 'Show Marked',
+                                  style: TextStyle(color: textColor),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
                     ],
                   ),
                 ),
@@ -381,7 +381,7 @@ class _LibraryViewState extends ConsumerState<LibraryView>
               controller: _scrollController,
               slivers: [
                 if (!_isSearching &&
-                    _activeSubTabIndex == 0 &&
+                    !_showFavoritesOnly &&
                     _searchController.text.isEmpty &&
                     filteredList.isNotEmpty)
                   SliverToBoxAdapter(
@@ -392,7 +392,7 @@ class _LibraryViewState extends ConsumerState<LibraryView>
                     ),
                   ),
                 if (!_isSearching &&
-                    _activeSubTabIndex == 0 &&
+                    !_showFavoritesOnly &&
                     _searchController.text.isEmpty &&
                     filteredList.isNotEmpty)
                   _buildContinueWatchingSliver(context, filteredList),
@@ -563,7 +563,7 @@ class _LibraryViewState extends ConsumerState<LibraryView>
     bool isDownloadedOnly,
   ) {
     var result = list;
-    if (_activeSubTabIndex == 1) {
+    if (_showFavoritesOnly) {
       result = result.where((s) => favorites.contains(s.coreName)).toList();
     }
     if (isDownloadedOnly) {
@@ -583,9 +583,9 @@ class _LibraryViewState extends ConsumerState<LibraryView>
     final isDark = theme.brightness == Brightness.dark;
     final subTextColor = isDark ? Colors.white70 : Colors.black54;
     // Return Tachiyomi styled empty layout with beautiful kaomoji
-    final kaomoji = _activeSubTabIndex == 1 ? '(・_・;)' : '(・○・;)';
-    final message = _activeSubTabIndex == 1
-        ? 'No favorites in this category'
+    final kaomoji = _showFavoritesOnly ? '(・_・;)' : '(・○・;)';
+    final message = _showFavoritesOnly
+        ? 'No marked items in this category'
         : 'Your library is empty';
 
     return Center(
@@ -668,124 +668,8 @@ class _LibraryGridItemState extends ConsumerState<_LibraryGridItem> {
       onTapDown: (_) => setState(() => _isTapped = true),
       onTapUp: (_) => setState(() => _isTapped = false),
       onTapCancel: () => setState(() => _isTapped = false),
-      onTap: () async {
-        if (widget.series.seasons.isEmpty) return;
-
-        // Check for manual metadata
-        final overrideId = FirebaseMetadataService.getOverride(
-          widget.series.coreName,
-        );
-
-        if (overrideId != null && overrideId.isNotEmpty) {
-          final overrideIds = overrideId.split(',');
-          final firstId = overrideIds.first;
-
-          // Show loading
-          showDialog(
-            context: context,
-            barrierDismissible: false,
-            builder: (c) => const Center(child: CircularProgressIndicator()),
-          );
-
-          final metadataService = MetadataService();
-          SeriesMetadata? meta;
-
-          if (firstId.startsWith('tt')) {
-            meta = await metadataService.fetchTmdbByImdbId(firstId);
-          } else {
-            meta = await metadataService.fetchJikanByMalId(firstId);
-          }
-
-          if (context.mounted) Navigator.pop(context); // close loading
-
-          if (context.mounted) {
-            Navigator.push(
-              context,
-              PremiumPageRoute(
-                child: SeriesDetailsScreen(
-                  series: widget.series,
-                  categoryTitle: widget.categoryTitle,
-                  metadata: meta,
-                  overrideIds: overrideIds,
-                ),
-              ),
-            );
-          }
-        } else {
-          // Normal Episode List
-          Navigator.push(
-            context,
-            PremiumPageRoute(
-              child: SeriesDetailsScreen(
-                series: widget.series,
-                categoryTitle: widget.categoryTitle,
-                metadata: null,
-              ),
-            ),
-          );
-        }
-      },
-      onLongPress: () async {
-        final tdlibService = ref.read(tdlibServiceProvider);
-        final me = await tdlibService.sendAsync(const td.GetMe());
-
-        // Only Admin can open
-        if (me is td.User && me.id == Constants.adminUserId) {
-          final existingIds = FirebaseMetadataService.getOverride(
-            widget.series.coreName,
-          );
-          final result = await showDialog<String>(
-            context: context,
-            builder: (c) => AdminOverrideDialog(
-              title: widget.series.coreName,
-              initialText: existingIds,
-            ),
-          );
-
-          if (result != null && result.trim().isNotEmpty) {
-            List<String> ids = [];
-            final input = result.trim();
-            if (input.startsWith('tt') || input.contains('imdb.com')) {
-              ids = MetadataService.extractAllImdbIds(input);
-            } else {
-              ids = MetadataService.extractAllMalIds(input);
-            }
-
-            if (ids.isNotEmpty) {
-              await FirebaseMetadataService.saveOverride(
-                widget.categoryTitle,
-                widget.series.coreName,
-                ids.join(','),
-              );
-              if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text(
-                      'Metadata Linked successfully! Tap the folder to view.',
-                    ),
-                  ),
-                );
-              }
-            } else {
-              if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Invalid Link or ID')),
-                );
-              }
-            }
-          }
-        } else if (me is td.User) {
-          if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                  'Access Denied. Your ID is ${me.id}. Set this in Github Secret ADMIN_USER_ID',
-                ),
-              ),
-            );
-          }
-        }
-      },
+      onTap: () => LibraryItemActionHandler.handleTap(context, widget.series, widget.categoryTitle),
+      onLongPress: () => LibraryItemActionHandler.handleLongPress(context, ref, widget.series, widget.categoryTitle),
       child: AnimatedScale(
         scale: _isTapped ? 0.96 : 1.0,
         duration: const Duration(milliseconds: 100),
@@ -1020,6 +904,14 @@ class _FeaturedCarouselState extends State<FeaturedCarousel> {
                     if (overrideId != null && overrideId.isNotEmpty) {
                       final overrideIds = overrideId.split(',');
                       final firstId = overrideIds.first;
+
+                      if (firstId.startsWith('http')) {
+                        final uri = Uri.parse(firstId);
+                        if (await canLaunchUrl(uri)) {
+                          await launchUrl(uri, mode: LaunchMode.externalApplication);
+                        }
+                        return;
+                      }
 
                       showDialog(
                         context: context,
@@ -1497,124 +1389,8 @@ class _LibraryCompactItemState extends ConsumerState<_LibraryCompactItem> {
       onTapDown: (_) => setState(() => _isTapped = true),
       onTapUp: (_) => setState(() => _isTapped = false),
       onTapCancel: () => setState(() => _isTapped = false),
-      onTap: () async {
-        if (widget.series.seasons.isEmpty) return;
-
-        final overrideId = FirebaseMetadataService.getOverride(
-          widget.series.coreName,
-        );
-
-        if (overrideId != null && overrideId.isNotEmpty) {
-          final overrideIds = overrideId.split(',');
-          final firstId = overrideIds.first;
-
-          showDialog(
-            context: context,
-            barrierDismissible: false,
-            builder: (c) => const Center(child: CircularProgressIndicator()),
-          );
-
-          final metadataService = MetadataService();
-          SeriesMetadata? meta;
-
-          if (widget.categoryTitle.toLowerCase() == 'anime') {
-            meta = await metadataService.fetchJikanByMalId(firstId);
-          } else {
-            meta = await metadataService.fetchTmdbByImdbId(firstId);
-          }
-
-          if (context.mounted) Navigator.pop(context);
-
-          if (context.mounted) {
-            Navigator.push(
-              context,
-              PremiumPageRoute(
-                child: SeriesDetailsScreen(
-                  series: widget.series,
-                  categoryTitle: widget.categoryTitle,
-                  metadata: meta,
-                  overrideIds: overrideIds,
-                ),
-              ),
-            );
-          }
-        } else {
-          Navigator.push(
-            context,
-            PremiumPageRoute(
-              child: SeriesDetailsScreen(
-                series: widget.series,
-                categoryTitle: widget.categoryTitle,
-                metadata: null,
-              ),
-            ),
-          );
-        }
-      },
-      onLongPress: () async {
-        final tdlibService = ref.read(tdlibServiceProvider);
-        final me = await tdlibService.sendAsync(const td.GetMe());
-
-        if (me is td.User && me.id == Constants.adminUserId) {
-          final existingIds = FirebaseMetadataService.getOverride(
-            widget.series.coreName,
-          );
-          final result = await showDialog<String>(
-            context: context,
-            builder: (c) => AdminOverrideDialog(
-              title: widget.series.coreName,
-              initialText: existingIds,
-            ),
-          );
-
-          if (result != null && result.trim().isNotEmpty) {
-            List<String> ids = [];
-            final input = result.trim();
-            if (widget.categoryTitle.toLowerCase() == 'anime') {
-              ids = MetadataService.extractAllMalIds(input);
-            } else {
-              if (input.startsWith('tt') || input.contains('imdb.com')) {
-                ids = MetadataService.extractAllImdbIds(input);
-              } else {
-                ids = MetadataService.extractAllMalIds(input);
-              }
-            }
-
-            if (ids.isNotEmpty) {
-              await FirebaseMetadataService.saveOverride(
-                widget.categoryTitle,
-                widget.series.coreName,
-                ids.join(','),
-              );
-              if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text(
-                      'Metadata Linked successfully! Tap the folder to view.',
-                    ),
-                  ),
-                );
-              }
-            } else {
-              if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Invalid Link or ID')),
-                );
-              }
-            }
-          }
-        } else if (me is td.User) {
-          if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                  'Access Denied. Your ID is ${me.id}. Set this in Github Secret ADMIN_USER_ID',
-                ),
-              ),
-            );
-          }
-        }
-      },
+      onTap: () => LibraryItemActionHandler.handleTap(context, widget.series, widget.categoryTitle),
+      onLongPress: () => LibraryItemActionHandler.handleLongPress(context, ref, widget.series, widget.categoryTitle),
       child: AnimatedScale(
         scale: _isTapped ? 0.96 : 1.0,
         duration: const Duration(milliseconds: 100),
@@ -1738,124 +1514,8 @@ class _LibraryListItemState extends ConsumerState<_LibraryListItem> {
       onTapDown: (_) => setState(() => _isTapped = true),
       onTapUp: (_) => setState(() => _isTapped = false),
       onTapCancel: () => setState(() => _isTapped = false),
-      onTap: () async {
-        if (widget.series.seasons.isEmpty) return;
-
-        final overrideId = FirebaseMetadataService.getOverride(
-          widget.series.coreName,
-        );
-
-        if (overrideId != null && overrideId.isNotEmpty) {
-          final overrideIds = overrideId.split(',');
-          final firstId = overrideIds.first;
-
-          showDialog(
-            context: context,
-            barrierDismissible: false,
-            builder: (c) => const Center(child: CircularProgressIndicator()),
-          );
-
-          final metadataService = MetadataService();
-          SeriesMetadata? meta;
-
-          if (widget.categoryTitle.toLowerCase() == 'anime') {
-            meta = await metadataService.fetchJikanByMalId(firstId);
-          } else {
-            meta = await metadataService.fetchTmdbByImdbId(firstId);
-          }
-
-          if (context.mounted) Navigator.pop(context);
-
-          if (context.mounted) {
-            Navigator.push(
-              context,
-              PremiumPageRoute(
-                child: SeriesDetailsScreen(
-                  series: widget.series,
-                  categoryTitle: widget.categoryTitle,
-                  metadata: meta,
-                  overrideIds: overrideIds,
-                ),
-              ),
-            );
-          }
-        } else {
-          Navigator.push(
-            context,
-            PremiumPageRoute(
-              child: SeriesDetailsScreen(
-                series: widget.series,
-                categoryTitle: widget.categoryTitle,
-                metadata: null,
-              ),
-            ),
-          );
-        }
-      },
-      onLongPress: () async {
-        final tdlibService = ref.read(tdlibServiceProvider);
-        final me = await tdlibService.sendAsync(const td.GetMe());
-
-        if (me is td.User && me.id == Constants.adminUserId) {
-          final existingIds = FirebaseMetadataService.getOverride(
-            widget.series.coreName,
-          );
-          final result = await showDialog<String>(
-            context: context,
-            builder: (c) => AdminOverrideDialog(
-              title: widget.series.coreName,
-              initialText: existingIds,
-            ),
-          );
-
-          if (result != null && result.trim().isNotEmpty) {
-            List<String> ids = [];
-            final input = result.trim();
-            if (widget.categoryTitle.toLowerCase() == 'anime') {
-              ids = MetadataService.extractAllMalIds(input);
-            } else {
-              if (input.startsWith('tt') || input.contains('imdb.com')) {
-                ids = MetadataService.extractAllImdbIds(input);
-              } else {
-                ids = MetadataService.extractAllMalIds(input);
-              }
-            }
-
-            if (ids.isNotEmpty) {
-              await FirebaseMetadataService.saveOverride(
-                widget.categoryTitle,
-                widget.series.coreName,
-                ids.join(','),
-              );
-              if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text(
-                      'Metadata Linked successfully! Tap the folder to view.',
-                    ),
-                  ),
-                );
-              }
-            } else {
-              if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Invalid Link or ID')),
-                );
-              }
-            }
-          }
-        } else if (me is td.User) {
-          if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                  'Access Denied. Your ID is ${me.id}. Set this in Github Secret ADMIN_USER_ID',
-                ),
-              ),
-            );
-          }
-        }
-      },
+      onTap: () => LibraryItemActionHandler.handleTap(context, widget.series, widget.categoryTitle),
+      onLongPress: () => LibraryItemActionHandler.handleLongPress(context, ref, widget.series, widget.categoryTitle),
       child: AnimatedScale(
         scale: _isTapped ? 0.98 : 1.0,
         duration: const Duration(milliseconds: 100),
@@ -2022,5 +1682,114 @@ class _LibraryListShimmerItem extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class LibraryItemActionHandler {
+  static Future<void> handleTap(
+    BuildContext context,
+    AnimeSeries series,
+    String categoryTitle,
+  ) async {
+    if (series.seasons.isEmpty) return;
+    final overrideId = FirebaseMetadataService.getOverride(series.coreName);
+    if (overrideId != null && overrideId.isNotEmpty) {
+      final overrideIds = overrideId.split(',');
+      final firstId = overrideIds.first;
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (c) => const Center(child: CircularProgressIndicator()),
+      );
+      final metadataService = MetadataService();
+      SeriesMetadata? meta;
+      if (firstId.startsWith('tt')) {
+        meta = await metadataService.fetchTmdbByImdbId(firstId);
+      } else {
+        meta = await metadataService.fetchJikanByMalId(firstId);
+      }
+      if (context.mounted) Navigator.pop(context);
+      if (context.mounted) {
+        Navigator.push(
+          context,
+          PremiumPageRoute(
+            child: SeriesDetailsScreen(
+              series: series,
+              categoryTitle: categoryTitle,
+              metadata: meta,
+              overrideIds: overrideIds,
+            ),
+          ),
+        );
+      }
+    } else {
+      Navigator.push(
+        context,
+        PremiumPageRoute(
+          child: SeriesDetailsScreen(
+            series: series,
+            categoryTitle: categoryTitle,
+            metadata: null,
+          ),
+        ),
+      );
+    }
+  }
+
+  static Future<void> handleLongPress(
+    BuildContext context,
+    WidgetRef ref,
+    AnimeSeries series,
+    String categoryTitle,
+  ) async {
+    final tdlibService = ref.read(tdlibServiceProvider);
+    final me = await tdlibService.sendAsync(const td.GetMe());
+    if (me is td.User && me.id == Constants.adminUserId) {
+      final existingIds = FirebaseMetadataService.getOverride(series.coreName);
+      final result = await showDialog<String>(
+        context: context,
+        builder: (c) => AdminOverrideDialog(
+          title: series.coreName,
+          initialText: existingIds,
+        ),
+      );
+      if (result != null && result.trim().isNotEmpty) {
+        List<String> ids = [];
+        final input = result.trim();
+        if (input.startsWith('tt') || input.contains('imdb.com')) {
+          ids = MetadataService.extractAllImdbIds(input);
+        } else {
+          ids = MetadataService.extractAllMalIds(input);
+        }
+        if (ids.isNotEmpty) {
+          await FirebaseMetadataService.saveOverride(
+            categoryTitle,
+            series.coreName,
+            ids.join(','),
+          );
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Metadata Linked successfully! Tap the folder to view.'),
+              ),
+            );
+          }
+        } else {
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Invalid Link or ID')),
+            );
+          }
+        }
+      }
+    } else if (me is td.User) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Access Denied. You do not have admin privileges.'),
+          ),
+        );
+      }
+    }
   }
 }

@@ -15,6 +15,21 @@ class DownloadsScreen extends ConsumerStatefulWidget {
   ConsumerState<DownloadsScreen> createState() => _DownloadsScreenState();
 }
 
+final fileSizesProvider = FutureProvider.autoDispose<Map<int, int>>((ref) async {
+  final tasks = ref.watch(downloadControllerProvider);
+  final completed = tasks.entries.where((e) => e.value.isCompleted && e.value.localPath != null).toList();
+  final Map<int, int> sizes = {};
+  await Future.wait(completed.map((entry) async {
+    try {
+      final f = File(entry.value.localPath!);
+      if (await f.exists()) {
+        sizes[entry.key] = await f.length();
+      }
+    } catch (_) {}
+  }));
+  return sizes;
+});
+
 class _DownloadsScreenState extends ConsumerState<DownloadsScreen> with SingleTickerProviderStateMixin {
   late final TabController _tabController;
   final TextEditingController _searchController = TextEditingController();
@@ -121,6 +136,8 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> with SingleTi
 
     final downloadTasks = ref.watch(downloadControllerProvider);
     final settings = ref.watch(videoSettingsProvider);
+    final fileSizesAsync = ref.watch(fileSizesProvider);
+    final fileSizes = fileSizesAsync.value ?? {};
 
     // Filter tasks
     final activeDownloadsRaw = downloadTasks.entries
@@ -147,15 +164,8 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> with SingleTi
     final List<MapEntry<int, DownloadTask>> filteredCompletedList = [];
 
     for (final entry in completedDownloads) {
-      final path = entry.value.localPath!;
-      final file = File(path);
-      int size = 0;
-      try {
-        if (file.existsSync()) {
-          size = file.lengthSync();
-          totalBytes += size;
-        }
-      } catch (_) {}
+      int size = fileSizes[entry.key] ?? 0;
+      totalBytes += size;
 
       if (_query.isEmpty || entry.value.title.toLowerCase().contains(_query.toLowerCase())) {
         filteredCompletedList.add(entry);
@@ -660,10 +670,7 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> with SingleTi
                               final task = entry.value;
                               final path = task.localPath!;
 
-                              int fileSize = 0;
-                              try {
-                                fileSize = File(path).lengthSync();
-                              } catch (_) {}
+                              int fileSize = fileSizes[fileId] ?? 0;
 
                               final storage = ref.read(storageServiceProvider);
                               final savedPos = storage.getWatchPosition(fileId);
@@ -722,9 +729,12 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> with SingleTi
                                           ],
                                         ),
                                       ),
-                                      trailing: IconButton(
-                                        icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
-                                        onPressed: () => _deleteDownload(fileId, path, task.title),
+                                      trailing: Semantics(
+                                        label: 'Delete ${task.title}',
+                                        child: IconButton(
+                                          icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                                          onPressed: () => _deleteDownload(fileId, path, task.title),
+                                        ),
                                       ),
                                       onTap: () {
                                         ref.read(pipControllerProvider.notifier).playVideo(

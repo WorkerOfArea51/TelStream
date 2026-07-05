@@ -9,6 +9,7 @@ import android.os.Build
 import android.os.Environment
 import android.os.StatFs
 import androidx.core.content.FileProvider
+import androidx.core.content.ContextCompat
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -59,11 +60,12 @@ class MainActivity : FlutterActivity() {
             }
         }
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED)
-        } else {
-            registerReceiver(receiver, filter)
-        }
+        ContextCompat.registerReceiver(
+            this,
+            receiver,
+            filter,
+            ContextCompat.RECEIVER_NOT_EXPORTED
+        )
         downloadReceiver = receiver
         
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->

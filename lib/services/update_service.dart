@@ -124,6 +124,37 @@ class UpdateService {
         final match = sha256Regex.firstMatch(releaseNotes);
         if (match != null) {
           parsedSha256 = match.group(1)?.toLowerCase() ?? '';
+        } else {
+          // Look for a checksums file in assets
+          for (final asset in assets) {
+            if (asset is Map<String, dynamic>) {
+              final assetName = asset['name'] as String? ?? '';
+              if (assetName.contains('checksums') || assetName.endsWith('.sha256')) {
+                final checksumUrl = asset['browser_download_url'] as String?;
+                if (checksumUrl != null) {
+                  try {
+                    final checksumReq = await client.getUrl(Uri.parse(checksumUrl));
+                    final checksumRes = await checksumReq.close();
+                    if (checksumRes.statusCode == 200) {
+                      final checksumBody = await checksumRes.transform(utf8.decoder).join();
+                      final fileName = downloadUrl.split('/').last;
+                      final lines = checksumBody.split('\n');
+                      for (final line in lines) {
+                        if (line.contains(fileName)) {
+                          final hashMatch = RegExp(r'([a-fA-F0-9]{64})').firstMatch(line);
+                          if (hashMatch != null) {
+                            parsedSha256 = hashMatch.group(1)?.toLowerCase() ?? '';
+                            break;
+                          }
+                        }
+                      }
+                    }
+                  } catch (_) {}
+                }
+                break;
+              }
+            }
+          }
         }
 
         if (latestBuild != null && latestBuild > currentBuild) {
@@ -153,7 +184,7 @@ class UpdateService {
   }  static void showUpdateDialog(BuildContext context, AppUpdateInfo updateInfo) {
     showDialog(
       context: context,
-      barrierDismissible: false,
+      barrierDismissible: true,
       builder: (context) {
         return UpdateDialogContent(updateInfo: updateInfo);
       },
@@ -261,6 +292,9 @@ class _UpdateDialogContentState extends State<UpdateDialogContent> {
           await tempFile.delete();
           throw Exception("Security Exception: Installer integrity check failed. SHA-256 hash mismatch.");
         }
+      } else {
+        await tempFile.delete();
+        throw Exception("Security Exception: Cannot verify installer integrity. No SHA-256 hash provided.");
       }
 
       setState(() {

@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 
 class Log {
   static File? _logFile;
+  static IOSink? _sink;
 
   static void init(String appDir) {
     try {
@@ -12,14 +13,15 @@ class Log {
           _logFile!.writeAsStringSync('');
         }
       }
+      _sink = _logFile!.openWrite(mode: FileMode.writeOnlyAppend);
     } catch (_) {}
   }
 
   static void _writeToFile(String prefix, String message) {
-    if (_logFile != null) {
+    if (_sink != null) {
       try {
         final now = DateTime.now().toIso8601String();
-        _logFile!.writeAsStringSync('[$now][$prefix] $message\n', mode: FileMode.writeOnlyAppend);
+        _sink!.write('[$now][$prefix] $message\n');
       } catch (_) {}
     }
   }

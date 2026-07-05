@@ -1182,6 +1182,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
   bool _isCurrentPositionInOutro(Duration position) {
     if (!_hasChapters || _chapters.isEmpty) return false;
     final totalDuration = widget.player.state.duration.inSeconds.toDouble();
+    final posSeconds = position.inSeconds.toDouble();
     for (int i = 0; i < _chapters.length; i++) {
       final ch = _chapters[i];
       final start = ch.position.inSeconds.toDouble();
@@ -1189,7 +1190,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
           ? _chapters[i + 1].position.inSeconds.toDouble()
           : (totalDuration > 0 ? totalDuration : start + 90.0);
       if (_isChapterOutro(ch, start, end, totalDuration)) {
-        if (position >= ch.position) {
+        if (posSeconds >= start && posSeconds < end) {
           return true;
         }
       }
