@@ -465,6 +465,10 @@ class TdlibService {
         _updatesController.add(event);
         
       } catch (e, stack) {
+        try {
+          final appDir = await getAppDirectory();
+          File('${appDir.path}/tdlib_crash.txt').writeAsStringSync('CRASH: ${e.runtimeType} | $e\n$stack\n', mode: FileMode.append);
+        } catch (_) {}
         Log.e("Exception inside TDLib event loop", e, stack);
         await Future.delayed(const Duration(milliseconds: 100));
       }
