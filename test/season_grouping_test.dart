@@ -141,7 +141,7 @@ void main() {
       expect(seriesList[2].coreName, 'Dragon Ball');
     });
 
-    test('Naruto seasons sort numerically even when message IDs are uploaded out-of-order', () {
+    test('Naruto seasons sort numerically even when message IDs are uploaded out-of-order', () async {
       final controller = TestHomeController();
       final mockStorage = FakeStorageService();
       controller.testStorage = mockStorage;
