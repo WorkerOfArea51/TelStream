@@ -11,6 +11,7 @@ import 'package:tdlib/td_api.dart' as td;
 import 'package:path_provider/path_provider.dart';
 import '../core/logger.dart';
 import '../core/utils/path_helper.dart';
+import '../core/utils/td_json_util.dart';
 
 final tdlibServiceProvider = Provider<TdlibService>((ref) {
   final service = TdlibService();
@@ -70,7 +71,22 @@ class TdlibService {
     return key;
   }
 
+  Future<void>? _initFuture;
+
   Future<void> init(
+    int apiId,
+    String apiHash, {
+    List<String>? excludedPaths,
+    double? limitMb,
+    int? ttlDays,
+  }) {
+    if (_initFuture != null) return _initFuture!;
+    return _initFuture = _doInit(apiId, apiHash, excludedPaths: excludedPaths, limitMb: limitMb, ttlDays: ttlDays).whenComplete(() {
+      _initFuture = null;
+    });
+  }
+
+  Future<void> _doInit(
     int apiId,
     String apiHash, {
     List<String>? excludedPaths,
@@ -400,246 +416,7 @@ class TdlibService {
   }
 
   static Map<String, dynamic> sanitizeJson(Map<String, dynamic> json) {
-    // 1. Recursively sanitize all children first
-    json.forEach((key, value) {
-      if (value is Map<String, dynamic>) {
-        json[key] = sanitizeJson(value);
-      } else if (value is List) {
-        json[key] = value.map((item) {
-          if (item is Map<String, dynamic>) {
-            return sanitizeJson(item);
-          }
-          return item;
-        }).toList();
-      }
-    });
-
-    // 2. Perform target type-sanitization based on @type to prevent Dart null-safety TypeErrors
-    final type = json['@type'];
-    if (type == null) return json;
-
-    switch (type) {
-      case 'user':
-        json['is_contact'] ??= false;
-        json['is_mutual_contact'] ??= false;
-        json['is_close_friend'] ??= false;
-        json['is_verified'] ??= false;
-        json['is_premium'] ??= false;
-        json['is_support'] ??= false;
-        json['is_scam'] ??= false;
-        json['is_fake'] ??= false;
-        json['has_active_stories'] ??= false;
-        json['has_unread_active_stories'] ??= false;
-        json['have_access'] ??= false;
-        json['added_to_attachment_menu'] ??= false;
-        json['restriction_reason'] ??= '';
-        json['language_code'] ??= '';
-        json['first_name'] ??= '';
-        json['last_name'] ??= '';
-        json['phone_number'] ??= '';
-        json['status'] ??= {'@type': 'userStatusEmpty'};
-        json['type'] ??= {'@type': 'userTypeRegular'};
-        break;
-      case 'chatPermissions':
-        json['can_send_messages'] ??= false;
-        json['can_send_media_messages'] ??= false;
-        json['can_send_polls'] ??= false;
-        json['can_send_other_messages'] ??= false;
-        json['can_add_web_page_previews'] ??= false;
-        json['can_change_info'] ??= false;
-        json['can_invite_users'] ??= false;
-        json['can_pin_messages'] ??= false;
-        json['can_manage_topics'] ??= false;
-        break;
-      case 'targetChatChosen':
-        json['allow_user_chats'] ??= false;
-        json['allow_bot_chats'] ??= false;
-        json['allow_group_chats'] ??= false;
-        json['allow_channel_chats'] ??= false;
-        break;
-      case 'attachmentMenuBot':
-        json['supports_self_audios'] ??= false;
-        json['supports_self_videos'] ??= false;
-        json['supports_self_documents'] ??= false;
-        json['supports_self_animations'] ??= false;
-        json['supports_self_photos'] ??= false;
-        json['supports_self_voice_notes'] ??= false;
-        json['supports_self_video_notes'] ??= false;
-        json['supports_self_locations'] ??= false;
-        json['supports_self_contacts'] ??= false;
-        json['supports_channel_chats'] ??= false;
-        json['supports_group_chats'] ??= false;
-        json['supports_private_chats'] ??= false;
-        json['supports_bot_chats'] ??= false;
-        json['supports_attachment_menu'] ??= false;
-        json['supports_side_menu'] ??= false;
-        json['supports_inline_queries'] ??= false;
-        json['supports_settings'] ??= false;
-        json['is_added'] ??= false;
-        json['show_in_attachment_menu'] ??= false;
-        json['show_in_side_menu'] ??= false;
-        json['show_in_editor'] ??= false;
-        break;
-      case 'chatFolderInfo':
-        json['title'] ??= '';
-        json['icon_name'] ??= '';
-        json['is_shareable'] ??= false;
-        json['has_my_invitation_links'] ??= false;
-        break;
-      case 'scopeNotificationSettings':
-        json['mute_for'] ??= 0;
-        json['sound_id'] = json['sound_id']?.toString() ?? '0';
-        json['show_preview'] ??= false;
-        json['use_default_mute_stories'] ??= false;
-        json['mute_stories'] ??= false;
-        json['story_sound_id'] = json['story_sound_id']?.toString() ?? '0';
-        json['show_story_sender'] ??= false;
-        json['disable_pinned_message_notifications'] ??= false;
-        json['disable_mention_notifications'] ??= false;
-        break;
-      case 'chatNotificationSettings':
-        json['use_default_mute_for'] ??= false;
-        json['mute_for'] ??= 0;
-        json['use_default_sound'] ??= false;
-        json['sound_id'] = json['sound_id']?.toString() ?? '0';
-        json['use_default_show_preview'] ??= false;
-        json['show_preview'] ??= false;
-        json['use_default_mute_stories'] ??= false;
-        json['mute_stories'] ??= false;
-        json['use_default_story_sound'] ??= false;
-        json['story_sound_id'] = json['story_sound_id']?.toString() ?? '0';
-        json['use_default_show_story_sender'] ??= false;
-        json['show_story_sender'] ??= false;
-        json['use_default_disable_pinned_message_notifications'] ??= false;
-        json['disable_pinned_message_notifications'] ??= false;
-        json['use_default_disable_mention_notifications'] ??= false;
-        json['disable_mention_notifications'] ??= false;
-        break;
-      case 'chat':
-        json['title'] ??= '';
-        json['is_blocked'] ??= false;
-        json['is_marked_as_unread'] ??= false;
-        json['is_sponsor'] ??= false;
-        json['has_scheduled_messages'] ??= false;
-        json['can_be_deleted_only_for_self'] ??= false;
-        json['can_be_deleted_for_all_users'] ??= false;
-        json['can_be_reported'] ??= false;
-        json['default_disable_notification'] ??= false;
-        json['unread_count'] ??= 0;
-        json['last_read_inbox_message_id'] ??= 0;
-        json['last_read_outbox_message_id'] ??= 0;
-        json['unread_mention_count'] ??= 0;
-        json['unread_reaction_count'] ??= 0;
-        json['has_protected_content'] ??= false;
-        json['is_translatable'] ??= false;
-        json['message_auto_delete_time'] ??= 0;
-        json['theme_name'] ??= '';
-        json['reply_markup_message_id'] ??= 0;
-        json['client_data'] ??= '';
-        json['permissions'] ??= {'@type': 'chatPermissions'};
-        json['notification_settings'] ??= {'@type': 'chatNotificationSettings'};
-        json['available_reactions'] ??= {'@type': 'chatAvailableReactionsAll'};
-        json['video_chat'] ??= {'@type': 'videoChat', 'group_call_id': 0, 'has_participants': false};
-        break;
-      case 'videoChat':
-        json['group_call_id'] ??= 0;
-        json['has_participants'] ??= false;
-        break;
-      case 'chatMemberStatusCreator':
-        json['custom_title'] ??= '';
-        json['is_anonymous'] ??= false;
-        json['is_member'] ??= false;
-        break;
-      case 'chatMemberStatusAdministrator':
-        json['custom_title'] ??= '';
-        json['can_be_edited'] ??= false;
-        json['rights'] ??= {
-          '@type': 'chatAdministratorRights',
-          'can_post_messages': false,
-          'can_edit_messages': false,
-          'can_delete_messages': false,
-          'can_restrict_members': false,
-          'can_promote_members': false,
-          'can_change_info': false,
-          'can_invite_users': false,
-          'can_pin_messages': false,
-          'can_manage_topics': false,
-          'can_manage_video_chats': false,
-          'is_anonymous': false
-        };
-        break;
-      case 'userFullInfo':
-        json['is_blocked'] ??= false;
-        json['can_be_called'] ??= false;
-        json['supports_video_calls'] ??= false;
-        json['has_private_calls'] ??= false;
-        json['has_private_forwards'] ??= false;
-        json['has_restricted_voice_and_video_note_messages'] ??= false;
-        json['has_pinned_stories'] ??= false;
-        json['need_phone_number_privacy_exception'] ??= false;
-        json['group_in_common_count'] ??= 0;
-        if (json['bio'] is String) {
-          json['bio'] = {
-            '@type': 'formattedText',
-            'text': json['bio'],
-            'entities': []
-          };
-        }
-        break;
-      case 'supergroup':
-        json['username'] ??= '';
-        json['is_verified'] ??= false;
-        json['has_sensitive_content'] ??= false;
-        json['is_scam'] ??= false;
-        json['is_fake'] ??= false;
-        json['is_forum'] ??= false;
-        json['has_active_stories'] ??= false;
-        json['has_unread_active_stories'] ??= false;
-        json['sign_messages'] ??= false;
-        json['join_to_send_messages'] ??= false;
-        json['join_by_request'] ??= false;
-        json['is_broadcast_group'] ??= false;
-        json['is_channel'] ??= false;
-        json['is_slow_mode_enabled'] ??= false;
-        json['has_location'] ??= false;
-        json['has_linked_chat'] ??= false;
-        json['member_count'] ??= 0;
-        json['date'] ??= 0;
-        json['restriction_reason'] ??= '';
-        json['status'] ??= {'@type': 'chatMemberStatusMember'};
-        break;
-      case 'message':
-        json['is_outgoing'] ??= false;
-        json['is_pinned'] ??= false;
-        json['can_be_edited'] ??= false;
-        json['can_be_forwarded'] ??= false;
-        json['can_be_saved'] ??= false;
-        json['can_be_deleted_only_for_self'] ??= false;
-        json['can_be_deleted_for_all_users'] ??= false;
-        json['can_get_added_reactions'] ??= false;
-        json['can_get_statistics'] ??= false;
-        json['can_get_message_thread'] ??= false;
-        json['can_get_viewers'] ??= false;
-        json['can_get_media_timestamp_links'] ??= false;
-        json['can_report_reactions'] ??= false;
-        json['has_timestamped_media'] ??= false;
-        json['is_channel_post'] ??= false;
-        json['is_topic_message'] ??= false;
-        json['contains_unread_mention'] ??= false;
-        json['message_thread_id'] ??= 0;
-        json['self_destruct_time'] ??= 0;
-        json['self_destruct_in'] ??= 0.0;
-        json['auto_delete_in'] ??= 0.0;
-        json['via_bot_user_id'] ??= 0;
-        json['author_signature'] ??= '';
-        json['media_album_id'] = json['media_album_id']?.toString() ?? '0';
-        json['restriction_reason'] ??= '';
-        json['date'] ??= 0;
-        json['edit_date'] ??= 0;
-        break;
-    }
-
-    return json;
+    return TdJsonUtil.sanitize(json);
   }
 
   void _startEventLoop() async {

@@ -1,44 +1,66 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 
+enum LogLevel { debug, info, warning, error }
+
 class Log {
   static File? _logFile;
   static IOSink? _sink;
+  static LogLevel _minLevel = kDebugMode ? LogLevel.debug : LogLevel.info;
+  static const int _maxBytes = 5 * 1024 * 1024;
+  static const int _keepBytes = 1 * 1024 * 1024; // keep last 1MB on rotate
 
   static void init(String appDir) {
     try {
-      _logFile = File('$appDir/app.log');
-      if (_logFile!.existsSync()) {
-        if (_logFile!.lengthSync() > 5 * 1024 * 1024) {
-          _logFile!.writeAsStringSync('');
-        }
-      }
+      _logFile = File('${appDir.replaceAll('\\', '/')}/app.log');
+      _rotateIfNeeded();
       _sink = _logFile!.openWrite(mode: FileMode.writeOnlyAppend);
+    } catch (e, st) {
+      stderr.writeln('Logger init failed: $e');
+    }
+  }
+
+  static Future<void> dispose() async {
+    await _sink?.flush();
+    await _sink?.close();
+    _sink = null;
+  }
+
+  static void _rotateIfNeeded() {
+    if (_logFile == null || !_logFile!.existsSync()) return;
+    try {
+      if (_logFile!.lengthSync() <= _maxBytes) return;
+      final bytes = _logFile!.readAsBytesSync();
+      final tail = bytes.length > _keepBytes
+          ? bytes.sublist(bytes.length - _keepBytes)
+          : bytes;
+      _logFile!.writeAsBytesSync(tail, flush: true);
     } catch (_) {}
   }
 
   static void _writeToFile(String prefix, String message) {
-    if (_sink != null) {
-      try {
-        final now = DateTime.now().toIso8601String();
-        _sink!.write('[$now][$prefix] $message\n');
-      } catch (_) {}
-    }
+    if (_sink == null) return;
+    try {
+      final now = DateTime.now().toIso8601String();
+      _sink!.writeln('[$now][$prefix] $message');
+      if (prefix == 'ERROR' || prefix == 'ERROR_DETAIL' || prefix == 'STACK_TRACE') _sink!.flush();
+    } catch (_) {}
   }
 
   static void d(String message) {
-    if (kDebugMode) {
-      debugPrint('[DEBUG] $message');
-    }
+    if (_minLevel.index > LogLevel.debug.index) return;
+    if (kDebugMode) debugPrint('[DEBUG] $message');
     _writeToFile('DEBUG', message);
   }
 
   static void i(String message) {
+    if (_minLevel.index > LogLevel.info.index) return;
     debugPrint('[INFO] $message');
     _writeToFile('INFO', message);
   }
 
   static void w(String message) {
+    if (_minLevel.index > LogLevel.warning.index) return;
     debugPrint('[WARNING] $message');
     _writeToFile('WARNING', message);
   }

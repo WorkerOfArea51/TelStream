@@ -1,6 +1,6 @@
 import 'package:tdlib/td_api.dart' as td;
 import '../services/storage_service.dart';
-import '../services/tdlib_service.dart';
+import '../../core/utils/td_json_util.dart';
 
 class AnimeSeries {
   final String coreName;
@@ -22,6 +22,9 @@ class AnimeSeries {
 }
 
 class AnimeSeason {
+  static final RegExp _yearRegex = RegExp(r'(?<!\d)(19\d{2}|20[0-4]\d)(?!\d)');
+  static final int _currentYearUpperBound = DateTime.now().year + 1;
+
   final String fullTitle;
   final String seasonName;
   final td.Message posterMessage; // The Photo message
@@ -42,13 +45,15 @@ class AnimeSeason {
       };
 
   factory AnimeSeason.fromJson(Map<String, dynamic> json) {
+    td.Message parseMessage(Object raw) {
+      final map = TdJsonUtil.sanitize(raw as Map<String, dynamic>);
+      return td.Message.fromJson(map);
+    }
     return AnimeSeason(
       fullTitle: json['fullTitle'] as String,
       seasonName: json['seasonName'] as String,
-      posterMessage: td.Message.fromJson(TdlibService.sanitizeJson(json['posterMessage'] as Map<String, dynamic>)),
-      episodes: (json['episodes'] as List)
-          .map((e) => td.Message.fromJson(TdlibService.sanitizeJson(e as Map<String, dynamic>)))
-          .toList(),
+      posterMessage: parseMessage(json['posterMessage']),
+      episodes: (json['episodes'] as List).map(parseMessage).toList(),
     );
   }
 
@@ -68,19 +73,29 @@ class AnimeSeason {
 
   int? getReleaseYear(StorageService storage) {
     final cached = storage.getSeasonReleaseYear(fullTitle);
-    if (cached != null && cached > 0) return cached;
+    return (cached != null && cached > 0 && cached <= _currentYearUpperBound)
+        ? cached
+        : null;
+  }
 
-    // Try parsing from fullTitle
-    final match = RegExp(r'(?<!\d)(19\d\d|20\d\d)(?!\d)').firstMatch(fullTitle);
-    if (match != null) {
+  int? computeReleaseYear(StorageService storage) {
+    final cached = getReleaseYear(storage);
+    if (cached != null) return cached;
+
+    int? extractYear(String source) {
+      final match = _yearRegex.firstMatch(source);
+      if (match == null) return null;
       final yr = int.tryParse(match.group(1)!);
-      if (yr != null) {
-        storage.setSeasonReleaseYear(fullTitle, yr);
-        return yr;
-      }
+      if (yr == null || yr > _currentYearUpperBound) return null;
+      return yr;
     }
 
-    // Try parsing from episodes filenames
+    final fromTitle = extractYear(fullTitle);
+    if (fromTitle != null) {
+      storage.setSeasonReleaseYear(fullTitle, fromTitle);
+      return fromTitle;
+    }
+
     for (final ep in episodes) {
       String? fileName;
       if (ep.content is td.MessageVideo) {
@@ -89,13 +104,10 @@ class AnimeSeason {
         fileName = (ep.content as td.MessageDocument).document.fileName;
       }
       if (fileName != null && fileName.isNotEmpty) {
-        final epMatch = RegExp(r'(?<!\d)(19\d\d|20\d\d)(?!\d)').firstMatch(fileName);
-        if (epMatch != null) {
-          final yr = int.tryParse(epMatch.group(1)!);
-          if (yr != null) {
-            storage.setSeasonReleaseYear(fullTitle, yr);
-            return yr;
-          }
+        final fromEp = extractYear(fileName);
+        if (fromEp != null) {
+          storage.setSeasonReleaseYear(fullTitle, fromEp);
+          return fromEp;
         }
       }
     }

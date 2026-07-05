@@ -1,4 +1,6 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'secrets.dart';
 
 class ChannelCategory {
@@ -14,13 +16,22 @@ class ChannelCategory {
 }
 
 class Constants {
-  static const String currentVersion = '2.10.3+46';
-  static const String changelog = '''
-### 🚀 What's New in v2.10.3+46
+  static String _currentVersion = '0.0.0+0';
+  static String get currentVersion => _currentVersion;
 
-* **👑 Admin Controls**: Integrated custom metadata (TMDB/MyAnimeList) overrides directly from the app. Long-press any series folder to set an override ID.
-* **🛡️ Security**: The admin panel is strictly locked to your personal numeric Telegram User ID via GitHub Secrets. Tap a folder to see your ID if access is denied!
-* **⚙️ Under The Hood**: Upgraded the underlying Android Gradle Plugin logic and the built-in video player.
+  static Future<void> initVersion() async {
+    try {
+      final info = await PackageInfo.fromPlatform();
+      _currentVersion = '${info.version}+${info.buildNumber}';
+    } catch (_) {}
+  }
+
+  static const String changelog = '''
+### ✨ What's New in v2.10.3
+
+* **🚀 Audit Remediation**: Massively improved stability, eliminated stream subscription leaks, optimized storage disk I/O, fixed various race conditions and memory leaks.
+* **🛡️ Updater Improvements**: Enforced strict SHA-256 installer integrity checks for auto-updates.
+* **🔧 Background Polish**: Refactored TDLib JSON handlers, implemented robust error boundaries, and fixed AMOLED theme presets.
 ''';
 
   // Telegram API Credentials from secrets.dart
@@ -50,25 +61,32 @@ class Constants {
   ];
 }
 
-class PremiumPageRoute<T> extends PageRouteBuilder<T> {
+class PremiumPageRoute<T> extends MaterialPageRoute<T> {
   final Widget child;
-  PremiumPageRoute({required this.child})
-      : super(
-          pageBuilder: (context, animation, secondaryAnimation) => child,
-          transitionsBuilder: (context, animation, secondaryAnimation, child) {
-            const begin = Offset(1.0, 0.0);
-            const end = Offset.zero;
-            const curve = Curves.easeInOutCubic;
-            var tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
-            return SlideTransition(
-              position: animation.drive(tween),
-              child: FadeTransition(
-                opacity: animation,
-                child: child,
-              ),
-            );
-          },
-          transitionDuration: const Duration(milliseconds: 350),
-          reverseTransitionDuration: const Duration(milliseconds: 250),
-        );
+
+  PremiumPageRoute({
+    required this.child,
+    super.settings,
+    super.fullscreenDialog,
+  }) : super(
+         builder: (context) => child,
+       );
+
+  @override
+  Widget buildTransitions(BuildContext context, Animation<double> animation,
+      Animation<double> secondaryAnimation, Widget child) {
+    // On iOS, defer to parent for native swipe-from-edge pop.
+    // On Android, defer to parent for predictive-back support.
+    if (Platform.isIOS || Platform.isAndroid) {
+      return super.buildTransitions(context, animation, secondaryAnimation, child);
+    }
+    const begin = Offset(1.0, 0.0);
+    const end = Offset.zero;
+    const curve = Curves.easeInOutCubic;
+    final tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
+    return SlideTransition(
+      position: animation.drive(tween),
+      child: FadeTransition(opacity: animation, child: child),
+    );
+  }
 }

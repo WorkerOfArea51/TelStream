@@ -14,6 +14,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
   late Animation<Offset> _logoOffset;
   late Animation<double> _logoScale;
   late Animation<double> _logoRotation;
+  bool _reducedMotionApplied = false;
 
   @override
   void initState() {
@@ -69,6 +70,17 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final reduceMotion = MediaQuery.accessibleNavigationOf(context) ||
+        MediaQuery.disableAnimationsOf(context);
+    if (reduceMotion && !_reducedMotionApplied) {
+      _reducedMotionApplied = true;
+      _controller.duration = const Duration(milliseconds: 250);
+    }
+  }
+
+  @override
   void dispose() {
     _controller.dispose();
     super.dispose();
@@ -77,7 +89,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0F172A), // Slate 900 dark background
+      backgroundColor: Theme.of(context).colorScheme.surface, // Use dynamic theme surface
       body: Stack(
         fit: StackFit.expand,
         children: [
@@ -121,6 +133,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                     'assets/icon.png',
                     width: 96,
                     height: 96,
+                    semanticLabel: 'TelStream logo',
                   ),
                 ),
               ),
@@ -135,10 +148,10 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
               opacity: _circleFade,
               child: Column(
                 children: [
-                  const Text(
+                  Text(
                     'TelStream',
                     style: TextStyle(
-                      color: Colors.white,
+                      color: Theme.of(context).textTheme.bodyLarge?.color,
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
                       letterSpacing: 1.5,
@@ -148,7 +161,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                   Text(
                     'Fast. Secure. Powerful.',
                     style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.45),
+                      color: Theme.of(context).textTheme.bodyMedium?.color?.withValues(alpha: 0.45),
                       fontSize: 12,
                       letterSpacing: 1.0,
                     ),

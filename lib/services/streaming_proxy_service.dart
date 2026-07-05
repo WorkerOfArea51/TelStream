@@ -387,61 +387,59 @@ class StreamingProxyService {
               clientDisconnected = true;
             });
 
-            // Resilient retry loop: wait in increments of 1.5 seconds, re-triggering DownloadFile if network handovers occurred
-            int waitSeconds = 0;
-            const int maxWaitSeconds = 20;
+            // Resilient retry loop: single long-lived subscription
             bool available = false;
+            StreamSubscription<td.TdObject>? fileSub;
+            final availableCompleter = Completer<void>();
 
-            while (waitSeconds < maxWaitSeconds && !clientDisconnected) {
-              final waitCompleter = Completer<void>();
-              final sub = _tdlibService.updates.listen((event) {
-                if (event is td.UpdateFile && event.file.id == fileId) {
-                  currentFile = event.file;
-                  _fileStates[fileId] = event.file; // Update cache
+            fileSub = _tdlibService.updates.listen((event) {
+              if (event is td.UpdateFile && event.file.id == fileId) {
+                currentFile = event.file;
+                _fileStates[fileId] = event.file; // Update cache
 
-                  bool checkAvailable = false;
-                  if (event.file.local.downloadedPrefixSize >= targetEndOffset) {
+                bool checkAvailable = false;
+                if (event.file.local.downloadedPrefixSize >= targetEndOffset) {
+                  checkAvailable = true;
+                } else if (currentOffset >= activeOffset) {
+                  final downloadedDelta = event.file.local.downloadedSize - baseDownloaded;
+                  final availableRangeEnd = activeOffset + (downloadedDelta > 0 ? downloadedDelta : event.file.local.downloadedSize);
+                  if (targetEndOffset <= availableRangeEnd) {
                     checkAvailable = true;
-                  } else if (currentOffset >= activeOffset) {
-                    final downloadedDelta = event.file.local.downloadedSize - baseDownloaded;
-                    final availableRangeEnd = activeOffset + (downloadedDelta > 0 ? downloadedDelta : event.file.local.downloadedSize);
-                    if (targetEndOffset <= availableRangeEnd) {
-                      checkAvailable = true;
-                    }
-                  }
-
-                  if (checkAvailable) {
-                    available = true;
-                    if (!waitCompleter.isCompleted) {
-                      waitCompleter.complete();
-                    }
                   }
                 }
-              });
 
-              try {
-                await waitCompleter.future.timeout(const Duration(milliseconds: 1500));
-              } catch (_) {
-                if (!currentFile.local.isDownloadingCompleted && !clientDisconnected) {
-                  Log.w('Streaming proxy: network band/switch kick for file $fileId at offset $activeOffset (waiting for $currentOffset)');
-                  _tdlibService.send(td.DownloadFile(
-                    fileId: fileId,
-                    priority: 1,
-                    offset: activeOffset,
-                    limit: 0,
-                    synchronous: false,
-                  ));
+                if (checkAvailable) {
+                  if (!availableCompleter.isCompleted) {
+                    availableCompleter.complete();
+                  }
                 }
-              } finally {
-                await sub.cancel();
               }
+            });
 
-              if (available) {
+            try {
+              // Wait up to 20 seconds, checking client disconnect status via done future separately
+              await Future.any([
+                availableCompleter.future,
+                request.response.done, // Abort if client disconnects
+              ]).timeout(const Duration(seconds: 20));
+
+              if (!clientDisconnected) {
+                available = true;
                 waitSuccess = true;
-                break;
               }
-
-              waitSeconds += 2;
+            } on TimeoutException {
+              if (!currentFile.local.isDownloadingCompleted && !clientDisconnected) {
+                Log.w('Streaming proxy: re-triggering DownloadFile for file $fileId at offset $activeOffset (waiting for $currentOffset)');
+                _tdlibService.send(td.DownloadFile(
+                  fileId: fileId,
+                  priority: 1,
+                  offset: activeOffset,
+                  limit: 0,
+                  synchronous: false,
+                ));
+              }
+            } finally {
+              await fileSub.cancel();
             }
 
             if (clientDisconnected) {

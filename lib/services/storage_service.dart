@@ -201,9 +201,31 @@ class StorageService {
     }
   }
 
+  Timer? _debounceTimer;
+  bool _dirty = false;
+
   Future<void> _save() async {
+    _dirty = true;
+    _debounceTimer?.cancel();
+    final completer = Completer<void>();
+    _debounceTimer = Timer(const Duration(milliseconds: 250), () async {
+      await _lock.synchronized(() async {
+        if (_dirty) {
+          await _executeSave();
+          _dirty = false;
+        }
+      });
+      completer.complete();
+    });
+    return completer.future;
+  }
+
+  Future<void> flush() async {
     await _lock.synchronized(() async {
-      await _executeSave();
+      if (_dirty) {
+        await _executeSave();
+        _dirty = false;
+      }
     });
   }
 

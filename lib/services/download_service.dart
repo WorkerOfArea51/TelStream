@@ -458,8 +458,12 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
     _dirWatcherSubscription?.cancel();
     if (!Platform.isAndroid && !Platform.isIOS && !Platform.isWindows && !Platform.isMacOS && !Platform.isLinux) return;
     try {
+      Timer? debounceTimer;
       _dirWatcherSubscription = downloadsDir.watch().listen((event) {
-        _syncDownloadsWithDisk();
+        debounceTimer?.cancel();
+        debounceTimer = Timer(const Duration(milliseconds: 500), () {
+          _syncDownloadsWithDisk();
+        });
       });
     } catch (e) {
       Log.w('Directory watcher failed to start: $e');
@@ -726,15 +730,29 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
           throw Exception("Temp file size is 0 bytes");
         }
         
-        final partFile = await tempFile.copy(partPath);
-        final permSize = await partFile.length();
-        
-        if (permSize != tempSize) {
-          await partFile.delete();
-          throw Exception("Copied file size ($permSize bytes) does not match original size ($tempSize bytes)");
+        // Use RandomAccessFile to read-lock the temp file on the OS level.
+        // This prevents TDLib from deleting it out from under us while copying.
+        final rafIn = await tempFile.open(mode: FileMode.read);
+        final rafOut = await File(partPath).open(mode: FileMode.write);
+        try {
+          const int chunkSize = 1024 * 1024; // 1 MB chunks
+          final buffer = List<int>.filled(chunkSize, 0);
+          int totalRead = 0;
+          while (true) {
+            final bytesRead = await rafIn.readInto(buffer);
+            if (bytesRead == 0) break;
+            await rafOut.writeFrom(buffer, 0, bytesRead);
+            totalRead += bytesRead;
+          }
+          if (totalRead != tempSize) {
+            throw Exception("Copied file size ($totalRead bytes) does not match original size ($tempSize bytes)");
+          }
+        } finally {
+          await rafIn.close();
+          await rafOut.close();
         }
         
-        final permFile = await partFile.rename(permanentPath);
+        final permFile = await File(partPath).rename(permanentPath);
         
         try {
           await tempFile.delete();
@@ -852,19 +870,24 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
 
   int? parseSpeedLimitForTesting(String limit) => _parseSpeedLimit(limit);
 
-  void _onPwmTick() {
-    final settings = ref.read(videoSettingsProvider);
-    final limitBytesPerSec = _parseSpeedLimit(settings.downloadSpeedLimit);
-    if (limitBytesPerSec == null) {
-      _stopPwm();
-      return;
-    }
+  bool _pwmTickInProgress = false;
 
-    _pwmCycleElapsedMs += 100;
-    final isNewCycle = _pwmCycleElapsedMs >= 1000;
-    if (isNewCycle) {
-      _pwmCycleElapsedMs = 0;
-    }
+  void _onPwmTick() {
+    if (_pwmTickInProgress) return;
+    _pwmTickInProgress = true;
+    try {
+      final settings = ref.read(videoSettingsProvider);
+      final limitBytesPerSec = _parseSpeedLimit(settings.downloadSpeedLimit);
+      if (limitBytesPerSec == null) {
+        _stopPwm();
+        return;
+      }
+
+      _pwmCycleElapsedMs += 100;
+      final isNewCycle = _pwmCycleElapsedMs >= 1000;
+      if (isNewCycle) {
+        _pwmCycleElapsedMs = 0;
+      }
 
     final tdlib = ref.read(tdlibServiceProvider);
 
@@ -913,6 +936,9 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
           Log.d('PWM Cycle Limit Reached ($downloadedInCycle >= $limitPerFile bytes): Paused download for ${task.title}');
         }
       }
+    }
+    } finally {
+      _pwmTickInProgress = false;
     }
   }
 

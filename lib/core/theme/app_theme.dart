@@ -155,26 +155,35 @@ class AppThemeState {
 }
 
 class AppThemeNotifier extends Notifier<AppThemeState> {
+  static final Map<String, ThemeData> _themeCache = {};
+
+  ThemeData _buildThemeCached(ColorThemePreset preset, bool isDark, bool isAmoled) {
+    final key = '${preset.id}|$isDark|$isAmoled';
+    return _themeCache.putIfAbsent(key, () => _buildTheme(preset, isDark, isAmoled));
+  }
+
   @override
   AppThemeState build() {
     final storageService = ref.watch(storageServiceProvider);
-    final themeMode = _parseThemeMode(storageService.getThemeMode());
+    final themeModeStr = storageService.getThemeMode();
+    final themeMode = _parseThemeMode(themeModeStr);
     final colorThemeId = storageService.getTheme();
 
     final preset = appThemes.firstWhere(
       (theme) => theme.id == colorThemeId,
-      orElse: () => appThemes.first,
+      orElse: () {
+        Log.w('Unknown color theme id: $colorThemeId — falling back to first');
+        return appThemes.first;
+      },
     );
+
+    final isAmoled = (themeModeStr == 'amoled');
 
     return AppThemeState(
       themeMode: themeMode,
       colorThemeId: colorThemeId,
-      lightTheme: _buildTheme(preset, false, false),
-      darkTheme: _buildTheme(
-        preset,
-        true,
-        true,
-      ), // Force amoled = true for Dark Mode
+      lightTheme: _buildThemeCached(preset, false, false),
+      darkTheme: _buildThemeCached(preset, true, isAmoled),
     );
   }
 
@@ -191,34 +200,34 @@ class AppThemeNotifier extends Notifier<AppThemeState> {
     }
   }
 
-  void _updateState(ThemeMode mode, String colorThemeId) {
+  void _updateState(ThemeMode mode, String colorThemeId, bool isAmoled) {
     final preset = appThemes.firstWhere(
       (theme) => theme.id == colorThemeId,
-      orElse: () => appThemes.first,
+      orElse: () {
+        Log.w('Unknown color theme id: $colorThemeId — falling back to first');
+        return appThemes.first;
+      },
     );
 
     state = AppThemeState(
       themeMode: mode,
       colorThemeId: colorThemeId,
-      lightTheme: _buildTheme(preset, false, false),
-      darkTheme: _buildTheme(
-        preset,
-        true,
-        true,
-      ), // Force amoled = true for Dark Mode
+      lightTheme: _buildThemeCached(preset, false, false),
+      darkTheme: _buildThemeCached(preset, true, isAmoled),
     );
   }
 
   Future<void> updateThemeMode(String modeStr) async {
     final storageService = ref.read(storageServiceProvider);
     await storageService.setThemeMode(modeStr);
-    _updateState(_parseThemeMode(modeStr), state.colorThemeId);
+    _updateState(_parseThemeMode(modeStr), state.colorThemeId, modeStr == 'amoled');
   }
 
   Future<void> updateColorTheme(String colorThemeId) async {
     final storageService = ref.read(storageServiceProvider);
+    final themeModeStr = storageService.getThemeMode();
     await storageService.setTheme(colorThemeId);
-    _updateState(state.themeMode, colorThemeId);
+    _updateState(state.themeMode, colorThemeId, themeModeStr == 'amoled');
   }
 
   ThemeData _buildTheme(ColorThemePreset preset, bool isDark, bool isAmoled) {
