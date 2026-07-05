@@ -100,13 +100,17 @@ class MetadataService {
     }
 
     try {
+      final isJwt = Constants.tmdbApiKey.length > 50;
+      final authHeaders = isJwt ? {'Authorization': 'Bearer ${Constants.tmdbApiKey}', 'Accept': 'application/json'} : {'Accept': 'application/json'};
+      final queryParam = isJwt ? '' : '&api_key=${Constants.tmdbApiKey}';
+
       // Step 1: Find TMDB ID from IMDB ID
-      final findUrl = Uri.parse('$_tmdbBaseUrl/find/$imdbId?external_source=imdb_id');
-      final findRes = await http.get(
-        findUrl,
-        headers: {'Authorization': 'Bearer ${Constants.tmdbApiKey}', 'Accept': 'application/json'},
-      );
-      if (findRes.statusCode != 200) return null;
+      final findUrl = Uri.parse('$_tmdbBaseUrl/find/$imdbId?external_source=imdb_id$queryParam');
+      final findRes = await http.get(findUrl, headers: authHeaders);
+      if (findRes.statusCode != 200) {
+        Log.e('TMDB Find API failed with status ${findRes.statusCode}');
+        return null;
+      }
 
       final findData = jsonDecode(findRes.body);
       bool isMovie = false;
@@ -124,12 +128,12 @@ class MetadataService {
 
       // Step 2: Fetch full details including videos and credits
       final type = isMovie ? 'movie' : 'tv';
-      final detailsUrl = Uri.parse('$_tmdbBaseUrl/$type/$tmdbId?append_to_response=videos,credits,content_ratings,release_dates,recommendations');
-      final detailsRes = await http.get(
-        detailsUrl,
-        headers: {'Authorization': 'Bearer ${Constants.tmdbApiKey}', 'Accept': 'application/json'},
-      );
-      if (detailsRes.statusCode != 200) return null;
+      final detailsUrl = Uri.parse('$_tmdbBaseUrl/$type/$tmdbId?append_to_response=videos,credits,content_ratings,release_dates,recommendations$queryParam');
+      final detailsRes = await http.get(detailsUrl, headers: authHeaders);
+      if (detailsRes.statusCode != 200) {
+        Log.e('TMDB Details API failed with status ${detailsRes.statusCode}');
+        return null;
+      }
 
       final data = jsonDecode(detailsRes.body);
 
