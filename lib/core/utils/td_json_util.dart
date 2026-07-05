@@ -82,6 +82,7 @@ class TdJsonUtil {
       if (out['thumbnail_outline'] is Map) {
         out['thumbnail_outline'] = [];
       }
+      out['sticker_format'] = out['sticker_format'] ?? {'@type': 'stickerFormatWebp'};
     } else if (outType == 'updateInstalledStickerSets') {
       if (out['sticker_set_ids'] is List) {
         out['sticker_set_ids'] = (out['sticker_set_ids'] as List).map((e) => e is String ? int.tryParse(e) ?? 0 : e).toList();
