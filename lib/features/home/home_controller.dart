@@ -305,7 +305,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
     // Helper to send request with a safety timeout to prevent hanging
     Future<td.TdObject> sendWithTimeout(td.TdFunction request) {
       return tdlibService.sendAsync(request).timeout(
-        const Duration(seconds: 3),
+        const Duration(seconds: 10),
         onTimeout: () => td.TdError(code: 408, message: "Request Timeout"),
       );
     }
@@ -336,8 +336,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
     }
 
     if (chatRes is td.TdError) {
-      Log.w("GetChat fallback failed/timed out during initial load, defaulting to empty state: ${chatRes.message}");
-      return [];
+      throw Exception("GetChat fallback failed/timed out during initial load: ${chatRes.message} (Code: ${chatRes.code})");
     }
 
     if (chatRes is td.Chat) {
