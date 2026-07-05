@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:tdlib/td_api.dart' as td;
 import '../services/storage_service.dart';
 import '../../core/utils/td_json_util.dart';
@@ -47,7 +48,7 @@ class AnimeSeason {
   factory AnimeSeason.fromJson(Map<String, dynamic> json) {
     td.Message parseMessage(dynamic raw) {
       final map = TdJsonUtil.sanitize(raw as Map<String, dynamic>);
-      return td.Message.fromJson(map);
+      return td.convertToObject(jsonEncode(map)) as td.Message;
     }
     return AnimeSeason(
       fullTitle: json['fullTitle'] as String,
