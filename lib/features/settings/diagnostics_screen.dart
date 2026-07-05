@@ -1,4 +1,4 @@
-import 'dart:io';
+﻿import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../services/storage_service.dart';
@@ -106,7 +106,7 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
-                      children: const [
+                      children: [
                         Icon(Icons.warning_amber_rounded, color: Colors.redAccent, size: 28),
                         SizedBox(width: 8),
                         Text(
@@ -162,9 +162,9 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
               child: Padding(
                 padding: const EdgeInsets.all(16.0),
                 child: Row(
-                  children: const [
-                    Icon(Icons.check_circle_outline, color: Colors.green, size: 28),
-                    SizedBox(width: 12),
+                  children: [
+                    const Icon(Icons.check_circle_outline, color: Colors.green, size: 28),
+                    const SizedBox(width: 12),
                     Expanded(
                       child: Text(
                         'Configuration is compatible. Subtitles should render normally.',
@@ -305,3 +305,4 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
     );
   }
 }
+

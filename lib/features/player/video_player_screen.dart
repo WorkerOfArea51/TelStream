@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -648,9 +648,6 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
     final playerToDispose = player;
     final controllerToDispose = controller;
     Future.delayed(const Duration(milliseconds: 300), () {
-      try {
-        controllerToDispose.dispose();
-      } catch (_) {}
       try {
         playerToDispose.dispose();
       } catch (_) {}
@@ -1495,3 +1492,4 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
   }
 
 }
+

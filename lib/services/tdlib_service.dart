@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'dart:io';
 import 'dart:ffi';
 import 'dart:convert';
@@ -436,7 +436,7 @@ class TdlibService {
         _nativeReceive = receivePtr.asFunction<Pointer<Utf8> Function(double)>();
         try {
           final freePtr = _lib.lookup<NativeFunction<Void Function(Pointer<Void>)>>('td_free_string');
-          _nativeFree = freePtr.asFunction<Void Function(Pointer<Void>)>();
+          _nativeFree = freePtr.asFunction<void Function(Pointer<Void>)>();
         } catch (e) {
           Log.w('td_free_string not found in native library');
         }
@@ -581,3 +581,4 @@ class TdlibService {
       });
     }
 }
+

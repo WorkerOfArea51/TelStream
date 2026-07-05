@@ -3,9 +3,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:telstream/services/tdlib_service.dart';
 import 'package:tdlib/td_api.dart' as td;
-import 'package:tdlib/td_api.dart';
 
 class MockTdlibService extends Mock implements TdlibService {}
+class MockMessage extends Mock implements td.Message {}
 
 void main() {
   group('TdlibService Integration Tests', () {
@@ -53,39 +53,8 @@ void main() {
         }
       });
 
-      final mockMessage = td.Message(
-        id: 12345,
-        senderId: const td.MessageSenderUser(userId: 1),
-        chatId: -100123456789,
-        isOutgoing: false,
-        isPinned: false,
-        canBeEdited: false,
-        canBeForwarded: false,
-        canBeSaved: false,
-        canBeDeletedOnlyForSelf: false,
-        canBeDeletedForAllUsers: false,
-        canGetAddedReactions: false,
-        canGetStatistics: false,
-        canGetMessageThread: false,
-        canSeeReadConfirmations: false,
-        canGetViewers: false,
-        canUseMediaTimestamps: false,
-        hasTimestampedMedia: false,
-        isChannelPost: true,
-        containsUnreadMention: false,
-        date: 1234567890,
-        editDate: 0,
-        replyInChatId: 0,
-        replyToMessageId: 0,
-        messageThreadId: 0,
-        ttl: 0,
-        ttlExpiresIn: 0.0,
-        viaBotUserId: 0,
-        authorSignature: '',
-        mediaAlbumId: 0,
-        restrictionReason: '',
-        content: const td.MessageText(text: td.FormattedText(text: 'Hello', entities: [])),
-      );
+      final mockMessage = MockMessage();
+      when(() => mockMessage.id).thenReturn(12345);
 
       updatesController.add(td.UpdateNewMessage(message: mockMessage));
 
@@ -96,4 +65,3 @@ void main() {
     });
   });
 }
-
