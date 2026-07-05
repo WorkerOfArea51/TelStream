@@ -17,6 +17,9 @@ class FakeStorageService implements StorageService {
   }
 
   @override
+  List<String> getFavorites() => [];
+
+  @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
