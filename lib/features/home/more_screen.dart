@@ -72,7 +72,7 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
             // Trigger download of the profile photo file
             final res = await tdlib.sendAsync(td.DownloadFile(
               fileId: smallFile.id,
-              priority: 32,
+              priority: 1,
               offset: 0,
               limit: 0,
               synchronous: true,

@@ -468,7 +468,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
 
       _tdlibService.send(td.DownloadFile(
         fileId: _resolvedVideoFileId!,
-        priority: 32,
+        priority: 1,
         offset: initialOffset,
         limit: 0,
         synchronous: false,
@@ -558,7 +558,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
 
       _tdlibService.send(td.DownloadFile(
         fileId: fileId,
-        priority: 32,
+        priority: 1,
         offset: shiftOffset,
         limit: 0,
         synchronous: false,

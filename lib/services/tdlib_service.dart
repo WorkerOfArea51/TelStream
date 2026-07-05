@@ -141,6 +141,9 @@ class TdlibService {
     );
     send(params);
 
+    // Force TDLib online mode so it doesn't throttle background downloads
+    send(const td.SetOption(name: 'online', value: td.OptionValueBoolean(value: true)));
+
     if (needsMigration) {
       send(td.SetDatabaseEncryptionKey(newEncryptionKey: dbKey));
       await storage.write(key: 'tdlib_db_migrated', value: 'true');

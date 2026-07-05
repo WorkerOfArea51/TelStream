@@ -223,7 +223,7 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
         // Resume download via TDLib
         tdlibService.send(td.DownloadFile(
           fileId: fileId,
-          priority: 32,
+          priority: 1,
           offset: 0,
           limit: 0,
           synchronous: false,
@@ -359,7 +359,7 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
       if (!task.isCompleted && !task.isScheduled && !_pausedForStreamingFileIds.contains(fileId)) {
         tdlibService.send(td.DownloadFile(
           fileId: fileId,
-          priority: 32,
+          priority: 1,
           offset: 0,
           limit: 0,
           synchronous: false,
@@ -383,7 +383,7 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
             updated[fileId] = task.copyWith(isScheduled: false);
             ref.read(tdlibServiceProvider).send(td.DownloadFile(
               fileId: fileId,
-              priority: 32,
+              priority: 1,
               offset: 0,
               limit: 0,
               synchronous: false,
@@ -422,7 +422,7 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
             updated[fileId] = task.copyWith(isScheduled: false);
             ref.read(tdlibServiceProvider).send(td.DownloadFile(
               fileId: fileId,
-              priority: 32,
+              priority: 1,
               offset: 0,
               limit: 0,
               synchronous: false,
@@ -506,7 +506,7 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
           updated[task.fileId] = task.copyWith(isQueued: false);
           ref.read(tdlibServiceProvider).send(td.DownloadFile(
             fileId: task.fileId,
-            priority: 32,
+            priority: 1,
             offset: 0,
             limit: 0,
             synchronous: false,
@@ -601,7 +601,7 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
       // Send TDLib DownloadFile command
       ref.read(tdlibServiceProvider).send(td.DownloadFile(
         fileId: finalFileId,
-        priority: 32,
+        priority: 1,
         offset: 0,
         limit: 0,
         synchronous: false,
@@ -651,7 +651,7 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
     if (!willBeQueued) {
       ref.read(tdlibServiceProvider).send(td.DownloadFile(
         fileId: fileId,
-        priority: 32,
+        priority: 1,
         offset: 0,
         limit: 0,
         synchronous: false,
@@ -893,7 +893,7 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
           _isPwmPaused[fileId] = false;
           tdlib.send(td.DownloadFile(
             fileId: fileId,
-            priority: 32,
+            priority: 1,
             offset: 0,
             limit: 0,
             synchronous: false,
@@ -928,7 +928,7 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
         if (task != null && !task.isCompleted && !task.isScheduled && !_pausedForStreamingFileIds.contains(fileId)) {
           tdlib.send(td.DownloadFile(
             fileId: fileId,
-            priority: 32,
+            priority: 1,
             offset: 0,
             limit: 0,
             synchronous: false,

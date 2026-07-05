@@ -210,7 +210,7 @@ class StreamingProxyService {
             
             _tdlibService.send(td.DownloadFile(
               fileId: fileId,
-              priority: 32,
+              priority: 1,
               offset: shiftOffset,
               limit: 0,
               synchronous: false,
@@ -368,7 +368,7 @@ class StreamingProxyService {
                 
                 _tdlibService.send(td.DownloadFile(
                   fileId: fileId,
-                  priority: 32,
+                  priority: 1,
                   offset: shiftOffset,
                   limit: 0,
                   synchronous: false,
@@ -426,7 +426,7 @@ class StreamingProxyService {
                   Log.w('Streaming proxy: network band/switch kick for file $fileId at offset $activeOffset (waiting for $currentOffset)');
                   _tdlibService.send(td.DownloadFile(
                     fileId: fileId,
-                    priority: 32,
+                    priority: 1,
                     offset: activeOffset,
                     limit: 0,
                     synchronous: false,
