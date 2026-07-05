@@ -15,6 +15,10 @@ class ProgressSyncNotifier extends Notifier<void> {
   @override
   void build() {
     _tdlibService = ref.watch(tdlibServiceProvider);
+    ref.onDispose(() {
+      _debounceTimer?.cancel();
+      _debounceTimer = null;
+    });
 
     // Watch favoritesProvider and historyLogProvider for automatic background updates
     ref.listen(favoritesProvider, (prev, next) {
@@ -243,6 +247,31 @@ class ProgressSyncNotifier extends Notifier<void> {
       }
       Log.i('Sent and pinned chunked sync messages in Saved Messages.');
     } else if (mode == 'sequential') {
+      // Trim history: keep only the latest 50 TelStream messages
+      try {
+        final historyRes = await _tdlibService.sendAsync(td.GetChatHistory(
+          chatId: chatId, fromMessageId: 0, offset: 0, limit: 100, onlyLocal: false,
+        ));
+        if (historyRes is td.Messages) {
+          final oldMsgIds = <int>[];
+          int kept = 0;
+          for (final msg in historyRes.messages) {
+            if (msg.content is td.MessageText) {
+              final text = (msg.content as td.MessageText).text.text;
+              if (text.startsWith('[TelStream Progress Log')) {
+                kept++;
+                if (kept > 50) oldMsgIds.add(msg.id);
+              }
+            }
+          }
+          if (oldMsgIds.isNotEmpty) {
+            await _tdlibService.sendAsync(td.DeleteMessages(
+              chatId: chatId, messageIds: oldMsgIds, revoke: true,
+            ));
+          }
+        }
+      } catch (_) {}
+
       for (var i = 0; i < chunks.length; i++) {
         final contentText = chunks.length == 1 
           ? '[TelStream Progress Log]\n${chunks[i]}' 
@@ -296,17 +325,16 @@ class ProgressSyncNotifier extends Notifier<void> {
   }
 
   Future<Map<String, dynamic>?> _fetchCloudData() async {
-    try {
-      final me = await _tdlibService.sendAsync(const td.GetMe());
-      if (me is! td.User) return null;
-      final userId = me.id;
+    final me = await _tdlibService.sendAsync(const td.GetMe());
+    if (me is! td.User) return null;
+    final userId = me.id;
 
-      final chatRes = await _tdlibService.sendAsync(td.CreatePrivateChat(userId: userId, force: false));
-      if (chatRes is! td.Chat) return null;
-      final chatId = chatRes.id;
+    final chatRes = await _tdlibService.sendAsync(td.CreatePrivateChat(userId: userId, force: false));
+    if (chatRes is! td.Chat) return null;
+    final chatId = chatRes.id;
 
-      final settings = ref.read(videoSettingsProvider);
-      final mode = settings.progressSyncMode;
+    final settings = ref.read(videoSettingsProvider);
+    final mode = settings.progressSyncMode;
 
       if (mode == 'pinned') {
         try {
@@ -380,9 +408,7 @@ class ProgressSyncNotifier extends Notifier<void> {
           }
         }
       }
-    } catch (e, stack) {
-      Log.e('Failed to fetch cloud sync data', e, stack);
-    }
+
     return null;
   }
 }

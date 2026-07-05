@@ -247,16 +247,25 @@ class AppThemeNotifier extends Notifier<AppThemeState> {
     final textColor = isDark ? Colors.white : Colors.black87;
     final subTextColor = isDark ? Colors.white60 : Colors.black54;
 
+    // Fix contrast issues in light mode for bright neon colors
+    Color effectivePrimary = preset.primaryColor;
+    if (!isDark) {
+      final hsl = HSLColor.fromColor(effectivePrimary);
+      if (hsl.lightness > 0.4) {
+        effectivePrimary = hsl.withLightness(0.4).toColor();
+      }
+    }
+
     return ThemeData(
       useMaterial3: true,
       brightness: isDark ? Brightness.dark : Brightness.light,
-      primaryColor: preset.primaryColor,
+      primaryColor: effectivePrimary,
       scaffoldBackgroundColor: scaffoldBg,
       cardColor: cardBg,
       colorScheme: ColorScheme.fromSeed(
-        seedColor: preset.primaryColor,
+        seedColor: effectivePrimary,
         brightness: isDark ? Brightness.dark : Brightness.light,
-        primary: preset.primaryColor,
+        primary: effectivePrimary,
         surface: scaffoldBg,
       ),
       appBarTheme: AppBarTheme(
@@ -271,20 +280,20 @@ class AppThemeNotifier extends Notifier<AppThemeState> {
         backgroundColor: isDark
             ? (isAmoled ? Colors.black : scaffoldBg)
             : Colors.white,
-        selectedItemColor: preset.primaryColor,
+        selectedItemColor: effectivePrimary,
         unselectedItemColor: subTextColor,
       ),
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor: isDark
             ? (isAmoled ? Colors.black : scaffoldBg)
             : Colors.white,
-        indicatorColor: preset.primaryColor.withValues(alpha: 0.15),
+        indicatorColor: effectivePrimary.withValues(alpha: 0.15),
         indicatorShape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
         ),
         iconTheme: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) {
-            return IconThemeData(color: preset.primaryColor);
+            return IconThemeData(color: effectivePrimary);
           }
           return IconThemeData(color: subTextColor);
         }),
@@ -292,7 +301,7 @@ class AppThemeNotifier extends Notifier<AppThemeState> {
           final style = TextStyle(fontSize: 12, fontWeight: FontWeight.w500);
           if (states.contains(WidgetState.selected)) {
             return style.copyWith(
-              color: preset.primaryColor,
+              color: effectivePrimary,
               fontWeight: FontWeight.bold,
             );
           }
@@ -304,7 +313,7 @@ class AppThemeNotifier extends Notifier<AppThemeState> {
           settingsBackground: settingsBg,
           settingsAccent: isDark
               ? preset.settingsPrimaryColor
-              : preset.primaryColor,
+              : effectivePrimary,
         ),
       ],
       textTheme: const TextTheme().apply(

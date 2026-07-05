@@ -237,9 +237,10 @@ class StorageService {
   Future<void> _executeSave() async {
     if (_file != null) {
       try {
+        final snapshot = json.decode(json.encode(_data)) as Map<String, dynamic>;
         final tmpFile = File('${_file!.path}.tmp');
         final backupFile = File('${_file!.path}.bak');
-        final content = json.encode(_data);
+        final content = json.encode(snapshot);
 
         await tmpFile.writeAsString(content);
 
@@ -255,15 +256,16 @@ class StorageService {
 
         try {
           if (Platform.isWindows) {
-            await tmpFile.copy(_file!.path);
-            await tmpFile.delete();
+            await tmpFile.rename(_file!.path);
           } else {
             await tmpFile.rename(_file!.path);
           }
-        } catch (_) {
-          // Fallback if rename fails
+        } on PathExistsException {
           await tmpFile.copy(_file!.path);
-          await tmpFile.delete();
+          try { await tmpFile.delete(); } catch (_) {}
+        } catch (_) {
+          await tmpFile.copy(_file!.path);
+          try { await tmpFile.delete(); } catch (_) {}
         }
       } catch (e, stackTrace) {
         Log.e('Failed to save user storage atomically', e, stackTrace);
@@ -390,7 +392,6 @@ class StorageService {
     _data['history_log'] = [];
     _data['history'] = {};
     _data['last_watched'] = null;
-    _data['durations'] = {};
     await _save();
   }
 
@@ -1022,6 +1023,18 @@ class StorageService {
         final deepCopy = json.decode(json.encode(data)) as Map<String, dynamic>;
         if (deepCopy['history'] is! Map) deepCopy['history'] = {};
         if (deepCopy['favorites'] is! List) deepCopy['favorites'] = [];
+
+        // Re-run secure-storage migration for token fields in imported backup
+        for (final tokenKey in ['anilist_token', 'mal_token', 'trakt_token']) {
+          if (deepCopy.containsKey(tokenKey)) {
+            final tokenValue = deepCopy[tokenKey] as String?;
+            if (tokenValue != null && tokenValue.isNotEmpty) {
+              await _secureStorage.write(key: tokenKey, value: tokenValue);
+            }
+            deepCopy.remove(tokenKey);
+          }
+        }
+
         _data = deepCopy;
         _dirty = true;
         await _executeSave();

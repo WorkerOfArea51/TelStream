@@ -30,8 +30,8 @@ dependencies:
   palette_generator: ^0.3.3+7
   country_picker: ^2.0.28
   archive: ^3.6.1
-  device_info_plus: ^10.1.0
-  flutter_secure_storage: ^9.2.2
+  device_info_plus: ^11.0.0
+  flutter_secure_storage: ^10.0.0
   synchronized: ^3.1.0
   crypto: ^3.0.7
   wakelock_plus: ^1.2.8
@@ -43,6 +43,7 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  mocktail: ^1.0.4
 
   flutter_lints: ^6.0.0
   flutter_launcher_icons: ^0.13.1

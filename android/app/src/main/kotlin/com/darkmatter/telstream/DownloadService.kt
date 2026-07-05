@@ -27,7 +27,7 @@ class DownloadService : Service() {
     }
     
     // Store active download titles, progress values, and paused states
-    private val activeDownloads = mutableMapOf<Int, Triple<String, Double, Boolean>>()
+    private val activeDownloads = java.util.Collections.synchronizedMap(mutableMapOf<Int, Triple<String, Double, Boolean>>())
 
     inner class LocalBinder : Binder() {
         fun getService(): DownloadService = this@DownloadService
@@ -74,6 +74,11 @@ class DownloadService : Service() {
             // If it is cancel, remove from activeDownloads immediately
             if (action == ACTION_CANCEL) {
                 activeDownloads.remove(fileId)
+            } else if (action == ACTION_PAUSE || action == ACTION_RESUME) {
+                val existing = activeDownloads[fileId]
+                if (existing != null) {
+                    activeDownloads[fileId] = Triple(existing.first, existing.second, action == ACTION_PAUSE)
+                }
             }
         } else {
             val title = intent.getStringExtra("title") ?: "Download"
@@ -94,7 +99,7 @@ class DownloadService : Service() {
         if (activeDownloads.isEmpty()) {
             val dummyNotification = NotificationCompat.Builder(this, CHANNEL_ID)
                 .setSmallIcon(android.R.drawable.stat_sys_download)
-                .setContentTitle("Download completed")
+                .setContentTitle("Service running")
                 .build()
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 startForeground(
@@ -242,32 +247,34 @@ class DownloadService : Service() {
         }
         
         // Clear download cache folders on app kill from recents
-        try {
-            val appFlutterDir = File(applicationContext.filesDir.parentFile, "app_flutter")
-            val targetDirs = listOf("temp") // Security fix: Do not delete user's downloaded "videos", "music", etc.
-            for (dirName in targetDirs) {
-                val dir = File(appFlutterDir, dirName)
-                if (dir.exists() && dir.isDirectory) {
-                    dir.listFiles()?.forEach { file ->
-                        if (file.isFile) {
-                            val path = file.absolutePath.lowercase(java.util.Locale.ROOT)
-                            val isDatabase = path.endsWith(".db") || 
-                                             path.endsWith(".db-journal") || 
-                                             path.endsWith(".db-wal") || 
-                                             path.endsWith(".db-shm") || 
-                                             path.endsWith(".bin") ||
-                                             path.endsWith(".binlog") ||
-                                             path.endsWith(".key")
-                            if (!isDatabase) {
-                                file.delete()
+        Thread {
+            try {
+                val appFlutterDir = File(applicationContext.filesDir.parentFile, "app_flutter")
+                val targetDirs = listOf("temp") // Security fix: Do not delete user's downloaded "videos", "music", etc.
+                for (dirName in targetDirs) {
+                    val dir = File(appFlutterDir, dirName)
+                    if (dir.exists() && dir.isDirectory) {
+                        dir.listFiles()?.forEach { file ->
+                            if (file.isFile) {
+                                val path = file.absolutePath.lowercase(java.util.Locale.ROOT)
+                                val isDatabase = path.endsWith(".db") || 
+                                                 path.endsWith(".db-journal") || 
+                                                 path.endsWith(".db-wal") || 
+                                                 path.endsWith(".db-shm") || 
+                                                 path.endsWith(".bin") ||
+                                                 path.endsWith(".binlog") ||
+                                                 path.endsWith(".key")
+                                if (!isDatabase) {
+                                    file.delete()
+                                }
                             }
                         }
                     }
                 }
+            } catch (e: Exception) {
+                e.printStackTrace()
             }
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
+        }.start()
 
         stopSelf()
     }

@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/services.dart';
@@ -113,6 +113,19 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
     });
     _init();
     _setupConnectivityListener();
+    
+    if (Platform.isAndroid) {
+      try {
+        _channel.invokeMethod('updateDownloadNotification', {
+          'fileId': -1,
+          'title': 'Service running',
+          'progress': 0.0,
+          'isCompleted': false,
+          'isCancelled': false,
+          'isPaused': false,
+        });
+      } catch (_) {}
+    }
 
     ref.listen<VideoSettings>(videoSettingsProvider, (previous, next) {
       if (previous?.downloadSpeedLimit != next.downloadSpeedLimit) {
@@ -244,13 +257,15 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
 
     // Listen to tdlib updates for file download progress
     final tdlibService = ref.read(tdlibServiceProvider);
-    _subscription?.cancel();
+    await _subscription?.cancel();
+    final Set<int> _savingFileIds = {};
     _subscription = tdlibService.updates.listen((event) {
       if (event is td.UpdateFile) {
         final fileId = event.file.id;
         if (state.containsKey(fileId)) {
           final task = state[fileId]!;
           if (task.isCompleted) return; // Already finished and saved
+          if (_savingFileIds.contains(fileId)) return;
 
           final expectedSize = event.file.expectedSize;
           final downloadedSize = event.file.local.downloadedSize;
@@ -265,7 +280,10 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
           String? tempPath = event.file.local.path;
 
           if (isCompleted && tempPath.isNotEmpty) {
-            _saveFilePermanently(fileId, tempPath, task.title);
+            _savingFileIds.add(fileId);
+            _saveFilePermanently(fileId, tempPath, task.title).whenComplete(() {
+              _savingFileIds.remove(fileId);
+            });
             _lastDownloadedSizes.remove(fileId);
             _lastUpdateTimes.remove(fileId);
           } else {
@@ -667,6 +685,7 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
 
     _updateNativeNotification(fileId, task.title, task.progress, isPaused: false);
     _updatePwmState();
+    _processQueue();
   }
 
   Future<void> cancelDownload(int fileId) async {
@@ -731,26 +750,22 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
           throw Exception("Temp file size is 0 bytes");
         }
         
-        // Use RandomAccessFile to read-lock the temp file on the OS level.
-        // This prevents TDLib from deleting it out from under us while copying.
-        final rafIn = await tempFile.open(mode: FileMode.read);
-        final rafOut = await File(partPath).open(mode: FileMode.write);
+        // Use Dart Streams for chunked copy to avoid blocking the main isolate
+        // and allow the OS to optimize the file IO.
+        final sink = File(partPath).openWrite();
+        int totalRead = 0;
         try {
-          const int chunkSize = 1024 * 1024; // 1 MB chunks
-          final buffer = Uint8List(chunkSize);
-          int totalRead = 0;
-          while (true) {
-            final bytesRead = await rafIn.readInto(buffer);
-            if (bytesRead == 0) break;
-            await rafOut.writeFrom(buffer, 0, bytesRead);
-            totalRead += bytesRead;
+          await for (final chunk in tempFile.openRead()) {
+            sink.add(chunk);
+            totalRead += chunk.length;
           }
-          if (totalRead != tempSize) {
-            throw Exception("Copied file size ($totalRead bytes) does not match original size ($tempSize bytes)");
-          }
+          await sink.flush();
         } finally {
-          await rafIn.close();
-          await rafOut.close();
+          await sink.close();
+        }
+        
+        if (totalRead != tempSize) {
+          throw Exception("Copied file size ($totalRead bytes) does not match original size ($tempSize bytes)");
         }
         
         final permFile = await File(partPath).rename(permanentPath);
@@ -797,9 +812,11 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
 
   void pauseDownloadsForStreaming() {
     _pausedForStreamingFileIds.clear();
+    final Map<int, DownloadTask> updated = {...state};
     state.forEach((fileId, task) {
       if (!task.isCompleted) {
         _pausedForStreamingFileIds.add(fileId);
+        updated[fileId] = task.copyWith(isPaused: true, speedBytesPerSecond: 0.0);
         ref.read(tdlibServiceProvider).send(td.CancelDownloadFile(
           fileId: fileId,
           onlyIfPending: false,
@@ -807,6 +824,7 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
         Log.i('Paused background download for active streaming: ${task.title}');
       }
     });
+    state = updated;
     _updatePwmState();
   }
 
@@ -884,7 +902,7 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
         return;
       }
 
-      _pwmCycleElapsedMs += 100;
+      _pwmCycleElapsedMs += 500;
       final isNewCycle = _pwmCycleElapsedMs >= 1000;
       if (isNewCycle) {
         _pwmCycleElapsedMs = 0;
@@ -986,7 +1004,7 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
 
     if (hasActiveIncomplete) {
       if (_pwmTimer == null) {
-        _pwmTimer = Timer.periodic(const Duration(milliseconds: 100), (_) {
+        _pwmTimer = Timer.periodic(const Duration(milliseconds: 500), (_) {
           _onPwmTick();
         });
         Log.i('PWM Speed Limiter started with limit: ${settings.downloadSpeedLimit}');

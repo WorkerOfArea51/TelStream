@@ -1,4 +1,4 @@
-﻿import 'widgets/squiggly_play_button.dart';
+import 'widgets/squiggly_play_button.dart';
 import 'widgets/cached_video_widget.dart';
 import 'dart:async';
 import 'dart:io';
@@ -1032,6 +1032,8 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     _statsTimer?.cancel();
     _autoNextSlideInTimer?.cancel();
     _autoNextTimer?.cancel();
+    _autoNextDismissTimer?.cancel();
+    _toastTimer?.cancel();
     // _skipButtonCollapseTimer?.cancel();
     _chaptersRetryTimer?.cancel();
     _bufferingSubscription?.cancel();

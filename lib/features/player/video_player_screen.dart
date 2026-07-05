@@ -645,15 +645,16 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
       }
     } catch (_) {}
 
-    // Disposing player after a short delay if not already handled by pip controller close
-    if (!isActive) {
-      final playerToDispose = player;
-      Future.delayed(const Duration(milliseconds: 300), () {
-        try {
-          playerToDispose.dispose();
-        } catch (_) {}
-      });
-    }
+    final playerToDispose = player;
+    final controllerToDispose = controller;
+    Future.delayed(const Duration(milliseconds: 300), () {
+      try {
+        controllerToDispose.dispose();
+      } catch (_) {}
+      try {
+        playerToDispose.dispose();
+      } catch (_) {}
+    });
 
     try {
       final fileId = _resolvedVideoFileId ?? widget.videoFileId;
@@ -1094,11 +1095,13 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
               durSub = player.stream.duration.listen((dur) {
                 if (dur.inSeconds > 0) {
                   durSub.cancel();
+                  _subscriptions.remove(durSub);
                   if (mounted) {
                     _handleCustomSeek(currentPos);
                   }
                 }
               });
+              _subscriptions.add(durSub);
             }
           }
         });

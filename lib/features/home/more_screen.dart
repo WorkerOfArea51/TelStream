@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -215,12 +215,12 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
         children: [
           Text(
             label,
-            style: const TextStyle(color: Colors.white38, fontSize: 11, fontWeight: FontWeight.w500),
+            style: TextStyle(color: Theme.of(context).textTheme.bodySmall?.color, fontSize: 11, fontWeight: FontWeight.w500),
           ),
           const SizedBox(height: 4),
           Text(
             value,
-            style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
+            style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color, fontSize: 13, fontWeight: FontWeight.bold),
             textAlign: TextAlign.center,
           ),
         ],
@@ -783,7 +783,7 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'v${Constants.currentVersion} • Fairy Tail (${Secrets.buildTag})',
+                          'v${Constants.currentVersion} â€¢ Fairy Tail (${Secrets.buildTag})',
                           style: TextStyle(
                             color: subTextColor,
                             fontSize: 13,
@@ -1032,7 +1032,7 @@ class _TechRow extends StatelessWidget {
           flex: 4,
           child: Text(
             name,
-            style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
+            style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color, fontSize: 13, fontWeight: FontWeight.bold),
           ),
         ),
         const SizedBox(width: 8),
@@ -1040,10 +1040,11 @@ class _TechRow extends StatelessWidget {
           flex: 6,
           child: Text(
             desc,
-            style: const TextStyle(color: Colors.white54, fontSize: 12, height: 1.3),
+            style: TextStyle(color: Theme.of(context).textTheme.bodySmall?.color, fontSize: 12, height: 1.3),
           ),
         ),
       ],
     );
   }
 }
+

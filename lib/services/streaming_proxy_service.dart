@@ -22,13 +22,14 @@ class StreamingProxyService {
   final TdlibService _tdlibService;
   HttpServer? _server;
   int _port = 0;
-  final Completer<void> _startCompleter = Completer<void>();
+  Completer<void>? _startCompleter = Completer<void>();
+  StreamSubscription<td.TdObject>? _updatesSub;
 
   final _stateLock = Lock();
   final String _authToken = base64Url.encode(List<int>.generate(32, (i) => Random.secure().nextInt(256)));
   int _nextReqId = 0;
 
-  Future<void> get onReady => _startCompleter.future;
+  Future<void> get onReady => _startCompleter!.future;
 
   // Track active download offset state per fileId
   final Map<int, int> _activeDownloadOffsets = {};
@@ -63,7 +64,7 @@ class StreamingProxyService {
   }
 
   StreamingProxyService(this._tdlibService) {
-    _tdlibService.updates.listen((event) {
+    _updatesSub = _tdlibService.updates.listen((event) {
       if (event is td.UpdateFile) {
         _fileStates[event.file.id] = event.file;
       }
@@ -71,6 +72,9 @@ class StreamingProxyService {
   }
 
   Future<void> start() async {
+    if (_startCompleter!.isCompleted) {
+      _startCompleter = Completer<void>();
+    }
     try {
       _server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
       _port = _server!.port;
@@ -78,13 +82,13 @@ class StreamingProxyService {
       _server!.listen(_handleRequest, onError: (e) {
         Log.e('HTTP Proxy server error', e);
       });
-      if (!_startCompleter.isCompleted) {
-        _startCompleter.complete();
+      if (!_startCompleter!.isCompleted) {
+        _startCompleter!.complete();
       }
     } catch (e, stack) {
       Log.e('Failed to start HTTP Proxy server', e, stack);
-      if (!_startCompleter.isCompleted) {
-        _startCompleter.completeError(e, stack);
+      if (!_startCompleter!.isCompleted) {
+        _startCompleter!.completeError(e, stack);
       }
     }
   }
@@ -105,8 +109,15 @@ class StreamingProxyService {
   td.File? getCachedFile(int fileId) => _fileStates[fileId];
 
   Future<void> stop() async {
+    await _updatesSub?.cancel();
+    _updatesSub = null;
     await _server?.close(force: true);
     _server = null;
+    _fileStates.clear();
+    _activeDownloadOffsets.clear();
+    _downloadedSizeAtOffsets.clear();
+    _activeRequestOffsets.clear();
+    _requestLastActive.clear();
     Log.i('Local HTTP Streaming Proxy stopped');
   }
 

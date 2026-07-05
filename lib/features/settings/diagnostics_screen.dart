@@ -68,7 +68,10 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
     final storage = ref.watch(storageServiceProvider);
     final settings = ref.watch(videoSettingsProvider);
     
-    final isAndroid = Platform.isAndroid;
+    final textColor = theme.textTheme.bodyLarge?.color ?? Colors.black;
+      final subTextColor = theme.textTheme.bodySmall?.color ?? Colors.black54;
+      final divColor = theme.dividerColor;
+      final isAndroid = Platform.isAndroid;
     final decoderMode = storage.getHardwareDecoderMode();
     final isNativeBlending = settings.subtitleRendererMode == 'native';
     
@@ -78,13 +81,13 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
-        title: const Text(
+        title: Text(
           'Troubleshooting & Diagnostics',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          style: TextStyle(color: textColor, fontWeight: FontWeight.bold),
         ),
         backgroundColor: Colors.transparent,
         elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.white),
+        iconTheme: IconThemeData(color: textColor),
       ),
       body: ListView(
         padding: const EdgeInsets.all(16.0),
@@ -95,7 +98,7 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
               color: Colors.redAccent.withValues(alpha: 0.15),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
-                side: const BorderSide(color: Colors.redAccent, width: 1.5),
+                side: BorderSide(color: Colors.redAccent, width: 1.5),
               ),
               child: Padding(
                 padding: const EdgeInsets.all(16.0),
@@ -113,9 +116,9 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
                       ],
                     ),
                     const SizedBox(height: 12),
-                    const Text(
+                    Text(
                       'Your device is configured to use zero-copy hardware acceleration (mediacodec) with Native Blending subtitles. On many Android devices, zero-copy bypasses the subtitle filter rendering path entirely, causing subtitles inside MKV/MP4 files not to show up at all.',
-                      style: TextStyle(color: Colors.white70, fontSize: 13, height: 1.4),
+                      style: TextStyle(color: subTextColor, fontSize: 13, height: 1.4),
                     ),
                     const SizedBox(height: 16),
                     Row(
@@ -128,19 +131,19 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                             ),
                             onPressed: () => _updateDecoderMode('mediacodec-copy'),
-                            child: const Text('Switch to Copy-Back', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                            child: Text('Switch to Copy-Back', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                           ),
                         ),
                         const SizedBox(width: 10),
                         Expanded(
                           child: OutlinedButton(
                             style: OutlinedButton.styleFrom(
-                              foregroundColor: Colors.white,
-                              side: const BorderSide(color: Colors.white24),
+                              foregroundColor: textColor,
+                              side: BorderSide(color: divColor),
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                             ),
                             onPressed: () => _updateDecoderMode('no'),
-                            child: const Text('Use Software Decoding', style: TextStyle(fontSize: 12)),
+                            child: Text('Use Software Decoding', style: TextStyle(fontSize: 12)),
                           ),
                         ),
                       ],
@@ -154,7 +157,7 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
               color: Colors.green.withValues(alpha: 0.12),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
-                side: const BorderSide(color: Colors.green, width: 1),
+                side: BorderSide(color: Colors.green, width: 1),
               ),
               child: Padding(
                 padding: const EdgeInsets.all(16.0),
@@ -165,7 +168,7 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
                     Expanded(
                       child: Text(
                         'Configuration is compatible. Subtitles should render normally.',
-                        style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500),
+                        style: TextStyle(color: textColor, fontSize: 14, fontWeight: FontWeight.w500),
                       ),
                     ),
                   ],
@@ -181,18 +184,18 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
             child: Column(
               children: [
                 ListTile(
-                  title: const Text('Subtitle Renderer Mode', style: TextStyle(color: Colors.white)),
+                  title: Text('Subtitle Renderer Mode', style: TextStyle(color: textColor)),
                   subtitle: Text(
                     settings.subtitleRendererMode == 'flutter' 
                         ? 'Compatible Flutter Text Overlay' 
                         : 'Stylized Native Blending',
-                    style: const TextStyle(color: Colors.white54, fontSize: 12),
+                    style: TextStyle(color: subTextColor, fontSize: 12),
                   ),
-                  trailing: const Icon(Icons.subtitles, color: Colors.white30),
+                  trailing: Icon(Icons.subtitles, color: subTextColor.withOpacity(0.5)),
                 ),
-                const Divider(color: Colors.white10, height: 1),
+                Divider(color: divColor, height: 1),
                 ListTile(
-                  title: const Text('Hardware Decoding Mode', style: TextStyle(color: Colors.white)),
+                  title: Text('Hardware Decoding Mode', style: TextStyle(color: textColor)),
                   subtitle: Text(
                     decoderMode == 'mediacodec'
                         ? 'Zero-Copy Hardware (mediacodec)'
@@ -201,9 +204,9 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
                             : decoderMode == 'no'
                                 ? 'Software Decoding (no)'
                                 : 'Auto ($decoderMode)',
-                    style: const TextStyle(color: Colors.white54, fontSize: 12),
+                    style: TextStyle(color: subTextColor, fontSize: 12),
                   ),
-                  trailing: const Icon(Icons.settings_input_component, color: Colors.white30),
+                  trailing: Icon(Icons.settings_input_component, color: subTextColor.withOpacity(0.5)),
                 ),
               ],
             ),
@@ -219,30 +222,30 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
                 ListTile(
                   leading: Icon(
                     decoderMode == 'mediacodec' ? Icons.radio_button_checked : Icons.radio_button_off,
-                    color: decoderMode == 'mediacodec' ? Colors.orange : Colors.white30,
+                    color: decoderMode == 'mediacodec' ? Colors.orange : subTextColor.withOpacity(0.5),
                   ),
-                  title: const Text('Zero-Copy (mediacodec)', style: TextStyle(color: Colors.white)),
-                  subtitle: const Text('Highest performance, but may hide subtitles on Android.', style: TextStyle(color: Colors.white54, fontSize: 11)),
+                  title: Text('Zero-Copy (mediacodec)', style: TextStyle(color: textColor)),
+                  subtitle: Text('Highest performance, but may hide subtitles on Android.', style: TextStyle(color: subTextColor, fontSize: 11)),
                   onTap: () => _updateDecoderMode('mediacodec'),
                 ),
-                const Divider(color: Colors.white10, height: 1),
+                Divider(color: divColor, height: 1),
                 ListTile(
                   leading: Icon(
                     decoderMode == 'mediacodec-copy' ? Icons.radio_button_checked : Icons.radio_button_off,
-                    color: decoderMode == 'mediacodec-copy' ? Colors.orange : Colors.white30,
+                    color: decoderMode == 'mediacodec-copy' ? Colors.orange : subTextColor.withOpacity(0.5),
                   ),
-                  title: const Text('Copy-Back (mediacodec-copy)', style: TextStyle(color: Colors.white)),
-                  subtitle: const Text('Hardware accelerated video with full native subtitle blending.', style: TextStyle(color: Colors.white54, fontSize: 11)),
+                  title: Text('Copy-Back (mediacodec-copy)', style: TextStyle(color: textColor)),
+                  subtitle: Text('Hardware accelerated video with full native subtitle blending.', style: TextStyle(color: subTextColor, fontSize: 11)),
                   onTap: () => _updateDecoderMode('mediacodec-copy'),
                 ),
-                const Divider(color: Colors.white10, height: 1),
+                Divider(color: divColor, height: 1),
                 ListTile(
                   leading: Icon(
                     decoderMode == 'no' ? Icons.radio_button_checked : Icons.radio_button_off,
-                    color: decoderMode == 'no' ? Colors.orange : Colors.white30,
+                    color: decoderMode == 'no' ? Colors.orange : subTextColor.withOpacity(0.5),
                   ),
-                  title: const Text('Software Decoding (no)', style: TextStyle(color: Colors.white)),
-                  subtitle: const Text('Maximum subtitle compatibility. Decodes via CPU.', style: TextStyle(color: Colors.white54, fontSize: 11)),
+                  title: Text('Software Decoding (no)', style: TextStyle(color: textColor)),
+                  subtitle: Text('Maximum subtitle compatibility. Decodes via CPU.', style: TextStyle(color: subTextColor, fontSize: 11)),
                   onTap: () => _updateDecoderMode('no'),
                 ),
               ],
@@ -259,9 +262,9 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
               child: Column(
                 children: [
                   _buildStatRow('Operating System', Platform.isAndroid ? 'Android' : Platform.isWindows ? 'Windows' : Platform.operatingSystem),
-                  const Divider(color: Colors.white10),
+                  Divider(color: divColor),
                   _buildStatRow('Database Directory', _appDocsDir),
-                  const Divider(color: Colors.white10),
+                  Divider(color: divColor),
                   _buildStatRow('Total Local Storage Size', _cachedSizeStr),
                 ],
               ),
@@ -277,12 +280,13 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
       padding: const EdgeInsets.only(bottom: 8.0, left: 4.0),
       child: Text(
         title,
-        style: const TextStyle(color: Colors.orange, fontWeight: FontWeight.bold, fontSize: 14),
+        style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold, fontSize: 14),
       ),
     );
   }
 
   Widget _buildStatRow(String label, String value) {
+    final subTextColor = Theme.of(context).textTheme.bodySmall?.color ?? Colors.black54;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4.0),
       child: Row(
@@ -290,11 +294,11 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
         children: [
           Expanded(
             flex: 2,
-            child: Text(label, style: const TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w500)),
+            child: Text(label, style: TextStyle(color: subTextColor, fontSize: 13, fontWeight: FontWeight.w500)),
           ),
           Expanded(
             flex: 3,
-            child: Text(value, style: const TextStyle(color: Colors.white54, fontSize: 13), textAlign: TextAlign.right),
+            child: Text(value, style: TextStyle(color: subTextColor, fontSize: 13), textAlign: TextAlign.right),
           ),
         ],
       ),

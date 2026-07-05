@@ -28,6 +28,7 @@ class TdlibService {
   
   late final DynamicLibrary _lib;
   late final Pointer<Utf8> Function(double timeout) _nativeReceive;
+  void Function(Pointer<Void>)? _nativeFree;
   bool _libInitialized = false;
   
   final _updatesController = StreamController<td.TdObject>.broadcast();
@@ -60,17 +61,26 @@ class TdlibService {
   }
 
   Future<String> _loadOrCreateDbEncryptionKey() async {
+    final appDir = await getAppDirectory();
+    final keyFile = File('${appDir.path}/tdlib_key.txt');
+    
+    if (await keyFile.exists()) {
+      return (await keyFile.readAsString()).trim();
+    }
+    
+    // Fallback: try reading from FlutterSecureStorage to migrate existing keys
     const storage = FlutterSecureStorage();
     String? key = await storage.read(key: 'tdlib_db_key');
+    
     if (key == null || key.isEmpty) {
       final random = Random.secure();
       final values = List<int>.generate(32, (i) => random.nextInt(256));
       key = base64Encode(values);
-      await storage.write(key: 'tdlib_db_key', value: key);
     } else if (key.contains('-') || key.contains('_')) {
       key = key.replaceAll('-', '+').replaceAll('_', '/');
-      await storage.write(key: 'tdlib_db_key', value: key);
     }
+    
+    await keyFile.writeAsString(key);
     return key;
   }
 
@@ -418,54 +428,65 @@ class TdlibService {
   int _requestId = 0;
 
   void _initNativeLibrary() {
-    if (_libInitialized) return;
-    try {
-      final libName = Platform.isWindows ? 'tdjson.dll' : (Platform.isAndroid ? 'libtdjson.so' : 'libtdjson.so');
-      _lib = DynamicLibrary.open(libName);
-      final receivePtr = _lib.lookup<NativeFunction<Pointer<Utf8> Function(Double)>>('td_receive');
-      _nativeReceive = receivePtr.asFunction<Pointer<Utf8> Function(double)>();
-      _libInitialized = true;
-      Log.i('TDLib direct FFI receive library loaded successfully.');
-    } catch (e, stack) {
-      Log.e('Failed to load native library for custom FFI receive', e, stack);
+      if (_libInitialized) return;
+      try {
+        final libName = Platform.isWindows ? 'tdjson.dll' : (Platform.isAndroid ? 'libtdjson.so' : 'libtdjson.so');
+        _lib = DynamicLibrary.open(libName);
+        final receivePtr = _lib.lookup<NativeFunction<Pointer<Utf8> Function(Double)>>('td_receive');
+        _nativeReceive = receivePtr.asFunction<Pointer<Utf8> Function(double)>();
+        try {
+          final freePtr = _lib.lookup<NativeFunction<Void Function(Pointer<Void>)>>('td_free_string');
+          _nativeFree = freePtr.asFunction<Void Function(Pointer<Void>)>();
+        } catch (e) {
+          Log.w('td_free_string not found in native library');
+        }
+        _libInitialized = true;
+        Log.i('TDLib direct FFI receive library loaded successfully.');
+      } catch (e, stack) {
+        Log.e('Failed to load native library for custom FFI receive', e, stack);
+      }
     }
-  }
 
   static Map<String, dynamic> sanitizeJson(Map<String, dynamic> json) {
     return TdJsonUtil.sanitize(json);
   }
 
-  void _startEventLoop() async {
-    int idleCount = 0;
-    int eventsProcessed = 0;
-    while (!_isDestroyed) {
-      try {
-        td.TdObject? event;
-        if (_libInitialized) {
-          final rawPtr = _nativeReceive(0.0);
-          if (rawPtr != nullptr) {
-            final jsonStr = rawPtr.toDartString();
-            final Map<String, dynamic> jsonMap = jsonDecode(jsonStr);
-            final sanitized = sanitizeJson(jsonMap);
-            event = td.convertToObject(jsonEncode(sanitized));
-          }
-        } else {
-          event = tdReceive(0.0);
-        }
+  bool _eventLoopRunning = false;
 
-        if (event == null) {
-          idleCount++;
-          // Yield to event loop, back off to 20ms when idle to reduce CPU usage without freezing UI
-          await Future.delayed(Duration(milliseconds: idleCount > 10 ? 20 : 5));
-          continue;
-        }
-        
-        idleCount = 0; // reset on event
-        eventsProcessed++;
-        if (eventsProcessed > 50) {
-          eventsProcessed = 0;
-          await Future.delayed(Duration.zero); // force yield to Dart event loop
-        }
+  void _startEventLoop() async {
+      if (_eventLoopRunning) return;
+      _eventLoopRunning = true;
+      int eventsProcessed = 0;
+      while (!_isDestroyed) {
+        try {
+          td.TdObject? event;
+          if (_libInitialized) {
+            final rawPtr = _nativeReceive(10.0);
+            if (rawPtr != nullptr) {
+              try {
+                final jsonStr = rawPtr.toDartString();
+                final Map<String, dynamic> jsonMap = jsonDecode(jsonStr);
+                final sanitized = sanitizeJson(jsonMap);
+                event = td.convertToObject(jsonEncode(sanitized));
+              } finally {
+                if (_nativeFree != null) {
+                  _nativeFree!(rawPtr.cast());
+                }
+              }
+            }
+          } else {
+            event = tdReceive(10.0);
+          }
+  
+          if (event == null) {
+            continue;
+          }
+          
+          eventsProcessed++;
+          if (eventsProcessed > 50) {
+            eventsProcessed = 0;
+            await Future.delayed(Duration.zero); // force yield to Dart event loop
+          }
 
         // Filter out false-positive TdError events caused by closing inactive client IDs on startup
         if (event is td.TdError && (event.message == "Invalid TDLib instance specified" || event.message.contains("Invalid TDLib instance"))) {
@@ -541,18 +562,22 @@ class TdlibService {
   }
 
   void destroy() {
-    _isDestroyed = true;
-    _initPruneTimer?.cancel();
-    _updatesController.close();
-    if (_clientId != null) {
-      try {
-        tdSend(_clientId!, const td.Close());
-      } catch (_) {}
-      _clientId = null;
+      _isDestroyed = true;
+      _initPruneTimer?.cancel();
+      _updatesController.close();
+      if (_clientId != null) {
+        try {
+          tdSend(_clientId!, const td.Close());
+        } catch (_) {}
+        _clientId = null;
+      }
+      _pendingLock.synchronized(() {
+        for (final c in _pendingRequests.values) {
+          if (!c.isCompleted) {
+            c.completeError(StateError('TdlibService destroyed'));
+          }
+        }
+        _pendingRequests.clear();
+      });
     }
-  }
 }
-
-
-
-
