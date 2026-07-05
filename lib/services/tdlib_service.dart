@@ -437,6 +437,7 @@ class TdlibService {
 
   void _startEventLoop() async {
     int idleCount = 0;
+    int eventsProcessed = 0;
     while (!_isDestroyed) {
       try {
         td.TdObject? event;
@@ -460,6 +461,11 @@ class TdlibService {
         }
         
         idleCount = 0; // reset on event
+        eventsProcessed++;
+        if (eventsProcessed > 50) {
+          eventsProcessed = 0;
+          await Future.delayed(Duration.zero); // force yield to Dart event loop
+        }
 
         // Filter out false-positive TdError events caused by closing inactive client IDs on startup
         if (event is td.TdError && (event.message == "Invalid TDLib instance specified" || event.message.contains("Invalid TDLib instance"))) {
@@ -519,7 +525,7 @@ class TdlibService {
         if (_isDestroyed || _clientId == null) break;
         final res = await sendAsync(td.LoadChats(
           chatList: const td.ChatListMain(),
-          limit: 100,
+          limit: 50,
         )).timeout(
           const Duration(seconds: 10),
           onTimeout: () => td.TdError(code: 408, message: "Request Timeout"),
@@ -528,8 +534,8 @@ class TdlibService {
         if (res is td.TdError) {
           break; // End of list or error
         }
-        chatsLoaded += 100;
-        await Future.delayed(const Duration(milliseconds: 200));
+        chatsLoaded += 50;
+        await Future.delayed(const Duration(milliseconds: 1000));
       }
     });
   }

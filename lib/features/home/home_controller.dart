@@ -336,7 +336,8 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
     }
 
     if (chatRes is td.TdError) {
-      throw Exception("GetChat failed: ${chatRes.message} (Code: ${chatRes.code})");
+      Log.w("GetChat fallback failed/timed out during initial load, defaulting to empty state: ${chatRes.message}");
+      return [];
     }
 
     if (chatRes is td.Chat) {
