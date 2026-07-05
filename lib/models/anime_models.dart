@@ -45,7 +45,7 @@ class AnimeSeason {
       };
 
   factory AnimeSeason.fromJson(Map<String, dynamic> json) {
-    td.Message parseMessage(Object raw) {
+    td.Message parseMessage(dynamic raw) {
       final map = TdJsonUtil.sanitize(raw as Map<String, dynamic>);
       return td.Message.fromJson(map);
     }
@@ -53,7 +53,7 @@ class AnimeSeason {
       fullTitle: json['fullTitle'] as String,
       seasonName: json['seasonName'] as String,
       posterMessage: parseMessage(json['posterMessage']),
-      episodes: (json['episodes'] as List).map(parseMessage).toList(),
+      episodes: (json['episodes'] as List).map((e) => parseMessage(e)).toList(),
     );
   }
 

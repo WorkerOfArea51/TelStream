@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../services/storage_service.dart';
+import '../logger.dart';
 
 /// Custom theme extension to support modular configurations for settings/player sub-panels.
 class AppThemeExtension extends ThemeExtension<AppThemeExtension> {
