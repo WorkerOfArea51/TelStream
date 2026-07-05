@@ -5,7 +5,7 @@ void main() {
   group('Constants Tests', () {
     test('Current version is defined and not empty', () {
       expect(Constants.currentVersion, isNotEmpty);
-      expect(Constants.currentVersion, startsWith('2.10.2'));
+      expect(Constants.currentVersion, startsWith('2.10.3'));
     });
 
     test('Changelog is defined and contains current version info', () {
