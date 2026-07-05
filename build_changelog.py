@@ -29,11 +29,27 @@ def main():
             f"- **ARM32 APK:** Optimized for older 32-bit ARM devices (armeabi-v7a).\n"
         )
         
+        # Generate Checksums for release assets
+        hashes_info = "\n### 🔐 Security & Checksums\n"
+        assets_dir = 'release_assets'
+        if os.path.exists(assets_dir):
+            import hashlib
+            for filename in sorted(os.listdir(assets_dir)):
+                filepath = os.path.join(assets_dir, filename)
+                if os.path.isfile(filepath):
+                    sha256_hash = hashlib.sha256()
+                    with open(filepath, "rb") as f:
+                        for byte_block in iter(lambda: f.read(4096), b""):
+                            sha256_hash.update(byte_block)
+                    hashes_info += f"- **{filename}:** `{sha256_hash.hexdigest()}`\n"
+        else:
+            hashes_info += "_No assets found to hash during build._\n"
+        
         # Write to the destination markdown file
         with open('extracted_changelog.md', 'w', encoding='utf-8') as out:
-            out.write(changelog + build_info)
+            out.write(changelog + build_info + hashes_info)
             
-        print("Changelog generated successfully with build info!")
+        print("Changelog generated successfully with build info and SHA-256 hashes!")
     except Exception as e:
         print(f"Error generating changelog: {e}")
 

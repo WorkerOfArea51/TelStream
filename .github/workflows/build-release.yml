@@ -153,6 +153,12 @@ jobs:
           VERSION=$(grep '^version: ' pubspec.yaml | cut -d ' ' -f 2 | cut -d '+' -f 1)
           echo "APP_VERSION=$VERSION" >> $GITHUB_ENV
 
+      - name: Generate checksums.txt
+        run: |
+          cd release_assets
+          sha256sum * > checksums.txt
+          cd ..
+
       - name: Generate Changelog
         env:
           APP_VERSION: ${{ env.APP_VERSION }}
@@ -171,6 +177,7 @@ jobs:
             ./release_assets/telstream-arm64.apk
             ./release_assets/telstream-arm32.apk
             ./release_assets/telstream-setup.exe
+            ./release_assets/checksums.txt
           draft: false
           prerelease: false
         env:

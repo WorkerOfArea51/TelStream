@@ -120,12 +120,29 @@ class UpdateService {
         final latestBuild = parseBuildNumber(latestTagName);
 
         String parsedSha256 = '';
-        final sha256Regex = RegExp(r'(?:SHA-?256[:\s]*)([a-fA-F0-9]{64})', caseSensitive: false);
-        final match = sha256Regex.firstMatch(releaseNotes);
-        if (match != null) {
-          parsedSha256 = match.group(1)?.toLowerCase() ?? '';
+        final fileName = downloadUrl.split('/').last;
+        
+        // 1. Try to find the file-specific hash in the release notes
+        // e.g., "- **telstream-arm64.apk:** `hash`"
+        final specificHashRegex = RegExp(
+          '${RegExp.escape(fileName)}.*?([a-fA-F0-9]{64})', 
+          caseSensitive: false,
+        );
+        final specificMatch = specificHashRegex.firstMatch(releaseNotes);
+        
+        if (specificMatch != null) {
+          parsedSha256 = specificMatch.group(1)?.toLowerCase() ?? '';
         } else {
-          // Look for a checksums file in assets
+          // 2. Fallback to generic SHA-256 if there's only one hash in notes
+          final genericSha256Regex = RegExp(r'(?:SHA-?256[:\s]*)([a-fA-F0-9]{64})', caseSensitive: false);
+          final genericMatch = genericSha256Regex.firstMatch(releaseNotes);
+          if (genericMatch != null) {
+            parsedSha256 = genericMatch.group(1)?.toLowerCase() ?? '';
+          }
+        }
+        
+        // 3. Look for a checksums file in assets if not found
+        if (parsedSha256.isEmpty) {
           for (final asset in assets) {
             if (asset is Map<String, dynamic>) {
               final assetName = asset['name'] as String? ?? '';
