@@ -312,31 +312,22 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
     
     td.TdObject chatRes = await sendWithTimeout(td.GetChat(chatId: category.channelId));
     if (chatRes is td.TdError) {
-      try {
-        await sendWithTimeout(td.LoadChats(
-          chatList: const td.ChatListMain(),
-          limit: 100,
-        ));
+      // Kick off the network syncing commands asynchronously without blocking
+      tdlibService.sendAsync(const td.LoadChats(chatList: td.ChatListMain(), limit: 100));
+      tdlibService.sendAsync(td.CheckChatInviteLink(inviteLink: category.inviteLink));
+      tdlibService.sendAsync(td.JoinChatByInviteLink(inviteLink: category.inviteLink));
+      
+      int retries = 0;
+      // Resilient polling loop: allow up to 60 seconds for TDLib to sync the chat from the network on a slow PC
+      while (chatRes is td.TdError && retries < 60 && !_isDisposed) {
+        await Future.delayed(const Duration(seconds: 1));
         chatRes = await sendWithTimeout(td.GetChat(chatId: category.channelId));
-      } catch (_) {}
-      
-      if (chatRes is td.TdError) {
-        try {
-          await sendWithTimeout(td.CheckChatInviteLink(inviteLink: category.inviteLink));
-          chatRes = await sendWithTimeout(td.GetChat(chatId: category.channelId));
-        } catch (_) {}
-      }
-      
-      if (chatRes is td.TdError) {
-        try {
-          await sendWithTimeout(td.JoinChatByInviteLink(inviteLink: category.inviteLink));
-          chatRes = await sendWithTimeout(td.GetChat(chatId: category.channelId));
-        } catch (_) {}
+        retries++;
       }
     }
 
     if (chatRes is td.TdError) {
-      throw Exception("GetChat fallback failed/timed out during initial load: ${chatRes.message} (Code: ${chatRes.code})");
+      throw Exception("GetChat fallback failed/timed out during initial load after 60s: ${chatRes.message} (Code: ${chatRes.code})");
     }
 
     if (chatRes is td.Chat) {
