@@ -1518,8 +1518,8 @@ List<AnimeSeries> _computeSearchAndSortIsolate(_SearchPayload payload) {
     if (key == 'naruto') {
       series.seasons.sort((a, b) {
         // Can't use storage in isolate, so use basic parsing
-        final matchA = RegExp(r'(?i)season\s*(\d+)').firstMatch(a.seasonName);
-        final matchB = RegExp(r'(?i)season\s*(\d+)').firstMatch(b.seasonName);
+        final matchA = RegExp(r'season\s*(\d+)', caseSensitive: false).firstMatch(a.seasonName);
+        final matchB = RegExp(r'season\s*(\d+)', caseSensitive: false).firstMatch(b.seasonName);
         final sA = matchA != null ? (int.tryParse(matchA.group(1)!) ?? 0) : 0;
         final sB = matchB != null ? (int.tryParse(matchB.group(1)!) ?? 0) : 0;
         int cmp = sA.compareTo(sB);
