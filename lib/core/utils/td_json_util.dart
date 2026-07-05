@@ -76,12 +76,15 @@ class TdJsonUtil {
       out['has_active_stories'] = out['has_active_stories'] ?? false;
     } else if (outType == 'attachmentMenuBot') {
       out['request_write_access'] = out['request_write_access'] ?? false;
+      out['supports_settings'] = out['supports_settings'] ?? false;
     } else if (outType == 'scopeNotificationSettings') {
       out['disable_mention_notifications'] = out['disable_mention_notifications'] ?? false;
     } else if (outType == 'stickerSetInfo') {
       if (out['thumbnail_outline'] is Map) {
         out['thumbnail_outline'] = [];
       }
+      out['sticker_format'] = out['sticker_format'] ?? {'@type': 'stickerFormatWebp'};
+    } else if (outType == 'stickerSet') {
       out['sticker_format'] = out['sticker_format'] ?? {'@type': 'stickerFormatWebp'};
     } else if (outType == 'updateInstalledStickerSets') {
       if (out['sticker_set_ids'] is List) {

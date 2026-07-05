@@ -466,11 +466,18 @@ class TdlibService {
         
       } catch (e, stack) {
         try {
-          final appDir = await getAppDirectory();
-          File('${appDir.path}/tdlib_crash.txt').writeAsStringSync('CRASH: ${e.runtimeType} | $e\n$stack\n', mode: FileMode.append);
+          if (_appDirCache != null) {
+            File('${_appDirCache!}/tdlib_crash.txt').writeAsStringSync('CRASH: ${e.runtimeType} | $e\n$stack\n', mode: FileMode.append);
+          } else {
+            final appDir = await getAppDirectory();
+            File('${appDir.path}/tdlib_crash.txt').writeAsStringSync('CRASH: ${e.runtimeType} | $e\n$stack\n', mode: FileMode.append);
+          }
         } catch (_) {}
         Log.e("Exception inside TDLib event loop", e, stack);
-        await Future.delayed(const Duration(milliseconds: 100));
+        // Only delay if it's NOT a parsing error to prevent infinite spin on critical FFI failure
+        if (e is! TypeError && e is! FormatException && e is! NoSuchMethodError) {
+          await Future.delayed(const Duration(milliseconds: 100));
+        }
       }
     }
   }
