@@ -62,15 +62,38 @@ class TdJsonUtil {
       if (doc is Map<String, dynamic>) {
         final docType = doc['@type'];
         if (docType == 'document') {
-          doc['thumbnail'] = doc['thumbnail'] ?? null;
+          doc['thumbnail'] = doc['thumbnail'];
         }
       }
-    } else if (type == 'file') {
+    } else if (outType == 'file') {
       out['expected_size'] = out['expected_size'] ?? 0;
       final local = out['local'];
       if (local is Map<String, dynamic>) {
         local['download_offset'] = local['download_offset'] ?? 0;
         local['downloaded_size'] = local['downloaded_size'] ?? 0;
+      }
+    } else if (outType == 'user') {
+      out['has_active_stories'] = out['has_active_stories'] ?? false;
+    } else if (outType == 'attachmentMenuBot') {
+      out['request_write_access'] = out['request_write_access'] ?? false;
+    } else if (outType == 'scopeNotificationSettings') {
+      out['disable_mention_notifications'] = out['disable_mention_notifications'] ?? false;
+    } else if (outType == 'stickerSetInfo') {
+      if (out['thumbnail_outline'] is Map) {
+        out['thumbnail_outline'] = [];
+      }
+    } else if (outType == 'updateInstalledStickerSets') {
+      if (out['sticker_set_ids'] is List) {
+        out['sticker_set_ids'] = (out['sticker_set_ids'] as List).map((e) => e is String ? int.tryParse(e) ?? 0 : e).toList();
+      }
+    } else if (outType == 'updateTrendingStickerSets') {
+      // Fix stickerSetInfo inside trending sticker sets if needed, though they are inside sticker_sets list
+      if (out['sticker_sets'] is List) {
+        for (var s in out['sticker_sets']) {
+          if (s is Map && s['thumbnail_outline'] is Map) {
+            s['thumbnail_outline'] = [];
+          }
+        }
       }
     }
 
