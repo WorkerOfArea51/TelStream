@@ -746,7 +746,14 @@ class _EpisodeCardItemState extends ConsumerState<_EpisodeCardItem> {
       fileId = doc.document.document.id;
       final sizeMb = (doc.document.document.expectedSize / 1024 / 1024)
           .toStringAsFixed(1);
-      metadata = '$sizeMb MB';
+      
+      // Workaround for Documents: Extract duration from filename if present (e.g. "[24:00]" or "(24:00)")
+      final durationMatch = RegExp(r'[\[\(](\d{1,2}:\d{2}(?::\d{2})?)[\]\)]').firstMatch(fileTitle);
+      if (durationMatch != null) {
+        metadata = '${durationMatch.group(1)} • $sizeMb MB';
+      } else {
+        metadata = '$sizeMb MB';
+      }
     }
 
     if (fileId == null) return const SizedBox.shrink();
