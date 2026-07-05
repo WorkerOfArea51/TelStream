@@ -14,9 +14,9 @@ class ChannelCategory {
 }
 
 class Constants {
-  static const String currentVersion = '2.10.2+45';
+  static const String currentVersion = '2.10.3+46';
   static const String changelog = '''
-### 🚀 What's New in v2.10.2+45
+### 🚀 What's New in v2.10.3+46
 
 * **👑 Admin Controls**: Integrated custom metadata (TMDB/MyAnimeList) overrides directly from the app. Long-press any series folder to set an override ID.
 * **🛡️ Security**: The admin panel is strictly locked to your personal numeric Telegram User ID via GitHub Secrets. Tap a folder to see your ID if access is denied!

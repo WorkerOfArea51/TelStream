@@ -342,6 +342,9 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
         }
       }
       currentFromId = _rawMessages.last.id;
+      
+      // Yield to the UI thread to prevent ANR during massive local DB loading
+      await Future.delayed(const Duration(milliseconds: 10));
     }
     
     if (_isDisposed) {

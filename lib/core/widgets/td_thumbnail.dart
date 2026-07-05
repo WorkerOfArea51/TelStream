@@ -109,7 +109,7 @@ class _TdThumbnailState extends ConsumerState<TdThumbnail> {
       if (widget.autoDownload) {
         _tdlibService.send(td.DownloadFile(
           fileId: file.id,
-          priority: 1,
+          priority: 32,
           offset: 0,
           limit: 0,
           synchronous: false,
