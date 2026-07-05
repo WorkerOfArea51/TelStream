@@ -1,7 +1,7 @@
 ﻿import 'package:flutter/material.dart';
-import 'package:media_kit_video/media_kit_video.dart';
+import 'package:media_kit/media_kit.dart';
 import 'dart:math' as math;
-import 'dart:io';
+import 'dart:async';
 class Material3ExpressiveSquigglyPlayButton extends StatefulWidget {
   final Player player;
   final double size;
@@ -162,5 +162,6 @@ class SquigglyPainter extends CustomPainter {
         oldDelegate.waveAmplitude != waveAmplitude;
   }
 }
+
 
 

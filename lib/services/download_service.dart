@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/services.dart';
@@ -854,6 +854,8 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
     }
   }
 
+  int? parseSpeedLimitForTesting(String limit) => _parseSpeedLimit(limit);
+
   int? _parseSpeedLimit(String limit) {
     if (limit == 'Unlimited') return null;
     final match = RegExp(r'^(\d+)\s*(KB|MB)/s$').firstMatch(limit);
@@ -1038,3 +1040,4 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
 }
 
 final downloadControllerProvider = NotifierProvider<DownloadController, Map<int, DownloadTask>>(DownloadController.new);
+

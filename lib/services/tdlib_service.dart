@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'dart:io';
 import 'dart:ffi';
 import 'dart:convert';
@@ -448,15 +448,16 @@ class TdlibService {
         if (event is td.TdError && (event.message == "Invalid TDLib instance specified" || event.message.contains("Invalid TDLib instance"))) {
           continue;
         }
-        if (event.extra is int) {
-          final id = event.extra as int;
+        if (event?.extra is int) {
+          final id = event!.extra as int;
           final completer = await _pendingLock.synchronized(() => _pendingRequests.remove(id));
           if (completer != null && !completer.isCompleted) {
-            completer.complete(event);
+            completer.complete(event!);
             continue;
           }
         }
-        _updatesController.add(event);
+        _updatesController.add(event!);
+        
       } catch (e, stack) {
         Log.e("Exception inside TDLib event loop", e, stack);
         await Future.delayed(const Duration(milliseconds: 100));
@@ -521,3 +522,7 @@ class TdlibService {
     }
   }
 }
+
+
+
+

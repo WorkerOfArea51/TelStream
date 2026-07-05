@@ -744,6 +744,15 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
   }
 
 
+  @visibleForTesting
+  StorageService? testStorage;
+
+  @visibleForTesting
+  List<AnimeSeries> parseMessagesForTesting(List<td.Message> raw) => _parseMessages(raw);
+
+  @visibleForTesting
+  Future<List<AnimeSeries>> applySearchAndSortForTesting(List<AnimeSeries> series) => _applySearchAndSort(series);
+
   List<AnimeSeries> _parseMessages(List<td.Message> raw) {
     // 1. Separate poster messages and episode messages
     final List<td.Message> posterMessages = [];
@@ -949,7 +958,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
   }
   
   Future<List<AnimeSeries>> _applySearchAndSort(List<AnimeSeries> list) async {
-    final StorageService storage = ref.read(storageServiceProvider);
+    final StorageService storage = testStorage ?? ref.read(storageServiceProvider);
     final favs = storage.getFavorites();
     final releaseYears = <String, int>{};
     

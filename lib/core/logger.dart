@@ -22,7 +22,7 @@ class FileLogger implements Logger {
       _logFile = File('${appDir.replaceAll('\\', '/')}/app.log');
       _rotateIfNeeded();
       _sink = _logFile!.openWrite(mode: FileMode.writeOnlyAppend);
-    } catch (e, st) {
+    } catch (e) {
       stderr.writeln('Logger init failed: $e');
     }
   }
@@ -122,3 +122,4 @@ class Log {
   static void w(String message) => _instance.w(message);
   static void e(String message, [dynamic error, StackTrace? stackTrace]) => _instance.e(message, error, stackTrace);
 }
+

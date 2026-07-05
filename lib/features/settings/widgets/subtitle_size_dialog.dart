@@ -1,7 +1,4 @@
 ﻿import 'package:flutter/material.dart';
-import '../../core/theme/app_theme.dart';
-import '../../core/utils/subtitle_color_utils.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 class SubtitleSizeDialog extends StatefulWidget {
   final double current;
   final String currentColor;
@@ -119,5 +116,7 @@ class SubtitleSizeDialogState extends State<SubtitleSizeDialog> {
     );
   }
 }
+
+
 
 

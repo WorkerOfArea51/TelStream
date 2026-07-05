@@ -1,12 +1,9 @@
 ﻿import 'package:flutter/material.dart';
-import '../../core/theme/app_theme.dart';
-import '../../core/utils/subtitle_color_utils.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 class SubtitleDelayDialog extends StatefulWidget {
   final double current;
   final Color accentColor;
 
-  const SubtitleDelayDialog({required this.current, required this.accentColor});
+  const SubtitleDelayDialog({super.key, required this.current, required this.accentColor});
 
   @override
   State<SubtitleDelayDialog> createState() => SubtitleDelayDialogState();
@@ -75,4 +72,6 @@ class SubtitleDelayDialogState extends State<SubtitleDelayDialog> {
     );
   }
 }
+
+
 

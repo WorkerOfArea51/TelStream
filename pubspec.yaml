@@ -38,6 +38,7 @@ dependencies:
   youtube_player_iframe: ^6.0.2
   cached_network_image: ^3.4.1
   package_info_plus: ^9.0.1
+  collection: ^1.19.1
 
 dev_dependencies:
   flutter_test:

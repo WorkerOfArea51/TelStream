@@ -1,12 +1,9 @@
 ﻿import 'package:flutter/material.dart';
-import '../../core/theme/app_theme.dart';
-import '../../core/utils/subtitle_color_utils.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 class SeekDurationDialog extends StatefulWidget {
   final int current;
   final Color accentColor;
 
-  const SeekDurationDialog({required this.current, required this.accentColor});
+  const SeekDurationDialog({super.key, required this.current, required this.accentColor});
 
   @override
   State<SeekDurationDialog> createState() => SeekDurationDialogState();
@@ -59,5 +56,7 @@ class SeekDurationDialogState extends State<SeekDurationDialog> {
     );
   }
 }
+
+
 
 
