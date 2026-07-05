@@ -173,7 +173,8 @@ void main() {
 
       // Now apply the search and sort (which runs the numeric season sorting exception for Naruto)
       final sortedSeries = controller.applySearchAndSortForTesting(seriesList);
-      final seasons = sortedSeries[0].seasons;
+      final resolvedSeries = await sortedSeries;
+      final seasons = resolvedSeries[0].seasons;
 
       expect(seasons.length, 4);
       // The seasons should be ordered strictly by season number ascending: Season 4, Season 7, Season 8, Season 9

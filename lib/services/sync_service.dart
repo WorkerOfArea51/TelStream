@@ -37,18 +37,6 @@ class ProgressSyncNotifier extends Notifier<void> {
     });
   }
 
-  Future<void> manualSync() async {
-    final authState = ref.read(authControllerProvider);
-    if (authState.step != AuthStep.authenticated) {
-      throw Exception("User is not authenticated with Telegram.");
-    }
-
-    Log.i('Starting manual cloud progress synchronization...');
-    final cloudData = await _fetchCloudData();
-    final storage = ref.read(storageServiceProvider);
-    final localDataJson = storage.exportBackupData();
-    final Map<String, dynamic> localData = json.decode(localDataJson);
-
   Map<String, dynamic> _mergeSyncData(Map<String, dynamic> localData, Map<String, dynamic> cloudData) {
     // Merge favorites
     final List<dynamic> localFavs = localData['favorites'] ?? [];

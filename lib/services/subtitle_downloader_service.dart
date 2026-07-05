@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:archive/archive.dart';
 import '../core/logger.dart';
+import 'storage_service.dart';
 import '../features/settings/settings_provider.dart';
 
 final subtitleDownloaderServiceProvider = Provider<SubtitleDownloaderService>((ref) {
