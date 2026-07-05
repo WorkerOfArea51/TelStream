@@ -76,6 +76,17 @@ class TdlibService {
 
   Future<void>? _initFuture;
 
+  void forceReset() {
+    Log.w('TDLib forceReset called. Clearing in-flight init.');
+    _initFuture = null;
+    if (_clientId != null) {
+      try {
+        tdSend(_clientId!, const td.Close());
+      } catch (_) {}
+      _clientId = null;
+    }
+  }
+
   Future<void> init(
     int apiId,
     String apiHash, {
@@ -425,12 +436,11 @@ class TdlibService {
   }
 
   void _startEventLoop() async {
-    int idleCount = 0;
     while (!_isDestroyed) {
       try {
         td.TdObject? event;
         if (_libInitialized) {
-          final rawPtr = _nativeReceive(0.0);
+          final rawPtr = _nativeReceive(1.0);
           if (rawPtr != nullptr) {
             final jsonStr = rawPtr.toDartString();
             final Map<String, dynamic> jsonMap = jsonDecode(jsonStr);
@@ -438,18 +448,13 @@ class TdlibService {
             event = td.convertToObject(jsonEncode(sanitized));
           }
         } else {
-          event = tdReceive(0.0);
+          event = tdReceive(1.0);
         }
 
         if (event == null) {
-          idleCount++;
-          // Yield to event loop, back off to 20ms when idle to reduce CPU usage without freezing UI
-          await Future.delayed(Duration(milliseconds: idleCount > 10 ? 20 : 5));
           continue;
         }
         
-        idleCount = 0; // reset on event
-
         // Filter out false-positive TdError events caused by closing inactive client IDs on startup
         if (event is td.TdError && (event.message == "Invalid TDLib instance specified" || event.message.contains("Invalid TDLib instance"))) {
           continue;

@@ -295,10 +295,17 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
     // 2. Cache miss fallback: Load from local DB (occurs on absolute first launch ever)
     final tdlibService = ref.read(tdlibServiceProvider);
     
+    // Stagger startup requests to prevent concurrent connection sessions to TDLib (runs asynchronously)
+    if (category.title == 'Movies') {
+      await Future.delayed(const Duration(milliseconds: 1500));
+    } else if (category.title == 'Web Series') {
+      await Future.delayed(const Duration(milliseconds: 3000));
+    }
+    
     // Helper to send request with a safety timeout to prevent hanging
     Future<td.TdObject> sendWithTimeout(td.TdFunction request) {
       return tdlibService.sendAsync(request).timeout(
-        const Duration(seconds: 6),
+        const Duration(seconds: 3),
         onTimeout: () => td.TdError(code: 408, message: "Request Timeout"),
       );
     }

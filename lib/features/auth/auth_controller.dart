@@ -82,6 +82,7 @@ class AuthController extends Notifier<AuthState> {
 
   void resetAuth() {
     _isResetting = true;
+    ref.read(tdlibServiceProvider).forceReset();
     initializeTdlib();
     
     // Fallback timeout in case TDLib hangs during close/reset
@@ -107,19 +108,20 @@ class AuthController extends Notifier<AuthState> {
     } else if (authState is td.AuthorizationStateReady) {
       _isResetting = false;
       
-      // Wait for user state stream initialization before transitioning to success.
-      ref.read(tdlibServiceProvider).sendAsync(const td.GetMe()).then((user) {
-        state = state.copyWith(step: AuthStep.authenticated, errorMessage: null);
-        ref.read(tdlibServiceProvider).loadChatsInBackground();
-        
-        // Restore cloud progress sync data on successful login/ready
-        Future.delayed(const Duration(seconds: 2), () {
-          ref.read(progressSyncServiceProvider.notifier).restoreFromCloud().catchError((e) {
-            Log.e('Auto cloud sync restore failed', e);
-          });
+      // Ready == authenticated. Transition immediately; GetMe is best-effort.
+      state = state.copyWith(step: AuthStep.authenticated, errorMessage: null);
+      ref.read(tdlibServiceProvider).loadChatsInBackground();
+      
+      ref.read(tdlibServiceProvider).sendAsync(const td.GetMe()).catchError((e) {
+        Log.e('GetMe failed after Ready (non-blocking)', e);
+        return const td.TdError(code: 500, message: 'GetMe failed');
+      });
+      
+      // Restore cloud progress sync data on successful login/ready
+      Future.delayed(const Duration(seconds: 2), () {
+        ref.read(progressSyncServiceProvider.notifier).restoreFromCloud().catchError((e) {
+          Log.e('Auto cloud sync restore failed', e);
         });
-      }).catchError((e) {
-        state = state.copyWith(step: AuthStep.error, errorMessage: "Failed to initialize user state: $e");
       });
     } else if (authState is td.AuthorizationStateClosed) {
       if (!_isResetting) {
@@ -131,42 +133,63 @@ class AuthController extends Notifier<AuthState> {
 
   Future<void> setPhoneNumber(String phoneNumber) async {
     state = state.copyWith(step: AuthStep.loading, errorMessage: null);
-    final response = await ref.read(tdlibServiceProvider).sendAsync(td.SetAuthenticationPhoneNumber(
-      phoneNumber: phoneNumber,
-      settings: const td.PhoneNumberAuthenticationSettings(
-        allowFlashCall: false,
-        allowMissedCall: false,
-        isCurrentPhoneNumber: false,
-        allowSmsRetrieverApi: false,
-        authenticationTokens: [],
-      ),
-    ));
-    if (response is td.TdError) {
+    try {
+      final response = await ref.read(tdlibServiceProvider).sendAsync(td.SetAuthenticationPhoneNumber(
+        phoneNumber: phoneNumber,
+        settings: const td.PhoneNumberAuthenticationSettings(
+          allowFlashCall: false,
+          allowMissedCall: false,
+          isCurrentPhoneNumber: false,
+          allowSmsRetrieverApi: false,
+          authenticationTokens: [],
+        ),
+      ));
+      if (response is td.TdError) {
+        state = state.copyWith(
+          step: AuthStep.waitingForNumber,
+          errorMessage: _mapErrorToFriendlyMessage(response.message),
+        );
+      }
+    } catch (e) {
       state = state.copyWith(
         step: AuthStep.waitingForNumber,
-        errorMessage: _mapErrorToFriendlyMessage(response.message),
+        errorMessage: "Network timeout or error: $e",
       );
     }
   }
 
   Future<void> checkCode(String code) async {
     state = state.copyWith(step: AuthStep.loading, errorMessage: null);
-    final response = await ref.read(tdlibServiceProvider).sendAsync(td.CheckAuthenticationCode(code: code));
-    if (response is td.TdError) {
+    try {
+      final response = await ref.read(tdlibServiceProvider).sendAsync(td.CheckAuthenticationCode(code: code));
+      if (response is td.TdError) {
+        state = state.copyWith(
+          step: AuthStep.waitingForCode,
+          errorMessage: _mapErrorToFriendlyMessage(response.message),
+        );
+      }
+    } catch (e) {
       state = state.copyWith(
         step: AuthStep.waitingForCode,
-        errorMessage: _mapErrorToFriendlyMessage(response.message),
+        errorMessage: "Network timeout or error: $e",
       );
     }
   }
 
   Future<void> checkPassword(String password) async {
     state = state.copyWith(step: AuthStep.loading, errorMessage: null);
-    final response = await ref.read(tdlibServiceProvider).sendAsync(td.CheckAuthenticationPassword(password: password));
-    if (response is td.TdError) {
+    try {
+      final response = await ref.read(tdlibServiceProvider).sendAsync(td.CheckAuthenticationPassword(password: password));
+      if (response is td.TdError) {
+        state = state.copyWith(
+          step: AuthStep.waitingForPassword,
+          errorMessage: _mapErrorToFriendlyMessage(response.message),
+        );
+      }
+    } catch (e) {
       state = state.copyWith(
         step: AuthStep.waitingForPassword,
-        errorMessage: _mapErrorToFriendlyMessage(response.message),
+        errorMessage: "Network timeout or error: $e",
       );
     }
   }

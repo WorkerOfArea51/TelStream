@@ -43,6 +43,11 @@ void main() async {
       final dirPath = Platform.isWindows 
           ? '$appData/com.darkmatter/telstream'.replaceAll('\\', '/')
           : (await getApplicationSupportDirectory()).path;
+          
+      final logDir = Directory(dirPath);
+      if (!logDir.existsSync()) {
+        logDir.createSync(recursive: true);
+      }
       Log.init(dirPath);
 
       MediaKit.ensureInitialized();
