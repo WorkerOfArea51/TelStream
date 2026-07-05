@@ -1,3 +1,5 @@
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:country_picker/country_picker.dart' as cp;
@@ -94,10 +96,43 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     }
   }
 
+  Widget _buildFlagWidget(String countryCode, String emojiFlag, {double width = 24, double height = 16}) {
+    if (countryCode.isEmpty) return SizedBox(width: width, height: height);
+    if (!kIsWeb && (Platform.isAndroid || Platform.isIOS || Platform.isMacOS)) {
+      return Text(emojiFlag, style: const TextStyle(fontSize: 20));
+    }
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(2),
+      child: Image.network(
+        'https://flagcdn.com/w40/${countryCode.toLowerCase()}.png',
+        width: width,
+        height: height,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) => Text(emojiFlag, style: const TextStyle(fontSize: 20)),
+      ),
+    );
+  }
+
   void _openCountryPicker(BuildContext context) {
     cp.showCountryPicker(
       context: context,
-      showPhoneCode: true,
+      showPhoneCode: false,
+      customFlagBuilder: (country) {
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildFlagWidget(country.countryCode, country.flagEmoji),
+            const SizedBox(width: 15),
+            SizedBox(
+              width: 55, // Extra width to prevent wrapping for 4-digit codes
+              child: Text(
+                '+${country.phoneCode}',
+                style: const TextStyle(color: Colors.white, fontSize: 16),
+              ),
+            ),
+          ],
+        );
+      },
       onSelect: (cp.Country country) {
         if (!mounted) return;
         setState(() {
@@ -235,16 +270,27 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   ),
                   child: Row(
                     children: [
-                      Text(
-                        _selectedCountryCode.isNotEmpty
-                            ? '$_selectedCountryFlag   $_selectedCountryName'
-                            : 'Select Country',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
+                      if (_selectedCountryCode.isNotEmpty) ...[
+                        _buildFlagWidget(_selectedCountryCode, _selectedCountryFlag),
+                        const SizedBox(width: 12),
+                        Text(
+                          _selectedCountryName,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
-                      ),
+                      ] else ...[
+                        const Text(
+                          'Select Country',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
                       const Spacer(),
                       const Icon(
                         Icons.chevron_right_rounded,
