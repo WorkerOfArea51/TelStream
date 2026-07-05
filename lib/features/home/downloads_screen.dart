@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -34,6 +35,7 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> with SingleTi
   late final TabController _tabController;
   final TextEditingController _searchController = TextEditingController();
   String _query = '';
+  Timer? _debounce;
 
   @override
   void initState() {
@@ -47,6 +49,7 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> with SingleTi
 
   @override
   void dispose() {
+    _debounce?.cancel();
     _tabController.dispose();
     _searchController.dispose();
     super.dispose();
@@ -595,8 +598,13 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> with SingleTi
                       icon: Icon(Icons.search, color: settingsAccent),
                     ),
                     onChanged: (val) {
-                      setState(() {
-                        _query = val;
+                      _debounce?.cancel();
+                      _debounce = Timer(const Duration(milliseconds: 250), () {
+                        if (mounted) {
+                          setState(() {
+                            _query = val;
+                          });
+                        }
                       });
                     },
                   ),

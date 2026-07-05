@@ -1,3 +1,4 @@
+import '../../../core/utils/subtitle_color_utils.dart';
 import 'package:flutter/material.dart';
 
 class SubtitleStylingTab extends StatelessWidget {
@@ -22,33 +23,11 @@ class SubtitleStylingTab extends StatelessWidget {
     required this.settingsAccent,
   });
 
-  static const List<Map<String, String>> _colors = [
-    {'name': 'White', 'hex': '#FFFFFF'},
-    {'name': 'Black', 'hex': '#000000'},
-    {'name': 'Yellow', 'hex': '#FFFF00'},
-    {'name': 'Green', 'hex': '#00FF00'},
-    {'name': 'Red', 'hex': '#FF0000'},
-    {'name': 'Cyan', 'hex': '#00FFFF'},
-    {'name': 'Blue', 'hex': '#0000FF'},
-    {'name': 'Orange', 'hex': '#FFA500'},
-    {'name': 'Magenta', 'hex': '#FF00FF'},
-  ];
 
-  Color _parseColor(String hex) {
-    try {
-      final cleanHex = hex.replaceAll('#', '');
-      if (cleanHex.length == 6) {
-        return Color(int.parse('FF$cleanHex', radix: 16));
-      } else if (cleanHex.length == 8) {
-        return Color(int.parse(cleanHex, radix: 16));
-      }
-    } catch (_) {}
-    return Colors.white;
-  }
 
   Widget _buildPresetCard(String sampleText, String colorHex, String fontFamily, Color activeColor) {
     final isSelected = currentFontColor.toUpperCase() == colorHex.toUpperCase();
-    final colorVal = _parseColor(colorHex);
+    final colorVal = SubtitleColorUtils.parseColor(colorHex);
 
     return GestureDetector(
       onTap: () => onFontColorChanged(colorHex),
@@ -101,7 +80,7 @@ class SubtitleStylingTab extends StatelessWidget {
             child: Text(
               'Sample Subtitle',
               style: TextStyle(
-                color: _parseColor(currentFontColor),
+                color: SubtitleColorUtils.parseColor(currentFontColor),
                 fontSize: (currentFontSize * 0.45).clamp(12.0, 24.0),
                 fontFamily: currentFontFamily,
                 fontWeight: FontWeight.bold,
@@ -161,12 +140,12 @@ class SubtitleStylingTab extends StatelessWidget {
             height: 36,
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
-              itemCount: _colors.length,
+              itemCount: SubtitleColorUtils.colors.length,
               itemBuilder: (context, idx) {
-                final colorInfo = _colors[idx];
+                final colorInfo = SubtitleColorUtils.colors[idx];
                 final colorHex = colorInfo['hex']!;
                 final isSelected = currentFontColor.toUpperCase() == colorHex.toUpperCase();
-                final colorVal = _parseColor(colorHex);
+                final colorVal = SubtitleColorUtils.parseColor(colorHex);
 
                 return Padding(
                   padding: const EdgeInsets.only(right: 10),
@@ -271,3 +250,4 @@ class SubtitleStylingTab extends StatelessWidget {
     );
   }
 }
+

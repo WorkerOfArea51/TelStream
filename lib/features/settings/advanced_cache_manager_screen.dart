@@ -88,17 +88,22 @@ class _AdvancedCacheManagerScreenState extends ConsumerState<AdvancedCacheManage
         int totalSize = 0;
         int cachedCount = 0;
 
-        for (final fid in fileIds) {
+        final futures = fileIds.map((fid) async {
           try {
             final res = await tdlib.sendAsync(td.GetFile(fileId: fid)).timeout(const Duration(milliseconds: 1000));
             if (res is td.File) {
-              final size = res.local.downloadedSize;
-              if (size > 0) {
-                totalSize += size;
-                cachedCount++;
-              }
+              return res.local.downloadedSize;
             }
           } catch (_) {}
+          return 0;
+        });
+
+        final sizes = await Future.wait(futures);
+        for (final size in sizes) {
+          if (size > 0) {
+            totalSize += size;
+            cachedCount++;
+          }
         }
 
         if (totalSize > 0) {
@@ -507,9 +512,12 @@ class _AdvancedCacheManagerScreenState extends ConsumerState<AdvancedCacheManage
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
               onRefresh: _loadAllCacheData,
-              child: ListView(
-                padding: const EdgeInsets.all(16),
-                children: [
+              child: CustomScrollView(
+                slivers: [
+                  SliverPadding(
+                    padding: const EdgeInsets.all(16),
+                    sliver: SliverList(
+                      delegate: SliverChildListDelegate([
                   // Breakdown Header Card
                   Container(
                     padding: const EdgeInsets.all(16),
@@ -657,8 +665,14 @@ class _AdvancedCacheManagerScreenState extends ConsumerState<AdvancedCacheManage
                   ),
                   const SizedBox(height: 12),
 
-                  if (_seriesCache.isEmpty)
-                    Container(
+                  ]),
+                ),
+              ),
+              if (_seriesCache.isEmpty)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Container(
                       padding: const EdgeInsets.symmetric(vertical: 32),
                       decoration: BoxDecoration(
                         color: theme.cardColor.withValues(alpha: 0.3),
@@ -677,13 +691,15 @@ class _AdvancedCacheManagerScreenState extends ConsumerState<AdvancedCacheManage
                           ],
                         ),
                       ),
-                    )
-                  else
-                    ListView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: _seriesCache.length,
-                      itemBuilder: (context, index) {
+                    ),
+                  ),
+                )
+              else
+              SliverPadding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                sliver: SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) {
                         final info = _seriesCache[index];
                         return Container(
                           margin: const EdgeInsets.only(bottom: 8),
@@ -715,9 +731,13 @@ class _AdvancedCacheManagerScreenState extends ConsumerState<AdvancedCacheManage
                           ),
                         );
                       },
+                      childCount: _seriesCache.length,
                     ),
-                ],
-              ),
+                  ),
+                ),
+              SliverPadding(padding: const EdgeInsets.only(bottom: 16)),
+            ],
+          ),
             ),
     );
   }

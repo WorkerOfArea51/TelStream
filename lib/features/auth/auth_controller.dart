@@ -106,14 +106,20 @@ class AuthController extends Notifier<AuthState> {
       state = state.copyWith(step: AuthStep.waitingForPassword, errorMessage: null);
     } else if (authState is td.AuthorizationStateReady) {
       _isResetting = false;
-      state = state.copyWith(step: AuthStep.authenticated, errorMessage: null);
-      ref.read(tdlibServiceProvider).loadChatsInBackground();
       
-      // Restore cloud progress sync data on successful login/ready
-      Future.delayed(const Duration(seconds: 2), () {
-        ref.read(progressSyncServiceProvider.notifier).restoreFromCloud().catchError((e) {
-          Log.e('Auto cloud sync restore failed', e);
+      // Wait for user state stream initialization before transitioning to success.
+      ref.read(tdlibServiceProvider).sendAsync(const td.GetMe()).then((user) {
+        state = state.copyWith(step: AuthStep.authenticated, errorMessage: null);
+        ref.read(tdlibServiceProvider).loadChatsInBackground();
+        
+        // Restore cloud progress sync data on successful login/ready
+        Future.delayed(const Duration(seconds: 2), () {
+          ref.read(progressSyncServiceProvider.notifier).restoreFromCloud().catchError((e) {
+            Log.e('Auto cloud sync restore failed', e);
+          });
         });
+      }).catchError((e) {
+        state = state.copyWith(step: AuthStep.error, errorMessage: "Failed to initialize user state: $e");
       });
     } else if (authState is td.AuthorizationStateClosed) {
       if (!_isResetting) {

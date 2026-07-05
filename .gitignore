@@ -58,3 +58,7 @@ keystore_base64.txt
 
 # Scratch files
 /scratch/
+
+# Generated icons
+/android/app/src/main/res/mipmap-*/
+

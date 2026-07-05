@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tdlib/td_api.dart' as td;
@@ -736,7 +737,7 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
         final rafOut = await File(partPath).open(mode: FileMode.write);
         try {
           const int chunkSize = 1024 * 1024; // 1 MB chunks
-          final buffer = List<int>.filled(chunkSize, 0);
+          final buffer = Uint8List(chunkSize);
           int totalRead = 0;
           while (true) {
             final bytesRead = await rafIn.readInto(buffer);
@@ -867,8 +868,6 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
     }
     return null;
   }
-
-  int? parseSpeedLimitForTesting(String limit) => _parseSpeedLimit(limit);
 
   bool _pwmTickInProgress = false;
 

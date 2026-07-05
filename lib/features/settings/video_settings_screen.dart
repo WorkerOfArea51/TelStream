@@ -1,5 +1,9 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'widgets/seek_duration_dialog.dart';
+import 'widgets/subtitle_size_dialog.dart';
+import 'widgets/subtitle_color_dialog.dart';
+import 'widgets/subtitle_delay_dialog.dart';
 import 'settings_provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../../services/storage_service.dart';
@@ -236,7 +240,7 @@ class _VideoSettingsScreenState extends ConsumerState<VideoSettingsScreen> {
                   onTap: () async {
                     final newDuration = await showDialog<int>(
                       context: context,
-                      builder: (context) => _SeekDurationDialog(current: settings.doubleTapSeekDuration, accentColor: settingsAccent),
+                      builder: (context) => SeekDurationDialog(current: settings.doubleTapSeekDuration, accentColor: settingsAccent),
                     );
                     if (newDuration != null) {
                       notifier.updateSettings(settings.copyWith(doubleTapSeekDuration: newDuration));
@@ -335,7 +339,7 @@ class _VideoSettingsScreenState extends ConsumerState<VideoSettingsScreen> {
                   subtitle: Text(
                     storage.getOpenSubtitlesApiKey().isEmpty
                         ? 'Not configured (Search will be public/limited)'
-                        : '••••••••${storage.getOpenSubtitlesApiKey().length > 4 ? storage.getOpenSubtitlesApiKey().substring(storage.getOpenSubtitlesApiKey().length - 4) : ""}',
+                        : 'â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢${storage.getOpenSubtitlesApiKey().length > 4 ? storage.getOpenSubtitlesApiKey().substring(storage.getOpenSubtitlesApiKey().length - 4) : ""}',
                     style: TextStyle(color: isDark ? Colors.white54 : Colors.black54, fontSize: 12),
                   ),
                   trailing: const Icon(Icons.edit, size: 20),
@@ -358,7 +362,7 @@ class _VideoSettingsScreenState extends ConsumerState<VideoSettingsScreen> {
                   subtitle: Text(
                     storage.getSubdlApiKey().isEmpty
                         ? 'Not configured (Required for SubDL search)'
-                        : '••••••••${storage.getSubdlApiKey().length > 4 ? storage.getSubdlApiKey().substring(storage.getSubdlApiKey().length - 4) : ""}',
+                        : 'â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢${storage.getSubdlApiKey().length > 4 ? storage.getSubdlApiKey().substring(storage.getSubdlApiKey().length - 4) : ""}',
                     style: TextStyle(color: isDark ? Colors.white54 : Colors.black54, fontSize: 12),
                   ),
                   trailing: const Icon(Icons.edit, size: 20),
@@ -383,7 +387,7 @@ class _VideoSettingsScreenState extends ConsumerState<VideoSettingsScreen> {
                   onTap: () async {
                     final newSize = await showDialog<double>(
                       context: context,
-                      builder: (context) => _SubtitleSizeDialog(
+                      builder: (context) => SubtitleSizeDialog(
                         current: settings.subtitleFontSize,
                         currentColor: settings.subtitleColor,
                         currentFont: settings.subtitleFont,
@@ -417,7 +421,7 @@ class _VideoSettingsScreenState extends ConsumerState<VideoSettingsScreen> {
                   onTap: () async {
                     final newColor = await showDialog<String>(
                       context: context,
-                      builder: (context) => _SubtitleColorDialog(
+                      builder: (context) => SubtitleColorDialog(
                         current: settings.subtitleColor,
                         currentSize: settings.subtitleFontSize,
                         currentFont: settings.subtitleFont,
@@ -444,7 +448,7 @@ class _VideoSettingsScreenState extends ConsumerState<VideoSettingsScreen> {
                   onTap: () async {
                     final newDelay = await showDialog<double>(
                       context: context,
-                      builder: (context) => _SubtitleDelayDialog(
+                      builder: (context) => SubtitleDelayDialog(
                         current: settings.subtitleDelay,
                         accentColor: settingsAccent,
                       ),
@@ -807,437 +811,4 @@ class _VideoSettingsScreenState extends ConsumerState<VideoSettingsScreen> {
   }
 }
 
-class _SeekDurationDialog extends StatefulWidget {
-  final int current;
-  final Color accentColor;
 
-  const _SeekDurationDialog({required this.current, required this.accentColor});
-
-  @override
-  State<_SeekDurationDialog> createState() => _SeekDurationDialogState();
-}
-
-class _SeekDurationDialogState extends State<_SeekDurationDialog> {
-  late int _value;
-
-  @override
-  void initState() {
-    super.initState();
-    _value = widget.current;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    return AlertDialog(
-      backgroundColor: theme.cardColor,
-      title: Text('Double tap seek duration', style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text('$_value seconds', style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontSize: 18)),
-          Slider(
-            value: _value.toDouble(),
-            min: 5,
-            max: 30,
-            divisions: 5,
-            activeColor: widget.accentColor,
-            onChanged: (val) {
-              setState(() {
-                _value = val.toInt();
-              });
-            },
-          ),
-        ],
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: Text('Cancel', style: TextStyle(color: isDark ? Colors.white54 : Colors.black54)),
-        ),
-        TextButton(
-          onPressed: () => Navigator.pop(context, _value),
-          child: Text('Save', style: TextStyle(color: widget.accentColor)),
-        ),
-      ],
-    );
-  }
-}
-
-class _SubtitleSizeDialog extends StatefulWidget {
-  final double current;
-  final String currentColor;
-  final String currentFont;
-  final Color accentColor;
-
-  const _SubtitleSizeDialog({
-    required this.current,
-    required this.currentColor,
-    required this.currentFont,
-    required this.accentColor,
-  });
-
-  @override
-  State<_SubtitleSizeDialog> createState() => _SubtitleSizeDialogState();
-}
-
-class _SubtitleSizeDialogState extends State<_SubtitleSizeDialog> {
-  late double _value;
-
-  Color _parseHexColor(String hex) {
-    try {
-      final cleanHex = hex.replaceAll('#', '');
-      if (cleanHex.length == 6) {
-        return Color(int.parse('FF$cleanHex', radix: 16));
-      } else if (cleanHex.length == 8) {
-        return Color(int.parse(cleanHex, radix: 16));
-      }
-    } catch (_) {}
-    return Colors.white;
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    _value = widget.current;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    
-    String resolvedFontFamily = 'Roboto';
-    if (widget.currentFont.toLowerCase().contains('arial')) {
-      resolvedFontFamily = 'Arial';
-    } else if (widget.currentFont.toLowerCase().contains('dejavu')) {
-      resolvedFontFamily = 'DejaVuSans';
-    } else if (widget.currentFont.toLowerCase().contains('sans-serif')) {
-      resolvedFontFamily = 'sans-serif';
-    } else if (widget.currentFont.toLowerCase().contains('roboto')) {
-      resolvedFontFamily = 'Roboto';
-    }
-
-    return AlertDialog(
-      backgroundColor: theme.cardColor,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: theme.colorScheme.onSurface.withValues(alpha: 0.08), width: 1),
-      ),
-      title: Text('Subtitle Font Size', style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(16),
-            height: 100,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: Colors.black87,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Text(
-              'Hello World',
-              style: TextStyle(
-                fontSize: _value,
-                color: _parseHexColor(widget.currentColor),
-                fontFamily: resolvedFontFamily,
-                fontWeight: FontWeight.bold,
-                shadows: const [
-                  Shadow(offset: Offset(-1.5, -1.5), color: Colors.black),
-                  Shadow(offset: Offset(1.5, -1.5), color: Colors.black),
-                  Shadow(offset: Offset(1.5, 1.5), color: Colors.black),
-                  Shadow(offset: Offset(-1.5, 1.5), color: Colors.black),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          Text('${_value.toInt()} px', style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontSize: 18)),
-          Slider(
-            value: _value,
-            min: 15,
-            max: 80,
-            divisions: 65,
-            activeColor: widget.accentColor,
-            onChanged: (val) {
-              setState(() {
-                _value = val;
-              });
-            },
-          ),
-        ],
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: Text('Cancel', style: TextStyle(color: isDark ? Colors.white54 : Colors.black54)),
-        ),
-        TextButton(
-          onPressed: () => Navigator.pop(context, _value),
-          child: Text('Save', style: TextStyle(color: widget.accentColor)),
-        ),
-      ],
-    );
-  }
-}
-
-class _SubtitleColorDialog extends StatefulWidget {
-  final String current;
-  final double currentSize;
-  final String currentFont;
-  final Color accentColor;
-
-  const _SubtitleColorDialog({
-    required this.current,
-    required this.currentSize,
-    required this.currentFont,
-    required this.accentColor,
-  });
-
-  @override
-  State<_SubtitleColorDialog> createState() => _SubtitleColorDialogState();
-}
-
-class _SubtitleColorDialogState extends State<_SubtitleColorDialog> {
-  late String _selectedHex;
-  final _customController = TextEditingController();
-
-  final List<Map<String, String>> _predefinedColors = [
-    {'name': 'White', 'hex': '#FFFFFF'},
-    {'name': 'Yellow', 'hex': '#FFFF00'},
-    {'name': 'Green', 'hex': '#00FF00'},
-    {'name': 'Cyan', 'hex': '#00FFFF'},
-    {'name': 'Red', 'hex': '#FF0000'},
-    {'name': 'Light Blue', 'hex': '#33B5E5'},
-    {'name': 'Amber', 'hex': '#FFBB33'},
-  ];
-
-  Color _parseHexColor(String hex) {
-    try {
-      final cleanHex = hex.replaceAll('#', '');
-      if (cleanHex.length == 6) {
-        return Color(int.parse('FF$cleanHex', radix: 16));
-      } else if (cleanHex.length == 8) {
-        return Color(int.parse(cleanHex, radix: 16));
-      }
-    } catch (_) {}
-    return Colors.white;
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    _selectedHex = widget.current.toUpperCase();
-    if (!_selectedHex.startsWith('#')) {
-      _selectedHex = '#$_selectedHex';
-    }
-    _customController.text = _selectedHex;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    
-    String resolvedFontFamily = 'Roboto';
-    if (widget.currentFont.toLowerCase().contains('arial')) {
-      resolvedFontFamily = 'Arial';
-    } else if (widget.currentFont.toLowerCase().contains('dejavu')) {
-      resolvedFontFamily = 'DejaVuSans';
-    } else if (widget.currentFont.toLowerCase().contains('sans-serif')) {
-      resolvedFontFamily = 'sans-serif';
-    } else if (widget.currentFont.toLowerCase().contains('roboto')) {
-      resolvedFontFamily = 'Roboto';
-    }
-
-    return AlertDialog(
-      backgroundColor: theme.cardColor,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: theme.colorScheme.onSurface.withValues(alpha: 0.08), width: 1),
-      ),
-      title: Text('Subtitle Color', style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(16),
-              height: 100,
-              width: double.maxFinite,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: Colors.black87,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                'Hello World',
-                style: TextStyle(
-                  fontSize: widget.currentSize,
-                  color: _parseHexColor(_selectedHex),
-                  fontFamily: resolvedFontFamily,
-                  fontWeight: FontWeight.bold,
-                  shadows: const [
-                    Shadow(offset: Offset(-1.5, -1.5), color: Colors.black),
-                    Shadow(offset: Offset(1.5, -1.5), color: Colors.black),
-                    Shadow(offset: Offset(1.5, 1.5), color: Colors.black),
-                    Shadow(offset: Offset(-1.5, 1.5), color: Colors.black),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              children: _predefinedColors.map((colorMap) {
-                final hex = colorMap['hex']!;
-                final color = _parseHexColor(hex);
-                final isSelected = _selectedHex == hex;
-                return GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      _selectedHex = hex;
-                      _customController.text = hex;
-                    });
-                  },
-                  child: Container(
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      color: color,
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: isSelected ? widget.accentColor : Colors.transparent,
-                        width: 3,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.2),
-                          blurRadius: 4,
-                          offset: const Offset(0, 2),
-                        )
-                      ],
-                    ),
-                    child: isSelected
-                        ? Icon(
-                            Icons.check,
-                            color: color.computeLuminance() > 0.5 ? Colors.black : Colors.white,
-                            size: 20,
-                          )
-                        : null,
-                  ),
-                );
-              }).toList(),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _customController,
-              style: TextStyle(color: isDark ? Colors.white : Colors.black87),
-              decoration: InputDecoration(
-                labelText: 'Custom Hex Color',
-                labelStyle: TextStyle(color: isDark ? Colors.white60 : Colors.black54),
-                hintText: '#FFFFFF',
-                hintStyle: TextStyle(color: isDark ? Colors.white24 : Colors.black26),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-              ),
-              onChanged: (val) {
-                if (val.startsWith('#') && (val.length == 7 || val.length == 9)) {
-                  setState(() {
-                    _selectedHex = val.toUpperCase();
-                  });
-                }
-              },
-            ),
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: Text('Cancel', style: TextStyle(color: isDark ? Colors.white54 : Colors.black54)),
-        ),
-        TextButton(
-          onPressed: () => Navigator.pop(context, _selectedHex),
-          child: Text('Save', style: TextStyle(color: widget.accentColor)),
-        ),
-      ],
-    );
-  }
-}
-
-class _SubtitleDelayDialog extends StatefulWidget {
-  final double current;
-  final Color accentColor;
-
-  const _SubtitleDelayDialog({required this.current, required this.accentColor});
-
-  @override
-  State<_SubtitleDelayDialog> createState() => _SubtitleDelayDialogState();
-}
-
-class _SubtitleDelayDialogState extends State<_SubtitleDelayDialog> {
-  late double _value;
-
-  @override
-  void initState() {
-    super.initState();
-    _value = widget.current;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    return AlertDialog(
-      backgroundColor: theme.cardColor,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: theme.colorScheme.onSurface.withValues(alpha: 0.08), width: 1),
-      ),
-      title: Text('Subtitle Delay Offset', style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            _value == 0.0
-                ? 'No Delay'
-                : _value > 0.0
-                    ? '+${_value.toStringAsFixed(1)} seconds'
-                    : '${_value.toStringAsFixed(1)} seconds',
-            style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontSize: 18),
-          ),
-          Slider(
-            value: _value,
-            min: -10.0,
-            max: 10.0,
-            divisions: 200,
-            activeColor: widget.accentColor,
-            onChanged: (val) {
-              setState(() {
-                _value = double.parse(val.toStringAsFixed(1));
-              });
-            },
-          ),
-          Text(
-            'Positive: Subtitles appear later\nNegative: Subtitles appear earlier',
-            style: TextStyle(color: isDark ? Colors.white38 : Colors.black38, fontSize: 11),
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: Text('Cancel', style: TextStyle(color: isDark ? Colors.white54 : Colors.black54)),
-        ),
-        TextButton(
-          onPressed: () => Navigator.pop(context, _value),
-          child: Text('Save', style: TextStyle(color: widget.accentColor)),
-        ),
-      ],
-    );
-  }
-}

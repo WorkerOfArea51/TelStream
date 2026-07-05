@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -24,8 +25,11 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
   String _searchQuery = '';
   final Set<String> _expandedSeries = {};
 
+  Timer? _debounce;
+
   @override
   void dispose() {
+    _debounce?.cancel();
     _searchController.dispose();
     super.dispose();
   }
@@ -172,8 +176,13 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                   icon: Icon(Icons.search, color: settingsAccent),
                 ),
                 onChanged: (val) {
-                  setState(() {
-                    _searchQuery = val;
+                  _debounce?.cancel();
+                  _debounce = Timer(const Duration(milliseconds: 250), () {
+                    if (mounted) {
+                      setState(() {
+                        _searchQuery = val;
+                      });
+                    }
                   });
                 },
               ),
@@ -300,11 +309,8 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                           ),
                           if (isExpanded) ...[
                             const Divider(color: Colors.white10, height: 1),
-                            ListView.builder(
-                              shrinkWrap: true,
-                              physics: const NeverScrollableScrollPhysics(),
-                              itemCount: seriesLogs.length,
-                              itemBuilder: (context, epIndex) {
+                            Column(
+                              children: List.generate(seriesLogs.length, (epIndex) {
                                 final log = seriesLogs[epIndex];
                                 final msgId = log['messageId'] as int;
                                 final episodeTitle = log['episodeTitle'] as String;
@@ -435,7 +441,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                                   ),
                                 );
                               },
-                            ),
+                            )),
                           ],
                         ],
                       ),

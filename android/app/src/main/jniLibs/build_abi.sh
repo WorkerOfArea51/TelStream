@@ -13,5 +13,8 @@ abi=$1
 mkdir -p $__DIR__/build/jni/$abi
 cd $__DIR__/build/jni/$abi
 
-cmake $__DIR__/app/src/main/cpp -DCMAKE_TOOLCHAIN_FILE=${ANDROID_NDK_HOME}/build/cmake/android.toolchain.cmake -DCMAKE_BUILD_TYPE=MinSizeRel -DANDROID_ABI=${abi} || exit 1
+# Use relative paths and prefix maps to strip PII and absolute system paths from the compiled binary
+cmake ../../../../app/src/main/cpp -DCMAKE_TOOLCHAIN_FILE=${ANDROID_NDK_HOME}/build/cmake/android.toolchain.cmake -DCMAKE_BUILD_TYPE=MinSizeRel -DANDROID_ABI=${abi} \
+	-DCMAKE_C_FLAGS="-ffile-prefix-map=$__DIR__=." \
+	-DCMAKE_CXX_FLAGS="-ffile-prefix-map=$__DIR__=." || exit 1
 cmake --build . || exit 1

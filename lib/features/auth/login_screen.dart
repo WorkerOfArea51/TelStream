@@ -99,6 +99,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       context: context,
       showPhoneCode: true,
       onSelect: (cp.Country country) {
+        if (!mounted) return;
         setState(() {
           _selectedCountryName = country.name;
           _selectedCountryCode = country.countryCode;
@@ -449,6 +450,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   final pwd = val.trim();
                   if (pwd.isNotEmpty) {
                     controller.checkPassword(pwd);
+                    _passwordController.clear();
                   }
                 },
                 decoration: InputDecoration(
@@ -493,6 +495,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     final pwd = _passwordController.text.trim();
                     if (pwd.isNotEmpty) {
                       controller.checkPassword(pwd);
+                      _passwordController.clear();
                     }
                   },
                   backgroundColor: Colors.blueAccent,

@@ -664,7 +664,8 @@ class _LibraryGridItemState extends ConsumerState<_LibraryGridItem> {
       minithumbnail = photo.photo.minithumbnail;
     }
 
-    return GestureDetector(
+    return RepaintBoundary(
+      child: GestureDetector(
       onTapDown: (_) => setState(() => _isTapped = true),
       onTapUp: (_) => setState(() => _isTapped = false),
       onTapCancel: () => setState(() => _isTapped = false),
@@ -780,7 +781,8 @@ class _LibraryGridItemState extends ConsumerState<_LibraryGridItem> {
           ),
         ),
       ),
-    );
+    ),
+  );
   }
 }
 
@@ -1171,7 +1173,8 @@ class ContinueWatchingShelf extends StatelessWidget {
                 }
               }
 
-              return Container(
+              return RepaintBoundary(
+                child: Container(
                 width: 220,
                 margin: const EdgeInsets.symmetric(horizontal: 6.0),
                 decoration: BoxDecoration(
@@ -1337,7 +1340,8 @@ class ContinueWatchingShelf extends StatelessWidget {
                     ],
                   ),
                 ),
-              );
+              ),
+            );
             },
           ),
         ),
@@ -1385,7 +1389,8 @@ class _LibraryCompactItemState extends ConsumerState<_LibraryCompactItem> {
       minithumbnail = photo.photo.minithumbnail;
     }
 
-    return GestureDetector(
+    return RepaintBoundary(
+      child: GestureDetector(
       onTapDown: (_) => setState(() => _isTapped = true),
       onTapUp: (_) => setState(() => _isTapped = false),
       onTapCancel: () => setState(() => _isTapped = false),
@@ -1468,7 +1473,8 @@ class _LibraryCompactItemState extends ConsumerState<_LibraryCompactItem> {
           ),
         ),
       ),
-    );
+    ),
+  );
   }
 }
 
@@ -1510,7 +1516,8 @@ class _LibraryListItemState extends ConsumerState<_LibraryListItem> {
       minithumbnail = photo.photo.minithumbnail;
     }
 
-    return GestureDetector(
+    return RepaintBoundary(
+      child: GestureDetector(
       onTapDown: (_) => setState(() => _isTapped = true),
       onTapUp: (_) => setState(() => _isTapped = false),
       onTapCancel: () => setState(() => _isTapped = false),
@@ -1611,7 +1618,8 @@ class _LibraryListItemState extends ConsumerState<_LibraryListItem> {
           ),
         ),
       ),
-    );
+    ),
+  );
   }
 }
 

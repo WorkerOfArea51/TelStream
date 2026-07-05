@@ -1,3 +1,4 @@
+import '../../../core/utils/subtitle_color_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:media_kit/media_kit.dart';
 import '../../../core/theme/app_theme.dart';
@@ -60,29 +61,7 @@ class TrackSelectorPanel extends StatefulWidget {
 class _TrackSelectorPanelState extends State<TrackSelectorPanel> {
   int _activeTab = 0; // 0: Tracks, 1: Style
 
-  static const List<Map<String, String>> _colors = [
-    {'name': 'White', 'hex': '#FFFFFF'},
-    {'name': 'Black', 'hex': '#000000'},
-    {'name': 'Yellow', 'hex': '#FFFF00'},
-    {'name': 'Green', 'hex': '#00FF00'},
-    {'name': 'Red', 'hex': '#FF0000'},
-    {'name': 'Cyan', 'hex': '#00FFFF'},
-    {'name': 'Blue', 'hex': '#0000FF'},
-    {'name': 'Orange', 'hex': '#FFA500'},
-    {'name': 'Magenta', 'hex': '#FF00FF'},
-  ];
 
-  Color _parseColor(String hex) {
-    try {
-      final cleanHex = hex.replaceAll('#', '');
-      if (cleanHex.length == 6) {
-        return Color(int.parse('FF$cleanHex', radix: 16));
-      } else if (cleanHex.length == 8) {
-        return Color(int.parse(cleanHex, radix: 16));
-      }
-    } catch (_) {}
-    return Colors.white;
-  }
 
   void _updateAudioDelay(double val) {
     final roundedVal = double.parse(val.toStringAsFixed(1));
@@ -96,7 +75,7 @@ class _TrackSelectorPanelState extends State<TrackSelectorPanel> {
 
   Widget _buildPresetCard(String sampleText, String colorHex, Color activeColor) {
     final isSelected = widget.currentFontColor.toUpperCase() == colorHex.toUpperCase();
-    final colorVal = _parseColor(colorHex);
+    final colorVal = SubtitleColorUtils.parseColor(colorHex);
 
     return GestureDetector(
       onTap: () => widget.onFontColorChanged(colorHex),
@@ -276,7 +255,7 @@ class _TrackSelectorPanelState extends State<TrackSelectorPanel> {
                                 child: Text(
                                   'Sample Subtitle',
                                   style: TextStyle(
-                                    color: _parseColor(widget.currentFontColor),
+                                    color: SubtitleColorUtils.parseColor(widget.currentFontColor),
                                     fontSize: (widget.currentFontSize * 0.45).clamp(12.0, 24.0),
                                     fontWeight: FontWeight.bold,
                                     shadows: const [
@@ -317,12 +296,12 @@ class _TrackSelectorPanelState extends State<TrackSelectorPanel> {
                                 height: 36,
                                 child: ListView.builder(
                                   scrollDirection: Axis.horizontal,
-                                  itemCount: _colors.length,
+                                  itemCount: SubtitleColorUtils.colors.length,
                                   itemBuilder: (context, idx) {
-                                    final colorInfo = _colors[idx];
+                                    final colorInfo = SubtitleColorUtils.colors[idx];
                                     final colorHex = colorInfo['hex']!;
                                     final isSelected = widget.currentFontColor.toUpperCase() == colorHex.toUpperCase();
-                                    final colorVal = _parseColor(colorHex);
+                                    final colorVal = SubtitleColorUtils.parseColor(colorHex);
 
                                     return Padding(
                                       padding: const EdgeInsets.only(right: 10),
@@ -877,3 +856,4 @@ class _TrackSelectorPanelState extends State<TrackSelectorPanel> {
     }
   }
 }
+

@@ -7,8 +7,8 @@
 -keep class io.flutter.plugins.**  { *; }
 
 # Tdlib
--keep class org.drinkless.tdlib.** { *; }
--keepclassmembers class org.drinkless.tdlib.** { *; }
+-keep class io.github.up9cloud.td.** { *; }
+-keepclassmembers class io.github.up9cloud.td.** { *; }
 
 # Media Kit
 -keep class com.alexmercerind.mediakit.** { *; }

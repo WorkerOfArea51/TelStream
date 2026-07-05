@@ -1,6 +1,9 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:synchronized/synchronized.dart';
 import 'package:tdlib/td_api.dart' as td;
 import 'tdlib_service.dart';
 import '../core/logger.dart';
@@ -21,6 +24,10 @@ class StreamingProxyService {
   int _port = 0;
   final Completer<void> _startCompleter = Completer<void>();
 
+  final _stateLock = Lock();
+  final String _authToken = base64Url.encode(List<int>.generate(32, (i) => Random.secure().nextInt(256)));
+  int _nextReqId = 0;
+
   Future<void> get onReady => _startCompleter.future;
 
   // Track active download offset state per fileId
@@ -29,7 +36,7 @@ class StreamingProxyService {
   final Map<int, td.File> _fileStates = {};
 
   // Track active HTTP request offsets per fileId to prevent prefetch thrashing
-  final Map<int, List<int>> _activeRequestOffsets = {};
+  final Map<int, Map<int, int>> _activeRequestOffsets = {};
 
   // Track last active timestamp of read/write per fileId and request offset to classify idle connections
   final Map<int, Map<int, DateTime>> _requestLastActive = {};
@@ -89,10 +96,10 @@ class StreamingProxyService {
   }
 
   String getProxyUrl(int fileId, {String? fileName}) {
-    if (fileName != null && fileName.isNotEmpty) {
-      return 'http://127.0.0.1:$_port/stream?fileId=$fileId&name=${Uri.encodeComponent(fileName)}';
-    }
-    return 'http://127.0.0.1:$_port/stream?fileId=$fileId';
+    final q = fileName != null && fileName.isNotEmpty
+        ? 'fileId=$fileId&name=${Uri.encodeComponent(fileName)}'
+        : 'fileId=$fileId';
+    return 'http://127.0.0.1:$_port/stream?$q&token=$_authToken';
   }
 
   td.File? getCachedFile(int fileId) => _fileStates[fileId];
@@ -106,10 +113,16 @@ class StreamingProxyService {
   Future<void> _handleRequest(HttpRequest request) async {
     try {
       if (request.uri.path != '/stream') {
-      request.response.statusCode = HttpStatus.notFound;
-      await request.response.close();
-      return;
-    }
+        request.response.statusCode = HttpStatus.notFound;
+        await request.response.close();
+        return;
+      }
+
+      if (request.uri.queryParameters['token'] != _authToken) {
+        request.response.statusCode = HttpStatus.unauthorized;
+        await request.response.close();
+        return;
+      }
 
     final fileIdStr = request.uri.queryParameters['fileId'];
     if (fileIdStr == null) {
@@ -157,18 +170,20 @@ class StreamingProxyService {
     if (rangeHeader != null && rangeHeader.startsWith('bytes=')) {
       final parts = rangeHeader.substring(6).split('-');
       if (parts.isNotEmpty) {
-        start = int.tryParse(parts[0]) ?? 0;
+        final parsedStart = int.tryParse(parts[0]);
+        if (parsedStart != null && parsedStart >= 0 && parsedStart < totalSize) start = parsedStart;
         if (parts.length > 1 && parts[1].isNotEmpty) {
-          end = int.tryParse(parts[1]) ?? end;
+          final parsedEnd = int.tryParse(parts[1]);
+          if (parsedEnd != null && parsedEnd >= start && parsedEnd < totalSize) end = parsedEnd;
         }
       }
     }
 
-    final activeRequestList = _activeRequestOffsets.putIfAbsent(fileId, () => []);
-    activeRequestList.add(start);
-
-    final lastActiveMap = _requestLastActive.putIfAbsent(fileId, () => {});
-    lastActiveMap[start] = DateTime.now();
+    final reqId = _nextReqId++;
+    await _stateLock.synchronized(() {
+      _activeRequestOffsets.putIfAbsent(fileId, () => {})[reqId] = start;
+      _requestLastActive.putIfAbsent(fileId, () => {})[reqId] = DateTime.now();
+    });
 
     try {
       // Auto-detect and shift TDLib download offset if the requested range is outside our current download buffer
@@ -189,11 +204,17 @@ class StreamingProxyService {
           final isOutAfter = start > activeRangeEnd + forwardThreshold;
 
           final now = DateTime.now();
-          final hasEarlierRequest = activeRequestList.any((offset) {
-            if (offset >= start) return false;
-            final lastActive = lastActiveMap[offset];
-            if (lastActive == null) return true;
-            return now.difference(lastActive).inMilliseconds < 800;
+          bool hasEarlierRequest = false;
+          await _stateLock.synchronized(() {
+            final activeRequests = _activeRequestOffsets[fileId] ?? {};
+            final lastActiveMap = _requestLastActive[fileId] ?? {};
+            hasEarlierRequest = activeRequests.entries.any((entry) {
+              if (entry.key == reqId) return false;
+              if (entry.value >= start) return false;
+              final lastActive = lastActiveMap[entry.key];
+              if (lastActive == null) return true;
+              return now.difference(lastActive).inMilliseconds < 800;
+            });
           });
 
           final isTailQuery = res.expectedSize > 20 * 1024 * 1024 &&
@@ -253,7 +274,7 @@ class StreamingProxyService {
         request.response.statusCode = HttpStatus.ok;
       }
 
-      final responseLength = end - start + 1;
+      final responseLength = (end - start + 1).clamp(0, totalSize);
       request.response.headers.contentLength = responseLength;
 
       // OPTIMIZATION 1: If file is fully completed on disk, stream it directly using native piping
@@ -344,11 +365,17 @@ class StreamingProxyService {
             // Check if we need to shift the active download because currentOffset is out of bounds
             if (!currentFile.local.isDownloadingCompleted) {
               final now = DateTime.now();
-              final hasEarlierRequest = activeRequestList.any((offset) {
-                if (offset >= currentOffset) return false;
-                final lastActive = lastActiveMap[offset];
-                if (lastActive == null) return true;
-                return now.difference(lastActive).inMilliseconds < 800;
+              bool hasEarlierRequest = false;
+              await _stateLock.synchronized(() {
+                final activeRequests = _activeRequestOffsets[fileId] ?? {};
+                final lastActiveMap = _requestLastActive[fileId] ?? {};
+                hasEarlierRequest = activeRequests.entries.any((entry) {
+                  if (entry.key == reqId) return false;
+                  if (entry.value >= currentOffset) return false;
+                  final lastActive = lastActiveMap[entry.key];
+                  if (lastActive == null) return true;
+                  return now.difference(lastActive).inMilliseconds < 800;
+                });
               });
 
               final isTailQuery = currentFile.expectedSize > 20 * 1024 * 1024 &&
@@ -467,7 +494,12 @@ class StreamingProxyService {
           request.response.add(bytes);
           await request.response.flush();
           
-          lastActiveMap[start] = DateTime.now();
+          await _stateLock.synchronized(() {
+            final lastActiveMap = _requestLastActive[fileId];
+            if (lastActiveMap != null) {
+              lastActiveMap[reqId] = DateTime.now();
+            }
+          });
 
           sentBytes += bytes.length;
           currentOffset += bytes.length;
@@ -485,18 +517,23 @@ class StreamingProxyService {
         } catch (_) {}
       }
     } finally {
-      activeRequestList.remove(start);
-      if (activeRequestList.isEmpty) {
-        _activeRequestOffsets.remove(fileId);
-      }
-      
-      final lastActiveMap = _requestLastActive[fileId];
-      if (lastActiveMap != null) {
-        lastActiveMap.remove(start);
-        if (lastActiveMap.isEmpty) {
-          _requestLastActive.remove(fileId);
+      await _stateLock.synchronized(() {
+        final activeRequests = _activeRequestOffsets[fileId];
+        if (activeRequests != null) {
+          activeRequests.remove(reqId);
+          if (activeRequests.isEmpty) {
+            _activeRequestOffsets.remove(fileId);
+          }
         }
-      }
+        
+        final lastActiveMap = _requestLastActive[fileId];
+        if (lastActiveMap != null) {
+          lastActiveMap.remove(reqId);
+          if (lastActiveMap.isEmpty) {
+            _requestLastActive.remove(fileId);
+          }
+        }
+      });
     }
     } catch (e, stack) {
       Log.e('Proxy unhandled exception in request handler', e, stack);

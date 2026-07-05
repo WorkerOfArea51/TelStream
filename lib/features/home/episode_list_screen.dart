@@ -478,77 +478,70 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen>
                   ),
                 ),
               ),
-            SliverToBoxAdapter(
-              child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 300),
-                switchInCurve: Curves.easeOut,
-                switchOutCurve: Curves.easeIn,
-                child: _isLoadingEpisodes
-                    ? ListView.builder(
-                        key: const ValueKey('loading'),
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        padding: const EdgeInsets.all(16),
-                        itemCount: 4,
-                        itemBuilder: (context, index) =>
-                            const ShimmerEpisodeCard(),
-                      )
-                    : _errorMessage != null
-                    ? Center(
-                        key: const ValueKey('error'),
-                        child: Padding(
-                          padding: const EdgeInsets.all(32.0),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text(
-                                'Error: $_errorMessage',
-                                style: TextStyle(
-                                  color: theme.colorScheme.error,
-                                ),
-                              ),
-                              const SizedBox(height: 12),
-                              ElevatedButton(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: theme.primaryColor,
-                                  foregroundColor:
-                                      theme.primaryColor.computeLuminance() >
-                                          0.5
-                                      ? Colors.black
-                                      : Colors.white,
-                                ),
-                                onPressed: _loadEpisodesDynamically,
-                                child: const Text('Retry'),
-                              ),
-                            ],
-                          ),
+            if (_isLoadingEpisodes)
+              SliverPadding(
+                padding: const EdgeInsets.all(16),
+                sliver: SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) => const ShimmerEpisodeCard(),
+                    childCount: 4,
+                  ),
+                ),
+              )
+            else if (_errorMessage != null)
+              SliverToBoxAdapter(
+                key: const ValueKey('error'),
+                child: Padding(
+                  padding: const EdgeInsets.all(32.0),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        'Error: $_errorMessage',
+                        style: TextStyle(
+                          color: theme.colorScheme.error,
                         ),
-                      )
-                    : ListView.builder(
-                        key: ValueKey(
-                          '${selectedSeason.seasonName}_${selectedSeason.episodes.length}',
-                        ),
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        padding: const EdgeInsets.all(16),
-                        itemCount: selectedSeason.episodes.length,
-                        itemBuilder: (context, index) {
-                          final msg = selectedSeason.episodes[index];
-                          final isHighlighted =
-                              widget.highlightMessageId == msg.id;
-                          return _EpisodeCardItem(
-                            key: ValueKey(msg.id),
-                            msg: msg,
-                            index: index,
-                            season: selectedSeason,
-                            series: widget.series,
-                            onLongPress: _showMarkWatchedDialog,
-                            isHighlighted: isHighlighted,
-                          );
-                        },
                       ),
+                      const SizedBox(height: 12),
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: theme.primaryColor,
+                          foregroundColor:
+                              theme.primaryColor.computeLuminance() >
+                                  0.5
+                              ? Colors.black
+                              : Colors.white,
+                        ),
+                        onPressed: _loadEpisodesDynamically,
+                        child: const Text('Retry'),
+                      ),
+                    ],
+                  ),
+                ),
+              )
+            else
+              SliverPadding(
+                padding: const EdgeInsets.all(16),
+                sliver: SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) {
+                      final msg = selectedSeason.episodes[index];
+                      final isHighlighted =
+                          widget.highlightMessageId == msg.id;
+                      return _EpisodeCardItem(
+                        key: ValueKey(msg.id),
+                        msg: msg,
+                        index: index,
+                        season: selectedSeason,
+                        series: widget.series,
+                        onLongPress: _showMarkWatchedDialog,
+                        isHighlighted: isHighlighted,
+                      );
+                    },
+                    childCount: selectedSeason.episodes.length,
+                  ),
+                ),
               ),
-            ),
             const SliverToBoxAdapter(child: SizedBox(height: 120)),
           ],
         ),

@@ -1,3 +1,4 @@
+import 'package:collection/collection.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../services/storage_service.dart';
 
@@ -299,6 +300,60 @@ class VideoSettings {
       longPressVibration: json['longPressVibration'] ?? true,
     );
   }
+
+@override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is VideoSettings &&
+      other.doubleTapSeekDuration == doubleTapSeekDuration &&
+      other.savePositionOnQuit == savePositionOnQuit &&
+      other.autoplayNextVideo == autoplayNextVideo &&
+      other.volumeNormalization == volumeNormalization &&
+      other.pitchCorrection == pitchCorrection &&
+      other.seekbarStyle == seekbarStyle &&
+      other.dynamicSpeedOverlay == dynamicSpeedOverlay &&
+      other.horizontalSwipeToSeek == horizontalSwipeToSeek &&
+      other.volumeGestures == volumeGestures &&
+      other.brightnessGestures == brightnessGestures &&
+      other.pinchToZoom == pinchToZoom &&
+      other.cacheLimitMb == cacheLimitMb &&
+      other.cacheTtlDays == cacheTtlDays &&
+      other.streamingProfile == streamingProfile &&
+      other.leftSwipeGesture == leftSwipeGesture &&
+      other.rightSwipeGesture == rightSwipeGesture &&
+      other.downloadSchedulerEnabled == downloadSchedulerEnabled &&
+      other.downloadStartHour == downloadStartHour &&
+      other.downloadEndHour == downloadEndHour &&
+      other.subtitleRendererMode == subtitleRendererMode &&
+      other.dynamicRangeCompression == dynamicRangeCompression &&
+      other.equalizerEnabled == equalizerEnabled &&
+      const ListEquality().equals(other.equalizerBands, equalizerBands) &&
+      other.equalizerPreset == equalizerPreset &&
+      other.longPressSpeed == longPressSpeed &&
+      other.gestureSensitivity == gestureSensitivity &&
+      other.animeLayout == animeLayout &&
+      other.moviesLayout == moviesLayout &&
+      other.webSeriesLayout == webSeriesLayout &&
+      other.preferredSubtitleProvider == preferredSubtitleProvider &&
+      other.customMpvOptions == customMpvOptions &&
+      other.showStatsForNerds == showStatsForNerds &&
+      other.subtitleFontSize == subtitleFontSize &&
+      other.subtitleColor == subtitleColor &&
+      other.subtitleDelay == subtitleDelay &&
+      other.subtitleFont == subtitleFont &&
+      other.downloadSpeedLimit == downloadSpeedLimit &&
+      other.progressSyncMode == progressSyncMode &&
+      other.subtitleBottomMargin == subtitleBottomMargin &&
+      other.subtitleHorizontalOffset == subtitleHorizontalOffset &&
+      other.rememberSpeed == rememberSpeed &&
+      other.longPressVibration == longPressVibration;
+  }
+
+  @override
+  int get hashCode {
+    return Object.hashAll([doubleTapSeekDuration, savePositionOnQuit, autoplayNextVideo, volumeNormalization, pitchCorrection, seekbarStyle, dynamicSpeedOverlay, horizontalSwipeToSeek, volumeGestures, brightnessGestures, pinchToZoom, cacheLimitMb, cacheTtlDays, streamingProfile, leftSwipeGesture, rightSwipeGesture, downloadSchedulerEnabled, downloadStartHour, downloadEndHour, subtitleRendererMode, dynamicRangeCompression, equalizerEnabled, equalizerBands, equalizerPreset, longPressSpeed, gestureSensitivity, animeLayout, moviesLayout, webSeriesLayout, preferredSubtitleProvider, customMpvOptions, showStatsForNerds, subtitleFontSize, subtitleColor, subtitleDelay, subtitleFont, downloadSpeedLimit, progressSyncMode, subtitleBottomMargin, subtitleHorizontalOffset, rememberSpeed, longPressVibration, ]);
+  }
+
 }
 
 class VideoSettingsNotifier extends Notifier<VideoSettings> {
@@ -351,13 +406,13 @@ class VideoSettingsNotifier extends Notifier<VideoSettings> {
   void updateSettings(VideoSettings newSettings) {
     state = newSettings;
     final storage = ref.read(storageServiceProvider);
-    storage.setAnimeLayout(state.animeLayout);
-    storage.setMoviesLayout(state.moviesLayout);
-    storage.setWebSeriesLayout(state.webSeriesLayout);
-    storage.updateVideoSettings(state.toJson());
+    storage.updateVideoSettingsBatch(state.toJson(), state.animeLayout, state.moviesLayout, state.webSeriesLayout);
   }
 }
 
 final videoSettingsProvider = NotifierProvider<VideoSettingsNotifier, VideoSettings>(() {
   return VideoSettingsNotifier();
 });
+
+
+

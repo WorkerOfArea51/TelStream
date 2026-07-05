@@ -249,15 +249,21 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
                     ],
                   ),
                 )
-              : ListView(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  children: [
-                    if (animeResults.isNotEmpty)
-                      _buildCategorySection('Anime', animeResults, 'anime_search'),
-                    if (moviesResults.isNotEmpty)
-                      _buildCategorySection('Movies', moviesResults, 'movies_search'),
-                    if (webSeriesResults.isNotEmpty)
-                      _buildCategorySection('Web Series', webSeriesResults, 'web_series_search'),
+              : CustomScrollView(
+                  slivers: [
+                    SliverPadding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      sliver: SliverList(
+                        delegate: SliverChildListDelegate([
+                          if (animeResults.isNotEmpty)
+                            _buildCategorySection('Anime', animeResults, 'anime_search'),
+                          if (moviesResults.isNotEmpty)
+                            _buildCategorySection('Movies', moviesResults, 'movies_search'),
+                          if (webSeriesResults.isNotEmpty)
+                            _buildCategorySection('Web Series', webSeriesResults, 'web_series_search'),
+                        ]),
+                      ),
+                    ),
                   ],
                 ),
     );
@@ -296,17 +302,10 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
             ],
           ),
         ),
-        GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 3,
-            childAspectRatio: 0.7,
-            crossAxisSpacing: 10,
-            mainAxisSpacing: 10,
-          ),
-          itemCount: results.length,
-          itemBuilder: (context, index) {
+        Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: List.generate(results.length, (index) {
             final series = results[index];
             if (series.seasons.isEmpty) return const SizedBox.shrink();
             final season = series.seasons.first; // Navigate to first season by default
@@ -322,7 +321,11 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
               minithumbnail = photo.photo.minithumbnail;
             }
 
-            return GestureDetector(
+            return SizedBox(
+              width: (MediaQuery.of(context).size.width - 32 - 20) / 3,
+              child: AspectRatio(
+                aspectRatio: 0.7,
+                child: GestureDetector(
               onTap: () {
                 final clean = _query.trim();
                 if (clean.isNotEmpty) {
@@ -375,9 +378,11 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
                     textAlign: TextAlign.center,
                   ),
                 ],
+                  ),
+                ),
               ),
             );
-          },
+          }),
         ),
         const SizedBox(height: 16),
       ],

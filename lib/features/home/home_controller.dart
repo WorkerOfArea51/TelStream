@@ -18,6 +18,18 @@ import 'package:synchronized/synchronized.dart';
 enum SortOrder { newest, oldest, aToZ, zToA }
 
 abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
+  static final _bracketSuffixRegex = RegExp(r'\s*[\[\(].*?[\]\)]\s*$');
+  static final _seasonSuffixRegex = RegExp(r'(?:\s*[-–—:|]\s*)?\b(?:(?:season|part)\s*(?:\d+|[ivxIVX]+)|s\s*\d+|s\s+[ivxIVX]+)\b', caseSensitive: false);
+  static final _finalSeasonRegex = RegExp(r'(?:\s*[-–—:|]\s*)?\b(?:the\s+)?final\s+(?:season|chapters?|act|arcs?|part)?\b', caseSensitive: false);
+  static final _movieOvaRegex = RegExp(r'(?:\s*[-–—:|]\s*)?\b(?:the\s+)?(?:movie|ova|oad|specials?|prequels?|sequels?)\b', caseSensitive: false);
+  static final _romanNumeralRegex = RegExp(r'\s*\b[ivxIVX]+\b$', caseSensitive: false);
+  static final _singleDigitRegex = RegExp(r'(?<!\bno)(?<!\bno\.)(?<!\bvol)(?<!\bvol\.)\s+\b\d\b$', caseSensitive: false);
+  static final _singleLetterSRegex = RegExp(r'\s+\b[sS]\b$');
+  static final _customSubtitlesRegex = RegExp(r'(?:\s*[-–—:|]\s*)?\b(?:Memory\s+Snow|Frozen\s+Bond|Hyouketsu\s+no\s+Kizuna)\b', caseSensitive: false);
+  static final _rootARegex = RegExp(r'(?:\s*[-–—:|]\s*)?(?:root\s*a|root\s*alpha|√\s*a)\b', caseSensitive: false);
+  static final _rePrefixRegex = RegExp(r'\b[rR][eE]\b$');
+  static final _trailingPunctuationRegex = RegExp(r'\s*[-–—:|]+\s*$');
+
   int _lastMessageId = 0;
   bool _hasMore = true;
   String _currentQuery = '';
@@ -45,7 +57,6 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
   bool _cacheLoadComplete = false;
   bool _isFetchingReleaseYears = false;
   Timer? _releaseYearsTimer;
-  StorageService? testStorage;
   bool _isDisposed = false;
 
   @override
@@ -364,7 +375,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
       final cachePath = '${directory.path}/catalog_cache_${category.title.replaceAll(' ', '_')}.json';
       final file = File(cachePath);
       final jsonList = _allSeries.map((s) => s.toJson()).toList();
-      final content = json.encode(jsonList);
+      final content = await compute(jsonEncode, jsonList);
       await file.writeAsString(content);
       Log.i('Saved catalog cache for category ${category.title} to $cachePath');
     } catch (e, stack) {
@@ -615,45 +626,24 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
     var normalized = name.trim();
 
     // 1. Remove bracketed text at the end, e.g. [1080p], (Movie), etc.
-    normalized = normalized.replaceAll(RegExp(r'\s*[\[\(].*?[\]\)]\s*$'), '');
+    normalized = normalized.replaceAll(_bracketSuffixRegex, '');
 
     if (!isMovie) {
       // 2. Remove trailing season / part / movie indicators.
-      
-      // Pattern A: trailing season/s/part with digit or Roman numeral
-      // e.g. "season 2", "s3", "part II", "part 2"
-      // Note: We avoid stripping "six" by requiring a space/separator when single-letter 's' is followed by a Roman numeral.
-      normalized = normalized.replaceAll(RegExp(r'(?:\s*[-–—:|]\s*)?\b(?:(?:season|part)\s*(?:\d+|[ivxIVX]+)|s\s*\d+|s\s+[ivxIVX]+)\b', caseSensitive: false), '');
-
-      // Pattern B: trailing final season/chapters/act/arc indicators
-      // e.g. "final season", "final chapters", "final chapter", "final act", "final arc", "final"
-      normalized = normalized.replaceAll(RegExp(r'(?:\s*[-–—:|]\s*)?\b(?:the\s+)?final\s+(?:season|chapters?|act|arcs?|part)?\b', caseSensitive: false), '');
-
-      // Pattern C: trailing movie / ova / oad / special / specials / prequel / sequel tags
-      normalized = normalized.replaceAll(RegExp(r'(?:\s*[-–—:|]\s*)?\b(?:the\s+)?(?:movie|ova|oad|specials?|prequels?|sequels?)\b', caseSensitive: false), '');
-
-      // Pattern D: trailing Roman numerals at the end of the string
-      // e.g. "II", "III", etc.
-      normalized = normalized.replaceAll(RegExp(r'\s*\b[ivxIVX]+\b$', caseSensitive: false), '');
-
-      // Pattern E: trailing single digits (0-9) NOT preceded by "no" or "vol"
-      // e.g. "Log Horizon 2", "Jujutsu Kaisen 0"
-      normalized = normalized.replaceAll(RegExp(r'(?<!\bno)(?<!\bno\.)(?<!\bvol)(?<!\bvol\.)\s+\b\d\b$', caseSensitive: false), '');
-
-      // Pattern F: trailing single letter "S" (case insensitive) preceded by space (e.g. "Dragon Maid S")
-      normalized = normalized.replaceAll(RegExp(r'\s+\b[sS]\b$'), '');
-
-      // Pattern G: trailing known OVA/Movie subtitles that do not contain standard keywords (e.g. "Memory Snow", "Frozen Bond", "Hyouketsu no Kizuna")
-      normalized = normalized.replaceAll(RegExp(r'(?:\s*[-–—:|]\s*)?\b(?:Memory\s+Snow|Frozen\s+Bond|Hyouketsu\s+no\s+Kizuna)\b', caseSensitive: false), '');
-
-      // Pattern H: trailing Root A / √A indicators (e.g. "Root A", "√A")
-      normalized = normalized.replaceAll(RegExp(r'(?:\s*[-–—:|]\s*)?(?:root\s*a|root\s*alpha|√\s*a)\b', caseSensitive: false), '');
+      normalized = normalized.replaceAll(_seasonSuffixRegex, '');
+      normalized = normalized.replaceAll(_finalSeasonRegex, '');
+      normalized = normalized.replaceAll(_movieOvaRegex, '');
+      normalized = normalized.replaceAll(_romanNumeralRegex, '');
+      normalized = normalized.replaceAll(_singleDigitRegex, '');
+      normalized = normalized.replaceAll(_singleLetterSRegex, '');
+      normalized = normalized.replaceAll(_customSubtitlesRegex, '');
+      normalized = normalized.replaceAll(_rootARegex, '');
 
       // 3. Remove common trailing subtitles after a colon if the prefix has length > 3 and doesn't end with "Re"
       if (normalized.contains(':')) {
         final parts = normalized.split(':');
         final prefix = parts[0].trim();
-        final isRePrefix = RegExp(r'\b[rR][eE]\b$').hasMatch(prefix);
+        final isRePrefix = _rePrefixRegex.hasMatch(prefix);
         if (prefix.length > 3 && !isRePrefix) {
           normalized = prefix;
         }
@@ -661,10 +651,10 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
     }
 
     // 4. Remove bracketed text at the end again (e.g. if a year or tag was left trailing after season/part/colon stripping)
-    normalized = normalized.replaceAll(RegExp(r'\s*[\[\(].*?[\]\)]\s*$'), '');
+    normalized = normalized.replaceAll(_bracketSuffixRegex, '');
 
     // Also clean up any trailing dashes, colons, or punctuation left over from the replacements
-    normalized = normalized.replaceAll(RegExp(r'\s*[-–—:|]+\s*$'), '');
+    normalized = normalized.replaceAll(_trailingPunctuationRegex, '');
 
     return normalized.trim();
   }
@@ -753,13 +743,6 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
     }).join(' ');
   }
 
-  List<AnimeSeries> parseMessagesForTesting(List<td.Message> raw) {
-    return _parseMessages(raw);
-  }
-
-  Future<List<AnimeSeries>> applySearchAndSortForTesting(List<AnimeSeries> list) async {
-    return await _applySearchAndSort(list);
-  }
 
   List<AnimeSeries> _parseMessages(List<td.Message> raw) {
     // 1. Separate poster messages and episode messages
@@ -966,7 +949,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
   }
   
   Future<List<AnimeSeries>> _applySearchAndSort(List<AnimeSeries> list) async {
-    final StorageService storage = testStorage ?? ref.read(storageServiceProvider);
+    final StorageService storage = ref.read(storageServiceProvider);
     final favs = storage.getFavorites();
     final releaseYears = <String, int>{};
     
@@ -985,6 +968,9 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
       releaseYears: releaseYears,
     );
     
+    if (list.length < 50) {
+      return _computeSearchAndSortIsolate(payload);
+    }
     return await compute(_computeSearchAndSortIsolate, payload);
   }
 

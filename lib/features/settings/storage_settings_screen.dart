@@ -17,6 +17,10 @@ import '../../core/widgets/expressive_container.dart';
 import '../../core/utils/path_helper.dart';
 import 'advanced_cache_manager_screen.dart';
 
+int? _cachedWindowsTotalStorage;
+int? _cachedWindowsFreeStorage;
+DateTime? _lastWindowsStorageCheck;
+
 class StorageSettingsScreen extends ConsumerStatefulWidget {
   const StorageSettingsScreen({super.key});
 
@@ -64,6 +68,21 @@ class _StorageSettingsScreenState extends ConsumerState<StorageSettingsScreen> {
           }
         }
       } else if (Platform.isWindows) {
+        if (_lastWindowsStorageCheck != null && 
+            DateTime.now().difference(_lastWindowsStorageCheck!) < const Duration(seconds: 60) &&
+            _cachedWindowsTotalStorage != null &&
+            _cachedWindowsFreeStorage != null) {
+          if (mounted) {
+            setState(() {
+              _totalStorageRaw = _cachedWindowsTotalStorage!;
+              _freeStorageRaw = _cachedWindowsFreeStorage!;
+              _totalStorageStr = _formatSizeString(_cachedWindowsTotalStorage!);
+              _freeStorageStr = _formatSizeString(_cachedWindowsFreeStorage!);
+            });
+          }
+          return;
+        }
+
         final customPath = ref.read(storageServiceProvider).getCustomDownloadDirectory();
         String path = customPath ?? '';
         if (path.isEmpty) {
@@ -87,6 +106,9 @@ class _StorageSettingsScreenState extends ConsumerState<StorageSettingsScreen> {
             final total = data['Size'] as int? ?? (128 * 1024 * 1024 * 1024);
             final free = data['SizeRemaining'] as int? ?? (45 * 1024 * 1024 * 1024);
             if (mounted) {
+              _cachedWindowsTotalStorage = total;
+              _cachedWindowsFreeStorage = free;
+              _lastWindowsStorageCheck = DateTime.now();
               setState(() {
                 _totalStorageRaw = total;
                 _freeStorageRaw = free;

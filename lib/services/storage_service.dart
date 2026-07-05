@@ -203,11 +203,12 @@ class StorageService {
 
   Timer? _debounceTimer;
   bool _dirty = false;
+  Completer<void>? _saveCompleter;
 
   Future<void> _save() async {
     _dirty = true;
     _debounceTimer?.cancel();
-    final completer = Completer<void>();
+    _saveCompleter ??= Completer<void>();
     _debounceTimer = Timer(const Duration(milliseconds: 250), () async {
       await _lock.synchronized(() async {
         if (_dirty) {
@@ -215,9 +216,13 @@ class StorageService {
           _dirty = false;
         }
       });
-      completer.complete();
+      final c = _saveCompleter;
+      _saveCompleter = null;
+      if (c != null && !c.isCompleted) {
+        c.complete();
+      }
     });
-    return completer.future;
+    return _saveCompleter!.future;
   }
 
   Future<void> flush() async {
@@ -440,6 +445,14 @@ class StorageService {
     await _save();
   }
 
+  Future<void> updateVideoSettingsBatch(Map<String, dynamic> settings, String animeLayout, String moviesLayout, String webSeriesLayout) async {
+    _data['video_settings'] = settings;
+    _data['anime_layout_preference'] = animeLayout;
+    _data['movies_layout_preference'] = moviesLayout;
+    _data['web_series_layout_preference'] = webSeriesLayout;
+    await _save();
+  }
+
   String getAnimeLayout() {
     return _data['anime_layout_preference'] as String? ?? 'Grid';
   }
@@ -485,9 +498,14 @@ class StorageService {
     final Map<String, dynamic> rawMap = Map<String, dynamic>.from(
       _data['downloaded_files'],
     );
-    return rawMap.map(
-      (key, value) => MapEntry(int.parse(key), value as String),
-    );
+    final result = <int, String>{};
+    for (final entry in rawMap.entries) {
+      final parsedKey = int.tryParse(entry.key);
+      if (parsedKey != null) {
+        result[parsedKey] = entry.value as String;
+      }
+    }
+    return result;
   }
 
   Future<void> addDownloadedFile(int fileId, String filePath) async {
@@ -510,9 +528,14 @@ class StorageService {
     final Map<String, dynamic> rawMap = Map<String, dynamic>.from(
       _data['active_downloads'],
     );
-    return rawMap.map(
-      (key, value) => MapEntry(int.parse(key), value as String),
-    );
+    final result = <int, String>{};
+    for (final entry in rawMap.entries) {
+      final parsedKey = int.tryParse(entry.key);
+      if (parsedKey != null) {
+        result[parsedKey] = entry.value as String;
+      }
+    }
+    return result;
   }
 
   List<int> getActiveDownloadsOrder() {
@@ -994,8 +1017,19 @@ class StorageService {
   }
 
   Future<void> importBackupData(Map<String, dynamic> data) async {
-    _data = Map<String, dynamic>.from(data);
-    await _save();
+    await _lock.synchronized(() async {
+      try {
+        final deepCopy = json.decode(json.encode(data)) as Map<String, dynamic>;
+        if (deepCopy['history'] is! Map) deepCopy['history'] = {};
+        if (deepCopy['favorites'] is! List) deepCopy['favorites'] = [];
+        _data = deepCopy;
+        _dirty = true;
+        await _executeSave();
+        _dirty = false;
+      } catch (e, stack) {
+        Log.e('Failed to import backup data', e, stack);
+      }
+    });
   }
 
   Map<String, int> getScreenTimeDailyLogs() {
@@ -1202,3 +1236,4 @@ final searchHistoryProvider =
     NotifierProvider.family<SearchHistoryNotifier, List<String>, String>(
       SearchHistoryNotifier.new,
     );
+

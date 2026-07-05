@@ -6,6 +6,7 @@ import 'dart:math';
 import 'package:ffi/ffi.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:synchronized/synchronized.dart';
 import 'package:tdlib/td_client.dart';
 import 'package:tdlib/td_api.dart' as td;
 import 'package:path_provider/path_provider.dart';
@@ -22,6 +23,8 @@ final tdlibServiceProvider = Provider<TdlibService>((ref) {
 class TdlibService {
   int? _clientId;
   bool _isDestroyed = false;
+  Timer? _initPruneTimer;
+  final _pendingLock = Lock();
   
   late final DynamicLibrary _lib;
   late final Pointer<Utf8> Function(double timeout) _nativeReceive;
@@ -153,25 +156,27 @@ class TdlibService {
       applicationVersion: '1.0',
       enableStorageOptimizer: true,
       ignoreFileNames: false,
-      databaseEncryptionKey: needsMigration ? '' : dbKey, 
+      databaseEncryptionKey: dbKey, 
     );
-    send(params);
+    await sendAsync(params);
 
     // Force TDLib online mode so it doesn't throttle background downloads
     send(const td.SetOption(name: 'online', value: td.OptionValueBoolean(value: true)));
 
     if (needsMigration) {
-      send(td.SetDatabaseEncryptionKey(newEncryptionKey: dbKey));
       await storage.write(key: 'tdlib_db_migrated', value: 'true');
     }
 
     // Give TDLib a moment to initialize its DB, then prune cached video files
-    Future.delayed(const Duration(seconds: 5), () {
-      pruneCache(
-        excludedPaths: excludedPaths ?? [],
-        limitMb: limitMb,
-        ttlDays: ttlDays,
-      );
+    _initPruneTimer?.cancel();
+    _initPruneTimer = Timer(const Duration(seconds: 5), () {
+      if (!_isDestroyed) {
+        pruneCache(
+          excludedPaths: excludedPaths ?? [],
+          limitMb: limitMb,
+          ttlDays: ttlDays,
+        );
+      }
     });
   }
 
@@ -422,46 +427,40 @@ class TdlibService {
   void _startEventLoop() async {
     while (!_isDestroyed) {
       try {
-        while (!_isDestroyed) {
-          td.TdObject? event;
-          if (_libInitialized) {
-            final rawPtr = _nativeReceive(0.0);
-            if (rawPtr == nullptr) {
-              break;
-            }
-            final jsonStr = rawPtr.toDartString();
-            final Map<String, dynamic> jsonMap = jsonDecode(jsonStr);
-            final sanitized = sanitizeJson(jsonMap);
-            event = td.convertToObject(jsonEncode(sanitized));
-          } else {
-            event = tdReceive(0.0);
-            if (event == null) {
-              break;
-            }
+        td.TdObject? event;
+        if (_libInitialized) {
+          final rawPtr = _nativeReceive(1.0);
+          if (rawPtr == nullptr) {
+            continue;
           }
-
+          final jsonStr = rawPtr.toDartString();
+          final Map<String, dynamic> jsonMap = jsonDecode(jsonStr);
+          final sanitized = sanitizeJson(jsonMap);
+          event = td.convertToObject(jsonEncode(sanitized));
+        } else {
+          event = tdReceive(1.0);
           if (event == null) {
             continue;
           }
+        }
 
-          // Filter out false-positive TdError events caused by closing inactive client IDs on startup
-          if (event is td.TdError && (event.message == "Invalid TDLib instance specified" || event.message.contains("Invalid TDLib instance"))) {
+        // Filter out false-positive TdError events caused by closing inactive client IDs on startup
+        if (event is td.TdError && (event.message == "Invalid TDLib instance specified" || event.message.contains("Invalid TDLib instance"))) {
+          continue;
+        }
+        if (event.extra is int) {
+          final id = event.extra as int;
+          final completer = await _pendingLock.synchronized(() => _pendingRequests.remove(id));
+          if (completer != null && !completer.isCompleted) {
+            completer.complete(event);
             continue;
           }
-          if (event.extra is int) {
-            final id = event.extra as int;
-            if (_pendingRequests.containsKey(id)) {
-              _pendingRequests[id]!.complete(event);
-              _pendingRequests.remove(id);
-              continue;
-            }
-          }
-          _updatesController.add(event);
         }
+        _updatesController.add(event);
       } catch (e, stack) {
         Log.e("Exception inside TDLib event loop", e, stack);
+        await Future.delayed(const Duration(milliseconds: 100));
       }
-      await Future.delayed(const Duration(milliseconds: 5));
     }
   }
 
@@ -471,18 +470,16 @@ class TdlibService {
     }
   }
 
-  Future<td.TdObject> sendAsync(td.TdFunction request) {
+  Future<td.TdObject> sendAsync(td.TdFunction request) async {
     final id = ++_requestId;
     final completer = Completer<td.TdObject>();
-    _pendingRequests[id] = completer;
+    await _pendingLock.synchronized(() => _pendingRequests[id] = completer);
     
     // Automatically clean up after 30 seconds to prevent memory leaks if TDLib never responds
-    Future.delayed(const Duration(seconds: 30), () {
-      if (_pendingRequests.containsKey(id)) {
-        _pendingRequests.remove(id);
-        if (!completer.isCompleted) {
-          completer.completeError(TimeoutException('TDLib response timeout', const Duration(seconds: 30)));
-        }
+    Timer(const Duration(seconds: 30), () async {
+      final pending = await _pendingLock.synchronized(() => _pendingRequests.remove(id));
+      if (pending != null && !pending.isCompleted) {
+        pending.completeError(TimeoutException('TDLib response timeout', const Duration(seconds: 30)));
       }
     });
 
@@ -502,6 +499,7 @@ class TdlibService {
           const Duration(seconds: 10),
           onTimeout: () => td.TdError(code: 408, message: "Request Timeout"),
         );
+        if (_isDestroyed || _clientId == null) break;
         if (res is td.TdError) {
           break; // End of list or error
         }
@@ -513,6 +511,7 @@ class TdlibService {
 
   void destroy() {
     _isDestroyed = true;
+    _initPruneTimer?.cancel();
     _updatesController.close();
     if (_clientId != null) {
       try {
