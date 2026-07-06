@@ -132,6 +132,11 @@ class TdJsonUtil {
       out['is_channel_post'] = out['is_channel_post'] ?? false;
       out['is_topic_message'] = out['is_topic_message'] ?? false;
       out['contains_unread_mention'] = out['contains_unread_mention'] ?? false;
+      out['media_album_id'] = out['media_album_id'] ?? "0";
+      out['message_thread_id'] = out['message_thread_id'] ?? 0;
+      out['self_destruct_in'] = out['self_destruct_in'] ?? 0.0;
+      out['auto_delete_in'] = out['auto_delete_in'] ?? 0.0;
+      out['via_bot_user_id'] = out['via_bot_user_id'] ?? 0;
     } else if (outType == 'chat') {
       out['has_protected_content'] = out['has_protected_content'] ?? false;
       out['is_translatable'] = out['is_translatable'] ?? false;
@@ -141,6 +146,14 @@ class TdJsonUtil {
       out['can_be_deleted_only_for_self'] = out['can_be_deleted_only_for_self'] ?? false;
       out['can_be_deleted_for_all_users'] = out['can_be_deleted_for_all_users'] ?? false;
       out['can_be_reported'] = out['can_be_reported'] ?? false;
+      out['default_disable_notification'] = out['default_disable_notification'] ?? false;
+      out['unread_count'] = out['unread_count'] ?? 0;
+      out['last_read_inbox_message_id'] = out['last_read_inbox_message_id'] ?? 0;
+      out['last_read_outbox_message_id'] = out['last_read_outbox_message_id'] ?? 0;
+      out['unread_mention_count'] = out['unread_mention_count'] ?? 0;
+      out['unread_reaction_count'] = out['unread_reaction_count'] ?? 0;
+      out['message_auto_delete_time'] = out['message_auto_delete_time'] ?? 0;
+      out['reply_markup_message_id'] = out['reply_markup_message_id'] ?? 0;
     }
 
     return out;
