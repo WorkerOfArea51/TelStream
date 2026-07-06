@@ -491,9 +491,11 @@ class TdlibService {
       while (!_isDestroyed) {
         try {
           td.TdObject? event;
+          bool hasEvent = false;
           if (_libInitialized) {
-            final rawPtr = _nativeReceive(1.0);
+            final rawPtr = _nativeReceive(0.0);
             if (rawPtr != nullptr) {
+              hasEvent = true;
               try {
                 final jsonStr = rawPtr.toDartString();
                 final Map<String, dynamic> jsonMap = jsonDecode(jsonStr);
@@ -506,10 +508,12 @@ class TdlibService {
               }
             }
           } else {
-            event = tdReceive(1.0);
+            event = tdReceive(0.0);
+            if (event != null) hasEvent = true;
           }
   
-          if (event == null) {
+          if (!hasEvent || event == null) {
+            await Future.delayed(const Duration(milliseconds: 10)); // Yield completely if idle
             continue;
           }
           
