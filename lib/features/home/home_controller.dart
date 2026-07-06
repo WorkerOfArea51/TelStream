@@ -897,8 +897,8 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
       } else if (msg.content is td.MessageVideo) {
         episodeMessages.add(msg);
       } else if (msg.content is td.MessageDocument) {
+        final fileName = getMessageFileName(msg).toLowerCase();
         final doc = msg.content as td.MessageDocument;
-        final fileName = doc.document.fileName.toLowerCase();
         if (doc.document.mimeType.startsWith('video/') ||
             fileName.endsWith('.mkv') ||
             fileName.endsWith('.mp4') ||
@@ -1050,13 +1050,44 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
     return seriesList;
   }
 
-  static int _parseEpisodeNumber(td.Message ep) {
+  static String getMessageFileName(td.Message msg) {
     String fileName = '';
-    if (ep.content is td.MessageVideo) {
-      fileName = (ep.content as td.MessageVideo).video.fileName;
-    } else if (ep.content is td.MessageDocument) {
-      fileName = (ep.content as td.MessageDocument).document.fileName;
+    String caption = '';
+
+    if (msg.content is td.MessageVideo) {
+      final video = msg.content as td.MessageVideo;
+      fileName = video.video.fileName;
+      caption = video.caption?.text ?? '';
+    } else if (msg.content is td.MessageDocument) {
+      final doc = msg.content as td.MessageDocument;
+      fileName = doc.document.fileName;
+      caption = doc.caption?.text ?? '';
     }
+
+    if (caption.isNotEmpty) {
+      final firstLine = caption.split('\n').first.trim();
+      final lowerFirst = firstLine.toLowerCase();
+      // If the first line of the caption is the full filename (ends with a known video extension)
+      if (lowerFirst.endsWith('.mkv') || lowerFirst.endsWith('.mp4') || lowerFirst.endsWith('.avi') || lowerFirst.endsWith('.webm')) {
+        return firstLine;
+      }
+      
+      // Alternatively, if the original fileName was truncated by Telegram (usually at 60-64 chars) 
+      // and the caption shares a prefix with it, the caption is likely the full name.
+      if (fileName.length >= 50) {
+        final baseName = fileName.replaceAll(RegExp(r'\.[a-zA-Z0-9]+$'), '');
+        final prefix = baseName.length > 20 ? baseName.substring(0, 20) : baseName;
+        if (firstLine.length > fileName.length && lowerFirst.startsWith(prefix.toLowerCase())) {
+          return firstLine;
+        }
+      }
+    }
+
+    return fileName;
+  }
+
+  static int _parseEpisodeNumber(td.Message ep) {
+    String fileName = getMessageFileName(ep);
     
     final name = fileName.toLowerCase();
     

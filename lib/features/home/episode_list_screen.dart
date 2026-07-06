@@ -140,7 +140,7 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen>
           collectedEpisodes.add(msg);
         } else if (msg.content is td.MessageDocument) {
           final doc = msg.content as td.MessageDocument;
-          final fileName = doc.document.fileName.toLowerCase();
+          final fileName = HomeController.getMessageFileName(msg).toLowerCase();
           if (doc.document.mimeType.startsWith('video/') ||
               fileName.endsWith('.mkv') ||
               fileName.endsWith('.mp4') ||
@@ -723,7 +723,7 @@ class _EpisodeCardItemState extends ConsumerState<_EpisodeCardItem> {
 
     if (widget.msg.content is td.MessageVideo) {
       final video = widget.msg.content as td.MessageVideo;
-      fileTitle = video.video.fileName;
+      fileTitle = HomeController.getMessageFileName(widget.msg);
       fileId = video.video.video.id;
       final sizeMb = (video.video.video.expectedSize / 1024 / 1024)
           .toStringAsFixed(1);
@@ -739,7 +739,7 @@ class _EpisodeCardItemState extends ConsumerState<_EpisodeCardItem> {
       metadata = '$minutes:$seconds • $sizeMb MB';
     } else if (widget.msg.content is td.MessageDocument) {
       final doc = widget.msg.content as td.MessageDocument;
-      fileTitle = doc.document.fileName;
+      fileTitle = HomeController.getMessageFileName(widget.msg);
       fileId = doc.document.document.id;
       final sizeMb = (doc.document.document.expectedSize / 1024 / 1024)
           .toStringAsFixed(1);
