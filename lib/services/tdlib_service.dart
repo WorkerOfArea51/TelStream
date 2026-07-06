@@ -202,14 +202,14 @@ class TdlibService {
       "application_version": "1.0",
       "enable_storage_optimizer": true,
       "ignore_file_names": false,
-      "database_encryption_key": base64Encode(utf8.encode(dbKey)),
+      "database_encryption_key": dbKey, // MUST NOT BE base64 re-encoded, dbKey is already base64
     };
     
     if (_nativeSend != null && _clientId != null) {
-      final jsonStr = jsonEncode(rawParams);
-      final ptr = jsonStr.toNativeUtf8();
-      _nativeSend!(_clientId!, ptr);
-      malloc.free(ptr);
+      final res = await _sendRawAsync(rawParams);
+      if (res is td.TdError) {
+        Log.e('TDLib Init Error: ${res.message} (Code: ${res.code})');
+      }
     } else {
       final params = td.SetTdlibParameters(
         useTestDc: false,
@@ -595,6 +595,36 @@ class TdlibService {
     if (_clientId != null) {
       tdSend(_clientId!, request, extra);
     }
+  }
+
+  Future<td.TdObject> _sendRawAsync(Map<String, dynamic> request) async {
+    final id = ++_requestId;
+    final completer = Completer<td.TdObject>();
+    await _pendingLock.synchronized(() => _pendingRequests[id] = completer);
+    
+    Timer? timeoutTimer;
+    timeoutTimer = Timer(const Duration(seconds: 30), () async {
+      final pending = await _pendingLock.synchronized(() => _pendingRequests.remove(id));
+      if (pending != null && !pending.isCompleted) {
+        pending.completeError(TimeoutException('TDLib response timeout', const Duration(seconds: 30)));
+      }
+    });
+
+    completer.future.whenComplete(() => timeoutTimer?.cancel());
+
+    request['@extra'] = id;
+    
+    if (_nativeSend != null && _clientId != null) {
+      final jsonStr = jsonEncode(request);
+      final ptr = jsonStr.toNativeUtf8();
+      _nativeSend!(_clientId!, ptr);
+      malloc.free(ptr);
+    } else {
+      timeoutTimer.cancel();
+      completer.completeError(Exception("Native td_send not available, cannot send raw json"));
+    }
+    
+    return completer.future;
   }
 
   Future<td.TdObject> sendAsync(td.TdFunction request) async {
