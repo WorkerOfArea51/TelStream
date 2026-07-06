@@ -107,6 +107,10 @@ class TdJsonUtil {
       out['disable_mention_notifications'] = out['disable_mention_notifications'] ?? false;
       out['disable_pinned_message_notifications'] = out['disable_pinned_message_notifications'] ?? false;
       out['show_preview'] = out['show_preview'] ?? false;
+      out['use_default_mute_stories'] = out['use_default_mute_stories'] ?? false;
+      out['mute_stories'] = out['mute_stories'] ?? false;
+      out['story_sound_id'] = out['story_sound_id'] ?? "0";
+      out['show_story_sender'] = out['show_story_sender'] ?? false;
     } else if (outType == 'chatNotificationSettings') {
       out['use_default_disable_pinned_message_notifications'] = out['use_default_disable_pinned_message_notifications'] ?? false;
       out['use_default_disable_mention_notifications'] = out['use_default_disable_mention_notifications'] ?? false;
@@ -114,6 +118,13 @@ class TdJsonUtil {
       out['disable_pinned_message_notifications'] = out['disable_pinned_message_notifications'] ?? false;
       out['disable_mention_notifications'] = out['disable_mention_notifications'] ?? false;
       out['show_preview'] = out['show_preview'] ?? false;
+      
+      out['use_default_mute_stories'] = out['use_default_mute_stories'] ?? false;
+      out['mute_stories'] = out['mute_stories'] ?? false;
+      out['use_default_story_sound'] = out['use_default_story_sound'] ?? false;
+      out['story_sound_id'] = out['story_sound_id'] ?? "0";
+      out['use_default_show_story_sender'] = out['use_default_show_story_sender'] ?? false;
+      out['show_story_sender'] = out['show_story_sender'] ?? false;
     } else if (outType == 'attachmentMenuBot') {
       out['request_write_access'] = out['request_write_access'] ?? false;
       out['supports_settings'] = out['supports_settings'] ?? false;
@@ -183,6 +194,7 @@ class TdJsonUtil {
       out['can_be_deleted_for_all_users'] = out['can_be_deleted_for_all_users'] ?? false;
       out['can_be_reported'] = out['can_be_reported'] ?? false;
       out['default_disable_notification'] = out['default_disable_notification'] ?? false;
+      out['theme_name'] = out['theme_name'] ?? "";
       out['unread_count'] = out['unread_count'] ?? 0;
       out['last_read_inbox_message_id'] = out['last_read_inbox_message_id'] ?? 0;
       out['last_read_outbox_message_id'] = out['last_read_outbox_message_id'] ?? 0;
@@ -190,6 +202,25 @@ class TdJsonUtil {
       out['unread_reaction_count'] = out['unread_reaction_count'] ?? 0;
       out['message_auto_delete_time'] = out['message_auto_delete_time'] ?? 0;
       out['reply_markup_message_id'] = out['reply_markup_message_id'] ?? 0;
+    } else if (outType == 'supergroup') {
+      out['has_location'] = out['has_location'] ?? false;
+      out['sign_messages'] = out['sign_messages'] ?? false;
+      out['join_to_send_messages'] = out['join_to_send_messages'] ?? false;
+      out['join_by_request'] = out['join_by_request'] ?? false;
+      out['is_slow_mode_enabled'] = out['is_slow_mode_enabled'] ?? false;
+      out['is_channel'] = out['is_channel'] ?? false;
+      out['is_broadcast_group'] = out['is_broadcast_group'] ?? false;
+      out['is_forum'] = out['is_forum'] ?? false;
+      out['is_verified'] = out['is_verified'] ?? false;
+      out['is_scam'] = out['is_scam'] ?? false;
+      out['is_fake'] = out['is_fake'] ?? false;
+      out['has_linked_chat'] = out['has_linked_chat'] ?? false;
+      out['restriction_reason'] = out['restriction_reason'] ?? "";
+    } else if (outType == 'targetChatChosen') {
+      out['allow_user_chats'] = out['allow_user_chats'] ?? false;
+      out['allow_bot_chats'] = out['allow_bot_chats'] ?? false;
+      out['allow_group_chats'] = out['allow_group_chats'] ?? false;
+      out['allow_channel_chats'] = out['allow_channel_chats'] ?? false;
     }
 
     return out;

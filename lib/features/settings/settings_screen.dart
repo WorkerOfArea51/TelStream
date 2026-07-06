@@ -13,6 +13,8 @@ import 'storage_settings_screen.dart';
 import '../../core/widgets/expressive_container.dart';
 import '../../core/widgets/whats_new_dialog.dart';
 import '../../services/storage_service.dart';
+import '../home/widgets/telegram_profile_card.dart';
+import 'dart:io' show Platform;
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -57,6 +59,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          if (Platform.isWindows || Platform.isMacOS || Platform.isLinux) ...[
+            const TelegramProfileCard(),
+          ],
           Text('Storage', style: TextStyle(color: settingsAccent, fontWeight: FontWeight.bold, fontSize: 16)),
           const SizedBox(height: 12),
           Card(

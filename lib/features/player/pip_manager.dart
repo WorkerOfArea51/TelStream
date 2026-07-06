@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tdlib/td_api.dart' as td;
@@ -208,7 +209,13 @@ class PipController extends Notifier<PipVideoState?> {
     );
 
     // Always push the player screen when launching from lists/detail screens to preserve back navigation history
-    Navigator.of(context, rootNavigator: true).push(route);
+    if (Platform.isWindows) {
+      isTransitioning = false;
+    } else {
+      Navigator.of(context, rootNavigator: true).push(route).then((_) {
+        isTransitioning = false;
+      });
+    }
   }
 
   void playQueueIndex(BuildContext context, int index) {
@@ -254,10 +261,16 @@ class PipController extends Notifier<PipVideoState?> {
       ),
     );
 
-    if (oldActivePlayer != null && !wasPip) {
-      Navigator.of(context, rootNavigator: true).pushReplacement(route);
+    if (Platform.isWindows) {
+      isTransitioning = false;
+    } else if (oldActivePlayer != null && !wasPip) {
+      Navigator.of(context, rootNavigator: true).pushReplacement(route).then((_) {
+        isTransitioning = false;
+      });
     } else {
-      Navigator.of(context, rootNavigator: true).push(route);
+      Navigator.of(context, rootNavigator: true).push(route).then((_) {
+        isTransitioning = false;
+      });
     }
   }
 

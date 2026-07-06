@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -19,14 +19,14 @@ import 'downloads_screen.dart';
 import 'global_search_screen.dart';
 import 'airing_calendar_screen.dart';
 
-class MoreScreen extends ConsumerStatefulWidget {
-  const MoreScreen({super.key});
+class AndroidMoreScreen extends ConsumerStatefulWidget {
+  const AndroidMoreScreen({super.key});
 
   @override
-  ConsumerState<MoreScreen> createState() => _MoreScreenState();
+  ConsumerState<AndroidMoreScreen> createState() => _AndroidMoreScreenState();
 }
 
-class _MoreScreenState extends ConsumerState<MoreScreen> {
+class _AndroidMoreScreenState extends ConsumerState<AndroidMoreScreen> {
   td.User? _currentUser;
   String? _localPhotoPath;
   bool _isLoadingUser = true;

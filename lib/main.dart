@@ -9,6 +9,7 @@ import 'package:tdlib/td_client.dart';
 import 'package:path_provider/path_provider.dart';
 import 'core/logger.dart';
 import 'core/constants.dart';
+import 'package:window_manager/window_manager.dart';
 import 'features/auth/login_screen.dart';
 import 'features/home/main_screen.dart';
 import 'features/auth/auth_controller.dart';
@@ -63,6 +64,21 @@ void main() async {
       await TdPlugin.initialize(
         Platform.isAndroid ? 'libtdjson.so' : (Platform.isWindows ? 'tdjson.dll' : null)
       );
+
+      if (Platform.isWindows) {
+        await windowManager.ensureInitialized();
+        WindowOptions windowOptions = const WindowOptions(
+          size: Size(1000, 700),
+          center: true,
+          backgroundColor: Colors.transparent,
+          skipTaskbar: false,
+          titleBarStyle: TitleBarStyle.hidden,
+        );
+        windowManager.waitUntilReadyToShow(windowOptions, () async {
+          await windowManager.show();
+          await windowManager.focus();
+        });
+      }
 
       // These two can run in parallel — both are pure I/O and independent.
       await Future.wait([

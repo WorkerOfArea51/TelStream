@@ -11,7 +11,9 @@ import 'home_controller.dart';
 import '../../models/anime_models.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/constants.dart';
-import 'episode_list_screen.dart';
+import 'dart:io';
+import 'android_episode_list_screen.dart';
+import 'desktop_state.dart';
 
 class HistoryScreen extends ConsumerStatefulWidget {
   const HistoryScreen({super.key});
@@ -409,16 +411,20 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                                                 tooltip: 'Play Episode',
                                                 onPressed: () {
                                                   final targetSeason = matchedSeason ?? matchedSeries!.seasons.first;
-                                                  Navigator.push(
-                                                    context,
-                                                    PremiumPageRoute(
-                                                      child: EpisodeListScreen(
-                                                        season: targetSeason,
-                                                        series: matchedSeries!,
-                                                        heroTag: 'hero_history_${matchedSeries!.coreName}',
+                                                  if (Platform.isWindows) {
+                                                    ref.read(desktopSelectedSeriesProvider.notifier).state = matchedSeries;
+                                                  } else {
+                                                    Navigator.push(
+                                                      context,
+                                                      PremiumPageRoute(
+                                                        child: AndroidEpisodeListScreen(
+                                                          season: targetSeason,
+                                                          series: matchedSeries!,
+                                                          heroTag: 'hero_history_${matchedSeries!.coreName}',
+                                                        ),
                                                       ),
-                                                    ),
-                                                  );
+                                                    );
+                                                  }
                                                   
                                                   Future.delayed(const Duration(milliseconds: 50), () {
                                                     if (context.mounted) {

@@ -8,10 +8,13 @@ import '../../core/widgets/td_thumbnail.dart';
 import '../../core/constants.dart';
 import '../../services/storage_service.dart';
 import 'home_controller.dart';
-import 'episode_list_screen.dart';
+import 'dart:io';
+import 'android_episode_list_screen.dart';
+import 'desktop_state.dart';
 
 class GlobalSearchScreen extends ConsumerStatefulWidget {
-  const GlobalSearchScreen({super.key});
+  final VoidCallback? onBack;
+  const GlobalSearchScreen({super.key, this.onBack});
 
   @override
   ConsumerState<GlobalSearchScreen> createState() => _GlobalSearchScreenState();
@@ -104,6 +107,12 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
+        leading: widget.onBack != null
+            ? IconButton(
+                icon: Icon(Icons.arrow_back, color: isDark ? Colors.white : Colors.black87),
+                onPressed: widget.onBack,
+              )
+            : null,
         title: TextField(
           controller: _searchController,
           style: TextStyle(color: isDark ? Colors.white : Colors.black87),
@@ -331,17 +340,21 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
                 if (clean.isNotEmpty) {
                   ref.read(searchHistoryProvider('global').notifier).addQuery(clean);
                 }
-                Navigator.push(
-                  context,
-                  PremiumPageRoute(
-                    child: EpisodeListScreen(
-                      series: series,
-                      season: season,
-                      heroTag: heroTag,
-                      categoryTitle: title,
+                if (Platform.isWindows) {
+                  ref.read(desktopSelectedSeriesProvider.notifier).state = series;
+                } else {
+                  Navigator.push(
+                    context,
+                    PremiumPageRoute(
+                      child: AndroidEpisodeListScreen(
+                        series: series,
+                        season: season,
+                        heroTag: heroTag,
+                        categoryTitle: title,
+                      ),
                     ),
-                  ),
-                );
+                  );
+                }
               },
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,

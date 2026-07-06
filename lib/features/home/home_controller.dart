@@ -602,6 +602,10 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
         if (onlyLocal) {
           break; // Return early if local check fails/is empty
         }
+        if (response.code == 400 && response.message == "Chat not found") {
+          Log.w("GetChatHistory failed: Chat not found for ID ${category.channelId}. Breaking loop.");
+          break;
+        }
         throw Exception("GetChatHistory failed: ${response.message} (Code: ${response.code})");
       }
 

@@ -8,32 +8,34 @@ import 'package:tdlib/td_api.dart' as td;
 import '../../core/constants.dart';
 import '../../services/metadata_service.dart';
 import '../../models/anime_models.dart';
-import 'episode_list_screen.dart';
+import 'android_episode_list_screen.dart';
 import 'home_controller.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../../services/firebase_metadata_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-class SeriesDetailsScreen extends ConsumerStatefulWidget {
+class AndroidSeriesDetailsScreen extends ConsumerStatefulWidget {
   final AnimeSeries series;
   final String categoryTitle;
   final SeriesMetadata? metadata;
   final List<String>? overrideIds;
+  final VoidCallback? onBack;
 
-  const SeriesDetailsScreen({
+  const AndroidSeriesDetailsScreen({
     super.key,
     required this.series,
     required this.categoryTitle,
     this.metadata,
     this.overrideIds,
+    this.onBack,
   });
 
   @override
-  ConsumerState<SeriesDetailsScreen> createState() =>
-      _SeriesDetailsScreenState();
+  ConsumerState<AndroidSeriesDetailsScreen> createState() =>
+      _AndroidSeriesDetailsScreenState();
 }
 
-class _SeriesDetailsScreenState extends ConsumerState<SeriesDetailsScreen>
+class _AndroidSeriesDetailsScreenState extends ConsumerState<AndroidSeriesDetailsScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   YoutubePlayerController? _ytController;
@@ -238,7 +240,7 @@ class _SeriesDetailsScreenState extends ConsumerState<SeriesDetailsScreen>
         Navigator.push(
           context,
           PremiumPageRoute(
-            child: SeriesDetailsScreen(
+            child: AndroidSeriesDetailsScreen(
               series: matchedSeries,
               categoryTitle: widget.categoryTitle,
               metadata: newMeta,
@@ -284,15 +286,16 @@ class _SeriesDetailsScreenState extends ConsumerState<SeriesDetailsScreen>
   @override
   Widget build(BuildContext context) {
     if (_currentMetadata == null) {
-      return EpisodeListScreen(
-        season: widget.series.seasons.first,
-        series: widget.series,
-        heroTag:
-            'hero_library_${widget.categoryTitle}_${widget.series.coreName}',
-        categoryTitle: widget.categoryTitle,
-        isEmbedded: false,
-        onSeasonChanged: _onSeasonChanged,
-      );
+        return AndroidEpisodeListScreen(
+          season: widget.series.seasons.first,
+          series: widget.series,
+          heroTag:
+              'hero_library_${widget.categoryTitle}_${widget.series.coreName}',
+          categoryTitle: widget.categoryTitle,
+          isEmbedded: false,
+          onSeasonChanged: _onSeasonChanged,
+          onBack: widget.onBack,
+        );
     }
 
     final meta = _currentMetadata!;
@@ -316,7 +319,7 @@ class _SeriesDetailsScreenState extends ConsumerState<SeriesDetailsScreen>
                             Shadow(color: Colors.black, blurRadius: 10),
                           ],
                         ),
-                        onPressed: () => Navigator.pop(context),
+                        onPressed: widget.onBack ?? () => Navigator.pop(context),
                       ),
                     ),
                   ],
@@ -329,7 +332,7 @@ class _SeriesDetailsScreenState extends ConsumerState<SeriesDetailsScreen>
                 flexibleSpace: FlexibleSpaceBar(background: _buildHero(meta)),
                 leading: IconButton(
                   icon: const Icon(Icons.arrow_back, color: Colors.white),
-                  onPressed: () => Navigator.pop(context),
+                  onPressed: widget.onBack ?? () => Navigator.pop(context),
                 ),
               ),
             SliverToBoxAdapter(
@@ -431,7 +434,7 @@ class _SeriesDetailsScreenState extends ConsumerState<SeriesDetailsScreen>
         body: TabBarView(
           controller: _tabController,
           children: [
-            EpisodeListScreen(
+            AndroidEpisodeListScreen(
               season: widget.series.seasons[_selectedSeasonIndex],
               series: widget.series,
               heroTag: 'hero_library_details_${widget.series.coreName}',
@@ -546,7 +549,7 @@ class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
   }
 }
 
-extension on _SeriesDetailsScreenState {
+extension on _AndroidSeriesDetailsScreenState {
   Widget _buildMoreDetailsTab(SeriesMetadata meta) {
     return SingleChildScrollView(
       key: const PageStorageKey<String>('more_details_tab'),

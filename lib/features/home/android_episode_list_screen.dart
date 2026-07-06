@@ -18,15 +18,17 @@ import '../../services/tdlib_service.dart';
 import '../../core/widgets/shimmer_card.dart';
 import 'tracker_match_dialog.dart';
 
-class EpisodeListScreen extends ConsumerStatefulWidget {
+class AndroidEpisodeListScreen extends ConsumerStatefulWidget {
   final AnimeSeason season;
   final AnimeSeries series;
   final String? heroTag;
   final String? categoryTitle;
   final int? highlightMessageId;
   final bool isEmbedded;
+  final Function(int)? onSeasonChanged;
+  final VoidCallback? onBack;
 
-  const EpisodeListScreen({
+  const AndroidEpisodeListScreen({
     super.key,
     required this.season,
     required this.series,
@@ -35,15 +37,14 @@ class EpisodeListScreen extends ConsumerStatefulWidget {
     this.highlightMessageId,
     this.isEmbedded = false,
     this.onSeasonChanged,
+    this.onBack,
   });
 
-  final Function(int)? onSeasonChanged;
-
   @override
-  ConsumerState<EpisodeListScreen> createState() => _EpisodeListScreenState();
+  ConsumerState<AndroidEpisodeListScreen> createState() => _AndroidEpisodeListScreenState();
 }
 
-class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen>
+class _AndroidEpisodeListScreenState extends ConsumerState<AndroidEpisodeListScreen>
     with AutomaticKeepAliveClientMixin {
   @override
   bool get wantKeepAlive => true;
@@ -293,6 +294,12 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen>
                 expandedHeight: 250,
                 pinned: true,
                 backgroundColor: theme.scaffoldBackgroundColor,
+                leading: widget.onBack != null
+                    ? IconButton(
+                        icon: const Icon(Icons.arrow_back, color: Colors.white),
+                        onPressed: widget.onBack,
+                      )
+                    : null,
                 actions: [
                   IconButton(
                     icon: const Icon(Icons.link, color: Colors.white),
@@ -721,10 +728,13 @@ class _EpisodeCardItemState extends ConsumerState<_EpisodeCardItem> {
     String metadata = '';
     int? fileId;
 
-    if (widget.msg.content is td.MessageVideo) {
-      final video = widget.msg.content as td.MessageVideo;
-      fileTitle = HomeController.getMessageFileName(widget.msg);
-      fileId = video.video.video.id;
+      if (widget.msg.content is td.MessageVideo) {
+        final video = widget.msg.content as td.MessageVideo;
+        fileTitle = HomeController.getMessageFileName(widget.msg)
+            .replaceAll('_', ' ')
+            .replaceAll('.mkv', '')
+            .replaceAll('.mp4', '');
+        fileId = video.video.video.id;
       final sizeMb = (video.video.video.expectedSize / 1024 / 1024)
           .toStringAsFixed(1);
       final duration = Duration(seconds: video.video.duration);
@@ -737,10 +747,13 @@ class _EpisodeCardItemState extends ConsumerState<_EpisodeCardItem> {
           .toString()
           .padLeft(2, '0');
       metadata = '$minutes:$seconds • $sizeMb MB';
-    } else if (widget.msg.content is td.MessageDocument) {
-      final doc = widget.msg.content as td.MessageDocument;
-      fileTitle = HomeController.getMessageFileName(widget.msg);
-      fileId = doc.document.document.id;
+      } else if (widget.msg.content is td.MessageDocument) {
+        final doc = widget.msg.content as td.MessageDocument;
+        fileTitle = HomeController.getMessageFileName(widget.msg)
+            .replaceAll('_', ' ')
+            .replaceAll('.mkv', '')
+            .replaceAll('.mp4', '');
+        fileId = doc.document.document.id;
       final sizeMb = (doc.document.document.expectedSize / 1024 / 1024)
           .toStringAsFixed(1);
       
@@ -755,7 +768,9 @@ class _EpisodeCardItemState extends ConsumerState<_EpisodeCardItem> {
 
     if (fileId == null) return const SizedBox.shrink();
 
-    final epTitle = fileTitle;
+    // Clean up episode title: Remove potential numerical prefix (e.g., "01. ", "1 - ")
+    final epTitle = fileTitle.replaceFirst(RegExp(r'^\d+\s*[\.\-]\s*'), '');
+
     final downloadTasks = ref.watch(downloadControllerProvider);
     DownloadTask? task;
     for (final t in downloadTasks.values) {
@@ -968,10 +983,7 @@ class _EpisodeCardItemState extends ConsumerState<_EpisodeCardItem> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        widget.series.seasons.length == 1 &&
-                                widget.season.episodes.length == 1
-                            ? epTitle
-                            : '${widget.index + 1}. $epTitle',
+                        epTitle,
                         style: TextStyle(
                           color: isDark ? Colors.white : Colors.black87,
                           fontWeight: FontWeight.bold,

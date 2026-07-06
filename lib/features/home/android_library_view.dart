@@ -12,26 +12,27 @@ import '../../core/widgets/aligned_name_text.dart';
 import '../../core/widgets/shimmer_card.dart';
 import '../../core/widgets/expressive_container.dart';
 import 'home_controller.dart';
-import 'episode_list_screen.dart';
+import 'android_episode_list_screen.dart';
 import '../settings/settings_provider.dart';
+import 'desktop_state.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../../services/tdlib_service.dart';
 import '../../services/metadata_service.dart';
-import 'series_details_screen.dart';
+import 'android_series_details_screen.dart';
 import 'widgets/admin_override_dialog.dart';
 import '../../services/firebase_metadata_service.dart';
 
-class LibraryView extends ConsumerStatefulWidget {
+class AndroidLibraryView extends ConsumerStatefulWidget {
   final ChannelCategory category;
   final bool isActive;
 
-  const LibraryView({super.key, required this.category, this.isActive = true});
+  const AndroidLibraryView({super.key, required this.category, this.isActive = true});
 
   @override
-  ConsumerState<LibraryView> createState() => _LibraryViewState();
+  ConsumerState<AndroidLibraryView> createState() => _AndroidLibraryViewState();
 }
 
-class _LibraryViewState extends ConsumerState<LibraryView>
+class _AndroidLibraryViewState extends ConsumerState<AndroidLibraryView>
     with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   late final AsyncNotifierProvider<HomeController, List<AnimeSeries>> provider;
   final ScrollController _scrollController = ScrollController();
@@ -72,6 +73,10 @@ class _LibraryViewState extends ConsumerState<LibraryView>
     final isList = layout == 'List';
 
     if (isList) return 1;
+
+    if (Platform.isWindows) {
+      return isCompact ? 3 : 2; // Fixed for 350px Right Panel
+    }
 
     if (width > 1600) {
       return isCompact ? 10 : 8;
@@ -181,26 +186,28 @@ class _LibraryViewState extends ConsumerState<LibraryView>
                                 ),
                               ),
                       ),
-                      if (_isSearching)
-                        IconButton(
-                          icon: Icon(Icons.close, color: subTextColor),
-                          onPressed: () {
-                            setState(() {
-                              _isSearching = false;
-                              _searchController.clear();
-                            });
-                            ref.read(provider.notifier).search('');
-                          },
-                        )
-                      else
-                        IconButton(
-                          icon: Icon(Icons.search, color: subTextColor),
-                          onPressed: () {
-                            setState(() {
-                              _isSearching = true;
-                            });
-                          },
-                        ),
+                      if (!Platform.isWindows) ...[
+                        if (_isSearching)
+                          IconButton(
+                            icon: Icon(Icons.close, color: subTextColor),
+                            onPressed: () {
+                              setState(() {
+                                _isSearching = false;
+                                _searchController.clear();
+                              });
+                              ref.read(provider.notifier).search('');
+                            },
+                          )
+                        else
+                          IconButton(
+                            icon: Icon(Icons.search, color: subTextColor),
+                            onPressed: () {
+                              setState(() {
+                                _isSearching = true;
+                              });
+                            },
+                          ),
+                      ],
                       PopupMenuButton<String>(
                         icon: Icon(
                           layout == 'Grid'
@@ -685,7 +692,7 @@ class _LibraryGridItemState extends ConsumerState<_LibraryGridItem> {
       onTapDown: (_) => setState(() => _isTapped = true),
       onTapUp: (_) => setState(() => _isTapped = false),
       onTapCancel: () => setState(() => _isTapped = false),
-      onTap: () => LibraryItemActionHandler.handleTap(context, widget.series, widget.categoryTitle),
+      onTap: () => LibraryItemActionHandler.handleTap(context, ref, widget.series, widget.categoryTitle),
       onLongPress: () => LibraryItemActionHandler.handleLongPress(context, ref, widget.series, widget.categoryTitle),
       child: AnimatedScale(
         scale: _isTapped ? 0.96 : 1.0,
@@ -953,7 +960,7 @@ class _FeaturedCarouselState extends State<FeaturedCarousel> {
                         Navigator.push(
                           context,
                           PremiumPageRoute(
-                            child: SeriesDetailsScreen(
+                            child: AndroidSeriesDetailsScreen(
                               series: series,
                               categoryTitle: widget.categoryTitle,
                               metadata: meta,
@@ -966,7 +973,7 @@ class _FeaturedCarouselState extends State<FeaturedCarousel> {
                       Navigator.push(
                         context,
                         PremiumPageRoute(
-                          child: SeriesDetailsScreen(
+                          child: AndroidSeriesDetailsScreen(
                             series: series,
                             categoryTitle: widget.categoryTitle,
                             metadata: null,
@@ -1216,19 +1223,23 @@ class ContinueWatchingShelf extends StatelessWidget {
                         }
                       }
 
-                      Navigator.push(
-                        context,
-                        PremiumPageRoute(
-                          child: EpisodeListScreen(
-                            season: selectedSeason,
-                            series: matchedSeries,
-                            heroTag:
-                                'hero_continue_watching_${categoryTitle}_${matchedSeries.coreName}',
-                            categoryTitle: categoryTitle,
-                            highlightMessageId: msgId,
+                      if (Platform.isWindows) {
+                        ref.read(desktopSelectedSeriesProvider.notifier).state = matchedSeries;
+                      } else {
+                        Navigator.push(
+                          context,
+                          PremiumPageRoute(
+                            child: AndroidEpisodeListScreen(
+                              season: selectedSeason,
+                              series: matchedSeries,
+                              heroTag:
+                                  'hero_continue_watching_${categoryTitle}_${matchedSeries.coreName}',
+                              categoryTitle: categoryTitle,
+                              highlightMessageId: msgId,
+                            ),
                           ),
-                        ),
-                      );
+                        );
+                      }
                     }
                   },
                   child: Stack(
@@ -1410,7 +1421,7 @@ class _LibraryCompactItemState extends ConsumerState<_LibraryCompactItem> {
       onTapDown: (_) => setState(() => _isTapped = true),
       onTapUp: (_) => setState(() => _isTapped = false),
       onTapCancel: () => setState(() => _isTapped = false),
-      onTap: () => LibraryItemActionHandler.handleTap(context, widget.series, widget.categoryTitle),
+      onTap: () => LibraryItemActionHandler.handleTap(context, ref, widget.series, widget.categoryTitle),
       onLongPress: () => LibraryItemActionHandler.handleLongPress(context, ref, widget.series, widget.categoryTitle),
       child: AnimatedScale(
         scale: _isTapped ? 0.96 : 1.0,
@@ -1537,7 +1548,7 @@ class _LibraryListItemState extends ConsumerState<_LibraryListItem> {
       onTapDown: (_) => setState(() => _isTapped = true),
       onTapUp: (_) => setState(() => _isTapped = false),
       onTapCancel: () => setState(() => _isTapped = false),
-      onTap: () => LibraryItemActionHandler.handleTap(context, widget.series, widget.categoryTitle),
+      onTap: () => LibraryItemActionHandler.handleTap(context, ref, widget.series, widget.categoryTitle),
       onLongPress: () => LibraryItemActionHandler.handleLongPress(context, ref, widget.series, widget.categoryTitle),
       child: AnimatedScale(
         scale: _isTapped ? 0.98 : 1.0,
@@ -1712,10 +1723,15 @@ class _LibraryListShimmerItem extends StatelessWidget {
 class LibraryItemActionHandler {
   static Future<void> handleTap(
     BuildContext context,
+    WidgetRef ref,
     AnimeSeries series,
     String categoryTitle,
   ) async {
     if (series.seasons.isEmpty) return;
+    if (Platform.isWindows) {
+      ref.read(desktopSelectedSeriesProvider.notifier).state = series;
+      return;
+    }
     final overrideId = FirebaseMetadataService.getOverride(series.coreName);
     if (overrideId != null && overrideId.isNotEmpty) {
       final overrideIds = overrideId.split(',');
@@ -1737,7 +1753,7 @@ class LibraryItemActionHandler {
         Navigator.push(
           context,
           PremiumPageRoute(
-            child: SeriesDetailsScreen(
+            child: AndroidSeriesDetailsScreen(
               series: series,
               categoryTitle: categoryTitle,
               metadata: meta,
@@ -1750,7 +1766,7 @@ class LibraryItemActionHandler {
       Navigator.push(
         context,
         PremiumPageRoute(
-          child: SeriesDetailsScreen(
+          child: AndroidSeriesDetailsScreen(
             series: series,
             categoryTitle: categoryTitle,
             metadata: null,

@@ -98,20 +98,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
     _initDownload();
     
     if (!widget.isPip) {
-      try {
-        WakelockPlus.enable();
-      } catch (_) {}
-      try {
-        if (Platform.isWindows) {
-          windowManager.setFullScreen(true);
-        } else {
-          SystemChrome.setPreferredOrientations([
-            DeviceOrientation.landscapeLeft,
-            DeviceOrientation.landscapeRight,
-          ]);
-          SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-        }
-      } catch (_) {}
+      _setLandscapeOrientationAndUI();
     } else {
       _resetOrientationAndUI();
     }
@@ -167,6 +154,23 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
     });
   }
 
+  void _setLandscapeOrientationAndUI() {
+    try {
+      try {
+        WakelockPlus.enable();
+      } catch (_) {}
+      if (!Platform.isWindows && !Platform.isMacOS && !Platform.isLinux) {
+        SystemChrome.setPreferredOrientations([
+          DeviceOrientation.landscapeLeft,
+          DeviceOrientation.landscapeRight,
+        ]);
+        SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+      }
+    } catch (e) {
+      // ignore
+    }
+  }
+
   @override
   void didUpdateWidget(VideoPlayerScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -177,16 +181,16 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
 
   void _resetOrientationAndUI() {
     try {
-      if (Platform.isWindows) {
-        windowManager.setFullScreen(false);
-      } else {
+      if (!Platform.isWindows && !Platform.isMacOS && !Platform.isLinux) {
         SystemChrome.setPreferredOrientations([
           DeviceOrientation.portraitUp,
           DeviceOrientation.portraitDown,
         ]);
         SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
       }
-    } catch (_) {}
+    } catch (e) {
+      // ignore
+    }
   }
 
   void _playNextEpisode() {
@@ -649,12 +653,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
 
     try {
       if (_pipController.activePlayer == null) {
-        if (Platform.isWindows) {
-          windowManager.setFullScreen(false);
-        } else {
-          SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp, DeviceOrientation.portraitDown]);
-          SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-        }
+        _resetOrientationAndUI();
       }
     } catch (_) {}
 
@@ -766,19 +765,9 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
       }
     });
 
-    return PopScope(
-      canPop: true,
-      onPopInvokedWithResult: (didPop, result) {
-        if (didPop) {
-          try {
-            player.setVolume(0.0);
-            player.pause();
-            player.stop();
-          } catch (_) {}
-          _resetOrientationAndUI();
-        }
-      },
-      child: Scaffold(
+    final isDesktop = Platform.isWindows;
+
+    Widget scaffold = Scaffold(
         backgroundColor: Colors.black,
         body: Focus(
           autofocus: true,
@@ -845,10 +834,12 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
             },
             child: Center(
               child: _isPlaying 
-                 ? CustomVideoControls(
-                     player: player,
-                     controller: controller,
-                     videoTitle: pipState?.queue[pipState.currentIndex].videoTitle ?? widget.videoTitle,
+                 ? (isDesktop 
+                     ? Video(controller: controller, controls: NoVideoControls)
+                     : CustomVideoControls(
+                         player: player,
+                         controller: controller,
+                         videoTitle: pipState?.queue[pipState.currentIndex].videoTitle ?? widget.videoTitle,
                      isPip: false,
                      downloadedPrefixSize: _downloadedPrefixSize,
                      expectedSize: _expectedSize,
@@ -872,6 +863,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
                      seriesName: pipState?.queue[pipState.currentIndex].seriesName ?? widget.seriesName,
                      currentEpisodeIndex: pipState?.currentIndex ?? widget.currentEpisodeIndex ?? 0,
                    )
+                 )
                 : _isInitializing
                     ? Column(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -894,7 +886,23 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
             ),
           ),
         ),
-      ),
+      );
+
+    if (isDesktop) return scaffold;
+
+    return PopScope(
+      canPop: true,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) {
+          try {
+            player.setVolume(0.0);
+            player.pause();
+            player.stop();
+          } catch (_) {}
+          _resetOrientationAndUI();
+        }
+      },
+      child: scaffold,
     );
   }
 
