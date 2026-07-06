@@ -39,12 +39,14 @@ target_include_directories(${BINARY_NAME} PRIVATE "${CMAKE_SOURCE_DIR}")
 # Run the Flutter tool portions of the build. This must not be removed.
 add_dependencies(${BINARY_NAME} flutter_assemble)
 
-# Bundle TDLib native library next to the executable
-set(TDJSON_DLL "${CMAKE_CURRENT_SOURCE_DIR}/libs/tdjson.dll")
-if(EXISTS "${TDJSON_DLL}")
-  add_custom_command(TARGET ${BINARY_NAME} POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "${TDJSON_DLL}"
-            "$<TARGET_FILE_DIR:${BINARY_NAME}>")
-  install(FILES "${TDJSON_DLL}" DESTINATION "${CMAKE_INSTALL_PREFIX}" COMPONENT Runtime)
+# Bundle all TDLib native libraries next to the executable
+file(GLOB TDLIB_DLLS "${CMAKE_CURRENT_SOURCE_DIR}/libs/*.dll")
+if(TDLIB_DLLS)
+  foreach(DLL_FILE ${TDLIB_DLLS})
+    add_custom_command(TARGET ${BINARY_NAME} POST_BUILD
+      COMMAND ${CMAKE_COMMAND} -E copy_if_different
+              "${DLL_FILE}"
+              "$<TARGET_FILE_DIR:${BINARY_NAME}>")
+    install(FILES "${DLL_FILE}" DESTINATION "${CMAKE_INSTALL_PREFIX}" COMPONENT Runtime)
+  endforeach()
 endif()
