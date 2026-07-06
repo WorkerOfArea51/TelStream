@@ -183,27 +183,56 @@ class TdlibService {
     else if (Platform.isWindows) deviceModel = 'Windows';
     else if (Platform.isLinux) deviceModel = 'Linux';
 
-    final params = td.SetTdlibParameters(
-      useTestDc: false,
-      databaseDirectory: safePath,
-      filesDirectory: safePath,
-      useFileDatabase: true,
-      useChatInfoDatabase: true,
-      useMessageDatabase: true,
-      useSecretChats: false,
-      apiId: apiId,
-      apiHash: apiHash,
-      systemLanguageCode: 'en',
-      deviceModel: deviceModel,
-      systemVersion: Platform.operatingSystemVersion.replaceAll(RegExp(r'[^\x20-\x7E]'), ''),
-      applicationVersion: '1.0',
-      enableStorageOptimizer: true,
-      ignoreFileNames: false,
-      databaseEncryptionKey: dbKey, 
-    );
-    final res = await sendAsync(params);
-    if (res is td.TdError) {
-      Log.e('TDLib Init Error: ${res.message} (Code: ${res.code})');
+    // In TDLib 1.8.65, setTdlibParameters is inlined and doesn't use the 'parameters' object.
+    // We send it manually via raw JSON to bypass tdlib 1.6.0's SetTdlibParameters schema.
+    final rawParams = {
+      "@type": "setTdlibParameters",
+      "use_test_dc": false,
+      "database_directory": safePath,
+      "files_directory": safePath,
+      "use_file_database": true,
+      "use_chat_info_database": true,
+      "use_message_database": true,
+      "use_secret_chats": false,
+      "api_id": apiId,
+      "api_hash": apiHash,
+      "system_language_code": "en",
+      "device_model": deviceModel,
+      "system_version": Platform.operatingSystemVersion.replaceAll(RegExp(r'[^\x20-\x7E]'), ''),
+      "application_version": "1.0",
+      "enable_storage_optimizer": true,
+      "ignore_file_names": false,
+      "database_encryption_key": base64Encode(utf8.encode(dbKey)),
+    };
+    
+    if (_nativeSend != null && _clientId != null) {
+      final jsonStr = jsonEncode(rawParams);
+      final ptr = jsonStr.toNativeUtf8();
+      _nativeSend!(_clientId!, ptr);
+      malloc.free(ptr);
+    } else {
+      final params = td.SetTdlibParameters(
+        useTestDc: false,
+        databaseDirectory: safePath,
+        filesDirectory: safePath,
+        useFileDatabase: true,
+        useChatInfoDatabase: true,
+        useMessageDatabase: true,
+        useSecretChats: false,
+        apiId: apiId,
+        apiHash: apiHash,
+        systemLanguageCode: 'en',
+        deviceModel: deviceModel,
+        systemVersion: Platform.operatingSystemVersion.replaceAll(RegExp(r'[^\x20-\x7E]'), ''),
+        applicationVersion: '1.0',
+        enableStorageOptimizer: true,
+        ignoreFileNames: false,
+        databaseEncryptionKey: dbKey, 
+      );
+      final res = await sendAsync(params);
+      if (res is td.TdError) {
+        Log.e('TDLib Init Error: ${res.message} (Code: ${res.code})');
+      }
     }
 
     // Force TDLib online mode so it doesn't throttle background downloads
@@ -453,6 +482,8 @@ class TdlibService {
   final Map<int, Completer<td.TdObject>> _pendingRequests = {};
   int _requestId = 0;
 
+  void Function(int, Pointer<Utf8>)? _nativeSend;
+
   void _initNativeLibrary() {
       if (_libInitialized) return;
       try {
@@ -467,6 +498,12 @@ class TdlibService {
         _lib = DynamicLibrary.open(libName);
         final receivePtr = _lib.lookup<NativeFunction<Pointer<Utf8> Function(Double)>>('td_receive');
         _nativeReceive = receivePtr.asFunction<Pointer<Utf8> Function(double)>();
+        try {
+          final sendPtr = _lib.lookup<NativeFunction<Void Function(Int32, Pointer<Utf8>)>>('td_send');
+          _nativeSend = sendPtr.asFunction<void Function(int, Pointer<Utf8>)>();
+        } catch(e) {
+          Log.w('td_send not found in native library');
+        }
         try {
           final freePtr = _lib.lookup<NativeFunction<Void Function(Pointer<Void>)>>('td_free_string');
           _nativeFree = freePtr.asFunction<void Function(Pointer<Void>)>();
