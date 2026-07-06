@@ -500,21 +500,12 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
           
           await _mutationLock.synchronized(() async {
             for (final msg in networkMessages) {
-              processedCount++;
               
               final existingIndex = _rawMessages.indexWhere((m) => m.id == msg.id);
               if (existingIndex != -1) {
                 // Always overwrite existing message to capture any edits/updates (e.g. video files updated/replaced)
                 _rawMessages[existingIndex] = msg;
                 changed = true;
-                
-                // Only stop background sync if we have processed/scanned at least 150 messages,
-                // ensuring recent file replacements/edits are fully captured and updated.
-                if (!forceDeep && _cacheLoadComplete && processedCount >= 150) {
-                  reachedEnd = true;
-                  _hasMore = false;
-                  break;
-                }
               } else {
                 _rawMessages.add(msg);
                 _rawMessageIds.add(msg.id);
