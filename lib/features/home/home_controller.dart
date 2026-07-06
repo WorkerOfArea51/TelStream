@@ -1077,7 +1077,11 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
       if (fileName.length >= 50) {
         final baseName = fileName.replaceAll(RegExp(r'\.[a-zA-Z0-9]+$'), '');
         final prefix = baseName.length > 20 ? baseName.substring(0, 20) : baseName;
-        if (firstLine.length > fileName.length && lowerFirst.startsWith(prefix.toLowerCase())) {
+        
+        final cleanPrefix = prefix.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '').toLowerCase();
+        final cleanFirstLine = firstLine.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '').toLowerCase();
+        
+        if (firstLine.length > fileName.length && cleanFirstLine.startsWith(cleanPrefix)) {
           return firstLine;
         }
       }
