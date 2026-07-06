@@ -433,14 +433,16 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
     }
   }
 
-  Future<void> _syncFromNetwork() async {
-    Log.i('[_syncFromNetwork] Scheduling background sync for category: ${category.title}');
+  Future<void> _syncFromNetwork({bool forceDeep = false}) async {
+    Log.i('[_syncFromNetwork] Scheduling background sync for category: ${category.title} (forceDeep: $forceDeep)');
 
     // Stagger startup requests to prevent concurrent connection sessions to TDLib (runs asynchronously in background)
-    if (category.title == 'Movies') {
-      await Future.delayed(const Duration(seconds: 3));
-    } else if (category.title == 'Web Series') {
-      await Future.delayed(const Duration(seconds: 6));
+    if (!forceDeep) {
+      if (category.title == 'Movies') {
+        await Future.delayed(const Duration(seconds: 3));
+      } else if (category.title == 'Web Series') {
+        await Future.delayed(const Duration(seconds: 6));
+      }
     }
 
     Log.i('[_syncFromNetwork] Starting background sync execution for category: ${category.title}');
@@ -508,7 +510,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
                 
                 // Only stop background sync if we have processed/scanned at least 150 messages,
                 // ensuring recent file replacements/edits are fully captured and updated.
-                if (_cacheLoadComplete && processedCount >= 150) {
+                if (!forceDeep && _cacheLoadComplete && processedCount >= 150) {
                   reachedEnd = true;
                   _hasMore = false;
                   break;
@@ -577,7 +579,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
   }
 
   Future<void> triggerManualSync() {
-    return _syncFromNetwork();
+    return _syncFromNetwork(forceDeep: true);
   }
 
   Future<List<td.Message>> _fetchMessages({required int fromId, required bool onlyLocal}) async {
