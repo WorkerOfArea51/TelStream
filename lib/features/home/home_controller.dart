@@ -53,7 +53,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
   ChannelCategory get category;
   List<AnimeSeries> _allSeries = [];
   List<AnimeSeries> get allSeries => _allSeries;
-  String _resolvedChatTitle = 'Loading...';
+  late String _resolvedChatTitle = category.title;
   String get resolvedChatTitle => _resolvedChatTitle;
 
   bool _showFavoritesOnly = false;
@@ -453,11 +453,14 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
       final tdlibService = ref.read(tdlibServiceProvider);
       
       // Ensure chat title is resolved if it was loaded directly from cache miss
-      if (_resolvedChatTitle == 'Loading...') {
+      if (_resolvedChatTitle == category.title) {
         try {
           final chatRes = await tdlibService.sendAsync(td.GetChat(chatId: category.channelId));
           if (chatRes is td.Chat) {
             _resolvedChatTitle = chatRes.title;
+            if (!_isDisposed && state.value != null) {
+              state = AsyncValue.data(state.value!);
+            }
           }
         } catch (_) {}
       }

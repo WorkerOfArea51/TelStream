@@ -85,6 +85,12 @@ class TdJsonUtil {
       out['has_unread_active_stories'] = out['has_unread_active_stories'] ?? false;
       out['have_access'] = out['have_access'] ?? false;
       out['added_to_attachment_menu'] = out['added_to_attachment_menu'] ?? false;
+      
+      out['restriction_reason'] = out['restriction_reason'] ?? '';
+      out['language_code'] = out['language_code'] ?? '';
+      out['phone_number'] = out['phone_number'] ?? '';
+      out['first_name'] = out['first_name'] ?? '';
+      out['last_name'] = out['last_name'] ?? '';
     } else if (outType == 'userFullInfo') {
       out['group_in_common_count'] = out['group_in_common_count'] ?? 0;
       out['is_blocked'] = out['is_blocked'] ?? false;
