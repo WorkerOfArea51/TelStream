@@ -201,7 +201,10 @@ class TdlibService {
       ignoreFileNames: false,
       databaseEncryptionKey: dbKey, 
     );
-    await sendAsync(params);
+    final res = await sendAsync(params);
+    if (res is td.TdError) {
+      Log.e('TDLib Init Error: ${res.message} (Code: ${res.code})');
+    }
 
     // Force TDLib online mode so it doesn't throttle background downloads
     send(const td.SetOption(name: 'online', value: td.OptionValueBoolean(value: true)));
