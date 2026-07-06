@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'dart:io';
 import 'package:tdlib/td_api.dart' as td;
 import '../../core/constants.dart';
 import '../../models/anime_models.dart';
@@ -351,7 +352,18 @@ class _LibraryViewState extends ConsumerState<LibraryView>
           ),
         ),
       ),
-      body: state.when(
+      body: Column(
+        children: [
+          if (ref.watch(connectionStateProvider) == ConnectionStatus.waitingForNetwork)
+            MaterialBanner(
+              content: const Text('No internet connection. Channel updates paused.'),
+              backgroundColor: theme.colorScheme.errorContainer,
+              actions: const [SizedBox.shrink()],
+            ),
+          if (ref.watch(isSyncingProvider))
+            const LinearProgressIndicator(minHeight: 2),
+          Expanded(
+            child: state.when(
         skipLoadingOnRefresh: false,
         data: (seriesList) {
           final filteredList = _getFilteredList(
@@ -375,7 +387,8 @@ class _LibraryViewState extends ConsumerState<LibraryView>
             color: theme.primaryColor,
             backgroundColor: theme.cardColor,
             onRefresh: () async {
-              ref.invalidate(provider);
+              final notifier = ref.read(provider.notifier);
+              await notifier.triggerManualSync();
             },
             child: CustomScrollView(
               controller: _scrollController,
@@ -397,11 +410,11 @@ class _LibraryViewState extends ConsumerState<LibraryView>
                     filteredList.isNotEmpty)
                   _buildContinueWatchingSliver(context, filteredList),
                 SliverPadding(
-                  padding: const EdgeInsets.only(
+                  padding: EdgeInsets.only(
                     left: 12,
                     right: 12,
                     top: 12,
-                    bottom: 96,
+                    bottom: Platform.isWindows ? 24 : 96,
                   ),
                   sliver: layout == 'List'
                       ? SliverList(
@@ -483,11 +496,11 @@ class _LibraryViewState extends ConsumerState<LibraryView>
           final layout = settings.getLayoutForCategory(widget.category.title);
           if (layout == 'List') {
             return ListView.builder(
-              padding: const EdgeInsets.only(
+              padding: EdgeInsets.only(
                 left: 12,
                 right: 12,
                 top: 12,
-                bottom: 96,
+                bottom: Platform.isWindows ? 24 : 96,
               ),
               itemCount: 6,
               itemBuilder: (context, index) => const _LibraryListShimmerItem(),
@@ -495,11 +508,11 @@ class _LibraryViewState extends ConsumerState<LibraryView>
           }
           final isCompact = layout == 'Compact';
           return GridView.builder(
-            padding: const EdgeInsets.only(
+            padding: EdgeInsets.only(
               left: 12,
               right: 12,
               top: 12,
-              bottom: 96,
+              bottom: Platform.isWindows ? 24 : 96,
             ),
             gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: _getCrossAxisCount(context, layout),
@@ -517,6 +530,9 @@ class _LibraryViewState extends ConsumerState<LibraryView>
             style: TextStyle(color: theme.colorScheme.error),
           ),
         ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1801,3 +1817,5 @@ class LibraryItemActionHandler {
     }
   }
 }
+
+

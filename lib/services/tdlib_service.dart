@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:io';
 import 'dart:ffi';
 import 'dart:convert';
@@ -7,6 +7,7 @@ import 'package:ffi/ffi.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:synchronized/synchronized.dart';
+import 'package:flutter/widgets.dart';
 import 'package:tdlib/td_client.dart';
 import 'package:tdlib/td_api.dart' as td;
 import 'package:path_provider/path_provider.dart';
@@ -24,6 +25,8 @@ class TdlibService {
   int? _clientId;
   bool _isDestroyed = false;
   Timer? _initPruneTimer;
+  Timer? _onlineHeartbeat;
+  bool _isForeground = true;
   final _pendingLock = Lock();
   
   late final DynamicLibrary _lib;
@@ -61,27 +64,46 @@ class TdlibService {
   }
 
   Future<String> _loadOrCreateDbEncryptionKey() async {
-    final appDir = await getAppDirectory();
-    final keyFile = File('${appDir.path}/tdlib_key.txt');
-    
-    if (await keyFile.exists()) {
-      return (await keyFile.readAsString()).trim();
-    }
-    
-    // Fallback: try reading from FlutterSecureStorage to migrate existing keys
     const storage = FlutterSecureStorage();
     String? key = await storage.read(key: 'tdlib_db_key');
-    
-    if (key == null || key.isEmpty) {
-      final random = Random.secure();
-      final values = List<int>.generate(32, (i) => random.nextInt(256));
-      key = base64Encode(values);
-    } else if (key.contains('-') || key.contains('_')) {
-      key = key.replaceAll('-', '+').replaceAll('_', '/');
+
+    if (key != null && key.isNotEmpty) {
+      if (key.contains('-') || key.contains('_')) {
+        key = key.replaceAll('-', '+').replaceAll('_', '/');
+        await storage.write(key: 'tdlib_db_key', value: key);
+      }
+      return key;
     }
-    
-    await keyFile.writeAsString(key);
+
+    // Generate new key
+    final random = Random.secure();
+    final values = List<int>.generate(32, (i) => random.nextInt(256));
+    key = base64Encode(values);
+    await storage.write(key: 'tdlib_db_key', value: key);
     return key;
+  }
+
+  void onAppStateChanged(AppLifecycleState state) {
+    _isForeground = (state == AppLifecycleState.resumed);
+    if (_clientId != null) {
+      send(td.SetOption(
+        name: 'online',
+        value: td.OptionValueBoolean(value: _isForeground),
+      ));
+    }
+  }
+
+  void _startOnlineHeartbeat() {
+    _onlineHeartbeat?.cancel();
+    _onlineHeartbeat = Timer.periodic(const Duration(seconds: 2), (_) {
+      if (_isDestroyed || _clientId == null) return;
+      if (_isForeground) {
+        send(const td.SetOption(
+          name: 'online',
+          value: td.OptionValueBoolean(value: true),
+        ));
+      }
+    });
   }
 
   Future<void>? _initFuture;
@@ -183,6 +205,7 @@ class TdlibService {
 
     // Force TDLib online mode so it doesn't throttle background downloads
     send(const td.SetOption(name: 'online', value: td.OptionValueBoolean(value: true)));
+    _startOnlineHeartbeat();
 
     if (needsMigration) {
       await storage.write(key: 'tdlib_db_migrated', value: 'true');
@@ -430,7 +453,14 @@ class TdlibService {
   void _initNativeLibrary() {
       if (_libInitialized) return;
       try {
-        final libName = Platform.isWindows ? 'tdjson.dll' : (Platform.isAndroid ? 'libtdjson.so' : 'libtdjson.so');
+        String libName;
+        if (Platform.isWindows) {
+          libName = 'tdjson.dll';
+        } else if (Platform.isMacOS) {
+          libName = 'libtdjson.dylib';
+        } else {
+          libName = 'libtdjson.so';
+        }
         _lib = DynamicLibrary.open(libName);
         final receivePtr = _lib.lookup<NativeFunction<Pointer<Utf8> Function(Double)>>('td_receive');
         _nativeReceive = receivePtr.asFunction<Pointer<Utf8> Function(double)>();
@@ -443,7 +473,8 @@ class TdlibService {
         _libInitialized = true;
         Log.i('TDLib direct FFI receive library loaded successfully.');
       } catch (e, stack) {
-        Log.e('Failed to load native library for custom FFI receive', e, stack);
+        Log.e('Failed to load TDLib native library. App will not be able to fetch from Telegram.', e, stack);
+        rethrow;
       }
     }
 
@@ -456,13 +487,12 @@ class TdlibService {
   void _startEventLoop() async {
       if (_eventLoopRunning) return;
       _eventLoopRunning = true;
-      int idleCount = 0;
       int eventsProcessed = 0;
       while (!_isDestroyed) {
         try {
           td.TdObject? event;
           if (_libInitialized) {
-            final rawPtr = _nativeReceive(0.0);
+            final rawPtr = _nativeReceive(1.0);
             if (rawPtr != nullptr) {
               try {
                 final jsonStr = rawPtr.toDartString();
@@ -476,16 +506,13 @@ class TdlibService {
               }
             }
           } else {
-            event = tdReceive(0.0);
+            event = tdReceive(1.0);
           }
   
           if (event == null) {
-            idleCount++;
-            await Future.delayed(Duration(milliseconds: idleCount > 10 ? 20 : 5));
             continue;
           }
           
-          idleCount = 0;
           eventsProcessed++;
           if (eventsProcessed > 50) {
             eventsProcessed = 0;
@@ -531,13 +558,15 @@ class TdlibService {
     final completer = Completer<td.TdObject>();
     await _pendingLock.synchronized(() => _pendingRequests[id] = completer);
     
-    // Automatically clean up after 30 seconds to prevent memory leaks if TDLib never responds
-    Timer(const Duration(seconds: 30), () async {
+    Timer? timeoutTimer;
+    timeoutTimer = Timer(const Duration(seconds: 30), () async {
       final pending = await _pendingLock.synchronized(() => _pendingRequests.remove(id));
       if (pending != null && !pending.isCompleted) {
         pending.completeError(TimeoutException('TDLib response timeout', const Duration(seconds: 30)));
       }
     });
+
+    completer.future.whenComplete(() => timeoutTimer?.cancel());
 
     send(request, extra: id);
     return completer.future;
@@ -548,17 +577,23 @@ class TdlibService {
       int chatsLoaded = 0;
       while (chatsLoaded < 500) {
         if (_isDestroyed || _clientId == null) break;
-        final res = await sendAsync(td.LoadChats(
-          chatList: const td.ChatListMain(),
+        final res = await sendAsync(const td.LoadChats(
+          chatList: td.ChatListMain(),
           limit: 50,
         )).timeout(
           const Duration(seconds: 10),
-          onTimeout: () => td.TdError(code: 408, message: "Request Timeout"),
+          onTimeout: () => const td.TdError(code: 408, message: "Request Timeout"),
         );
+        
         if (_isDestroyed || _clientId == null) break;
+        
         if (res is td.TdError) {
-          break; // End of list or error
+          if (res.code == 404) break; // End of list
+          // FLOOD_WAIT or transient error
+          await Future.delayed(const Duration(seconds: 2));
+          continue;
         }
+        
         chatsLoaded += 50;
         await Future.delayed(const Duration(milliseconds: 1000));
       }
@@ -567,6 +602,7 @@ class TdlibService {
 
   void destroy() {
       _isDestroyed = true;
+      _onlineHeartbeat?.cancel();
       _initPruneTimer?.cancel();
       _updatesController.close();
       if (_clientId != null) {
@@ -585,5 +621,6 @@ class TdlibService {
       });
     }
 }
+
 
 

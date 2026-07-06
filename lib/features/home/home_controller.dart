@@ -15,6 +15,12 @@ import '../player/pip_manager.dart';
 import '../../core/utils/path_helper.dart';
 import 'package:synchronized/synchronized.dart';
 
+enum ConnectionStatus { connected, connecting, waitingForNetwork, unknown }
+class ConnectionStateNotifier extends Notifier<ConnectionStatus> { @override ConnectionStatus build() => ConnectionStatus.unknown; }
+final connectionStateProvider = NotifierProvider<ConnectionStateNotifier, ConnectionStatus>(ConnectionStateNotifier.new);
+class IsSyncingNotifier extends Notifier<bool> { @override bool build() => false; }
+final isSyncingProvider = NotifierProvider<IsSyncingNotifier, bool>(IsSyncingNotifier.new);
+
 enum SortOrder { newest, oldest, aToZ, zToA }
 
 abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
@@ -57,7 +63,15 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
   bool _cacheLoadComplete = false;
   bool _isFetchingReleaseYears = false;
   Timer? _releaseYearsTimer;
+  Timer? _cacheWriteDebounce;
   bool _isDisposed = false;
+
+  void _scheduleCatalogCacheWrite() {
+    _cacheWriteDebounce?.cancel();
+    _cacheWriteDebounce = Timer(const Duration(seconds: 5), () {
+      if (!_isDisposed) _saveCatalogCache();
+    });
+  }
 
   @override
   FutureOr<List<AnimeSeries>> build() async {
@@ -100,13 +114,13 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
             if (!_rawMessageIds.contains(event.message.id)) {
               _rawMessages.insert(0, event.message);
               _rawMessageIds.add(event.message.id);
-              _allSeries = _parseMessages(_rawMessages);
-              if (state.value != null) {
+              final changed = await _upsertMessageIncrementally(event.message);
+              if (changed && state.value != null) {
                 if (!_isDisposed) state = AsyncValue.data(await _applySearchAndSort(_allSeries));
               }
               _triggerReleaseYearsSync();
               if (_cacheLoadComplete) {
-                _saveCatalogCache();
+                _scheduleCatalogCacheWrite();
               }
             }
           });
@@ -137,11 +151,31 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
                 if (!_isDisposed) state = AsyncValue.data(await _applySearchAndSort(_allSeries));
               }
               if (_cacheLoadComplete) {
-                _saveCatalogCache();
+                _scheduleCatalogCacheWrite();
               }
               Log.i('Real-time deleted messages from catalog: ${event.messageIds}');
             }
           });
+        }
+      } else if (event is td.UpdateConnectionState) {
+        final state = event.state;
+        final isConnected = state is td.ConnectionStateReady;
+        final isConnecting = state is td.ConnectionStateConnecting;
+        final isWaiting = state is td.ConnectionStateWaitingForNetwork;
+
+        if (isConnected) {
+          ref.read(connectionStateProvider.notifier).state = ConnectionStatus.connected;
+        } else if (isConnecting) {
+          ref.read(connectionStateProvider.notifier).state = ConnectionStatus.connecting;
+        } else if (isWaiting) {
+          ref.read(connectionStateProvider.notifier).state = ConnectionStatus.waitingForNetwork;
+        } else {
+          ref.read(connectionStateProvider.notifier).state = ConnectionStatus.unknown;
+        }
+
+        if (isConnected && _cacheLoadComplete && !_isDisposed) {
+          Log.i('Network reconnected, triggering background sync for ${category.title}');
+          return _syncFromNetwork();
         }
       }
     });
@@ -161,7 +195,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
       // Schedule background sync to start in the next event loop tick,
       // ensuring the provider is fully built and state is set before updating it.
       Future.delayed(const Duration(milliseconds: 200), () {
-        _syncFromNetwork();
+        return _syncFromNetwork();
       });
       
       return initialList;
@@ -241,7 +275,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
         });
       }
       if (changed && _cacheLoadComplete) {
-        _saveCatalogCache();
+        _scheduleCatalogCacheWrite();
       }
     } finally {
       _isLoadingMore = false;
@@ -411,6 +445,8 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
 
     Log.i('[_syncFromNetwork] Starting background sync execution for category: ${category.title}');
 
+    ref.read(isSyncingProvider.notifier).state = true;
+    DateTime? _lastSyncDuringPlayback;
     try {
       final tdlibService = ref.read(tdlibServiceProvider);
       
@@ -436,9 +472,15 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
       // Sync messages incrementally from the network in the background
       while (_hasMore && !_isDisposed) {
         try {
-          // Yield execution and pause TDLib requests while video is actively playing to maximize streaming bandwidth
-          while (ref.read(pipControllerProvider) != null && !_isDisposed) {
-            await Future.delayed(const Duration(seconds: 2));
+          if (ref.read(pipControllerProvider) != null) {
+            final now = DateTime.now();
+            final lastRun = _lastSyncDuringPlayback ?? DateTime.fromMillisecondsSinceEpoch(0);
+            final elapsed = now.difference(lastRun);
+            if (elapsed < const Duration(seconds: 60)) {
+              await Future.delayed(const Duration(seconds: 5));
+              continue;
+            }
+            _lastSyncDuringPlayback = now;
           }
 
           final networkMessages = _cacheLoadComplete
@@ -487,7 +529,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
                 if (!_isDisposed) state = AsyncValue.data(await _applySearchAndSort(_allSeries));
                 _triggerReleaseYearsSync();
                 if (_cacheLoadComplete) {
-                  _saveCatalogCache();
+                  _scheduleCatalogCacheWrite();
                 }
                 lastUiUpdateTime = now;
                 changed = false; // Reset changed flag
@@ -524,14 +566,18 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
       }
 
       _cacheLoadComplete = true;
-      _saveCatalogCache();
+      _scheduleCatalogCacheWrite();
     } catch (e, stackTrace) {
       Log.e("Background sync error", e, stackTrace);
+    } finally {
+      if (!_isDisposed) {
+        ref.read(isSyncingProvider.notifier).state = false;
+      }
     }
   }
 
-  void triggerManualSync() {
-    _syncFromNetwork();
+  Future<void> triggerManualSync() {
+    return _syncFromNetwork();
   }
 
   Future<List<td.Message>> _fetchMessages({required int fromId, required bool onlyLocal}) async {
@@ -762,6 +808,78 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
 
   @visibleForTesting
   StorageService? testStorage;
+
+  Future<bool> _upsertMessageIncrementally(td.Message msg) async {
+    if (msg.content is td.MessagePhoto) {
+      final photo = msg.content as td.MessagePhoto;
+      if (photo.caption.text.isEmpty) return false;
+      
+      final fullTitle = photo.caption.text.split('\n').first.trim();
+      final isMovie = category.title == 'Movies';
+      final baseName = normalizeSeriesName(fullTitle, isMovie: isMovie);
+      
+      AnimeSeries? existingSeries;
+      for (final s in _allSeries) {
+        if (s.coreName == baseName) {
+          existingSeries = s;
+          break;
+        }
+      }
+      
+      final newSeason = AnimeSeason(
+        fullTitle: fullTitle,
+        seasonName: parseSeasonName(fullTitle, baseName),
+        posterMessage: msg,
+        episodes: [],
+      );
+      
+      if (existingSeries != null) {
+        final existingIndex = existingSeries.seasons.indexWhere((s) => s.posterMessage.id == msg.id);
+        if (existingIndex == -1) {
+          existingSeries.seasons.add(newSeason);
+          return true;
+        }
+        return false;
+      } else {
+        _allSeries.insert(0, AnimeSeries(coreName: baseName, seasons: [newSeason]));
+        return true;
+      }
+    } else if (msg.content is td.MessageVideo || msg.content is td.MessageDocument) {
+      td.Message? selectedPoster;
+      int maxPrecedingId = -1;
+      
+      for (final pMsg in _rawMessages) {
+        if (pMsg.content is td.MessagePhoto && (pMsg.content as td.MessagePhoto).caption.text.isNotEmpty) {
+          if (pMsg.id < msg.id && pMsg.id > maxPrecedingId) {
+            maxPrecedingId = pMsg.id;
+            selectedPoster = pMsg;
+          }
+        }
+      }
+      
+      if (selectedPoster == null) return false;
+      
+      for (final s in _allSeries) {
+        for (int i = 0; i < s.seasons.length; i++) {
+          if (s.seasons[i].posterMessage.id == selectedPoster.id) {
+            final exists = s.seasons[i].episodes.any((e) => e.id == msg.id);
+            if (!exists) {
+              s.seasons[i].episodes.add(msg);
+              s.seasons[i].episodes.sort((a, b) {
+                final epA = _parseEpisodeNumber(a);
+                final epB = _parseEpisodeNumber(b);
+                if (epA != epB) return epA.compareTo(epB);
+                return a.id.compareTo(b.id);
+              });
+              return true;
+            }
+            return false;
+          }
+        }
+      }
+    }
+    return false;
+  }
 
   @visibleForTesting
   List<AnimeSeries> parseMessagesForTesting(List<td.Message> raw) => _parseMessages(raw);
@@ -1263,7 +1381,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
             if (!_isDisposed) state = AsyncValue.data(await _applySearchAndSort(_allSeries));
           }
           if (_cacheLoadComplete) {
-            _saveCatalogCache();
+            _scheduleCatalogCacheWrite();
           }
           Log.i('Real-time updated edited message in catalog: $messageId');
         }
@@ -1547,4 +1665,6 @@ List<AnimeSeries> _computeSearchAndSortIsolate(_SearchPayload payload) {
 
   return sorted;
 }
+
+
 

@@ -17,8 +17,12 @@ import 'services/storage_service.dart';
 import 'services/streaming_proxy_service.dart';
 import 'services/firebase_metadata_service.dart';
 import 'core/theme/app_theme.dart';
+import 'services/tdlib_service.dart';
+
+late DateTime _appBootTime;
 
 void main() async {
+  _appBootTime = DateTime.now();
   // 1. Catch synchronous framework errors.
   FlutterError.onError = (FlutterErrorDetails details) {
     Log.e('Flutter framework error: ${details.exception}', details.stack);
@@ -39,10 +43,8 @@ void main() async {
     Object? startupError;
 
     try {
-      final appData = Platform.environment['APPDATA'] ?? '';
-      final dirPath = Platform.isWindows 
-          ? '$appData/com.darkmatter/telstream'.replaceAll('\\', '/')
-          : (await getApplicationSupportDirectory()).path;
+      final supportDir = await getApplicationSupportDirectory();
+      final dirPath = supportDir.path.replaceAll('\\', '/');
           
       final logDir = Directory(dirPath);
       if (!logDir.existsSync()) {
@@ -142,7 +144,15 @@ class AuthWrapper extends ConsumerStatefulWidget {
   ConsumerState<AuthWrapper> createState() => _AuthWrapperState();
 }
 
-final _appBootTime = DateTime.now();
+class _AppLifecycleObserver extends WidgetsBindingObserver {
+  final TdlibService _tdlib;
+  _AppLifecycleObserver(this._tdlib);
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _tdlib.onAppStateChanged(state);
+  }
+}
 
 class _AuthWrapperState extends ConsumerState<AuthWrapper> {
   bool _splashCompleted = false;
@@ -164,10 +174,14 @@ class _AuthWrapperState extends ConsumerState<AuthWrapper> {
         });
       }
     });
+    
+    WidgetsBinding.instance.addObserver(_AppLifecycleObserver(ref.read(tdlibServiceProvider)));
   }
 
   @override
   void dispose() {
+    // Note: We don't remove the observer here because AuthWrapper lives 
+    // for the entire lifetime of the app, but normally we would remove it.
     _splashTimer?.cancel();
     super.dispose();
   }

@@ -24,6 +24,7 @@ class StreamingProxyService {
   int _port = 0;
   Completer<void>? _startCompleter = Completer<void>();
   StreamSubscription<td.TdObject>? _updatesSub;
+  static final int _chunkSize = (Platform.isWindows || Platform.isLinux || Platform.isMacOS) ? 1024 * 1024 : 128 * 1024;
 
   final _stateLock = Lock();
   final String _authToken = base64Url.encode(List<int>.generate(32, (i) => Random.secure().nextInt(256)));
@@ -76,7 +77,13 @@ class StreamingProxyService {
       _startCompleter = Completer<void>();
     }
     try {
-      _server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      try {
+        _server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      } catch (_) {
+        _server = await HttpServer.bind(InternetAddress.loopbackIPv6, 0);
+      }
+      _server!.autoCompress = false;
+      _server!.idleTimeout = const Duration(seconds: 30);
       _port = _server!.port;
       Log.i('Local HTTP Streaming Proxy started on port $_port');
       _server!.listen(_handleRequest, onError: (e) {
@@ -86,6 +93,7 @@ class StreamingProxyService {
         _startCompleter!.complete();
       }
     } catch (e, stack) {
+      _port = -1;
       Log.e('Failed to start HTTP Proxy server', e, stack);
       if (!_startCompleter!.isCompleted) {
         _startCompleter!.completeError(e, stack);
@@ -100,6 +108,9 @@ class StreamingProxyService {
   }
 
   String getProxyUrl(int fileId, {String? fileName}) {
+    if (_port <= 0) {
+      throw StateError('Streaming proxy is not running (port=$_port). Cannot serve fileId=$fileId.');
+    }
     final q = fileName != null && fileName.isNotEmpty
         ? 'fileId=$fileId&name=${Uri.encodeComponent(fileName)}'
         : 'fileId=$fileId';
@@ -151,14 +162,29 @@ class StreamingProxyService {
 
     // Retrieve file info from TDLib
     td.File? tdFile;
-    try {
-      final res = await _tdlibService.sendAsync(td.GetFile(fileId: fileId));
-      if (res is td.File) {
-        tdFile = res;
+    DateTime? lastFetchTime;
+
+    Future<td.File?> fetchFile() async {
+      if (tdFile != null) {
+        if (tdFile!.local.isDownloadingCompleted) return tdFile;
+        if (lastFetchTime != null && DateTime.now().difference(lastFetchTime!) < const Duration(seconds: 2)) {
+          return tdFile;
+        }
       }
-    } catch (e) {
-      Log.e('Proxy failed to get file info for fileId=$fileId', e);
+      try {
+        final res = await _tdlibService.sendAsync(td.GetFile(fileId: fileId));
+        if (res is td.File) {
+          tdFile = res;
+          _fileStates[fileId] = res;
+          lastFetchTime = DateTime.now();
+        }
+      } catch (e) {
+        Log.e('Proxy failed to get file info for fileId=$fileId', e);
+      }
+      return tdFile;
     }
+
+    await fetchFile();
 
     if (tdFile == null) {
       request.response.statusCode = HttpStatus.notFound;
@@ -166,7 +192,7 @@ class StreamingProxyService {
       return;
     }
 
-    final totalSize = tdFile.expectedSize;
+    final totalSize = tdFile!.expectedSize;
     if (totalSize <= 0) {
       request.response.statusCode = HttpStatus.notFound;
       await request.response.close();
@@ -199,8 +225,8 @@ class StreamingProxyService {
     try {
       // Auto-detect and shift TDLib download offset if the requested range is outside our current download buffer
       try {
-        final res = await _tdlibService.sendAsync(td.GetFile(fileId: fileId));
-        if (res is td.File) {
+        final res = await fetchFile();
+        if (res != null) {
           final isCompleted = res.local.isDownloadingCompleted;
           final prefixSize = res.local.downloadedPrefixSize;
           final activeOffset = _activeDownloadOffsets[fileId] ?? 0;
@@ -258,7 +284,7 @@ class StreamingProxyService {
       
       final queryName = request.uri.queryParameters['name'];
       ContentType contentType = ContentType('video', 'mp4'); // Default fallback mime
-      final localPath = tdFile.local.path.toLowerCase();
+      final localPath = tdFile!.local.path.toLowerCase();
       final targetName = (queryName ?? '').toLowerCase();
       
       if (localPath.endsWith('.mkv') || targetName.endsWith('.mkv')) {
@@ -289,8 +315,8 @@ class StreamingProxyService {
       request.response.headers.contentLength = responseLength;
 
       // OPTIMIZATION 1: If file is fully completed on disk, stream it directly using native piping
-      if (tdFile.local.isDownloadingCompleted) {
-        final file = File(tdFile.local.path);
+      if (tdFile!.local.isDownloadingCompleted) {
+        final file = File(tdFile!.local.path);
         if (await file.exists()) {
           try {
             await request.response.addStream(file.openRead(start, end + 1));
@@ -308,16 +334,15 @@ class StreamingProxyService {
       // OPTIMIZATION 2: If the file is still downloading, open a single RandomAccessFile session
       RandomAccessFile? raf;
       try {
-        String filePath = tdFile.local.path;
+        String filePath = tdFile!.local.path;
         if (filePath.isEmpty || !await File(filePath).exists()) {
           // Wait up to 10 seconds (100 attempts * 100ms) for the file path to resolve and the file to be created on disk by TDLib
           int fileWaitAttempts = 0;
           while (fileWaitAttempts < 100 && (filePath.isEmpty || !await File(filePath).exists())) {
             await Future.delayed(const Duration(milliseconds: 100));
             try {
-              final res = await _tdlibService.sendAsync(td.GetFile(fileId: fileId));
-              if (res is td.File) {
-                _fileStates[fileId] = res;
+              final res = await fetchFile();
+              if (res != null) {
                 filePath = res.local.path;
               }
             } catch (_) {}
@@ -338,10 +363,15 @@ class StreamingProxyService {
         int currentOffset = start;
 
         // Cache file state to avoid excessive TDLib JSON IPC calls
-        td.File currentFile = _fileStates[fileId] ?? tdFile;
+        td.File currentFile = _fileStates[fileId] ?? tdFile!;
+
+        bool clientDisconnected = false;
+        request.response.done.then((_) {
+          clientDisconnected = true;
+        });
 
         while (sentBytes < responseLength) {
-          final chunkNeeded = (responseLength - sentBytes).clamp(0, 131072); // Optimize chunk sizes to 128 KB for smooth streaming on 2.4GHz WiFi / mobile data
+          final chunkNeeded = (responseLength - sentBytes).clamp(0, _chunkSize);
           if (chunkNeeded <= 0) break;
 
           final targetEndOffset = currentOffset + chunkNeeded;
@@ -418,12 +448,6 @@ class StreamingProxyService {
             }
 
             bool waitSuccess = false;
-            bool clientDisconnected = false;
-
-            // Listen to client disconnect to abort waiting instantly and release resources
-            request.response.done.then((_) {
-              clientDisconnected = true;
-            });
 
             // Resilient retry loop: single long-lived subscription
             bool available = false;
@@ -555,3 +579,4 @@ class StreamingProxyService {
     }
   }
 }
+

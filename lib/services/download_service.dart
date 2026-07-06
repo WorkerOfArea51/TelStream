@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tdlib/td_api.dart' as td;
@@ -475,7 +476,7 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
 
   void _watchDirectory(Directory downloadsDir) {
     _dirWatcherSubscription?.cancel();
-    if (!Platform.isAndroid && !Platform.isIOS && !Platform.isWindows && !Platform.isMacOS && !Platform.isLinux) return;
+    if (kIsWeb) return;
     try {
       Timer? debounceTimer;
       _dirWatcherSubscription = downloadsDir.watch().listen((event) {

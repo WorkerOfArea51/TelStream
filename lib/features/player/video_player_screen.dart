@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -18,6 +18,7 @@ import '../../core/logger.dart';
 import '../../core/constants.dart';
 import '../../services/streaming_proxy_service.dart';
 import '../../services/tracker_service.dart';
+import 'package:window_manager/window_manager.dart';
 
 class VideoPlayerScreen extends ConsumerStatefulWidget {
   final int messageId;
@@ -101,11 +102,15 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         WakelockPlus.enable();
       } catch (_) {}
       try {
-        SystemChrome.setPreferredOrientations([
-          DeviceOrientation.landscapeLeft,
-          DeviceOrientation.landscapeRight,
-        ]);
-        SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+        if (Platform.isWindows) {
+          windowManager.setFullScreen(true);
+        } else {
+          SystemChrome.setPreferredOrientations([
+            DeviceOrientation.landscapeLeft,
+            DeviceOrientation.landscapeRight,
+          ]);
+          SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+        }
       } catch (_) {}
     } else {
       _resetOrientationAndUI();
@@ -172,11 +177,15 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
 
   void _resetOrientationAndUI() {
     try {
-      SystemChrome.setPreferredOrientations([
-        DeviceOrientation.portraitUp,
-        DeviceOrientation.portraitDown,
-      ]);
-      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+      if (Platform.isWindows) {
+        windowManager.setFullScreen(false);
+      } else {
+        SystemChrome.setPreferredOrientations([
+          DeviceOrientation.portraitUp,
+          DeviceOrientation.portraitDown,
+        ]);
+        SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+      }
     } catch (_) {}
   }
 
@@ -640,8 +649,12 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
 
     try {
       if (_pipController.activePlayer == null) {
-        SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp, DeviceOrientation.portraitDown]);
-        SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+        if (Platform.isWindows) {
+          windowManager.setFullScreen(false);
+        } else {
+          SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp, DeviceOrientation.portraitDown]);
+          SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+        }
       }
     } catch (_) {}
 

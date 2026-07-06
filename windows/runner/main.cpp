@@ -26,7 +26,9 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
 
   FlutterWindow window(project);
   Win32Window::Point origin(10, 10);
-  Win32Window::Size size(1280, 720);
+  int width = static_cast<int>(GetSystemMetrics(SM_CXSCREEN) * 0.7);
+  int height = static_cast<int>(GetSystemMetrics(SM_CYSCREEN) * 0.7);
+  Win32Window::Size size(width, height);
   if (!window.Create(L"telstream", origin, size)) {
     return EXIT_FAILURE;
   }

@@ -5,6 +5,7 @@ import 'dart:io';
 import 'dart:ui';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:media_kit/media_kit.dart';
@@ -30,6 +31,12 @@ import 'widgets/audio_sync_dialog.dart';
 import 'widgets/player_playback_bar.dart';
 import 'widgets/flashing_chevrons.dart';
 import 'widgets/player_header_bar.dart';
+
+class _PlayPauseIntent extends Intent { const _PlayPauseIntent(); }
+class _SeekBackwardIntent extends Intent { const _SeekBackwardIntent(); }
+class _SeekForwardIntent extends Intent { const _SeekForwardIntent(); }
+class _FullscreenIntent extends Intent { const _FullscreenIntent(); }
+class _MuteIntent extends Intent { const _MuteIntent(); }
 
 class CustomVideoControls extends ConsumerStatefulWidget {
   final Player player;
@@ -2931,9 +2938,27 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
 
     final subtitleConfig = const SubtitleViewConfiguration(visible: false);
 
-    return GestureDetector(
-      onTap: _toggleControls,
-      onScaleStart: _handleScaleStart,
+    return Shortcuts(
+      shortcuts: {
+        LogicalKeySet(LogicalKeyboardKey.space): const _PlayPauseIntent(),
+        LogicalKeySet(LogicalKeyboardKey.arrowLeft): const _SeekBackwardIntent(),
+        LogicalKeySet(LogicalKeyboardKey.arrowRight): const _SeekForwardIntent(),
+        LogicalKeySet(LogicalKeyboardKey.keyF): const _FullscreenIntent(),
+        LogicalKeySet(LogicalKeyboardKey.keyM): const _MuteIntent(),
+      },
+      child: Actions(
+        actions: {
+          _PlayPauseIntent: CallbackAction<_PlayPauseIntent>(onInvoke: (_) => widget.player.playOrPause()),
+          _SeekBackwardIntent: CallbackAction<_SeekBackwardIntent>(onInvoke: (_) => _performSeek(widget.player.state.position - const Duration(seconds: 5))),
+          _SeekForwardIntent: CallbackAction<_SeekForwardIntent>(onInvoke: (_) => _performSeek(widget.player.state.position + const Duration(seconds: 5))),
+          _FullscreenIntent: CallbackAction<_FullscreenIntent>(onInvoke: (_) => _toggleFullscreen()),
+          _MuteIntent: CallbackAction<_MuteIntent>(onInvoke: (_) => _toggleMute()),
+        },
+        child: Focus(
+          autofocus: true,
+          child: GestureDetector(
+            onTap: _toggleControls,
+            onScaleStart: _handleScaleStart,
       onScaleUpdate: (details) => _handleScaleUpdate(
         details,
         screenWidth,
@@ -4140,6 +4165,9 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
           ),
         ],
       ),
+    ),
+        ),
+      ),
     );
   }
 
@@ -5028,5 +5056,9 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     setState(() {});
   }
 }
+
+
+
+
 
 

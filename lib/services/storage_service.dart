@@ -255,11 +255,7 @@ class StorageService {
         }
 
         try {
-          if (Platform.isWindows) {
-            await tmpFile.rename(_file!.path);
-          } else {
-            await tmpFile.rename(_file!.path);
-          }
+          await tmpFile.rename(_file!.path);
         } on PathExistsException {
           await tmpFile.copy(_file!.path);
           try { await tmpFile.delete(); } catch (_) {}
