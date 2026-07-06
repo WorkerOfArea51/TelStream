@@ -456,12 +456,13 @@ class TdlibService {
   void _startEventLoop() async {
       if (_eventLoopRunning) return;
       _eventLoopRunning = true;
+      int idleCount = 0;
       int eventsProcessed = 0;
       while (!_isDestroyed) {
         try {
           td.TdObject? event;
           if (_libInitialized) {
-            final rawPtr = _nativeReceive(10.0);
+            final rawPtr = _nativeReceive(0.0);
             if (rawPtr != nullptr) {
               try {
                 final jsonStr = rawPtr.toDartString();
@@ -475,13 +476,16 @@ class TdlibService {
               }
             }
           } else {
-            event = tdReceive(10.0);
+            event = tdReceive(0.0);
           }
   
           if (event == null) {
+            idleCount++;
+            await Future.delayed(Duration(milliseconds: idleCount > 10 ? 20 : 5));
             continue;
           }
           
+          idleCount = 0;
           eventsProcessed++;
           if (eventsProcessed > 50) {
             eventsProcessed = 0;
@@ -581,4 +585,5 @@ class TdlibService {
       });
     }
 }
+
 
