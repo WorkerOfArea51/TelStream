@@ -631,7 +631,7 @@ class TdlibService {
     timeoutTimer = Timer(const Duration(seconds: 30), () async {
       final pending = await _pendingLock.synchronized(() => _pendingRequests.remove(id));
       if (pending != null && !pending.isCompleted) {
-        pending.completeError(TimeoutException('TDLib response timeout', const Duration(seconds: 30)));
+        pending.complete(td.TdError(code: 408, message: 'TDLib response timeout (30s limit)'));
       }
     });
 
@@ -661,7 +661,7 @@ class TdlibService {
     timeoutTimer = Timer(const Duration(seconds: 30), () async {
       final pending = await _pendingLock.synchronized(() => _pendingRequests.remove(id));
       if (pending != null && !pending.isCompleted) {
-        pending.completeError(TimeoutException('TDLib response timeout', const Duration(seconds: 30)));
+        pending.complete(td.TdError(code: 408, message: 'TDLib response timeout (30s limit)'));
       }
     });
 
