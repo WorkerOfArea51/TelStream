@@ -314,11 +314,8 @@ class _EpisodeListScreenState extends ConsumerState<EpisodeListScreen>
                     fit: StackFit.expand,
                     children: [
                       _buildLocalBackdrop(posterFile, minithumbnail),
-                      BackdropFilter(
-                        filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-                        child: Container(
-                          color: Colors.black.withValues(alpha: 0.4),
-                        ),
+                      Container(
+                        color: Colors.black.withValues(alpha: 0.6),
                       ),
                       Container(
                         decoration: BoxDecoration(

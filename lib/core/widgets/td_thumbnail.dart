@@ -160,15 +160,12 @@ class _TdThumbnailState extends ConsumerState<TdThumbnail> {
   Widget _buildPlaceholder() {
     final bytes = _cachedMiniBytes;
     if (bytes != null && bytes.isNotEmpty) {
-      return ImageFiltered(
-        imageFilter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-        child: Image.memory(
-          bytes,
-          width: widget.width,
-          height: widget.height,
-          fit: widget.fit,
-          alignment: widget.alignment,
-        ),
+      return Image.memory(
+        bytes,
+        width: widget.width,
+        height: widget.height,
+        fit: widget.fit,
+        alignment: widget.alignment,
       );
     }
 
