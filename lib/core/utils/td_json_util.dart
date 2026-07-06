@@ -73,25 +73,54 @@ class TdJsonUtil {
         local['downloaded_size'] = local['downloaded_size'] ?? 0;
       }
     } else if (outType == 'user') {
+      out['is_contact'] = out['is_contact'] ?? false;
+      out['is_mutual_contact'] = out['is_mutual_contact'] ?? false;
+      out['is_close_friend'] = out['is_close_friend'] ?? false;
+      out['is_verified'] = out['is_verified'] ?? false;
+      out['is_premium'] = out['is_premium'] ?? false;
+      out['is_support'] = out['is_support'] ?? false;
+      out['is_scam'] = out['is_scam'] ?? false;
+      out['is_fake'] = out['is_fake'] ?? false;
       out['has_active_stories'] = out['has_active_stories'] ?? false;
+      out['has_unread_active_stories'] = out['has_unread_active_stories'] ?? false;
+      out['have_access'] = out['have_access'] ?? false;
+      out['added_to_attachment_menu'] = out['added_to_attachment_menu'] ?? false;
+    } else if (outType == 'userFullInfo') {
+      out['group_in_common_count'] = out['group_in_common_count'] ?? 0;
+      out['is_blocked'] = out['is_blocked'] ?? false;
+      out['can_be_called'] = out['can_be_called'] ?? false;
+      out['supports_video_calls'] = out['supports_video_calls'] ?? false;
+      out['has_private_calls'] = out['has_private_calls'] ?? false;
+      out['has_private_forwards'] = out['has_private_forwards'] ?? false;
+      out['has_restricted_voice_and_video_messages'] = out['has_restricted_voice_and_video_messages'] ?? false;
+      out['has_pinned_stories'] = out['has_pinned_stories'] ?? false;
+      out['need_phone_number_privacy_exception'] = out['need_phone_number_privacy_exception'] ?? false;
+    } else if (outType == 'chatMemberStatusCreator' || outType == 'chatMemberStatusAdministrator') {
+      out['custom_title'] = out['custom_title'] ?? "";
+    } else if (outType == 'scopeNotificationSettings') {
+      out['disable_mention_notifications'] = out['disable_mention_notifications'] ?? false;
+      out['disable_pinned_message_notifications'] = out['disable_pinned_message_notifications'] ?? false;
+      out['show_preview'] = out['show_preview'] ?? false;
+    } else if (outType == 'chatNotificationSettings') {
+      out['use_default_disable_pinned_message_notifications'] = out['use_default_disable_pinned_message_notifications'] ?? false;
+      out['use_default_disable_mention_notifications'] = out['use_default_disable_mention_notifications'] ?? false;
+      out['use_default_show_preview'] = out['use_default_show_preview'] ?? false;
+      out['disable_pinned_message_notifications'] = out['disable_pinned_message_notifications'] ?? false;
+      out['disable_mention_notifications'] = out['disable_mention_notifications'] ?? false;
+      out['show_preview'] = out['show_preview'] ?? false;
     } else if (outType == 'attachmentMenuBot') {
       out['request_write_access'] = out['request_write_access'] ?? false;
       out['supports_settings'] = out['supports_settings'] ?? false;
-    } else if (outType == 'scopeNotificationSettings') {
-      out['disable_mention_notifications'] = out['disable_mention_notifications'] ?? false;
-    } else if (outType == 'stickerSetInfo') {
+    } else if (outType == 'stickerSetInfo' || outType == 'stickerSet') {
       if (out['thumbnail_outline'] is Map) {
         out['thumbnail_outline'] = [];
       }
-      out['sticker_format'] = out['sticker_format'] ?? {'@type': 'stickerFormatWebp'};
-    } else if (outType == 'stickerSet') {
       out['sticker_format'] = out['sticker_format'] ?? {'@type': 'stickerFormatWebp'};
     } else if (outType == 'updateInstalledStickerSets') {
       if (out['sticker_set_ids'] is List) {
         out['sticker_set_ids'] = (out['sticker_set_ids'] as List).map((e) => e is String ? int.tryParse(e) ?? 0 : e).toList();
       }
     } else if (outType == 'updateTrendingStickerSets') {
-      // Fix stickerSetInfo inside trending sticker sets if needed, though they are inside sticker_sets list
       if (out['sticker_sets'] is List) {
         for (var s in out['sticker_sets']) {
           if (s is Map && s['thumbnail_outline'] is Map) {
@@ -115,6 +144,7 @@ class TdJsonUtil {
       out['can_pin_messages'] = out['can_pin_messages'] ?? false;
       out['can_manage_topics'] = out['can_manage_topics'] ?? false;
     } else if (outType == 'message') {
+      out['restriction_reason'] = out['restriction_reason'] ?? "";
       out['is_outgoing'] = out['is_outgoing'] ?? false;
       out['is_pinned'] = out['is_pinned'] ?? false;
       out['can_be_edited'] = out['can_be_edited'] ?? false;

@@ -202,13 +202,38 @@ class TdlibService {
       "application_version": "1.0",
       "enable_storage_optimizer": true,
       "ignore_file_names": false,
-      "database_encryption_key": dbKey, // MUST NOT BE base64 re-encoded, dbKey is already base64
+      "database_encryption_key": base64Encode(utf8.encode(dbKey)), // MUST base64 encode the UTF-8 bytes to match TDLib 1.6.0's interpretation of the string
     };
     
+    Future<void> handleInitError(td.TdError res) async {
+      Log.e('TDLib Init Error: ${res.message} (Code: ${res.code})');
+      if (res.code == 401 && res.message.contains('encryption key')) {
+        Log.w('Database encryption key mismatch. TDLib format likely changed. Clearing old database...');
+        try {
+          final dir = Directory(safePath);
+          if (await dir.exists()) {
+            final files = dir.listSync();
+            for (var file in files) {
+              if (file.path.endsWith('.sqlite') || 
+                  file.path.endsWith('.sqlite-wal') || 
+                  file.path.endsWith('.sqlite-shm') || 
+                  file.path.endsWith('.binlog')) {
+                file.deleteSync();
+              }
+            }
+          }
+          Log.i('Old database cleared. Please retry initialization.');
+        } catch (e) {
+          Log.e('Failed to clear old database', e);
+        }
+      }
+      throw Exception('TDLib Init Error: ${res.message}');
+    }
+
     if (_nativeSend != null && _clientId != null) {
       final res = await _sendRawAsync(rawParams);
       if (res is td.TdError) {
-        Log.e('TDLib Init Error: ${res.message} (Code: ${res.code})');
+        await handleInitError(res);
       }
     } else {
       final params = td.SetTdlibParameters(
@@ -227,11 +252,11 @@ class TdlibService {
         applicationVersion: '1.0',
         enableStorageOptimizer: true,
         ignoreFileNames: false,
-        databaseEncryptionKey: dbKey, 
+        databaseEncryptionKey: base64Encode(utf8.encode(dbKey)), 
       );
       final res = await sendAsync(params);
       if (res is td.TdError) {
-        Log.e('TDLib Init Error: ${res.message} (Code: ${res.code})');
+        await handleInitError(res);
       }
     }
 
