@@ -99,6 +99,48 @@ class TdJsonUtil {
           }
         }
       }
+    } else if (outType == 'chatPermissions') {
+      out['can_send_basic_messages'] = out['can_send_basic_messages'] ?? false;
+      out['can_send_audios'] = out['can_send_audios'] ?? false;
+      out['can_send_documents'] = out['can_send_documents'] ?? false;
+      out['can_send_photos'] = out['can_send_photos'] ?? false;
+      out['can_send_videos'] = out['can_send_videos'] ?? false;
+      out['can_send_video_notes'] = out['can_send_video_notes'] ?? false;
+      out['can_send_voice_notes'] = out['can_send_voice_notes'] ?? false;
+      out['can_send_polls'] = out['can_send_polls'] ?? false;
+      out['can_send_other_messages'] = out['can_send_other_messages'] ?? false;
+      out['can_add_web_page_previews'] = out['can_add_web_page_previews'] ?? false;
+      out['can_change_info'] = out['can_change_info'] ?? false;
+      out['can_invite_users'] = out['can_invite_users'] ?? false;
+      out['can_pin_messages'] = out['can_pin_messages'] ?? false;
+      out['can_manage_topics'] = out['can_manage_topics'] ?? false;
+    } else if (outType == 'message') {
+      out['is_outgoing'] = out['is_outgoing'] ?? false;
+      out['is_pinned'] = out['is_pinned'] ?? false;
+      out['can_be_edited'] = out['can_be_edited'] ?? false;
+      out['can_be_forwarded'] = out['can_be_forwarded'] ?? false;
+      out['can_be_saved'] = out['can_be_saved'] ?? false;
+      out['can_be_deleted_only_for_self'] = out['can_be_deleted_only_for_self'] ?? false;
+      out['can_be_deleted_for_all_users'] = out['can_be_deleted_for_all_users'] ?? false;
+      out['can_get_added_reactions'] = out['can_get_added_reactions'] ?? false;
+      out['can_get_statistics'] = out['can_get_statistics'] ?? false;
+      out['can_get_message_thread'] = out['can_get_message_thread'] ?? false;
+      out['can_get_viewers'] = out['can_get_viewers'] ?? false;
+      out['can_get_media_timestamp_links'] = out['can_get_media_timestamp_links'] ?? false;
+      out['can_report_reactions'] = out['can_report_reactions'] ?? false;
+      out['has_timestamped_media'] = out['has_timestamped_media'] ?? false;
+      out['is_channel_post'] = out['is_channel_post'] ?? false;
+      out['is_topic_message'] = out['is_topic_message'] ?? false;
+      out['contains_unread_mention'] = out['contains_unread_mention'] ?? false;
+    } else if (outType == 'chat') {
+      out['has_protected_content'] = out['has_protected_content'] ?? false;
+      out['is_translatable'] = out['is_translatable'] ?? false;
+      out['is_marked_as_unread'] = out['is_marked_as_unread'] ?? false;
+      out['is_blocked'] = out['is_blocked'] ?? false;
+      out['has_scheduled_messages'] = out['has_scheduled_messages'] ?? false;
+      out['can_be_deleted_only_for_self'] = out['can_be_deleted_only_for_self'] ?? false;
+      out['can_be_deleted_for_all_users'] = out['can_be_deleted_for_all_users'] ?? false;
+      out['can_be_reported'] = out['can_be_reported'] ?? false;
     }
 
     return out;
