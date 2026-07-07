@@ -96,6 +96,7 @@ void main() {
       final url = proxyService.getProxyUrl(mockFileId, fileName: 'test_video.mp4');
       final client = HttpClient();
       final request = await client.getUrl(Uri.parse(url));
+      proxyService.getAuthHeaders().forEach((k, v) => request.headers.set(k, v));
       final response = await request.close();
 
       // 3. Verify response
@@ -137,6 +138,7 @@ void main() {
       final url = proxyService.getProxyUrl(mockFileId);
       final client = HttpClient();
       final request = await client.getUrl(Uri.parse(url));
+      proxyService.getAuthHeaders().forEach((k, v) => request.headers.set(k, v));
       request.headers.set(HttpHeaders.rangeHeader, 'bytes=10-19');
       final response = await request.close();
 
