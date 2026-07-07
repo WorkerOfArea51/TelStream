@@ -82,7 +82,7 @@ class _AndroidSeriesDetailsScreenState extends ConsumerState<AndroidSeriesDetail
       }
       if (mounted && newMeta != null) {
         setState(() {
-          _metadataCache[i] = newMeta;
+          _metadataCache[i] = newMeta!;
         });
       }
       await Future.delayed(const Duration(milliseconds: 350));

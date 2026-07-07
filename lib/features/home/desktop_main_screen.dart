@@ -70,33 +70,7 @@ class _DesktopMainScreenState extends ConsumerState<DesktopMainScreen> with Tick
   void _checkForUpdates() async {
     final updateInfo = await UpdateService.checkForUpdate();
     if (updateInfo != null && updateInfo.isUpdateAvailable && mounted) {
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          backgroundColor: Colors.grey[900],
-          title: const Text('Update Available', style: TextStyle(color: Colors.white)),
-          content: Text(
-            'Version ${updateInfo.latestVersion} is available!\n\n${updateInfo.releaseNotes}',
-            style: const TextStyle(color: Colors.white70),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Later', style: TextStyle(color: Colors.white54)),
-            ),
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-                UpdateService.downloadAndInstallUpdate(
-                  updateInfo.downloadUrl,
-                  updateInfo.latestVersion,
-                );
-              },
-              child: const Text('Download & Update', style: TextStyle(color: Colors.orange)),
-            ),
-          ],
-        ),
-      );
+      UpdateService.showUpdateDialog(context, updateInfo);
     }
   }
 
@@ -175,33 +149,7 @@ class _DesktopMainScreenState extends ConsumerState<DesktopMainScreen> with Tick
                       if (context.mounted) Navigator.pop(context); // Close loading
                       
                       if (updateInfo != null && updateInfo.isUpdateAvailable && context.mounted) {
-                        showDialog(
-                          context: context,
-                          builder: (context) => AlertDialog(
-                            backgroundColor: Colors.grey[900],
-                            title: const Text('Update Available', style: TextStyle(color: Colors.white)),
-                            content: Text(
-                              'Version ${updateInfo.latestVersion} is available!\n\n${updateInfo.releaseNotes}',
-                              style: const TextStyle(color: Colors.white70),
-                            ),
-                            actions: [
-                              TextButton(
-                                onPressed: () => Navigator.pop(context),
-                                child: const Text('Later', style: TextStyle(color: Colors.white54)),
-                              ),
-                              TextButton(
-                                onPressed: () {
-                                  Navigator.pop(context);
-                                  UpdateService.downloadAndInstallUpdate(
-                                    updateInfo.downloadUrl,
-                                    updateInfo.latestVersion,
-                                  );
-                                },
-                                child: const Text('Download & Update', style: TextStyle(color: Colors.orange)),
-                              ),
-                            ],
-                          ),
-                        );
+                        UpdateService.showUpdateDialog(context, updateInfo);
                       } else if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(content: Text('You are on the latest version!')),
