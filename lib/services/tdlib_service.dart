@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:isolate';
 import 'dart:io';
 import 'dart:ffi';
 import 'dart:convert';
@@ -48,12 +49,12 @@ class TdlibService {
         if (lastId != null && lastId > 0) {
           try {
             tdSend(lastId, const td.Close());
-          } catch (e, st) { Log.w('Ignored error in tdlib_service', e, st); }
+          } catch (e, st) { Log.e('Ignored error in tdlib_service', e, st); }
           // Give the previous client a short moment to close databases and release locks
           await Future.delayed(const Duration(milliseconds: 300));
         }
       }
-    } catch (e, st) { Log.w('Ignored error in tdlib_service', e, st); }
+    } catch (e, st) { Log.e('Ignored error in tdlib_service', e, st); }
   }
 
   Future<void> _saveCurrentClient(int id) async {
@@ -61,7 +62,7 @@ class TdlibService {
       final tempDir = await getTemporaryDirectory();
       final file = File('${tempDir.path}/last_client_id.txt');
       await file.writeAsString(id.toString());
-    } catch (e, st) { Log.w('Ignored error in tdlib_service', e, st); }
+    } catch (e, st) { Log.e('Ignored error in tdlib_service', e, st); }
   }
 
   Future<String> _loadOrCreateDbEncryptionKey() async {
@@ -149,7 +150,7 @@ class TdlibService {
     if (_clientId != null) {
       try {
         tdSend(_clientId!, const td.Close());
-      } catch (e, st) { Log.w('Ignored error in tdlib_service', e, st); }
+      } catch (e, st) { Log.e('Ignored error in tdlib_service', e, st); }
       _clientId = null;
       await Future.delayed(const Duration(milliseconds: 300));
     } else {
@@ -375,7 +376,7 @@ class TdlibService {
               Log.i('TTL CACHE PRUNED: ${file.path} ($size bytes, age: ${now.difference(lastModified).inDays} days)');
               toRemove.add(file);
             }
-          } catch (e, st) { Log.w('Ignored error in tdlib_service', e, st); }
+          } catch (e, st) { Log.e('Ignored error in tdlib_service', e, st); }
         }
         cacheFiles.removeWhere((f) => toRemove.contains(f));
       }
@@ -389,7 +390,7 @@ class TdlibService {
           final mTime = await file.lastModified();
           totalSize += size;
           fileStats.add(MapEntry(file, mTime));
-        } catch (e, st) { Log.w('Ignored error in tdlib_service', e, st); }
+        } catch (e, st) { Log.e('Ignored error in tdlib_service', e, st); }
       }
 
       if (limitMb != null && limitMb > 0 && totalSize > limitBytes) {
@@ -403,7 +404,7 @@ class TdlibService {
             await entry.key.delete();
             currentSize -= size;
             Log.i('SIZE LIMIT CACHE PRUNED: ${entry.key.path} ($size bytes)');
-          } catch (e, st) { Log.w('Ignored error in tdlib_service', e, st); }
+          } catch (e, st) { Log.e('Ignored error in tdlib_service', e, st); }
         }
       }
 
@@ -437,7 +438,7 @@ class TdlibService {
         returnDeletedFileStatistics: false,
         chatLimit: 0,
       ));
-    } catch (e, st) { Log.w('Ignored error in tdlib_service', e, st); }
+    } catch (e, st) { Log.e('Ignored error in tdlib_service', e, st); }
 
     try {
       final appDocDir = await getAppDirectory();
@@ -747,7 +748,7 @@ class TdlibService {
       if (_clientId != null) {
         try {
           tdSend(_clientId!, const td.Close());
-        } catch (e, st) { Log.w('Ignored error in tdlib_service', e, st); }
+        } catch (e, st) { Log.e('Ignored error in tdlib_service', e, st); }
         _clientId = null;
       }
       _pendingLock.synchronized(() {
