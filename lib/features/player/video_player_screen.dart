@@ -177,6 +177,20 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
     if (widget.isPip && !oldWidget.isPip) {
       _resetOrientationAndUI();
     }
+    if (widget.messageId != oldWidget.messageId) {
+      // Episode changed on Desktop (reusing player)
+      player.stop().then((_) {
+        if (mounted) {
+          setState(() {
+            _isInitializing = true;
+            _isPlaying = false;
+            _downloadedPrefixSize = 0;
+            _expectedSize = 0;
+          });
+          _initDownload();
+        }
+      });
+    }
   }
 
   void _resetOrientationAndUI() {

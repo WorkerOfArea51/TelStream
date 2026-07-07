@@ -43,14 +43,50 @@ class _AndroidSeriesDetailsScreenState extends ConsumerState<AndroidSeriesDetail
   SeriesMetadata? _currentMetadata;
   bool _isLoadingMetadata = false;
   int _selectedSeasonIndex = 0;
+  List<String>? _overrideIds;
 
   @override
   void initState() {
     super.initState();
     _currentMetadata = widget.metadata;
+    _overrideIds = widget.overrideIds;
     _tabController = TabController(length: 3, vsync: this);
 
     _initYtController(_currentMetadata);
+    
+    if (_currentMetadata == null) {
+      _checkAndFetchMetadata();
+    }
+  }
+
+  Future<void> _checkAndFetchMetadata() async {
+    final overrideStr = FirebaseMetadataService.getOverride(widget.series.coreName);
+    if (overrideStr != null && overrideStr.isNotEmpty) {
+      final ids = overrideStr.split(',');
+      if (mounted) {
+        setState(() {
+          _overrideIds = ids;
+          _isLoadingMetadata = true;
+        });
+      }
+      
+      final targetId = ids.first;
+      final metadataService = MetadataService();
+      SeriesMetadata? newMeta;
+      if (targetId.startsWith('tt')) {
+        newMeta = await metadataService.fetchTmdbByImdbId(targetId);
+      } else {
+        newMeta = await metadataService.fetchJikanByMalId(targetId);
+      }
+      
+      if (mounted) {
+        setState(() {
+          if (newMeta != null) _currentMetadata = newMeta;
+          _isLoadingMetadata = false;
+          _initYtController(_currentMetadata);
+        });
+      }
+    }
   }
 
   void _initYtController(SeriesMetadata? meta) {
@@ -77,12 +113,12 @@ class _AndroidSeriesDetailsScreenState extends ConsumerState<AndroidSeriesDetail
   }
 
   Future<void> _onSeasonChanged(int newIndex) async {
-    if (widget.overrideIds == null || widget.overrideIds!.isEmpty) return;
+    if (_overrideIds == null || _overrideIds!.isEmpty) return;
 
-    int idIndex = newIndex < widget.overrideIds!.length
+    int idIndex = newIndex < _overrideIds!.length
         ? newIndex
-        : widget.overrideIds!.length - 1;
-    String targetId = widget.overrideIds![idIndex];
+        : _overrideIds!.length - 1;
+    String targetId = _overrideIds![idIndex];
 
     setState(() {
       _selectedSeasonIndex = newIndex;
@@ -285,6 +321,13 @@ class _AndroidSeriesDetailsScreenState extends ConsumerState<AndroidSeriesDetail
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoadingMetadata) {
+      return const Scaffold(
+        backgroundColor: Colors.black,
+        body: Center(child: CircularProgressIndicator(color: Colors.orange)),
+      );
+    }
+
     if (_currentMetadata == null) {
         return AndroidEpisodeListScreen(
           season: widget.series.seasons.first,

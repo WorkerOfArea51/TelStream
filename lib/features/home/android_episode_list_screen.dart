@@ -237,10 +237,15 @@ class _AndroidEpisodeListScreenState extends ConsumerState<AndroidEpisodeListScr
       (s) => s.coreName == widget.series.coreName,
       orElse: () => widget.series,
     );
-    final selectedSeason = activeSeries.seasons.firstWhere(
+    AnimeSeason selectedSeason = activeSeries.seasons.firstWhere(
       (s) => s.seasonName == _selectedSeason.seasonName,
       orElse: () => _selectedSeason,
     );
+
+    // If the local _selectedSeason has dynamically loaded episodes but the provider's season doesn't yet, use the local one
+    if (selectedSeason.episodes.isEmpty && _selectedSeason.episodes.isNotEmpty) {
+      selectedSeason = _selectedSeason;
+    }
 
     final isFavorite = ref
         .watch(favoritesProvider)
