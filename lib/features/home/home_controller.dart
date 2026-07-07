@@ -146,7 +146,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
               }
             }
             if (changed) {
-              _allSeries = _parseMessages(_rawMessages);
+              _allSeries = await _parseMessages(_rawMessages);
               if (state.value != null) {
                 if (!_isDisposed) state = AsyncValue.data(await _applySearchAndSort(_allSeries));
               }
@@ -268,7 +268,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
           
           if (changed) {
             _rawMessages.sort((a, b) => b.id.compareTo(a.id));
-            _allSeries = _parseMessages(_rawMessages);
+            _allSeries = await _parseMessages(_rawMessages);
             if (!_isDisposed) state = AsyncValue.data(await _applySearchAndSort(_allSeries));
             _triggerReleaseYearsSync();
           }
@@ -413,7 +413,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
       return [];
     }
     
-    _allSeries = _parseMessages(_rawMessages);
+    _allSeries = await _parseMessages(_rawMessages);
     _cacheLoadComplete = !_hasMore;
     Log.i('[_fetchInitial] Completed for category: ${category.title}, found ${_allSeries.length} series');
     return await _applySearchAndSort(_allSeries);
@@ -424,7 +424,13 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
       final directory = await getAppDirectory();
       final cachePath = '${directory.path}/catalog_cache_${category.title.replaceAll(' ', '_')}.json';
       final file = File(cachePath);
-      final jsonList = _allSeries.map((s) => s.toJson()).toList();
+      
+      final List<Map<String, dynamic>> jsonList = [];
+      for (int i = 0; i < _allSeries.length; i++) {
+        if (i > 0 && i % 100 == 0) await Future.delayed(Duration.zero);
+        jsonList.add(_allSeries[i].toJson());
+      }
+      
       final content = await compute(jsonEncode, jsonList);
       await file.writeAsString(content);
       Log.i('Saved catalog cache for category ${category.title} to $cachePath');
@@ -521,7 +527,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
               final isNearEnd = reachedEnd || !_hasMore;
               if (isNearEnd || now.difference(lastUiUpdateTime) > const Duration(milliseconds: 1500)) {
                 _rawMessages.sort((a, b) => b.id.compareTo(a.id));
-                _allSeries = _parseMessages(_rawMessages);
+                _allSeries = await _parseMessages(_rawMessages);
                 if (!_isDisposed) state = AsyncValue.data(await _applySearchAndSort(_allSeries));
                 _triggerReleaseYearsSync();
                 if (_cacheLoadComplete) {
@@ -551,7 +557,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
       if (_isDisposed) return;
       if (changed) {
         _rawMessages.sort((a, b) => b.id.compareTo(a.id));
-        _allSeries = _parseMessages(_rawMessages);
+        _allSeries = await _parseMessages(_rawMessages);
         if (!_isDisposed) state = AsyncValue.data(await _applySearchAndSort(_allSeries));
         _triggerReleaseYearsSync();
       }
@@ -882,17 +888,21 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
   }
 
   @visibleForTesting
-  List<AnimeSeries> parseMessagesForTesting(List<td.Message> raw) => _parseMessages(raw);
+  Future<List<AnimeSeries>> parseMessagesForTesting(List<td.Message> raw) async => await _parseMessages(raw);
 
   @visibleForTesting
   Future<List<AnimeSeries>> applySearchAndSortForTesting(List<AnimeSeries> series) => _applySearchAndSort(series);
 
-  List<AnimeSeries> _parseMessages(List<td.Message> raw) {
+  Future<List<AnimeSeries>> _parseMessages(List<td.Message> raw) async {
     // 1. Separate poster messages and episode messages
     final List<td.Message> posterMessages = [];
     final List<td.Message> episodeMessages = [];
 
+    int processedCount = 0;
     for (final msg in raw) {
+      processedCount++;
+      if (processedCount % 100 == 0) await Future.delayed(Duration.zero);
+
       if (msg.content is td.MessagePhoto) {
         final photo = msg.content as td.MessagePhoto;
         if (photo.caption.text.isNotEmpty) {
@@ -922,7 +932,11 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
     final List<AnimeSeries> seriesList = [];
     final isMovie = category.title == 'Movies';
 
+    processedCount = 0;
     for (final pMsg in posterMessages) {
+      processedCount++;
+      if (processedCount % 50 == 0) await Future.delayed(Duration.zero);
+      
       final photo = pMsg.content as td.MessagePhoto;
       final captionText = photo.caption.text;
       final lines = captionText.split('\n');
@@ -1411,7 +1425,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
         final idx = _rawMessages.indexWhere((m) => m.id == messageId);
         if (idx != -1) {
           _rawMessages[idx] = res;
-          _allSeries = _parseMessages(_rawMessages);
+          _allSeries = await _parseMessages(_rawMessages);
           if (state.value != null) {
             if (!_isDisposed) state = AsyncValue.data(await _applySearchAndSort(_allSeries));
           }

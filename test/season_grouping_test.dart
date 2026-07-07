@@ -79,14 +79,14 @@ class TestHomeController extends HomeController {
         inviteLink: '',
       );
 
-  List<AnimeSeries> testParse(List<td.Message> raw) {
+  Future<List<AnimeSeries>> testParse(List<td.Message> raw) async {
     return parseMessagesForTesting(raw);
   }
 }
 
 void main() {
   group('Season Parsing & Grouping Tests', () {
-    test('parseSeasonName parses standard season names correctly', () {
+    test('parseSeasonName parses standard season names correctly', () async {
       expect(HomeController.parseSeasonName('Ranma ½', 'Ranma ½'), 'Season 1');
       expect(HomeController.parseSeasonName('Ranma ½ Nettouhen', 'Ranma ½'), 'Nettouhen');
       expect(HomeController.parseSeasonName('Ranma ½ (2024)', 'Ranma ½'), 'Season 1 (2024)');
@@ -99,7 +99,7 @@ void main() {
       expect(HomeController.parseSeasonName('Tokyo Ghoul Root A', 'Tokyo Ghoul'), '√A');
     });
 
-    test('normalizeSeriesName normalizes series names correctly', () {
+    test('normalizeSeriesName normalizes series names correctly', () async {
       expect(HomeController.normalizeSeriesName('Ranma ½'), 'Ranma ½');
       expect(HomeController.normalizeSeriesName('Ranma ½ (2024)'), 'Ranma ½');
       expect(HomeController.normalizeSeriesName('Re:ZERO -Starting Life in Another World-'), 'Re:ZERO -Starting Life in Another World');
@@ -115,7 +115,7 @@ void main() {
       expect(HomeController.normalizeSeriesName('Tokyo Ghoul: Root A'), 'Tokyo Ghoul');
     });
 
-    test('franchise grouping bypass separates Dragon Ball, Z, and Daima', () {
+    test('franchise grouping bypass separates Dragon Ball, Z, and Daima', () async {
       final controller = TestHomeController();
 
       // We will parse messages in the correct sequence.
@@ -135,7 +135,7 @@ void main() {
         ),
       ];
 
-      final seriesList = controller.testParse(messages);
+      final seriesList = await controller.testParse(messages);
 
       // They should NOT be merged. We should get 3 separate series.
       expect(seriesList.length, 3);
@@ -170,7 +170,7 @@ void main() {
       ];
 
       // Parse the messages to build the series structures
-      final seriesList = controller.testParse(messages);
+      final seriesList = await controller.testParse(messages);
       expect(seriesList.length, 1);
       expect(seriesList[0].coreName, 'Naruto');
 
@@ -187,7 +187,7 @@ void main() {
       expect(seasons[3].seasonName, 'Season 9');
     });
 
-    test('Pure chronological sequential parser correctly groups episodes under their preceding posters', () {
+    test('Pure chronological sequential parser correctly groups episodes under their preceding posters', () async {
       final controller = TestHomeController();
       
       final messages = [
@@ -213,7 +213,7 @@ void main() {
         ),
       ];
 
-      final seriesList = controller.testParse(messages);
+      final seriesList = await controller.testParse(messages);
 
       final defendersSeries = seriesList.firstWhere((s) => s.coreName == "Marvel's The Defenders");
       final zombiesSeries = seriesList.firstWhere((s) => s.coreName == "Marvel Zombies");

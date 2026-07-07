@@ -124,7 +124,7 @@ class _DesktopSeriesDetailsScreenState extends ConsumerState<DesktopSeriesDetail
     }
   }
 
-  void _playEpisode(td.Message episode, int index) {
+  void _playEpisode(BuildContext context, td.Message episode, int index) {
     ref.read(desktopSelectedEpisodeProvider.notifier).state = episode;
     
     // Add to history
@@ -143,6 +143,17 @@ class _DesktopSeriesDetailsScreenState extends ConsumerState<DesktopSeriesDetail
       episodeIndex: index,
       positionInSeconds: 0,
       videoFileId: videoId,
+    );
+    
+    // Trigger video playback on Desktop
+    ref.read(pipControllerProvider.notifier).playVideo(
+      context,
+      messageId: episode.id,
+      videoFileId: videoId,
+      videoTitle: fileTitle,
+      episodeList: widget.series.seasons[_selectedSeasonIndex].episodes,
+      currentEpisodeIndex: index,
+      seriesName: widget.series.coreName,
     );
   }
 
@@ -388,7 +399,7 @@ class _DesktopSeriesDetailsScreenState extends ConsumerState<DesktopSeriesDetail
                             index: index,
                             isWatched: isWatched,
                             progress: progress,
-                            onTap: () => _playEpisode(episode, index),
+                            onTap: () => _playEpisode(context, episode, index),
                           );
                         },
                       ),

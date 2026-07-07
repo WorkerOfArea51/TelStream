@@ -20,6 +20,7 @@ import '../../services/storage_service.dart';
 import 'package:media_kit/media_kit.dart';
 import 'airing_calendar_screen.dart';
 import '../../services/update_service.dart';
+import 'widgets/custom_about_dialog.dart';
 import 'dart:io';
 
 class DesktopMainScreen extends ConsumerStatefulWidget {
@@ -51,7 +52,67 @@ class _DesktopMainScreenState extends ConsumerState<DesktopMainScreen> with Tick
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('OK', style: TextStyle(color: Colors.amber)),
+            child: const Text('OK', style: TextStyle(color: Colors.orange)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showOpenStreamDialog(BuildContext context) {
+    final controller = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF1c1c1c),
+        title: const Text('Open Stream', style: TextStyle(color: Colors.white)),
+        content: SizedBox(
+          width: 400,
+          child: TextField(
+            controller: controller,
+            style: const TextStyle(color: Colors.white),
+            decoration: const InputDecoration(
+              hintText: 'Enter stream URL (e.g., https://...)',
+              hintStyle: TextStyle(color: Colors.white54),
+              enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.white30)),
+              focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.orange)),
+            ),
+            autofocus: true,
+            onSubmitted: (value) {
+              if (value.isNotEmpty) {
+                Navigator.pop(context);
+                ref.read(pipControllerProvider.notifier).playVideo(
+                  context,
+                  messageId: 0,
+                  videoFileId: 0,
+                  videoTitle: 'Network Stream',
+                  networkUrl: value,
+                );
+              }
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel', style: TextStyle(color: Colors.white70)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+            onPressed: () {
+              final value = controller.text.trim();
+              if (value.isNotEmpty) {
+                Navigator.pop(context);
+                ref.read(pipControllerProvider.notifier).playVideo(
+                  context,
+                  messageId: 0,
+                  videoFileId: 0,
+                  videoTitle: 'Network Stream',
+                  networkUrl: value,
+                );
+              }
+            },
+            child: const Text('Play', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -156,15 +217,9 @@ class _DesktopMainScreenState extends ConsumerState<DesktopMainScreen> with Tick
                         );
                       }
                     } else if (value == 'about') {
-                      showAboutDialog(
-                        context: context,
-                        applicationName: 'TelStream',
-                        applicationVersion: '1.0.0', // or from package_info
-                        applicationIcon: Image.asset('assets/icon/icon.png', width: 64, height: 64),
-                        children: [
-                          const Text('A streaming application built with Flutter & media_kit.'),
-                        ]
-                      );
+                      CustomAboutDialog.show(context);
+                    } else if (value == 'open') {
+                      _showOpenStreamDialog(context);
                     } else if (value == 'calendar') {
                       showDialog(
                         context: context,
@@ -182,7 +237,7 @@ class _DesktopMainScreenState extends ConsumerState<DesktopMainScreen> with Tick
                       );
                     } else if (value == 'exit') {
                       windowManager.close();
-                    } else if (['open', 'video', 'audio', 'subtitles'].contains(value)) {
+                    } else if (['video', 'audio', 'subtitles'].contains(value)) {
                       _showNotImplementedDialog(value.toUpperCase());
                     }
                   },
