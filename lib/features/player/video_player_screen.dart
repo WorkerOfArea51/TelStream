@@ -679,13 +679,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
     } catch (_) {}
 
     final playerToDispose = player;
-    final controllerToDispose = controller;
     Future.delayed(const Duration(milliseconds: 300), () {
-      try {
-        controllerToDispose.dispose();
-      } catch (e, st) {
-        Log.e('Failed to dispose VideoController', e, st);
-      }
       try {
         playerToDispose.dispose();
       } catch (e, st) {
