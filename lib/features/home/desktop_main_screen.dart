@@ -12,8 +12,15 @@ import 'global_search_screen.dart';
 import 'desktop_library_view.dart';
 import 'android_series_details_screen.dart';
 import '../settings/settings_screen.dart';
+import '../settings/settings_provider.dart';
 import '../player/pip_manager.dart';
 import '../player/video_player_screen.dart';
+import '../player/widgets/track_selector_panel.dart';
+import '../../services/storage_service.dart';
+import 'package:media_kit/media_kit.dart';
+import 'airing_calendar_screen.dart';
+import '../../services/update_service.dart';
+import 'dart:io';
 
 class DesktopMainScreen extends ConsumerStatefulWidget {
   const DesktopMainScreen({super.key});
@@ -57,6 +64,40 @@ class _DesktopMainScreenState extends ConsumerState<DesktopMainScreen> with Tick
     windowManager.addListener(this);
     _initWindowState();
     _tabController = TabController(length: 3, vsync: this);
+    _checkForUpdates();
+  }
+
+  void _checkForUpdates() async {
+    final updateInfo = await UpdateService.checkForUpdate();
+    if (updateInfo != null && updateInfo.isUpdateAvailable && mounted) {
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          backgroundColor: Colors.grey[900],
+          title: const Text('Update Available', style: TextStyle(color: Colors.white)),
+          content: Text(
+            'Version ${updateInfo.latestVersion} is available!\n\n${updateInfo.releaseNotes}',
+            style: const TextStyle(color: Colors.white70),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Later', style: TextStyle(color: Colors.white54)),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                UpdateService.downloadAndInstallUpdate(
+                  updateInfo.downloadUrl,
+                  updateInfo.latestVersion,
+                );
+              },
+              child: const Text('Download & Update', style: TextStyle(color: Colors.orange)),
+            ),
+          ],
+        ),
+      );
+    }
   }
 
   void _initWindowState() async {
@@ -110,13 +151,73 @@ class _DesktopMainScreenState extends ConsumerState<DesktopMainScreen> with Tick
                     side: const BorderSide(color: Colors.white12),
                   ),
                   tooltip: 'Menu',
-                  onSelected: (value) {
-                    if (value == 'downloads' || value == 'history') {
+                  onSelected: (value) async {
+                    if (value == 'downloads' || value == 'history' || value == 'preferences') {
                       setState(() {
                         _currentRightPanelView = value;
                         _isRightPanelOpen = true; // Ensure it's open
                       });
-                    } else if (value == 'preferences') {
+                    } else if (value == 'audio' || value == 'subtitles') {
+                      setState(() {
+                        _currentRightPanelView = 'preferences';
+                        _isRightPanelOpen = true;
+                      });
+                      // If preferences tab needs to switch to a specific sub-tab, we'll handle it inside SettingsScreen
+                    } else if (value == 'update') {
+                      showDialog(
+                        context: context,
+                        barrierDismissible: false,
+                        builder: (context) => const Center(
+                          child: CircularProgressIndicator(color: Colors.orange),
+                        ),
+                      );
+                      final updateInfo = await UpdateService.checkForUpdate();
+                      if (context.mounted) Navigator.pop(context); // Close loading
+                      
+                      if (updateInfo != null && updateInfo.isUpdateAvailable && context.mounted) {
+                        showDialog(
+                          context: context,
+                          builder: (context) => AlertDialog(
+                            backgroundColor: Colors.grey[900],
+                            title: const Text('Update Available', style: TextStyle(color: Colors.white)),
+                            content: Text(
+                              'Version ${updateInfo.latestVersion} is available!\n\n${updateInfo.releaseNotes}',
+                              style: const TextStyle(color: Colors.white70),
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(context),
+                                child: const Text('Later', style: TextStyle(color: Colors.white54)),
+                              ),
+                              TextButton(
+                                onPressed: () {
+                                  Navigator.pop(context);
+                                  UpdateService.downloadAndInstallUpdate(
+                                    updateInfo.downloadUrl,
+                                    updateInfo.latestVersion,
+                                  );
+                                },
+                                child: const Text('Download & Update', style: TextStyle(color: Colors.orange)),
+                              ),
+                            ],
+                          ),
+                        );
+                      } else if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('You are on the latest version!')),
+                        );
+                      }
+                    } else if (value == 'about') {
+                      showAboutDialog(
+                        context: context,
+                        applicationName: 'TelStream',
+                        applicationVersion: '1.0.0', // or from package_info
+                        applicationIcon: Image.asset('assets/icon/icon.png', width: 64, height: 64),
+                        children: [
+                          const Text('A streaming application built with Flutter & media_kit.'),
+                        ]
+                      );
+                    } else if (value == 'calendar') {
                       showDialog(
                         context: context,
                         builder: (context) => Dialog(
@@ -126,8 +227,7 @@ class _DesktopMainScreenState extends ConsumerState<DesktopMainScreen> with Tick
                             child: const SizedBox(
                               width: 800,
                               height: 600,
-                              // SettingsScreen is a scaffold so it will look like a solid window
-                              child: SettingsScreen(),
+                              child: AiringCalendarScreen(),
                             ),
                           ),
                         ),
@@ -142,12 +242,15 @@ class _DesktopMainScreenState extends ConsumerState<DesktopMainScreen> with Tick
                     _buildMenuItem('open', 'Open Stream...', shortcut: 'Ctrl+O'),
                     _buildMenuItem('downloads', 'Downloads', shortcut: 'Ctrl+D'),
                     _buildMenuItem('history', 'History / Playback', shortcut: 'Ctrl+H'),
+                    _buildMenuItem('calendar', 'Airing Calendar', shortcut: 'Ctrl+Cal'),
                     _buildMenuItem('div1', '', isDivider: true),
                     _buildMenuItem('video', 'Video', hasSubmenu: true),
                     _buildMenuItem('audio', 'Audio', hasSubmenu: true),
                     _buildMenuItem('subtitles', 'Subtitles', hasSubmenu: true),
                     _buildMenuItem('div2', '', isDivider: true),
                     _buildMenuItem('preferences', 'Preferences...', shortcut: 'F5'),
+                    _buildMenuItem('update', 'Check for Update'),
+                    _buildMenuItem('about', 'About'),
                     _buildMenuItem('div3', '', isDivider: true),
                     _buildMenuItem('exit', 'Exit', shortcut: 'Alt+F4'),
                   ],
@@ -588,9 +691,9 @@ class _DesktopMainScreenState extends ConsumerState<DesktopMainScreen> with Tick
                         Expanded(
                           child: TabBarView(
                             children: [
-                              _buildAudioTab(),
+                              _buildTrackPanel(isSubtitle: false),
                               const Center(child: Text('Video Controls', style: TextStyle(color: Colors.white54))),
-                              const Center(child: Text('Subtitle Controls', style: TextStyle(color: Colors.white54))),
+                              _buildTrackPanel(isSubtitle: true),
                               const Center(child: Text('Playback Controls', style: TextStyle(color: Colors.white54))),
                             ],
                           ),
@@ -607,37 +710,94 @@ class _DesktopMainScreenState extends ConsumerState<DesktopMainScreen> with Tick
     );
   }
 
-  Widget _buildAudioTab() {
-      return Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Checkbox(value: false, onChanged: (v) {}, activeColor: Colors.orange),
-                const Text('Equalizer', style: TextStyle(color: Colors.white70, fontSize: 12)),
-                const Spacer(),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(color: Colors.white12, borderRadius: BorderRadius.circular(4)),
-                  child: const Text('Default', style: TextStyle(color: Colors.white, fontSize: 12)),
-                ),
-                const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(color: Colors.white12, borderRadius: BorderRadius.circular(4)),
-                  child: const Text('Preset', style: TextStyle(color: Colors.white, fontSize: 12)),
-                ),
-              ],
-            ),
-            const Spacer(),
-            const Center(child: Text('Equalizer controls will go here', style: TextStyle(color: Colors.white38))),
-            const Spacer(),
-          ],
+  Widget _buildTrackPanel({required bool isSubtitle}) {
+    final player = ref.watch(pipControllerProvider.notifier).activePlayer;
+    if (player == null) {
+      return Center(
+        child: Text(
+          'No video currently playing',
+          style: TextStyle(color: Colors.white54),
         ),
       );
     }
+
+    final settings = ref.watch(videoSettingsProvider);
+    final storage = ref.read(storageServiceProvider);
+
+    return TrackSelectorPanel(
+      player: player,
+      isSubtitle: isSubtitle,
+      trackCodecs: const {},
+      currentRendererMode: settings.subtitleRendererMode,
+      onRendererModeChanged: (newMode) {
+        ref.read(videoSettingsProvider.notifier).updateSettings(
+          settings.copyWith(subtitleRendererMode: newMode),
+        );
+      },
+      currentDecoderMode: storage.getHardwareDecoderMode(),
+      onDecoderModeChanged: (newDecoderMode) async {
+        await storage.setHardwareDecoderMode(newDecoderMode);
+        try {
+          if (player.platform is NativePlayer) {
+            final nativePlayer = player.platform as NativePlayer;
+            if (newDecoderMode != 'no') {
+              nativePlayer.setProperty('hwdec', Platform.isAndroid ? newDecoderMode : 'auto');
+            } else {
+              nativePlayer.setProperty('hwdec', 'no');
+            }
+          }
+        } catch (_) {}
+        setState(() {});
+      },
+      currentSubtitleDelay: settings.subtitleDelay,
+      onSubtitleDelayChanged: (val) {
+        final roundedVal = double.parse(val.toStringAsFixed(1));
+        if (player.platform is NativePlayer) {
+          try {
+            (player.platform as NativePlayer).setProperty('sub-delay', roundedVal.toString());
+          } catch (_) {}
+        }
+        storage.setSubtitleDelay(roundedVal);
+        ref.read(videoSettingsProvider.notifier).updateSettings(settings.copyWith(subtitleDelay: roundedVal));
+      },
+      currentAudioDelay: 0.0, // Used inside AudioSyncDialog normally
+      onAudioDelayChanged: (val) {},
+      onTrackSelected: (track) {
+        if (isSubtitle) {
+          player.setSubtitleTrack(track as SubtitleTrack);
+          if (track.id != 'no' && track.id != 'auto') {
+            storage.setPreferredSubtitleTrackForAudioLanguage(
+              player.state.track.audio.language ?? 'und', 
+              track.language ?? 'und',
+            );
+          }
+        } else {
+          player.setAudioTrack(track as AudioTrack);
+          if (track.id != 'no' && track.id != 'auto') {
+            storage.setPreferredAudioTrack(track.language ?? 'und');
+          }
+        }
+      },
+      onPickLocalSubtitle: () {},
+      onOpenSubtitleDownloader: () {},
+      onClose: () {},
+      currentFontSize: settings.subtitleFontSize,
+      onFontSizeChanged: (val) {
+        storage.setSubtitleFontSize(val);
+        ref.read(videoSettingsProvider.notifier).updateSettings(settings.copyWith(subtitleFontSize: val));
+      },
+      currentFontColor: settings.subtitleColor,
+      onFontColorChanged: (val) {
+        storage.setSubtitleColor(val);
+        ref.read(videoSettingsProvider.notifier).updateSettings(settings.copyWith(subtitleColor: val));
+      },
+      currentFontFamily: settings.subtitleFont,
+      onFontFamilyChanged: (val) {
+        storage.setSubtitleFont(val);
+        ref.read(videoSettingsProvider.notifier).updateSettings(settings.copyWith(subtitleFont: val));
+      },
+    );
+  }
 }
 
 class DesktopPlaybackControls extends StatefulWidget {

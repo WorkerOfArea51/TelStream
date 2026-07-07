@@ -32,6 +32,8 @@ class _DesktopSeriesDetailsScreenState extends ConsumerState<DesktopSeriesDetail
   final ScrollController _scrollController = ScrollController();
   bool _isLoadingMetadata = false;
   SeriesMetadata? _metadata;
+  List<String>? _overrideIds;
+  final Map<int, SeriesMetadata> _metadataCache = {};
 
   @override
   void initState() {
@@ -42,17 +44,43 @@ class _DesktopSeriesDetailsScreenState extends ConsumerState<DesktopSeriesDetail
   @override
   void didUpdateWidget(covariant DesktopSeriesDetailsScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.series.coreName != oldWidget.series.coreName) {
-      _selectedSeasonIndex = 0;
-      _metadata = null;
-      _loadMetadata();
-    }
+      if (widget.series.coreName != oldWidget.series.coreName) {
+        _selectedSeasonIndex = 0;
+        _metadata = null;
+        _overrideIds = null;
+        _metadataCache.clear();
+        _loadMetadata();
+      }
   }
 
   @override
   void dispose() {
     _scrollController.dispose();
     super.dispose();
+  }
+
+  Future<void> _prefetchOtherMetadata(List<String> ids) async {
+    final metadataService = MetadataService();
+    for (int i = 1; i < ids.length; i++) {
+      if (!mounted) break;
+      final targetId = ids[i];
+      SeriesMetadata? newMeta;
+      try {
+        if (targetId.startsWith('tt')) {
+          newMeta = await metadataService.fetchTmdbByImdbId(targetId);
+        } else {
+          newMeta = await metadataService.fetchJikanByMalId(targetId);
+        }
+      } catch (e) {
+        debugPrint('Error prefetching metadata on desktop: $e');
+      }
+      if (mounted && newMeta != null) {
+        setState(() {
+          _metadataCache[i] = newMeta;
+        });
+      }
+      await Future.delayed(const Duration(milliseconds: 350));
+    }
   }
 
   Future<void> _loadMetadata() async {
@@ -65,6 +93,7 @@ class _DesktopSeriesDetailsScreenState extends ConsumerState<DesktopSeriesDetail
       final overrideId = FirebaseMetadataService.getOverride(widget.series.coreName);
       if (overrideId != null && overrideId.isNotEmpty) {
         final overrideIds = overrideId.split(',');
+        _overrideIds = overrideIds;
         final firstId = overrideIds.first;
         final metadataService = MetadataService();
         
@@ -74,10 +103,14 @@ class _DesktopSeriesDetailsScreenState extends ConsumerState<DesktopSeriesDetail
         } else {
           meta = await metadataService.fetchJikanByMalId(firstId);
         }
-        if (mounted) {
+        if (mounted && meta != null) {
           setState(() {
             _metadata = meta;
+            _metadataCache[0] = meta;
           });
+          if (overrideIds.length > 1) {
+            _prefetchOtherMetadata(overrideIds);
+          }
         }
       }
     } catch (e) {
@@ -294,8 +327,37 @@ class _DesktopSeriesDetailsScreenState extends ConsumerState<DesktopSeriesDetail
                                   ),
                                 ),
                               ),
-                              onChanged: (val) {
-                                if (val != null) setState(() => _selectedSeasonIndex = val);
+                              onChanged: (val) async {
+                                if (val != null) {
+                                  setState(() => _selectedSeasonIndex = val);
+                                  if (_overrideIds != null && _overrideIds!.length > val) {
+                                    if (_metadataCache.containsKey(val)) {
+                                      setState(() {
+                                        _metadata = _metadataCache[val];
+                                      });
+                                    } else {
+                                      // Fallback fetch if it wasn't prefetched fast enough
+                                      setState(() => _isLoadingMetadata = true);
+                                      final targetId = _overrideIds![val];
+                                      final metadataService = MetadataService();
+                                      SeriesMetadata? newMeta;
+                                      if (targetId.startsWith('tt')) {
+                                        newMeta = await metadataService.fetchTmdbByImdbId(targetId);
+                                      } else {
+                                        newMeta = await metadataService.fetchJikanByMalId(targetId);
+                                      }
+                                      if (mounted) {
+                                        setState(() {
+                                          if (newMeta != null) {
+                                            _metadataCache[val] = newMeta;
+                                            _metadata = newMeta;
+                                          }
+                                          _isLoadingMetadata = false;
+                                        });
+                                      }
+                                    }
+                                  }
+                                }
                               },
                             ),
                           ),

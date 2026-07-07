@@ -44,6 +44,7 @@ class _AndroidSeriesDetailsScreenState extends ConsumerState<AndroidSeriesDetail
   bool _isLoadingMetadata = false;
   int _selectedSeasonIndex = 0;
   List<String>? _overrideIds;
+  final Map<int, SeriesMetadata> _metadataCache = {};
 
   @override
   void initState() {
@@ -54,8 +55,37 @@ class _AndroidSeriesDetailsScreenState extends ConsumerState<AndroidSeriesDetail
 
     _initYtController(_currentMetadata);
     
-    if (_currentMetadata == null) {
+    if (_currentMetadata != null) {
+      _metadataCache[0] = _currentMetadata!;
+      if (_overrideIds != null && _overrideIds!.length > 1) {
+        _prefetchOtherMetadata(_overrideIds!);
+      }
+    } else {
       _checkAndFetchMetadata();
+    }
+  }
+
+  Future<void> _prefetchOtherMetadata(List<String> ids) async {
+    final metadataService = MetadataService();
+    for (int i = 1; i < ids.length; i++) {
+      if (!mounted) break;
+      final targetId = ids[i];
+      SeriesMetadata? newMeta;
+      try {
+        if (targetId.startsWith('tt')) {
+          newMeta = await metadataService.fetchTmdbByImdbId(targetId);
+        } else {
+          newMeta = await metadataService.fetchJikanByMalId(targetId);
+        }
+      } catch (e) {
+        debugPrint('Error prefetching metadata: $e');
+      }
+      if (mounted && newMeta != null) {
+        setState(() {
+          _metadataCache[i] = newMeta;
+        });
+      }
+      await Future.delayed(const Duration(milliseconds: 350));
     }
   }
 
@@ -81,10 +111,16 @@ class _AndroidSeriesDetailsScreenState extends ConsumerState<AndroidSeriesDetail
       
       if (mounted) {
         setState(() {
-          if (newMeta != null) _currentMetadata = newMeta;
+          if (newMeta != null) {
+            _currentMetadata = newMeta;
+            _metadataCache[0] = newMeta;
+          }
           _isLoadingMetadata = false;
           _initYtController(_currentMetadata);
         });
+        if (_overrideIds != null && _overrideIds!.length > 1) {
+          _prefetchOtherMetadata(_overrideIds!);
+        }
       }
     }
   }
@@ -115,6 +151,16 @@ class _AndroidSeriesDetailsScreenState extends ConsumerState<AndroidSeriesDetail
   Future<void> _onSeasonChanged(int newIndex) async {
     if (_overrideIds == null || _overrideIds!.isEmpty) return;
 
+    if (_metadataCache.containsKey(newIndex)) {
+      setState(() {
+        _selectedSeasonIndex = newIndex;
+        _currentMetadata = _metadataCache[newIndex];
+        _trailerPlaying = false;
+        _initYtController(_currentMetadata);
+      });
+      return;
+    }
+
     int idIndex = newIndex < _overrideIds!.length
         ? newIndex
         : _overrideIds!.length - 1;
@@ -136,19 +182,39 @@ class _AndroidSeriesDetailsScreenState extends ConsumerState<AndroidSeriesDetail
 
     if (mounted) {
       setState(() {
-        _currentMetadata = newMeta ?? _currentMetadata;
+        if (newMeta != null) {
+          _metadataCache[newIndex] = newMeta;
+          _currentMetadata = newMeta;
+        }
         _isLoadingMetadata = false;
         _initYtController(_currentMetadata);
       });
     }
   }
 
-  void _openRecommendation(BuildContext context, RelatedContent rec) {
+  void _openRecommendation(BuildContext context, RelatedContent rec) async {
+    final isMovie = widget.categoryTitle.toLowerCase() == 'movies';
+    SeriesMetadata? fetchedMeta;
+    
+    if (!isMovie) {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (c) => const Center(child: CircularProgressIndicator(color: Colors.orange)),
+      );
+      try {
+        fetchedMeta = await MetadataService().fetchJikanByMalId(rec.id.toString());
+      } catch (_) {}
+      if (context.mounted) Navigator.pop(context);
+    }
+
+    if (!context.mounted) return;
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: Colors.grey[900],
-        title: Text(rec.title, style: const TextStyle(color: Colors.white)),
+        title: Text(fetchedMeta?.title.isNotEmpty == true ? fetchedMeta!.title : rec.title, style: const TextStyle(color: Colors.white)),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -164,9 +230,9 @@ class _AndroidSeriesDetailsScreenState extends ConsumerState<AndroidSeriesDetail
                 ),
               const SizedBox(height: 16),
               Text(
-                rec.synopsis.isNotEmpty
-                    ? rec.synopsis
-                    : 'Recommendation from TMDB/Jikan.',
+                fetchedMeta?.synopsis.isNotEmpty == true 
+                    ? fetchedMeta!.synopsis 
+                    : (rec.synopsis.isNotEmpty ? rec.synopsis : 'Recommendation from TMDB/Jikan.'),
                 style: const TextStyle(color: Colors.white70),
               ),
               const SizedBox(height: 24),
@@ -180,7 +246,7 @@ class _AndroidSeriesDetailsScreenState extends ConsumerState<AndroidSeriesDetail
                       borderRadius: BorderRadius.circular(8),
                     ),
                   ),
-                  onPressed: () => _handleWatchNow(context, rec),
+                  onPressed: () => _handleWatchNow(context, rec, fetchedMeta: fetchedMeta),
                   child: const Text(
                     'Watch Now',
                     style: TextStyle(
@@ -204,7 +270,7 @@ class _AndroidSeriesDetailsScreenState extends ConsumerState<AndroidSeriesDetail
     );
   }
 
-  Future<void> _handleWatchNow(BuildContext context, RelatedContent rec) async {
+  Future<void> _handleWatchNow(BuildContext context, RelatedContent rec, {SeriesMetadata? fetchedMeta}) async {
     Navigator.pop(context); // Close the popup first
 
     final isMovie = widget.categoryTitle.toLowerCase() == 'movies';
@@ -212,6 +278,7 @@ class _AndroidSeriesDetailsScreenState extends ConsumerState<AndroidSeriesDetail
       rec.title,
       isMovie: isMovie,
     );
+    final normalizedFetchedTitle = fetchedMeta != null ? HomeController.normalizeSeriesName(fetchedMeta.title, isMovie: isMovie) : null;
 
     AsyncValue<List<AnimeSeries>> seriesState;
     if (isMovie) {
@@ -234,10 +301,11 @@ class _AndroidSeriesDetailsScreenState extends ConsumerState<AndroidSeriesDetail
     }
 
     final targetClean = cleanString(rec.title);
+    final targetFetchedClean = fetchedMeta != null ? cleanString(fetchedMeta.title) : null;
 
     for (final s in allSeries) {
       final sClean = cleanString(s.coreName);
-      if (sClean == targetClean) {
+      if (sClean == targetClean || (targetFetchedClean != null && sClean == targetFetchedClean)) {
         matchedSeries = s;
         break;
       }
