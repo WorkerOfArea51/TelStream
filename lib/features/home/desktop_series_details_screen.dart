@@ -203,13 +203,11 @@ class _DesktopSeriesDetailsScreenState extends ConsumerState<DesktopSeriesDetail
                         },
                       ),
                     ),
+                  ],
                 ),
               ),
             ],
-          ),
-        ],
-      ),
-    );
+          );
   }
 }
 
