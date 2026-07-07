@@ -93,7 +93,13 @@ class PipVideoState {
   }
 }
 
-final activePlayerProvider = StateProvider<Player?>((ref) => null);
+class ActivePlayerNotifier extends Notifier<Player?> {
+  @override
+  Player? build() => null;
+  void setPlayer(Player? player) => state = player;
+}
+
+final activePlayerProvider = NotifierProvider<ActivePlayerNotifier, Player?>(ActivePlayerNotifier.new);
 
 class PipController extends Notifier<PipVideoState?> {
   bool isTransitioning = false;
@@ -115,14 +121,14 @@ class PipController extends Notifier<PipVideoState?> {
       } catch (_) {}
     }
     Future.microtask(() {
-      ref.read(activePlayerProvider.notifier).state = player;
+      ref.read(activePlayerProvider.notifier).setPlayer(player);
     });
   }
 
   void clearActivePlayer(Player player) {
     if (ref.read(activePlayerProvider) == player) {
       Future.microtask(() {
-        ref.read(activePlayerProvider.notifier).state = null;
+        ref.read(activePlayerProvider.notifier).setPlayer(null);
       });
     }
   }
@@ -143,7 +149,7 @@ class PipController extends Notifier<PipVideoState?> {
     final oldActivePlayer = ref.read(activePlayerProvider);
     if (oldActivePlayer != null) {
       Future.microtask(() {
-        ref.read(activePlayerProvider.notifier).state = null;
+        ref.read(activePlayerProvider.notifier).setPlayer(null);
       });
       try { oldActivePlayer.pause(); } catch (_) {}
     }
@@ -238,7 +244,7 @@ class PipController extends Notifier<PipVideoState?> {
     final oldActivePlayer = ref.read(activePlayerProvider);
     if (oldActivePlayer != null) {
       Future.microtask(() {
-        ref.read(activePlayerProvider.notifier).state = null;
+        ref.read(activePlayerProvider.notifier).setPlayer(null);
       });
     }
 
@@ -353,7 +359,7 @@ class PipController extends Notifier<PipVideoState?> {
     if (_activePlayer != null) {
       final playerToDispose = _activePlayer;
       Future.microtask(() {
-        ref.read(activePlayerProvider.notifier).state = null;
+        ref.read(activePlayerProvider.notifier).setPlayer(null);
       });
       try {
 
