@@ -20,6 +20,7 @@ class TrackSelectorPanel extends StatefulWidget {
   final VoidCallback onPickLocalSubtitle;
   final VoidCallback onOpenSubtitleDownloader;
   final VoidCallback onClose;
+  final bool hideHeader;
 
   // Subtitle styling parameters
   final double currentFontSize;
@@ -46,6 +47,7 @@ class TrackSelectorPanel extends StatefulWidget {
     required this.onPickLocalSubtitle,
     required this.onOpenSubtitleDownloader,
     required this.onClose,
+    this.hideHeader = false,
     required this.currentFontSize,
     required this.onFontSizeChanged,
     required this.currentFontColor,
@@ -145,7 +147,7 @@ class _TrackSelectorPanelState extends State<TrackSelectorPanel> {
 
             return Container(
               height: isLandscape ? double.infinity : (widget.isSubtitle ? 520.0 : 340.0),
-              decoration: BoxDecoration(
+              decoration: widget.hideHeader ? const BoxDecoration(color: Colors.transparent) : BoxDecoration(
                 color: const Color(0xEB0A0F1D), // Slate 950 with 92% opacity - clean translucency (no blur)
                 borderRadius: isLandscape
                     ? const BorderRadius.horizontal(left: Radius.circular(30))
@@ -163,30 +165,31 @@ class _TrackSelectorPanelState extends State<TrackSelectorPanel> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                  const SizedBox(height: 12),
+                  if (!widget.hideHeader) const SizedBox(height: 12),
                   
                   // Left arrow back and Title layout
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    child: Row(
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.arrow_back, color: Colors.white),
-                          onPressed: widget.onClose,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          widget.isSubtitle ? 'Subtitles' : 'Audio Tracks',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 18,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 0.5,
+                  if (!widget.hideHeader)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      child: Row(
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.arrow_back, color: Colors.white),
+                            onPressed: widget.onClose,
                           ),
-                        ),
-                      ],
+                          const SizedBox(width: 8),
+                          Text(
+                            widget.isSubtitle ? 'Subtitles' : 'Audio Tracks',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
 
                     // Dual tab switcher (Tracks vs Style)
                     if (widget.isSubtitle) ...[

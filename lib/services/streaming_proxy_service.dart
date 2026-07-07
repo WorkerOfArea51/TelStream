@@ -73,13 +73,16 @@ class StreamingProxyService {
   }
 
   Future<void> start() async {
-    if (_startCompleter!.isCompleted) {
-      _startCompleter = Completer<void>();
+    if (_startCompleter != null && !_startCompleter!.isCompleted) {
+      return _startCompleter!.future;
     }
+    if (_server != null) return; // Already running
+
+    _startCompleter = Completer<void>();
     try {
       try {
         _server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
-      } catch (_) {
+      } catch (e) {
         _server = await HttpServer.bind(InternetAddress.loopbackIPv6, 0);
       }
       _server!.autoCompress = false;
@@ -114,8 +117,10 @@ class StreamingProxyService {
     final q = fileName != null && fileName.isNotEmpty
         ? 'fileId=$fileId&name=${Uri.encodeComponent(fileName)}'
         : 'fileId=$fileId';
-    return 'http://127.0.0.1:$_port/stream?$q&token=$_authToken';
+    return 'http://127.0.0.1:$_port/stream?$q';
   }
+
+  Map<String, String> getAuthHeaders() => {'Authorization': 'Bearer $_authToken'};
 
   td.File? getCachedFile(int fileId) => _fileStates[fileId];
 
@@ -140,7 +145,8 @@ class StreamingProxyService {
         return;
       }
 
-      if (request.uri.queryParameters['token'] != _authToken) {
+      final authHeader = request.headers.value('Authorization');
+      if (authHeader != 'Bearer $_authToken') {
         request.response.statusCode = HttpStatus.unauthorized;
         await request.response.close();
         return;

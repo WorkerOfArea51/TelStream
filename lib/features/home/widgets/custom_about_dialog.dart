@@ -7,46 +7,33 @@ import '../../../core/widgets/whats_new_dialog.dart';
 
 class CustomAboutDialog {
   static void show(BuildContext context) {
-    if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
-      showDialog(
-        context: context,
-        builder: (context) => Dialog(
-          backgroundColor: Theme.of(context).cardColor,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 500, maxHeight: 750),
-            child: const _AboutContent(isDesktop: true),
-          ),
-        ),
-      );
-    } else {
-      final theme = Theme.of(context);
-      showModalBottomSheet(
-        context: context,
-        backgroundColor: theme.cardColor,
-        isScrollControlled: true,
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        builder: (context) {
-          return DraggableScrollableSheet(
-            initialChildSize: 0.75,
-            minChildSize: 0.5,
-            maxChildSize: 0.95,
-            expand: false,
-            builder: (context, scrollController) {
-              return Container(
-                decoration: BoxDecoration(
-                  color: theme.cardColor,
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-                ),
-                child: _AboutContent(scrollController: scrollController),
-              );
-            },
-          );
-        },
-      );
-    }
+    final theme = Theme.of(context);
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: theme.cardColor,
+      isScrollControlled: true,
+      constraints: const BoxConstraints(maxWidth: 600), // Ensures it looks good on wide desktop screens
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) {
+        return DraggableScrollableSheet(
+          initialChildSize: 0.75,
+          minChildSize: 0.5,
+          maxChildSize: 0.95,
+          expand: false,
+          builder: (context, scrollController) {
+            return Container(
+              decoration: BoxDecoration(
+                color: theme.cardColor,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+              ),
+              child: _AboutContent(scrollController: scrollController),
+            );
+          },
+        );
+      },
+    );
   }
 }
 

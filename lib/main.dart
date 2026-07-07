@@ -9,6 +9,7 @@ import 'package:tdlib/td_client.dart';
 import 'package:path_provider/path_provider.dart';
 import 'core/logger.dart';
 import 'core/constants.dart';
+import 'package:flutter/services.dart';
 import 'package:window_manager/window_manager.dart';
 import 'features/auth/login_screen.dart';
 import 'features/home/main_screen.dart';
@@ -51,7 +52,7 @@ void main() async {
       if (!logDir.existsSync()) {
         logDir.createSync(recursive: true);
       }
-      Log.init(dirPath);
+      await Log.init(dirPath);
 
       MediaKit.ensureInitialized();
       await Constants.initVersion();
@@ -118,10 +119,22 @@ class _TelStreamRoot extends StatelessWidget {
           body: Center(
             child: Padding(
               padding: const EdgeInsets.all(24.0),
-              child: Text(
-                'Fatal Error: $startupError\n\nPlease reinstall the app.',
-                style: const TextStyle(color: Colors.redAccent, fontSize: 16),
-                textAlign: TextAlign.center,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.error_outline, size: 64, color: Colors.redAccent),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Fatal Error: $startupError',
+                    style: const TextStyle(color: Colors.redAccent, fontSize: 16),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 24),
+                  FilledButton(
+                    onPressed: () => SystemNavigator.pop(),
+                    child: const Text('Exit'),
+                  ),
+                ],
               ),
             ),
           ),
@@ -173,32 +186,36 @@ class _AppLifecycleObserver extends WidgetsBindingObserver {
 class _AuthWrapperState extends ConsumerState<AuthWrapper> {
   bool _splashCompleted = false;
   Timer? _splashTimer;
+  _AppLifecycleObserver? _lifecycleObserver;
+  static bool _splashShownThisSession = false;
 
   @override
   void initState() {
     super.initState();
-    // Only show splash on TRUE cold start — not on activity recreation.
-    final isColdStart = DateTime.now().difference(_appBootTime) < const Duration(seconds: 5);
-    if (!isColdStart) {
+    if (_splashShownThisSession) {
       _splashCompleted = true;
-      return;
+    } else {
+      _splashShownThisSession = true;
+      _splashTimer = Timer(const Duration(milliseconds: 2500), () {
+        if (mounted) {
+          setState(() {
+            _splashCompleted = true;
+          });
+        }
+      });
     }
-    _splashTimer = Timer(const Duration(milliseconds: 2500), () {
-      if (mounted) {
-        setState(() {
-          _splashCompleted = true;
-        });
-      }
-    });
     
-    WidgetsBinding.instance.addObserver(_AppLifecycleObserver(ref.read(tdlibServiceProvider)));
+    _lifecycleObserver = _AppLifecycleObserver(ref.read(tdlibServiceProvider));
+    WidgetsBinding.instance.addObserver(_lifecycleObserver!);
   }
 
   @override
   void dispose() {
-    // Note: We don't remove the observer here because AuthWrapper lives 
-    // for the entire lifetime of the app, but normally we would remove it.
     _splashTimer?.cancel();
+    if (_lifecycleObserver != null) {
+      WidgetsBinding.instance.removeObserver(_lifecycleObserver!);
+      _lifecycleObserver = null;
+    }
     super.dispose();
   }
 

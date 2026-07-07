@@ -11,6 +11,7 @@ import 'global_search_screen.dart';
 
 import 'desktop_library_view.dart';
 import 'android_series_details_screen.dart';
+import 'desktop_series_details_screen.dart';
 import '../settings/settings_screen.dart';
 import '../settings/settings_provider.dart';
 import '../player/pip_manager.dart';
@@ -21,6 +22,7 @@ import 'package:media_kit/media_kit.dart';
 import 'airing_calendar_screen.dart';
 import '../../services/update_service.dart';
 import 'widgets/custom_about_dialog.dart';
+import 'network_stream_screen.dart';
 import 'dart:io';
 
 class DesktopMainScreen extends ConsumerStatefulWidget {
@@ -192,12 +194,11 @@ class _DesktopMainScreenState extends ConsumerState<DesktopMainScreen> with Tick
                         _currentRightPanelView = value;
                         _isRightPanelOpen = true; // Ensure it's open
                       });
-                    } else if (value == 'audio' || value == 'subtitles') {
-                      setState(() {
-                        _currentRightPanelView = 'preferences';
-                        _isRightPanelOpen = true;
-                      });
-                      // If preferences tab needs to switch to a specific sub-tab, we'll handle it inside SettingsScreen
+                    } else if (value == 'video' || value == 'audio' || value == 'subtitles') {
+                      int index = 0;
+                      if (value == 'video') index = 1;
+                      if (value == 'subtitles') index = 2;
+                      _showControlPanelDialog(context, initialIndex: index);
                     } else if (value == 'update') {
                       showDialog(
                         context: context,
@@ -237,8 +238,6 @@ class _DesktopMainScreenState extends ConsumerState<DesktopMainScreen> with Tick
                       );
                     } else if (value == 'exit') {
                       windowManager.close();
-                    } else if (['video', 'audio', 'subtitles'].contains(value)) {
-                      _showNotImplementedDialog(value.toUpperCase());
                     }
                   },
                   itemBuilder: (context) => [
@@ -412,7 +411,7 @@ class _DesktopMainScreenState extends ConsumerState<DesktopMainScreen> with Tick
               if (selectedSeries != null) ...[
 
                 Expanded(
-                  child: AndroidSeriesDetailsScreen(
+                  child: DesktopSeriesDetailsScreen(
                     series: selectedSeries,
                     categoryTitle: 'Anime',
                     onBack: () {
@@ -626,7 +625,7 @@ class _DesktopMainScreenState extends ConsumerState<DesktopMainScreen> with Tick
     );
   }
 
-  void _showControlPanelDialog(BuildContext context) {
+  void _showControlPanelDialog(BuildContext context, {int initialIndex = 0}) {
     showDialog(
       context: context,
       barrierColor: Colors.transparent, // Like a native floating window
@@ -651,6 +650,7 @@ class _DesktopMainScreenState extends ConsumerState<DesktopMainScreen> with Tick
                   ),
                   child: DefaultTabController(
                     length: 4,
+                    initialIndex: initialIndex,
                     child: Column(
                       children: [
                         // Header
@@ -785,6 +785,7 @@ class _DesktopMainScreenState extends ConsumerState<DesktopMainScreen> with Tick
       onOpenSubtitleDownloader: () {},
       onClose: () {},
       currentFontSize: settings.subtitleFontSize,
+      hideHeader: true,
       onFontSizeChanged: (val) {
         storage.setSubtitleFontSize(val);
         ref.read(videoSettingsProvider.notifier).updateSettings(settings.copyWith(subtitleFontSize: val));

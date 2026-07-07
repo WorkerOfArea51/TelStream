@@ -17,11 +17,13 @@ import '../player/pip_manager.dart';
 class DesktopSeriesDetailsScreen extends ConsumerStatefulWidget {
   final AnimeSeries series;
   final String categoryTitle;
+  final VoidCallback onBack;
 
   const DesktopSeriesDetailsScreen({
     super.key,
     required this.series,
     required this.categoryTitle,
+    required this.onBack,
   });
 
   @override
@@ -259,6 +261,11 @@ class _DesktopSeriesDetailsScreenState extends ConsumerState<DesktopSeriesDetail
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                IconButton(
+                  icon: const Icon(Icons.arrow_back, color: Colors.white),
+                  onPressed: widget.onBack,
+                ),
+                const SizedBox(width: 8),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,

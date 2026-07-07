@@ -1,4 +1,4 @@
-﻿import 'dart:io';
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 
 enum LogLevel { debug, info, warning, error }
@@ -17,10 +17,10 @@ class FileLogger implements Logger {
   static const int _maxBytes = 5 * 1024 * 1024;
   static const int _keepBytes = 1 * 1024 * 1024; // keep last 1MB on rotate
 
-  void init(String appDir) {
+  Future<void> init(String appDir) async {
     try {
       _logFile = File('${appDir.replaceAll('\\', '/')}/app.log');
-      _rotateIfNeeded();
+      await _rotateIfNeeded();
       _sink = _logFile!.openWrite(mode: FileMode.writeOnlyAppend);
     } catch (e) {
       stderr.writeln('Logger init failed: $e');
@@ -33,16 +33,22 @@ class FileLogger implements Logger {
     _sink = null;
   }
 
-  void _rotateIfNeeded() {
+  Future<void> _rotateIfNeeded() async {
     if (_logFile == null || !_logFile!.existsSync()) return;
     try {
-      if (_logFile!.lengthSync() <= _maxBytes) return;
-      final bytes = _logFile!.readAsBytesSync();
-      final tail = bytes.length > _keepBytes
-          ? bytes.sublist(bytes.length - _keepBytes)
-          : bytes;
-      _logFile!.writeAsBytesSync(tail, flush: true);
-    } catch (_) {}
+      final len = await _logFile!.length();
+      if (len <= _maxBytes) return;
+      final raf = await _logFile!.open(mode: FileMode.read);
+      try {
+        await raf.setPosition(len - _keepBytes);
+        final tail = await raf.read(_keepBytes);
+        await _logFile!.writeAsBytes(tail, flush: true, mode: FileMode.write);
+      } finally {
+        await raf.close();
+      }
+    } catch (e, st) {
+      stderr.writeln('Logger rotate failed: $e\n$st');
+    }
   }
 
   void _writeToFile(String prefix, String message) {
@@ -50,7 +56,7 @@ class FileLogger implements Logger {
     try {
       final now = DateTime.now().toIso8601String();
       _sink!.writeln('[$now][$prefix] $message');
-      if (prefix == 'ERROR' || prefix == 'ERROR_DETAIL' || prefix == 'STACK_TRACE') _sink!.flush();
+      _sink!.flush();
     } catch (_) {}
   }
 
@@ -105,9 +111,9 @@ class Log {
   static Logger _instance = FileLogger();
   static set instance(Logger logger) => _instance = logger;
 
-  static void init(String appDir) {
+  static Future<void> init(String appDir) async {
     if (_instance is FileLogger) {
-      (_instance as FileLogger).init(appDir);
+      await (_instance as FileLogger).init(appDir);
     }
   }
 

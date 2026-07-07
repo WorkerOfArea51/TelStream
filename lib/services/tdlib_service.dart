@@ -28,6 +28,7 @@ class TdlibService {
   Timer? _onlineHeartbeat;
   bool _isForeground = true;
   final _pendingLock = Lock();
+  final _initLock = Lock();
   
   late final DynamicLibrary _lib;
   late final Pointer<Utf8> Function(double timeout) _nativeReceive;
@@ -47,12 +48,12 @@ class TdlibService {
         if (lastId != null && lastId > 0) {
           try {
             tdSend(lastId, const td.Close());
-          } catch (_) {}
+          } catch (e, st) { Log.w('Ignored error in tdlib_service', e, st); }
           // Give the previous client a short moment to close databases and release locks
           await Future.delayed(const Duration(milliseconds: 300));
         }
       }
-    } catch (_) {}
+    } catch (e, st) { Log.w('Ignored error in tdlib_service', e, st); }
   }
 
   Future<void> _saveCurrentClient(int id) async {
@@ -60,7 +61,7 @@ class TdlibService {
       final tempDir = await getTemporaryDirectory();
       final file = File('${tempDir.path}/last_client_id.txt');
       await file.writeAsString(id.toString());
-    } catch (_) {}
+    } catch (e, st) { Log.w('Ignored error in tdlib_service', e, st); }
   }
 
   Future<String> _loadOrCreateDbEncryptionKey() async {
@@ -108,15 +109,19 @@ class TdlibService {
 
   Future<void>? _initFuture;
 
-  void forceReset() {
+  Future<void> forceReset() async {
     Log.w('TDLib forceReset called. Clearing in-flight init.');
-    _initFuture = null;
-    if (_clientId != null) {
-      try {
-        tdSend(_clientId!, const td.Close());
-      } catch (_) {}
-      _clientId = null;
-    }
+    await _initLock.synchronized(() async {
+      _initFuture = null;
+      if (_clientId != null) {
+        try {
+          tdSend(_clientId!, const td.Close());
+        } catch (e, st) {
+          Log.e('Failed to close TDLib on forceReset', e, st);
+        }
+        _clientId = null;
+      }
+    });
   }
 
   Future<void> init(
@@ -127,7 +132,9 @@ class TdlibService {
     int? ttlDays,
   }) {
     if (_initFuture != null) return _initFuture!;
-    return _initFuture = _doInit(apiId, apiHash, excludedPaths: excludedPaths, limitMb: limitMb, ttlDays: ttlDays).whenComplete(() {
+    return _initFuture = _initLock.synchronized(() async {
+      await _doInit(apiId, apiHash, excludedPaths: excludedPaths, limitMb: limitMb, ttlDays: ttlDays);
+    }).whenComplete(() {
       _initFuture = null;
     });
   }
@@ -142,7 +149,7 @@ class TdlibService {
     if (_clientId != null) {
       try {
         tdSend(_clientId!, const td.Close());
-      } catch (_) {}
+      } catch (e, st) { Log.w('Ignored error in tdlib_service', e, st); }
       _clientId = null;
       await Future.delayed(const Duration(milliseconds: 300));
     } else {
@@ -202,7 +209,7 @@ class TdlibService {
       "application_version": "1.0",
       "enable_storage_optimizer": true,
       "ignore_file_names": false,
-      "database_encryption_key": base64Encode(utf8.encode(dbKey)), // MUST base64 encode the UTF-8 bytes to match TDLib 1.6.0's interpretation of the string
+      "database_encryption_key": dbKey,
     };
     
     Future<void> handleInitError(td.TdError res) async {
@@ -252,7 +259,7 @@ class TdlibService {
         applicationVersion: '1.0',
         enableStorageOptimizer: true,
         ignoreFileNames: false,
-        databaseEncryptionKey: base64Encode(utf8.encode(dbKey)), 
+        databaseEncryptionKey: dbKey, 
       );
       final res = await sendAsync(params);
       if (res is td.TdError) {
@@ -368,7 +375,7 @@ class TdlibService {
               Log.i('TTL CACHE PRUNED: ${file.path} ($size bytes, age: ${now.difference(lastModified).inDays} days)');
               toRemove.add(file);
             }
-          } catch (_) {}
+          } catch (e, st) { Log.w('Ignored error in tdlib_service', e, st); }
         }
         cacheFiles.removeWhere((f) => toRemove.contains(f));
       }
@@ -382,7 +389,7 @@ class TdlibService {
           final mTime = await file.lastModified();
           totalSize += size;
           fileStats.add(MapEntry(file, mTime));
-        } catch (_) {}
+        } catch (e, st) { Log.w('Ignored error in tdlib_service', e, st); }
       }
 
       if (limitMb != null && limitMb > 0 && totalSize > limitBytes) {
@@ -396,7 +403,7 @@ class TdlibService {
             await entry.key.delete();
             currentSize -= size;
             Log.i('SIZE LIMIT CACHE PRUNED: ${entry.key.path} ($size bytes)');
-          } catch (_) {}
+          } catch (e, st) { Log.w('Ignored error in tdlib_service', e, st); }
         }
       }
 
@@ -430,7 +437,7 @@ class TdlibService {
         returnDeletedFileStatistics: false,
         chatLimit: 0,
       ));
-    } catch (_) {}
+    } catch (e, st) { Log.w('Ignored error in tdlib_service', e, st); }
 
     try {
       final appDocDir = await getAppDirectory();
@@ -548,69 +555,102 @@ class TdlibService {
   }
 
   bool _eventLoopRunning = false;
+  ReceivePort? _isolateReceivePort;
+  Isolate? _eventIsolate;
 
   void _startEventLoop() async {
       if (_eventLoopRunning) return;
       _eventLoopRunning = true;
-      int eventsProcessed = 0;
-      while (!_isDestroyed) {
-        try {
-          td.TdObject? event;
-          bool hasEvent = false;
-          if (_libInitialized) {
-            final rawPtr = _nativeReceive(0.0);
-            if (rawPtr != nullptr) {
-              hasEvent = true;
-              try {
-                final jsonStr = rawPtr.toDartString();
-                final Map<String, dynamic> jsonMap = jsonDecode(jsonStr);
-                final sanitized = sanitizeJson(jsonMap);
-                event = td.convertToObject(jsonEncode(sanitized));
-              } finally {
-                if (_nativeFree != null) {
-                  _nativeFree!(rawPtr.cast());
-                }
-              }
+      
+      if (!_libInitialized) {
+        // Fallback for non-FFI init
+        int eventsProcessed = 0;
+        while (!_isDestroyed) {
+          try {
+            td.TdObject? event = tdReceive(0.0);
+            if (event == null) {
+              await Future.delayed(const Duration(milliseconds: 10));
+              continue;
             }
-          } else {
-            event = tdReceive(0.0);
-            if (event != null) hasEvent = true;
+            eventsProcessed++;
+            if (eventsProcessed > 50) {
+              eventsProcessed = 0;
+              await Future.delayed(Duration.zero);
+            }
+            _processEvent(event);
+          } catch (e, stack) {
+            Log.e("Exception inside TDLib event loop fallback", e, stack);
+            await Future.delayed(const Duration(milliseconds: 100));
           }
-  
-          if (!hasEvent || event == null) {
-            await Future.delayed(const Duration(milliseconds: 10)); // Yield completely if idle
-            continue;
-          }
-          
-          eventsProcessed++;
-          if (eventsProcessed > 50) {
-            eventsProcessed = 0;
-            await Future.delayed(Duration.zero); // force yield to Dart event loop
-          }
+        }
+        return;
+      }
 
-        // Filter out false-positive TdError events caused by closing inactive client IDs on startup
-        if (event is td.TdError && (event.message == "Invalid TDLib instance specified" || event.message.contains("Invalid TDLib instance"))) {
-          continue;
-        }
-        if (event.extra is int) {
-          final id = event.extra as int;
-          final completer = await _pendingLock.synchronized(() => _pendingRequests.remove(id));
-          if (completer != null && !completer.isCompleted) {
-            completer.complete(event);
-            continue;
+      _isolateReceivePort = ReceivePort();
+      final receivePtr = _lib.lookup<NativeFunction<Pointer<Utf8> Function(Double)>>('td_receive');
+      Pointer<NativeFunction<Void Function(Pointer<Void>)>>? freePtrRes;
+      try {
+        freePtrRes = _lib.lookup<NativeFunction<Void Function(Pointer<Void>)>>('td_free_string');
+      } catch (e) {
+        // Ignore if not found
+      }
+      
+      _eventIsolate = await Isolate.spawn(_backgroundEventLoop, _EventLoopArgs(
+        _isolateReceivePort!.sendPort,
+        receivePtr.address,
+        freePtrRes?.address,
+      ));
+
+      _isolateReceivePort!.listen((message) async {
+        if (_isDestroyed) return;
+        if (message is String) {
+          try {
+            final jsonMap = jsonDecode(message);
+            final sanitized = sanitizeJson(jsonMap);
+            final event = td.convertToObject(jsonEncode(sanitized));
+            if (event != null) {
+              _processEvent(event);
+            }
+          } catch (e, stack) {
+            Log.e("Exception parsing event from isolate", e, stack);
           }
         }
-        _updatesController.add(event);
-        
-      } catch (e, stack) {
+      });
+  }
+
+  void _processEvent(td.TdObject event) async {
+    if (event is td.TdError && (event.message == "Invalid TDLib instance specified" || event.message.contains("Invalid TDLib instance"))) {
+      return;
+    }
+    if (event.extra is int) {
+      final id = event.extra as int;
+      final completer = await _pendingLock.synchronized(() => _pendingRequests.remove(id));
+      if (completer != null && !completer.isCompleted) {
+        completer.complete(event);
+        return;
+      }
+    }
+    _updatesController.add(event);
+  }
+
+  static void _backgroundEventLoop(_EventLoopArgs args) {
+    final receivePtr = Pointer<NativeFunction<Pointer<Utf8> Function(Double)>>.fromAddress(args.receiveAddress);
+    final nativeReceive = receivePtr.asFunction<Pointer<Utf8> Function(double)>();
+    void Function(Pointer<Void>)? nativeFree;
+    if (args.freeAddress != null) {
+      final freePtr = Pointer<NativeFunction<Void Function(Pointer<Void>)>>.fromAddress(args.freeAddress!);
+      nativeFree = freePtr.asFunction<void Function(Pointer<Void>)>();
+    }
+
+    while (true) {
+      final rawPtr = nativeReceive(1.0); // Blocking receive, yields native thread
+      if (rawPtr != nullptr) {
+        final str = rawPtr.toDartString();
+        if (nativeFree != null) nativeFree(rawPtr.cast());
         try {
-          final appDir = await getAppDirectory();
-          File('${appDir.path}/tdlib_crash.txt').writeAsStringSync('CRASH: ${e.runtimeType} | $e\n$stack\n', mode: FileMode.append);
-        } catch (_) {}
-        Log.e("Exception inside TDLib event loop", e, stack);
-        // Only delay if it's NOT a parsing error to prevent infinite spin on critical FFI failure
-        if (e is! TypeError && e is! FormatException && e is! NoSuchMethodError) {
-          await Future.delayed(const Duration(milliseconds: 100));
+          args.sendPort.send(str);
+        } catch (e) {
+          break;
         }
       }
     }
@@ -707,7 +747,7 @@ class TdlibService {
       if (_clientId != null) {
         try {
           tdSend(_clientId!, const td.Close());
-        } catch (_) {}
+        } catch (e, st) { Log.w('Ignored error in tdlib_service', e, st); }
         _clientId = null;
       }
       _pendingLock.synchronized(() {
@@ -723,3 +763,11 @@ class TdlibService {
 
 
 
+
+
+class _EventLoopArgs {
+  final SendPort sendPort;
+  final int receiveAddress;
+  final int? freeAddress;
+  _EventLoopArgs(this.sendPort, this.receiveAddress, this.freeAddress);
+}

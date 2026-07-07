@@ -123,7 +123,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
       });
     }
 
-    _saveTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
+    _saveTimer = Timer.periodic(const Duration(minutes: 2), (timer) {
       if (_settings.savePositionOnQuit && player.state.position.inSeconds > 0 && player.state.playing) {
         _storageService.saveWatchPosition(widget.messageId, player.state.position.inSeconds);
         if (player.state.duration.inSeconds > 0) {
@@ -243,7 +243,8 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
     final savedPos = _storageService.getWatchPosition(widget.messageId);
     final shouldPlayImmediately = savedPos <= 0;
 
-    player.open(Media(finalPath), play: shouldPlayImmediately).then((_) {
+    final proxyHeaders = finalPath.startsWith('http://127.0.0.1') ? _proxyService.getAuthHeaders() : null;
+    player.open(Media(finalPath, httpHeaders: proxyHeaders), play: shouldPlayImmediately).then((_) {
       if (!mounted) return;
       if (savedPos > 0) {
         Future<void> performRobustStartupSeek() async {
@@ -601,7 +602,9 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
     if (state == AppLifecycleState.paused) {
       try {
         player.pause();
-      } catch (_) {}
+      } catch (e, st) {
+        Log.e('player.pause() in lifecycle pause failed', e, st);
+      }
     }
   }
 
@@ -640,23 +643,27 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
           );
         }
       }
-    } catch (_) {}
+    } catch (e, st) {
+      Log.e('Failed to save watch position on dispose', e, st);
+    }
 
     // Resume any downloads that were paused for streaming
     try {
       ref.read(downloadControllerProvider.notifier).resumeDownloadsAfterStreaming();
-    } catch (_) {}
+    } catch (e, st) {
+      Log.w('Failed to resume downloads after streaming', e, st);
+    }
 
     // Silence, pause, and stop the player immediately to halt all decoding and audio output
     try {
       player.setVolume(0.0);
-    } catch (_) {}
+    } catch (e) {}
     try {
       player.pause();
-    } catch (_) {}
+    } catch (e) {}
     try {
       player.stop();
-    } catch (_) {}
+    } catch (e) {}
 
     // Reset PipController active state first. If this player is the active player,
     // we call close() to clean up the state and set activePlayer to null.
@@ -675,8 +682,15 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
     final controllerToDispose = controller;
     Future.delayed(const Duration(milliseconds: 300), () {
       try {
+        controllerToDispose.dispose();
+      } catch (e, st) {
+        Log.e('Failed to dispose VideoController', e, st);
+      }
+      try {
         playerToDispose.dispose();
-      } catch (_) {}
+      } catch (e, st) {
+        Log.e('Failed to dispose Player', e, st);
+      }
     });
 
     try {
@@ -694,7 +708,9 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
           Log.i('Skipped CancelDownloadFile on dispose: file $fileId is still active (downloading permanently: $isDownloadingPermanently, playing: $isCurrentlyPlaying)');
         }
       }
-    } catch (_) {}
+    } catch (e, st) {
+      Log.e('Failed to cancel active downloads on dispose', e, st);
+    }
     
     super.dispose();
   }
@@ -912,7 +928,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
             player.setVolume(0.0);
             player.pause();
             player.stop();
-          } catch (_) {}
+          } catch (e) {}
           _resetOrientationAndUI();
         }
       },
@@ -1098,13 +1114,13 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
       
       try {
         await player.setVolume(0.0);
-      } catch (_) {}
+      } catch (e) {}
       try {
         await player.pause();
-      } catch (_) {}
+      } catch (e) {}
       try {
         await player.stop();
-      } catch (_) {}
+      } catch (e) {}
       await player.dispose();
 
       _initialTrackSelectionDone = false;
@@ -1147,11 +1163,12 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         if (mediaUrl.startsWith('http://127.0.0.1')) {
           try {
             await _proxyService.onReady.timeout(const Duration(seconds: 3));
-          } catch (_) {}
+          } catch (e) {}
           mediaUrl = _proxyService.getProxyUrl(fileId, fileName: widget.videoTitle);
         }
 
-        player.open(Media(mediaUrl), play: isPlayingState).then((_) {
+        final proxyHeaders = mediaUrl.startsWith('http://127.0.0.1') ? _proxyService.getAuthHeaders() : null;
+        player.open(Media(mediaUrl, httpHeaders: proxyHeaders), play: isPlayingState).then((_) {
           if (!mounted) return;
           setState(() {
             _isPlaying = true;

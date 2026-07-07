@@ -26,203 +26,218 @@ class TdJsonUtil {
     return false;
   }
 
-  /// Pure function that sanitizes TDLib JSON.
-  /// It creates a NEW map instead of mutating the input map,
-  /// preventing ConcurrentModificationException and side effects.
+  /// Mutates the input map in-place for maximum performance on huge TDLib JSON trees.
   static Map<String, dynamic> sanitize(Map<String, dynamic> input) {
-    final out = <String, dynamic>{};
     final type = input['@type'] as String?;
 
     for (final entry in input.entries) {
       final key = entry.key;
       final value = entry.value;
       if (value is Map<String, dynamic>) {
-        out[key] = sanitize(value);
+        sanitize(value);
       } else if (value is List) {
-        out[key] = value.map((item) {
-          if (item is Map<String, dynamic>) return sanitize(item);
-          return item;
-        }).toList();
-      } else {
-        // Fix for TDLib dart package bug where int64 (that fits in 53 bits) is serialized as int but expects String during fromJson
-        if (value is int && _needsString(type, key)) {
-          out[key] = value.toString();
-        } else {
-          out[key] = value;
-        }
-      }
-    }
-
-    // Type-specific sanitization on the new map
-    final outType = out['@type'];
-    if (outType == 'messageVideo') {
-      out['has_stickers'] = out['has_stickers'] ?? false;
-    } else if (outType == 'messageDocument') {
-      final doc = out['document'];
-      if (doc is Map<String, dynamic>) {
-        final docType = doc['@type'];
-        if (docType == 'document') {
-          doc['thumbnail'] = doc['thumbnail'];
-        }
-      }
-    } else if (outType == 'file') {
-      out['expected_size'] = out['expected_size'] ?? 0;
-      final local = out['local'];
-      if (local is Map<String, dynamic>) {
-        local['download_offset'] = local['download_offset'] ?? 0;
-        local['downloaded_size'] = local['downloaded_size'] ?? 0;
-      }
-    } else if (outType == 'user') {
-      out['is_contact'] = out['is_contact'] ?? false;
-      out['is_mutual_contact'] = out['is_mutual_contact'] ?? false;
-      out['is_close_friend'] = out['is_close_friend'] ?? false;
-      out['is_verified'] = out['is_verified'] ?? false;
-      out['is_premium'] = out['is_premium'] ?? false;
-      out['is_support'] = out['is_support'] ?? false;
-      out['is_scam'] = out['is_scam'] ?? false;
-      out['is_fake'] = out['is_fake'] ?? false;
-      out['has_active_stories'] = out['has_active_stories'] ?? false;
-      out['has_unread_active_stories'] = out['has_unread_active_stories'] ?? false;
-      out['have_access'] = out['have_access'] ?? false;
-      out['added_to_attachment_menu'] = out['added_to_attachment_menu'] ?? false;
-      
-      out['restriction_reason'] = out['restriction_reason'] ?? '';
-      out['language_code'] = out['language_code'] ?? '';
-      out['phone_number'] = out['phone_number'] ?? '';
-      out['first_name'] = out['first_name'] ?? '';
-      out['last_name'] = out['last_name'] ?? '';
-    } else if (outType == 'userFullInfo') {
-      out['group_in_common_count'] = out['group_in_common_count'] ?? 0;
-      out['is_blocked'] = out['is_blocked'] ?? false;
-      out['can_be_called'] = out['can_be_called'] ?? false;
-      out['supports_video_calls'] = out['supports_video_calls'] ?? false;
-      out['has_private_calls'] = out['has_private_calls'] ?? false;
-      out['has_private_forwards'] = out['has_private_forwards'] ?? false;
-      out['has_restricted_voice_and_video_messages'] = out['has_restricted_voice_and_video_messages'] ?? false;
-      out['has_pinned_stories'] = out['has_pinned_stories'] ?? false;
-      out['need_phone_number_privacy_exception'] = out['need_phone_number_privacy_exception'] ?? false;
-    } else if (outType == 'chatMemberStatusCreator' || outType == 'chatMemberStatusAdministrator') {
-      out['custom_title'] = out['custom_title'] ?? "";
-    } else if (outType == 'scopeNotificationSettings') {
-      out['disable_mention_notifications'] = out['disable_mention_notifications'] ?? false;
-      out['disable_pinned_message_notifications'] = out['disable_pinned_message_notifications'] ?? false;
-      out['show_preview'] = out['show_preview'] ?? false;
-      out['use_default_mute_stories'] = out['use_default_mute_stories'] ?? false;
-      out['mute_stories'] = out['mute_stories'] ?? false;
-      out['story_sound_id'] = out['story_sound_id'] ?? "0";
-      out['show_story_sender'] = out['show_story_sender'] ?? false;
-    } else if (outType == 'chatNotificationSettings') {
-      out['use_default_disable_pinned_message_notifications'] = out['use_default_disable_pinned_message_notifications'] ?? false;
-      out['use_default_disable_mention_notifications'] = out['use_default_disable_mention_notifications'] ?? false;
-      out['use_default_show_preview'] = out['use_default_show_preview'] ?? false;
-      out['disable_pinned_message_notifications'] = out['disable_pinned_message_notifications'] ?? false;
-      out['disable_mention_notifications'] = out['disable_mention_notifications'] ?? false;
-      out['show_preview'] = out['show_preview'] ?? false;
-      
-      out['use_default_mute_stories'] = out['use_default_mute_stories'] ?? false;
-      out['mute_stories'] = out['mute_stories'] ?? false;
-      out['use_default_story_sound'] = out['use_default_story_sound'] ?? false;
-      out['story_sound_id'] = out['story_sound_id'] ?? "0";
-      out['use_default_show_story_sender'] = out['use_default_show_story_sender'] ?? false;
-      out['show_story_sender'] = out['show_story_sender'] ?? false;
-    } else if (outType == 'attachmentMenuBot') {
-      out['request_write_access'] = out['request_write_access'] ?? false;
-      out['supports_settings'] = out['supports_settings'] ?? false;
-    } else if (outType == 'stickerSetInfo' || outType == 'stickerSet') {
-      if (out['thumbnail_outline'] is Map) {
-        out['thumbnail_outline'] = [];
-      }
-      out['sticker_format'] = out['sticker_format'] ?? {'@type': 'stickerFormatWebp'};
-    } else if (outType == 'updateInstalledStickerSets') {
-      if (out['sticker_set_ids'] is List) {
-        out['sticker_set_ids'] = (out['sticker_set_ids'] as List).map((e) => e is String ? int.tryParse(e) ?? 0 : e).toList();
-      }
-    } else if (outType == 'updateTrendingStickerSets') {
-      if (out['sticker_sets'] is List) {
-        for (var s in out['sticker_sets']) {
-          if (s is Map && s['thumbnail_outline'] is Map) {
-            s['thumbnail_outline'] = [];
+        for (int i = 0; i < value.length; i++) {
+          final item = value[i];
+          if (item is Map<String, dynamic>) {
+            sanitize(item);
           }
         }
+      } else if (value is int && _needsString(type, key)) {
+        input[key] = value.toString();
       }
-    } else if (outType == 'chatPermissions') {
-      out['can_send_basic_messages'] = out['can_send_basic_messages'] ?? false;
-      out['can_send_audios'] = out['can_send_audios'] ?? false;
-      out['can_send_documents'] = out['can_send_documents'] ?? false;
-      out['can_send_photos'] = out['can_send_photos'] ?? false;
-      out['can_send_videos'] = out['can_send_videos'] ?? false;
-      out['can_send_video_notes'] = out['can_send_video_notes'] ?? false;
-      out['can_send_voice_notes'] = out['can_send_voice_notes'] ?? false;
-      out['can_send_polls'] = out['can_send_polls'] ?? false;
-      out['can_send_other_messages'] = out['can_send_other_messages'] ?? false;
-      out['can_add_web_page_previews'] = out['can_add_web_page_previews'] ?? false;
-      out['can_change_info'] = out['can_change_info'] ?? false;
-      out['can_invite_users'] = out['can_invite_users'] ?? false;
-      out['can_pin_messages'] = out['can_pin_messages'] ?? false;
-      out['can_manage_topics'] = out['can_manage_topics'] ?? false;
-    } else if (outType == 'message') {
-      out['restriction_reason'] = out['restriction_reason'] ?? "";
-      out['is_outgoing'] = out['is_outgoing'] ?? false;
-      out['is_pinned'] = out['is_pinned'] ?? false;
-      out['can_be_edited'] = out['can_be_edited'] ?? false;
-      out['can_be_forwarded'] = out['can_be_forwarded'] ?? false;
-      out['can_be_saved'] = out['can_be_saved'] ?? false;
-      out['can_be_deleted_only_for_self'] = out['can_be_deleted_only_for_self'] ?? false;
-      out['can_be_deleted_for_all_users'] = out['can_be_deleted_for_all_users'] ?? false;
-      out['can_get_added_reactions'] = out['can_get_added_reactions'] ?? false;
-      out['can_get_statistics'] = out['can_get_statistics'] ?? false;
-      out['can_get_message_thread'] = out['can_get_message_thread'] ?? false;
-      out['can_get_viewers'] = out['can_get_viewers'] ?? false;
-      out['can_get_media_timestamp_links'] = out['can_get_media_timestamp_links'] ?? false;
-      out['can_report_reactions'] = out['can_report_reactions'] ?? false;
-      out['has_timestamped_media'] = out['has_timestamped_media'] ?? false;
-      out['is_channel_post'] = out['is_channel_post'] ?? false;
-      out['is_topic_message'] = out['is_topic_message'] ?? false;
-      out['contains_unread_mention'] = out['contains_unread_mention'] ?? false;
-      out['media_album_id'] = out['media_album_id'] ?? "0";
-      out['message_thread_id'] = out['message_thread_id'] ?? 0;
-      out['self_destruct_in'] = out['self_destruct_in'] ?? 0.0;
-      out['auto_delete_in'] = out['auto_delete_in'] ?? 0.0;
-      out['via_bot_user_id'] = out['via_bot_user_id'] ?? 0;
-    } else if (outType == 'chat') {
-      out['has_protected_content'] = out['has_protected_content'] ?? false;
-      out['is_translatable'] = out['is_translatable'] ?? false;
-      out['is_marked_as_unread'] = out['is_marked_as_unread'] ?? false;
-      out['is_blocked'] = out['is_blocked'] ?? false;
-      out['has_scheduled_messages'] = out['has_scheduled_messages'] ?? false;
-      out['can_be_deleted_only_for_self'] = out['can_be_deleted_only_for_self'] ?? false;
-      out['can_be_deleted_for_all_users'] = out['can_be_deleted_for_all_users'] ?? false;
-      out['can_be_reported'] = out['can_be_reported'] ?? false;
-      out['default_disable_notification'] = out['default_disable_notification'] ?? false;
-      out['theme_name'] = out['theme_name'] ?? "";
-      out['unread_count'] = out['unread_count'] ?? 0;
-      out['last_read_inbox_message_id'] = out['last_read_inbox_message_id'] ?? 0;
-      out['last_read_outbox_message_id'] = out['last_read_outbox_message_id'] ?? 0;
-      out['unread_mention_count'] = out['unread_mention_count'] ?? 0;
-      out['unread_reaction_count'] = out['unread_reaction_count'] ?? 0;
-      out['message_auto_delete_time'] = out['message_auto_delete_time'] ?? 0;
-      out['reply_markup_message_id'] = out['reply_markup_message_id'] ?? 0;
-    } else if (outType == 'supergroup') {
-      out['has_location'] = out['has_location'] ?? false;
-      out['sign_messages'] = out['sign_messages'] ?? false;
-      out['join_to_send_messages'] = out['join_to_send_messages'] ?? false;
-      out['join_by_request'] = out['join_by_request'] ?? false;
-      out['is_slow_mode_enabled'] = out['is_slow_mode_enabled'] ?? false;
-      out['is_channel'] = out['is_channel'] ?? false;
-      out['is_broadcast_group'] = out['is_broadcast_group'] ?? false;
-      out['is_forum'] = out['is_forum'] ?? false;
-      out['is_verified'] = out['is_verified'] ?? false;
-      out['is_scam'] = out['is_scam'] ?? false;
-      out['is_fake'] = out['is_fake'] ?? false;
-      out['has_linked_chat'] = out['has_linked_chat'] ?? false;
-      out['restriction_reason'] = out['restriction_reason'] ?? "";
-    } else if (outType == 'targetChatChosen') {
-      out['allow_user_chats'] = out['allow_user_chats'] ?? false;
-      out['allow_bot_chats'] = out['allow_bot_chats'] ?? false;
-      out['allow_group_chats'] = out['allow_group_chats'] ?? false;
-      out['allow_channel_chats'] = out['allow_channel_chats'] ?? false;
     }
 
-    return out;
+    if (type == null) return input;
+
+    switch (type) {
+      case 'messageVideo':
+        input['has_stickers'] ??= false;
+        break;
+      case 'messageDocument':
+        final doc = input['document'];
+        if (doc is Map<String, dynamic> && doc['@type'] == 'document') {
+          doc['thumbnail'] = doc['thumbnail'];
+        }
+        break;
+      case 'file':
+        input['expected_size'] ??= 0;
+        final local = input['local'];
+        if (local is Map<String, dynamic>) {
+          local['download_offset'] ??= 0;
+          local['downloaded_size'] ??= 0;
+        }
+        break;
+      case 'user':
+        input['is_contact'] ??= false;
+        input['is_mutual_contact'] ??= false;
+        input['is_close_friend'] ??= false;
+        input['is_verified'] ??= false;
+        input['is_premium'] ??= false;
+        input['is_support'] ??= false;
+        input['is_scam'] ??= false;
+        input['is_fake'] ??= false;
+        input['has_active_stories'] ??= false;
+        input['has_unread_active_stories'] ??= false;
+        input['have_access'] ??= false;
+        input['added_to_attachment_menu'] ??= false;
+        input['restriction_reason'] ??= '';
+        input['language_code'] ??= '';
+        input['phone_number'] ??= '';
+        input['first_name'] ??= '';
+        input['last_name'] ??= '';
+        break;
+      case 'userFullInfo':
+        input['group_in_common_count'] ??= 0;
+        input['is_blocked'] ??= false;
+        input['can_be_called'] ??= false;
+        input['supports_video_calls'] ??= false;
+        input['has_private_calls'] ??= false;
+        input['has_private_forwards'] ??= false;
+        input['has_restricted_voice_and_video_messages'] ??= false;
+        input['has_pinned_stories'] ??= false;
+        input['need_phone_number_privacy_exception'] ??= false;
+        break;
+      case 'chatMemberStatusCreator':
+      case 'chatMemberStatusAdministrator':
+        input['custom_title'] ??= "";
+        break;
+      case 'scopeNotificationSettings':
+        input['disable_mention_notifications'] ??= false;
+        input['disable_pinned_message_notifications'] ??= false;
+        input['show_preview'] ??= false;
+        input['use_default_mute_stories'] ??= false;
+        input['mute_stories'] ??= false;
+        input['story_sound_id'] ??= "0";
+        input['show_story_sender'] ??= false;
+        break;
+      case 'chatNotificationSettings':
+        input['use_default_disable_pinned_message_notifications'] ??= false;
+        input['use_default_disable_mention_notifications'] ??= false;
+        input['use_default_show_preview'] ??= false;
+        input['disable_pinned_message_notifications'] ??= false;
+        input['disable_mention_notifications'] ??= false;
+        input['show_preview'] ??= false;
+        input['use_default_mute_stories'] ??= false;
+        input['mute_stories'] ??= false;
+        input['use_default_story_sound'] ??= false;
+        input['story_sound_id'] ??= "0";
+        input['use_default_show_story_sender'] ??= false;
+        input['show_story_sender'] ??= false;
+        break;
+      case 'attachmentMenuBot':
+        input['request_write_access'] ??= false;
+        input['supports_settings'] ??= false;
+        break;
+      case 'stickerSetInfo':
+      case 'stickerSet':
+        if (input['thumbnail_outline'] is Map) {
+          input['thumbnail_outline'] = [];
+        }
+        input['sticker_format'] ??= {'@type': 'stickerFormatWebp'};
+        break;
+      case 'updateInstalledStickerSets':
+        final list = input['sticker_set_ids'];
+        if (list is List) {
+          input['sticker_set_ids'] = list.map((e) {
+            if (e is num) return e.toInt();
+            if (e is String) return int.tryParse(e) ?? 0;
+            return 0;
+          }).toList();
+        }
+        break;
+      case 'updateTrendingStickerSets':
+        final sets = input['sticker_sets'];
+        if (sets is List) {
+          for (var s in sets) {
+            if (s is Map && s['thumbnail_outline'] is Map) {
+              s['thumbnail_outline'] = [];
+            }
+          }
+        }
+        break;
+      case 'chatPermissions':
+        input['can_send_basic_messages'] ??= false;
+        input['can_send_audios'] ??= false;
+        input['can_send_documents'] ??= false;
+        input['can_send_photos'] ??= false;
+        input['can_send_videos'] ??= false;
+        input['can_send_video_notes'] ??= false;
+        input['can_send_voice_notes'] ??= false;
+        input['can_send_polls'] ??= false;
+        input['can_send_other_messages'] ??= false;
+        input['can_add_web_page_previews'] ??= false;
+        input['can_change_info'] ??= false;
+        input['can_invite_users'] ??= false;
+        input['can_pin_messages'] ??= false;
+        input['can_manage_topics'] ??= false;
+        break;
+      case 'message':
+        input['restriction_reason'] ??= "";
+        input['is_outgoing'] ??= false;
+        input['is_pinned'] ??= false;
+        input['can_be_edited'] ??= false;
+        input['can_be_forwarded'] ??= false;
+        input['can_be_saved'] ??= false;
+        input['can_be_deleted_only_for_self'] ??= false;
+        input['can_be_deleted_for_all_users'] ??= false;
+        input['can_get_added_reactions'] ??= false;
+        input['can_get_statistics'] ??= false;
+        input['can_get_message_thread'] ??= false;
+        input['can_get_viewers'] ??= false;
+        input['can_get_media_timestamp_links'] ??= false;
+        input['can_report_reactions'] ??= false;
+        input['has_timestamped_media'] ??= false;
+        input['is_channel_post'] ??= false;
+        input['is_topic_message'] ??= false;
+        input['contains_unread_mention'] ??= false;
+        input['media_album_id'] ??= "0";
+        input['message_thread_id'] ??= 0;
+        input['self_destruct_in'] ??= 0.0;
+        input['auto_delete_in'] ??= 0.0;
+        input['via_bot_user_id'] ??= 0;
+        break;
+      case 'chat':
+        input['has_protected_content'] ??= false;
+        input['is_translatable'] ??= false;
+        input['is_marked_as_unread'] ??= false;
+        input['is_blocked'] ??= false;
+        input['has_scheduled_messages'] ??= false;
+        input['can_be_deleted_only_for_self'] ??= false;
+        input['can_be_deleted_for_all_users'] ??= false;
+        input['can_be_reported'] ??= false;
+        input['default_disable_notification'] ??= false;
+        input['theme_name'] ??= "";
+        input['unread_count'] ??= 0;
+        input['last_read_inbox_message_id'] ??= 0;
+        input['last_read_outbox_message_id'] ??= 0;
+        input['unread_mention_count'] ??= 0;
+        input['unread_reaction_count'] ??= 0;
+        input['message_auto_delete_time'] ??= 0;
+        input['reply_markup_message_id'] ??= 0;
+        break;
+      case 'supergroup':
+        input['has_location'] ??= false;
+        input['sign_messages'] ??= false;
+        input['join_to_send_messages'] ??= false;
+        input['join_by_request'] ??= false;
+        input['is_slow_mode_enabled'] ??= false;
+        input['is_channel'] ??= false;
+        input['is_broadcast_group'] ??= false;
+        input['is_forum'] ??= false;
+        input['is_verified'] ??= false;
+        input['is_scam'] ??= false;
+        input['is_fake'] ??= false;
+        input['has_linked_chat'] ??= false;
+        input['restriction_reason'] ??= "";
+        break;
+      case 'targetChatChosen':
+        input['allow_user_chats'] ??= false;
+        input['allow_bot_chats'] ??= false;
+        input['allow_group_chats'] ??= false;
+        input['allow_channel_chats'] ??= false;
+        break;
+    }
+
+    return input;
   }
 }

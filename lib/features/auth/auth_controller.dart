@@ -7,6 +7,7 @@ import '../../services/storage_service.dart';
 import '../settings/settings_provider.dart';
 import '../../services/sync_service.dart';
 import '../../core/logger.dart';
+import 'package:synchronized/synchronized.dart';
 
 enum AuthStep { loading, waitingForNumber, waitingForCode, waitingForPassword, authenticated, error }
 
@@ -27,6 +28,7 @@ class AuthState {
 class AuthController extends Notifier<AuthState> {
   StreamSubscription? _updatesSubscription;
   bool _isResetting = false;
+  final _resetLock = Lock();
 
   @override
   AuthState build() {
@@ -81,19 +83,21 @@ class AuthController extends Notifier<AuthState> {
   }
 
   void resetAuth() {
-    _isResetting = true;
-    ref.read(tdlibServiceProvider).forceReset();
-    initializeTdlib();
-    
-    // Fallback timeout in case TDLib hangs during close/reset
-    Future.delayed(const Duration(seconds: 4), () {
-      if (_isResetting) {
-        _isResetting = false;
-        if (state.step != AuthStep.waitingForNumber && state.step != AuthStep.authenticated) {
-          Log.w('TDLib reset timeout reached. Forcing re-initialization.');
-          initializeTdlib();
+    _resetLock.synchronized(() {
+      _isResetting = true;
+      ref.read(tdlibServiceProvider).forceReset();
+      initializeTdlib();
+      
+      // Fallback timeout in case TDLib hangs during close/reset
+      Future.delayed(const Duration(seconds: 4), () {
+        if (_isResetting) {
+          _isResetting = false;
+          if (state.step != AuthStep.waitingForNumber && state.step != AuthStep.authenticated) {
+            Log.w('TDLib reset timeout reached. Forcing re-initialization.');
+            initializeTdlib();
+          }
         }
-      }
+      });
     });
   }
 

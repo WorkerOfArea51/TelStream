@@ -8,8 +8,10 @@ import 'package:path_provider/path_provider.dart';
 /// - Linux: ${XDG_DATA_HOME}/<app> or ~/.local/share/<app>
 Future<Directory> getAppDirectory() async {
   final dir = await getApplicationSupportDirectory();
-  if (!await dir.exists()) {
+  try {
     await dir.create(recursive: true);
+  } catch (e) {
+    // ignore
   }
   return dir;
 }
