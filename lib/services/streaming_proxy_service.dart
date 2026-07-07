@@ -22,7 +22,7 @@ class StreamingProxyService {
   final TdlibService _tdlibService;
   HttpServer? _server;
   int _port = 0;
-  Completer<void>? _startCompleter = Completer<void>();
+  Completer<void>? _startCompleter;
   StreamSubscription<td.TdObject>? _updatesSub;
   static final int _chunkSize = (Platform.isWindows || Platform.isLinux || Platform.isMacOS) ? 1024 * 1024 : 128 * 1024;
 
