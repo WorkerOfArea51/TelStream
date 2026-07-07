@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../services/metadata_service.dart';
+import '../../services/firebase_metadata_service.dart';
 import 'package:tdlib/td_api.dart' as td;
 
 import '../../models/anime_models.dart';
@@ -31,12 +33,128 @@ class DesktopSeriesDetailsScreen extends ConsumerStatefulWidget {
 class _DesktopSeriesDetailsScreenState extends ConsumerState<DesktopSeriesDetailsScreen> {
   int _selectedSeasonIndex = 0;
   final ScrollController _scrollController = ScrollController();
+  bool _isLoadingMetadata = false;
+  SeriesMetadata? _metadata;
+  final Map<int, SeriesMetadata> _metadataCache = {};
+  List<String>? _overrideIds;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchMetadata();
+  }
+
+  Future<void> _fetchMetadata() async {
+    if (!mounted) return;
+    setState(() => _isLoadingMetadata = true);
+
+    final overrideId = FirebaseMetadataService.getOverride(widget.series.coreName);
+    if (overrideId != null && overrideId.isNotEmpty) {
+      _overrideIds = overrideId.split(',');
+      final targetId = _overrideIds!.first;
+
+      final metadataService = MetadataService();
+      SeriesMetadata? newMeta;
+
+      if (targetId.startsWith('tt')) {
+        newMeta = await metadataService.fetchTmdbByImdbId(targetId);
+      } else {
+        newMeta = await metadataService.fetchJikanByMalId(targetId);
+      }
+
+      if (mounted) {
+        setState(() {
+          if (newMeta != null) {
+            _metadataCache[0] = newMeta;
+            _metadata = newMeta;
+          }
+          _isLoadingMetadata = false;
+        });
+      }
+    } else {
+      if (mounted) {
+        setState(() => _isLoadingMetadata = false);
+      }
+    }
+  }
+
+  Widget _buildDetailRow(String label, String value) {
+    if (value.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 80,
+            child: Text(
+              label,
+              style: const TextStyle(
+                color: Colors.white54,
+                fontSize: 13,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(color: Colors.white, fontSize: 13),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHeaderInfo() {
+    if (_isLoadingMetadata) {
+      return const Padding(
+        padding: EdgeInsets.all(16.0),
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+    if (_metadata == null) {
+      return const SizedBox.shrink();
+    }
+
+    final meta = _metadata!;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (meta.synopsis.isNotEmpty) ...[
+            Text(
+              meta.synopsis,
+              style: const TextStyle(color: Colors.white70, fontSize: 13, height: 1.5),
+            ),
+            const SizedBox(height: 16),
+          ],
+          if (meta.genres.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8.0),
+              child: Text(
+                meta.genres.join(', '),
+                style: const TextStyle(color: Colors.white70, fontSize: 13, fontStyle: FontStyle.italic),
+              ),
+            ),
+          if (meta.director.isNotEmpty) _buildDetailRow('Director', meta.director),
+          if (meta.cast.isNotEmpty) _buildDetailRow('Stars', meta.cast),
+          if (meta.status.isNotEmpty) _buildDetailRow('Status', meta.status),
+          if (meta.userScore.isNotEmpty) _buildDetailRow('Score', meta.userScore),
+        ],
+      ),
+    );
+  }
+
 
   @override
   void didUpdateWidget(covariant DesktopSeriesDetailsScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
       if (widget.series.coreName != oldWidget.series.coreName) {
         _selectedSeasonIndex = 0;
+        _fetchMetadata();
       }
   }
 
@@ -116,6 +234,14 @@ class _DesktopSeriesDetailsScreenState extends ConsumerState<DesktopSeriesDetail
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
+                      if (_metadata != null && _metadata!.airedDates.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 4.0),
+                          child: Text(
+                            _metadata!.airedDates,
+                            style: const TextStyle(color: Colors.white54, fontSize: 12),
+                          ),
+                        ),
                     ],
                   ),
                 ),
@@ -136,77 +262,92 @@ class _DesktopSeriesDetailsScreenState extends ConsumerState<DesktopSeriesDetail
           ),
           
           Expanded(
-            child: Column(
-                  children: [
-                    if (widget.series.seasons.length > 1)
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                        alignment: Alignment.centerLeft,
-                        child: DropdownButtonHideUnderline(
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: theme.colorScheme.surface,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: Colors.white12),
-                            ),
-                            child: DropdownButton<int>(
-                              value: _selectedSeasonIndex,
-                              icon: const Icon(Icons.arrow_drop_down, color: Colors.white),
-                              dropdownColor: theme.colorScheme.surface,
-                              items: List.generate(
-                                widget.series.seasons.length,
-                                (index) => DropdownMenuItem(
-                                  value: index,
-                                  child: Text(
-                                    'Season ${index + 1}',
-                                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                                  ),
+            child: CustomScrollView(
+              controller: _scrollController,
+              slivers: [
+                SliverToBoxAdapter(
+                  child: _buildHeaderInfo(),
+                ),
+                if (widget.series.seasons.length > 1)
+                  SliverToBoxAdapter(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      alignment: Alignment.centerLeft,
+                      child: DropdownButtonHideUnderline(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.surface,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.white12),
+                          ),
+                          child: DropdownButton<int>(
+                            value: _selectedSeasonIndex,
+                            icon: const Icon(Icons.arrow_drop_down, color: Colors.white),
+                            dropdownColor: theme.colorScheme.surface,
+                            items: List.generate(
+                              widget.series.seasons.length,
+                              (index) => DropdownMenuItem(
+                                value: index,
+                                child: Text(
+                                  'Season ${index + 1}',
+                                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                                 ),
                               ),
-                              onChanged: (val) {
-                                if (val != null) {
-                                  setState(() => _selectedSeasonIndex = val);
-                                }
-                              },
                             ),
+                            onChanged: (val) {
+                              if (val != null) {
+                                setState(() {
+                                  _selectedSeasonIndex = val;
+                                  if (_overrideIds != null && _overrideIds!.length > val) {
+                                    if (_metadataCache.containsKey(val)) {
+                                      _metadata = _metadataCache[val];
+                                    } else {
+                                      _fetchMetadata();
+                                    }
+                                  }
+                                });
+                              }
+                            },
                           ),
                         ),
                       ),
-
-                    Expanded(
-                      child: ListView.builder(
-                        controller: _scrollController,
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        itemCount: episodes.length,
-                        itemBuilder: (context, index) {
-                          final episode = episodes[index];
-                          final isWatched = watchedIds.contains(episode.id);
-                          
-                          double progress = 0;
-                          if (isWatched) {
-                            try {
-                              final histItem = history.firstWhere((e) => e['messageId'] == episode.id);
-                              final pos = histItem['position'] as int;
-                              final dur = storage.getVideoDuration(episode.id);
-                              if (dur > 0) progress = pos / dur;
-                            } catch (_) {}
-                          }
-
-                          return _DesktopEpisodeItem(
-                            episode: episode,
-                            index: index,
-                            isWatched: isWatched,
-                            progress: progress,
-                            onTap: () => _playEpisode(context, episode, index),
-                          );
-                        },
-                      ),
                     ),
-                  ],
+                  ),
+                SliverPadding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  sliver: SliverList(
+                    delegate: SliverChildBuilderDelegate(
+                      (context, index) {
+                        final episode = episodes[index];
+                        final isWatched = watchedIds.contains(episode.id);
+                        
+                        double progress = 0;
+                        if (isWatched) {
+                          try {
+                            final histItem = history.firstWhere((e) => e['messageId'] == episode.id);
+                            final pos = histItem['position'] as int;
+                            final dur = storage.getVideoDuration(episode.id);
+                            if (dur > 0) progress = pos / dur;
+                          } catch (_) {}
+                        }
+
+                        return _DesktopEpisodeItem(
+                          episode: episode,
+                          index: index,
+                          isWatched: isWatched,
+                          progress: progress,
+                          onTap: () => _playEpisode(context, episode, index),
+                        );
+                      },
+                      childCount: episodes.length,
+                    ),
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
+          ),
+        ],
           );
   }
 }
@@ -248,22 +389,34 @@ class _DesktopEpisodeItemState extends ConsumerState<_DesktopEpisodeItem> {
     int size = 0;
     int? fileId;
     
+    String epName = HomeController.getMessageFileName(widget.episode).replaceAll('_', ' ').replaceAll('.mkv', '').replaceAll('.mp4', '');
+    if (epName.length > 50) epName = '${epName.substring(0, 47)}...';
+
+    String metadataString = '';
+
     if (widget.episode.content is td.MessageVideo) {
       final video = widget.episode.content as td.MessageVideo;
       file = video.video.thumbnail?.file;
       mini = video.video.minithumbnail;
       size = video.video.video.expectedSize;
       fileId = video.video.video.id;
+      final duration = Duration(seconds: video.video.duration);
+      final minutes = duration.inMinutes.remainder(60).toString().padLeft(2, '0');
+      final seconds = duration.inSeconds.remainder(60).toString().padLeft(2, '0');
+      metadataString = '$minutes:$seconds • ${_formatSize(size)}';
     } else if (widget.episode.content is td.MessageDocument) {
       final doc = widget.episode.content as td.MessageDocument;
       file = doc.document.thumbnail?.file;
       mini = doc.document.minithumbnail;
       size = doc.document.document.expectedSize;
       fileId = doc.document.document.id;
+      final durationMatch = RegExp(r'[\[\(](\d{1,2}:\d{2}(?::\d{2})?)[\]\)]').firstMatch(epName);
+      if (durationMatch != null) {
+        metadataString = '${durationMatch.group(1)} • ${_formatSize(size)}';
+      } else {
+        metadataString = _formatSize(size);
+      }
     }
-
-    String epName = HomeController.getMessageFileName(widget.episode).replaceAll('_', ' ').replaceAll('.mkv', '').replaceAll('.mp4', '');
-    if (epName.length > 50) epName = '${epName.substring(0, 47)}...';
 
     // Download Logic
     final downloadTasks = ref.watch(downloadControllerProvider);
@@ -353,10 +506,10 @@ class _DesktopEpisodeItemState extends ConsumerState<_DesktopEpisodeItem> {
                     const SizedBox(height: 6),
                     Row(
                       children: [
-                        Icon(Icons.sd_storage_outlined, size: 12, color: Colors.white54),
+                                                Icon(Icons.sd_storage_outlined, size: 12, color: Colors.white54),
                         const SizedBox(width: 4),
                         Text(
-                          _formatSize(size),
+                          metadataString,
                           style: const TextStyle(color: Colors.white54, fontSize: 11),
                         ),
                         if (isDownloaded) ...[
