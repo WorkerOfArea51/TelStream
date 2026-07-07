@@ -11,7 +11,6 @@ import 'global_search_screen.dart';
 
 import 'desktop_library_view.dart';
 import 'android_series_details_screen.dart';
-import 'desktop_series_details_screen.dart';
 import '../settings/settings_screen.dart';
 import '../settings/settings_provider.dart';
 import '../player/pip_manager.dart';
@@ -411,7 +410,7 @@ class _DesktopMainScreenState extends ConsumerState<DesktopMainScreen> with Tick
               if (selectedSeries != null) ...[
 
                 Expanded(
-                  child: DesktopSeriesDetailsScreen(
+                  child: AndroidSeriesDetailsScreen(
                     series: selectedSeries,
                     categoryTitle: 'Anime',
                     onBack: () {
