@@ -191,12 +191,14 @@ class TdlibService {
     else if (Platform.isWindows) deviceModel = 'Windows';
     else if (Platform.isLinux) deviceModel = 'Linux';
 
+    final dbPath = '$safePath/database';
+    
     // In TDLib 1.8.65, setTdlibParameters is inlined and doesn't use the 'parameters' object.
     // We send it manually via raw JSON to bypass tdlib 1.6.0's SetTdlibParameters schema.
     final rawParams = {
       "@type": "setTdlibParameters",
       "use_test_dc": false,
-      "database_directory": safePath,
+      "database_directory": dbPath,
       "files_directory": safePath,
       "use_file_database": true,
       "use_chat_info_database": true,
@@ -218,17 +220,13 @@ class TdlibService {
       if (res.code == 401 && res.message.contains('encryption key')) {
         Log.w('Database encryption key mismatch. TDLib format likely changed. Clearing old database...');
         try {
-          final dir = Directory(safePath);
+          if (_clientId != null) {
+            tdSend(_clientId!, const td.Close());
+            await Future.delayed(const Duration(milliseconds: 500));
+          }
+          final dir = Directory(dbPath);
           if (await dir.exists()) {
-            final files = dir.listSync();
-            for (var file in files) {
-              if (file.path.endsWith('.sqlite') || 
-                  file.path.endsWith('.sqlite-wal') || 
-                  file.path.endsWith('.sqlite-shm') || 
-                  file.path.endsWith('.binlog')) {
-                file.deleteSync();
-              }
-            }
+            dir.deleteSync(recursive: true);
           }
           Log.i('Old database cleared. Please retry initialization.');
         } catch (e) {
@@ -246,7 +244,7 @@ class TdlibService {
     } else {
       final params = td.SetTdlibParameters(
         useTestDc: false,
-        databaseDirectory: safePath,
+        databaseDirectory: dbPath,
         filesDirectory: safePath,
         useFileDatabase: true,
         useChatInfoDatabase: true,
