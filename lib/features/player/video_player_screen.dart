@@ -651,7 +651,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
     try {
       ref.read(downloadControllerProvider.notifier).resumeDownloadsAfterStreaming();
     } catch (e, st) {
-      Log.w('Failed to resume downloads after streaming', e, st);
+      Log.e('Failed to resume downloads after streaming', e, st);
     }
 
     // Silence, pause, and stop the player immediately to halt all decoding and audio output
