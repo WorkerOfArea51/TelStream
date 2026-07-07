@@ -12,7 +12,7 @@ import '../../services/tdlib_service.dart';
 import '../../services/update_service.dart';
 import '../../core/widgets/whats_new_dialog.dart';
 import '../../core/widgets/m3_animated_menu_tile.dart';
-import '../../core/widgets/custom_about_dialog.dart';
+import 'widgets/custom_about_dialog.dart';
 import '../settings/settings_screen.dart';
 import 'history_screen.dart';
 import 'network_stream_screen.dart';

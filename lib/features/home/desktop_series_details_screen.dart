@@ -12,6 +12,7 @@ import 'desktop_state.dart';
 import '../../core/widgets/td_thumbnail.dart';
 import '../../core/widgets/aligned_name_text.dart';
 import 'home_controller.dart';
+import '../player/pip_manager.dart';
 
 class DesktopSeriesDetailsScreen extends ConsumerStatefulWidget {
   final AnimeSeries series;
@@ -76,7 +77,7 @@ class _DesktopSeriesDetailsScreenState extends ConsumerState<DesktopSeriesDetail
       }
       if (mounted && newMeta != null) {
         setState(() {
-          _metadataCache[i] = newMeta;
+          _metadataCache[i] = newMeta!;
         });
       }
       await Future.delayed(const Duration(milliseconds: 350));
@@ -106,7 +107,7 @@ class _DesktopSeriesDetailsScreenState extends ConsumerState<DesktopSeriesDetail
         if (mounted && meta != null) {
           setState(() {
             _metadata = meta;
-            _metadataCache[0] = meta;
+            _metadataCache[0] = meta!;
           });
           if (overrideIds.length > 1) {
             _prefetchOtherMetadata(overrideIds);
