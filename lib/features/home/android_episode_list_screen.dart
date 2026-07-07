@@ -1036,7 +1036,6 @@ class _EpisodeCardItemState extends ConsumerState<_EpisodeCardItem> {
             ),
           ),
         ),
-      ),
     );
   }
 
