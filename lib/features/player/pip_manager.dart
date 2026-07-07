@@ -235,9 +235,11 @@ class PipController extends Notifier<PipVideoState?> {
 
     isTransitioning = true;
     final wasPip = currentState.isPip;
-    final oldActivePlayer = _activePlayer;
+    final oldActivePlayer = ref.read(activePlayerProvider);
     if (oldActivePlayer != null) {
-      _activePlayer = null;
+      Future.microtask(() {
+        ref.read(activePlayerProvider.notifier).state = null;
+      });
     }
 
     state = currentState.copyWith(
