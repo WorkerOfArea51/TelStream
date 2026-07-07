@@ -355,7 +355,7 @@ class _DesktopMainScreenState extends ConsumerState<DesktopMainScreen> with Tick
             children: [
               // Desktop Playback Controls
               DesktopPlaybackControls(
-                player: ref.read(pipControllerProvider.notifier).activePlayer,
+                player: ref.watch(activePlayerProvider),
                 pipState: ref.watch(pipControllerProvider),
                 pipNotifier: ref.read(pipControllerProvider.notifier),
                 rightSideTools: [
@@ -714,7 +714,7 @@ class _DesktopMainScreenState extends ConsumerState<DesktopMainScreen> with Tick
   }
 
   Widget _buildTrackPanel({required bool isSubtitle}) {
-    final player = ref.watch(pipControllerProvider.notifier).activePlayer;
+    final player = ref.watch(activePlayerProvider);
     if (player == null) {
       return Center(
         child: Text(

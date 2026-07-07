@@ -93,15 +93,17 @@ class PipVideoState {
   }
 }
 
-class PipController extends Notifier<PipVideoState?> {
-  Player? _activePlayer;
-  bool isTransitioning = false;
+final activePlayerProvider = StateProvider<Player?>((ref) => null);
 
-  Player? get activePlayer => _activePlayer;
+class PipController extends Notifier<PipVideoState?> {
+  bool isTransitioning = false;
+  
+  Player? get activePlayer => ref.read(activePlayerProvider);
 
   void setActivePlayer(Player player) {
+    final _activePlayer = ref.read(activePlayerProvider);
     if (_activePlayer != null && _activePlayer != player) {
-      final oldPlayer = _activePlayer!;
+      final oldPlayer = _activePlayer;
       try {
         oldPlayer.setVolume(0.0);
       } catch (_) {}
@@ -112,12 +114,16 @@ class PipController extends Notifier<PipVideoState?> {
         oldPlayer.stop();
       } catch (_) {}
     }
-    _activePlayer = player;
+    Future.microtask(() {
+      ref.read(activePlayerProvider.notifier).state = player;
+    });
   }
 
   void clearActivePlayer(Player player) {
-    if (_activePlayer == player) {
-      _activePlayer = null;
+    if (ref.read(activePlayerProvider) == player) {
+      Future.microtask(() {
+        ref.read(activePlayerProvider.notifier).state = null;
+      });
     }
   }
 
@@ -134,9 +140,12 @@ class PipController extends Notifier<PipVideoState?> {
     String? networkUrl,
   }) {
     isTransitioning = true;
-    final oldActivePlayer = _activePlayer;
+    final oldActivePlayer = ref.read(activePlayerProvider);
     if (oldActivePlayer != null) {
-      _activePlayer = null;
+      Future.microtask(() {
+        ref.read(activePlayerProvider.notifier).state = null;
+      });
+      try { oldActivePlayer.pause(); } catch (_) {}
     }
 
     final List<PlayQueueItem> initialQueue = [];
@@ -338,10 +347,14 @@ class PipController extends Notifier<PipVideoState?> {
 
   void close() {
     state = null;
+    final _activePlayer = ref.read(activePlayerProvider);
     if (_activePlayer != null) {
-      final playerToDispose = _activePlayer!;
-      _activePlayer = null;
+      final playerToDispose = _activePlayer;
+      Future.microtask(() {
+        ref.read(activePlayerProvider.notifier).state = null;
+      });
       try {
+
         playerToDispose.setVolume(0.0);
       } catch (_) {}
       try {
