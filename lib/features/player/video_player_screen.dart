@@ -1257,8 +1257,13 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
             Log.i('Hardware decoder mode is disabled (no) on player init');
           }
         } else {
-          nativePlayer.setProperty('hwdec', hwDecMode);
-          Log.i('Set hardware decoder mode to $hwDecMode on player init (PC)');
+          String safeMode = hwDecMode;
+          // media_kit's default auto (d3d11va) can cause severe macroblocking/smearing on TDLib streams
+          if (safeMode == 'auto') {
+            safeMode = 'auto-copy';
+          }
+          nativePlayer.setProperty('hwdec', safeMode);
+          Log.i('Set hardware decoder mode to $safeMode on player init (PC)');
         }
         // Always configure native subtitle rendering (libass)
         if (localFont != null) {

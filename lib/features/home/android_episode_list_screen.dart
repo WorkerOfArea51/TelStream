@@ -887,44 +887,54 @@ class _EpisodeCardItemState extends ConsumerState<_EpisodeCardItem> {
       onLongPress: () {
         widget.onLongPress(context, widget.msg, widget.index, fileTitle);
       },
-      child: AnimatedScale(
-        scale: _isTapped ? 0.97 : 1.0,
-        duration: const Duration(milliseconds: 100),
-        curve: Curves.easeOut,
-        child: Container(
-          margin: const EdgeInsets.only(bottom: 12),
-          decoration: BoxDecoration(
-            color: theme.cardColor,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: _isGlowing
-                  ? settingsAccent
-                  : theme.colorScheme.onSurface.withValues(
-                      alpha: _isTapped ? 0.16 : 0.08,
-                    ),
-              width: _isGlowing || _isTapped ? 1.8 : 1.0,
-            ),
-            boxShadow: [
-              if (_isGlowing)
-                BoxShadow(
-                  color: settingsAccent.withValues(alpha: 0.4),
-                  blurRadius: 10,
-                  spreadRadius: 1.5,
-                )
-              else
-                BoxShadow(
-                  color: Colors.black.withValues(
-                    alpha: _isTapped ? 0.15 : 0.08,
-                  ),
-                  blurRadius: _isTapped ? 3 : 6,
-                  offset: Offset(0, _isTapped ? 1.5 : 3),
+      child: Consumer(
+        builder: (context, ref, child) {
+          final pipState = ref.watch(pipControllerProvider);
+          final isCurrentlyPlaying = (pipState != null && pipState.messageId == widget.msg.id);
+          final shouldGlow = _isGlowing || isCurrentlyPlaying;
+
+          return AnimatedScale(
+            scale: _isTapped ? 0.97 : 1.0,
+            duration: const Duration(milliseconds: 100),
+            curve: Curves.easeOut,
+            child: Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              decoration: BoxDecoration(
+                color: theme.cardColor,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: shouldGlow
+                      ? settingsAccent
+                      : theme.colorScheme.onSurface.withValues(
+                          alpha: _isTapped ? 0.16 : 0.08,
+                        ),
+                  width: shouldGlow || _isTapped ? 1.8 : 1.0,
                 ),
-            ],
-          ),
-          clipBehavior: Clip.antiAlias,
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Row(
+                boxShadow: [
+                  if (shouldGlow)
+                    BoxShadow(
+                      color: settingsAccent.withValues(alpha: 0.4),
+                      blurRadius: 10,
+                      spreadRadius: 1.5,
+                    )
+                  else
+                    BoxShadow(
+                      color: Colors.black.withValues(
+                        alpha: _isTapped ? 0.15 : 0.08,
+                      ),
+                      blurRadius: _isTapped ? 3 : 6,
+                      offset: Offset(0, _isTapped ? 1.5 : 3),
+                    ),
+                ],
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: child,
+            ),
+          );
+        },
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 // Episode Thumbnail/Still preview

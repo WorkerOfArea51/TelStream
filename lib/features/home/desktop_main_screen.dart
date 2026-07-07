@@ -472,7 +472,11 @@ class _DesktopMainScreenState extends ConsumerState<DesktopMainScreen> with Tick
                       ),
                       Expanded(
                         child: Text(
-                          _currentRightPanelView == 'downloads' ? 'Downloads' : 'History',
+                          _currentRightPanelView == 'downloads'
+                              ? 'Downloads'
+                              : _currentRightPanelView == 'preferences'
+                                  ? 'Settings'
+                                  : 'History',
                           style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                         ),
                       ),
@@ -482,7 +486,9 @@ class _DesktopMainScreenState extends ConsumerState<DesktopMainScreen> with Tick
                 Expanded(
                   child: _currentRightPanelView == 'downloads'
                       ? const DownloadsScreen()
-                      : const HistoryScreen(),
+                      : _currentRightPanelView == 'preferences'
+                          ? const SettingsScreen()
+                          : const HistoryScreen(),
                 ),
               ]
             ],
