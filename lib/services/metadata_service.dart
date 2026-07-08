@@ -294,7 +294,7 @@ class MetadataService {
       http.Response? res;
       for (int attempt = 0; attempt < 3; attempt++) {
         res = await http.get(url);
-        if (res.statusCode == 429) {
+        if (res.statusCode == 429 || res.statusCode >= 500) {
           if (attempt < 2) {
             await Future.delayed(Duration(milliseconds: 1000 * (attempt + 1)));
             continue;
@@ -346,7 +346,7 @@ class MetadataService {
         http.Response? recRes;
         for (int attempt = 0; attempt < 3; attempt++) {
           recRes = await http.get(recUrl);
-          if (recRes.statusCode == 429) {
+          if (recRes.statusCode == 429 || recRes.statusCode >= 500) {
             if (attempt < 2) {
               await Future.delayed(Duration(milliseconds: 1000 * (attempt + 1)));
               continue;
