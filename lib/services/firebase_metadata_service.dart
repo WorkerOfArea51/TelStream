@@ -33,6 +33,7 @@ class FirebaseMetadataService {
           if (value is Map<String, dynamic>) {
             // Check if this is a Category node containing encoded keys
             value.forEach((subKey, subValue) {
+              if (subKey == '_count') return;
               if (subValue is Map<String, dynamic> && subValue.containsKey('id')) {
                 final decodedKey = _decodeKey(subKey);
                 newCache[decodedKey] = subValue['id'].toString();
@@ -111,6 +112,21 @@ class FirebaseMetadataService {
 
       if (response.statusCode == 200) {
         Log.i('Successfully synced metadata override to Firebase for $coreName in $safeCategory');
+        
+        // Update the count for this category
+        try {
+          final countRes = await http.get(Uri.parse('$_baseUrl/metadata/$safeCategory.json?shallow=true')).timeout(const Duration(seconds: 5));
+          if (countRes.statusCode == 200 && countRes.body != 'null') {
+            final Map<String, dynamic> catData = json.decode(countRes.body);
+            int count = catData.keys.where((k) => k != '_count').length;
+            await http.put(
+              Uri.parse('$_baseUrl/metadata/$safeCategory/_count.json'),
+              body: json.encode(count),
+            );
+          }
+        } catch (e) {
+          Log.w('Failed to update category count', e);
+        }
       } else {
         Log.e('Failed to sync to Firebase. Status: ${response.statusCode}, Body: ${response.body}');
       }

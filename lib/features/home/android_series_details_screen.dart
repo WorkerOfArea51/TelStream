@@ -106,7 +106,13 @@ class _AndroidSeriesDetailsScreenState extends ConsumerState<AndroidSeriesDetail
   }
 
   Future<void> _checkAndFetchMetadata() async {
-    final overrideStr = FirebaseMetadataService.getOverride(widget.series.coreName);
+    final currentSeason = widget.series.seasons.isNotEmpty ? widget.series.seasons[0].seasonName : '';
+    String? overrideStr = FirebaseMetadataService.getOverride('${widget.series.coreName}_$currentSeason');
+    
+    if (overrideStr == null || overrideStr.isEmpty) {
+      overrideStr = FirebaseMetadataService.getOverride(widget.series.coreName);
+    }
+    
     if (overrideStr != null && overrideStr.isNotEmpty) {
       final ids = overrideStr.split(',');
       if (mounted) {
@@ -165,9 +171,14 @@ class _AndroidSeriesDetailsScreenState extends ConsumerState<AndroidSeriesDetail
   }
 
   Future<void> _onSeasonChanged(int newIndex) async {
-    if (_overrideIds == null || _overrideIds!.isEmpty) return;
+    final newSeasonName = widget.series.seasons.length > newIndex ? widget.series.seasons[newIndex].seasonName : '';
+    final seasonOverrideStr = FirebaseMetadataService.getOverride('${widget.series.coreName}_$newSeasonName');
+    
+    if ((_overrideIds == null || _overrideIds!.isEmpty) && (seasonOverrideStr == null || seasonOverrideStr.isEmpty)) {
+      return;
+    }
 
-    if (_metadataCache.containsKey(newIndex)) {
+    if (_metadataCache.containsKey(newIndex) && (seasonOverrideStr == null || seasonOverrideStr.isEmpty)) {
       setState(() {
         _selectedSeasonIndex = newIndex;
         _currentMetadata = _metadataCache[newIndex];
@@ -177,10 +188,15 @@ class _AndroidSeriesDetailsScreenState extends ConsumerState<AndroidSeriesDetail
       return;
     }
 
-    int idIndex = newIndex < _overrideIds!.length
-        ? newIndex
-        : _overrideIds!.length - 1;
-    String targetId = _overrideIds![idIndex];
+    String targetId = '';
+    if (seasonOverrideStr != null && seasonOverrideStr.isNotEmpty) {
+      targetId = seasonOverrideStr.split(',').first;
+    } else {
+      int idIndex = newIndex < _overrideIds!.length
+          ? newIndex
+          : _overrideIds!.length - 1;
+      targetId = _overrideIds![idIndex];
+    }
 
     setState(() {
       _selectedSeasonIndex = newIndex;

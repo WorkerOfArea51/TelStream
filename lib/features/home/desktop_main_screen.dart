@@ -414,8 +414,14 @@ class _DesktopMainScreenState extends ConsumerState<DesktopMainScreen> with Tick
               if (selectedSeries != null) ...[
                 Builder(
                   builder: (context) {
-                    final overrideId = FirebaseMetadataService.getOverride(selectedSeries.coreName);
-                    final preloadedMetadata = FirebaseMetadataService.getPreloadedMetadata(selectedSeries.coreName);
+                    final currentSeason = selectedSeries.seasons.isNotEmpty ? selectedSeries.seasons[0].seasonName : '';
+                    String? overrideId = FirebaseMetadataService.getOverride('${selectedSeries.coreName}_$currentSeason');
+                    List<SeriesMetadata>? preloadedMetadata;
+
+                    if (overrideId == null || overrideId.isEmpty) {
+                      overrideId = FirebaseMetadataService.getOverride(selectedSeries.coreName);
+                      preloadedMetadata = FirebaseMetadataService.getPreloadedMetadata(selectedSeries.coreName);
+                    }
                     
                     SeriesMetadata? meta;
                     List<String>? overrideIds;

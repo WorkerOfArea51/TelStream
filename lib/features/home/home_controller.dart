@@ -9,6 +9,182 @@ import '../../core/constants.dart';
 import '../../core/secrets.dart';
 import '../../services/tdlib_service.dart';
 import '../../services/storage_service.dart';
+
+class ParseMessagesArgs {
+  final List<td.Message> raw;
+  final bool isMovie;
+  ParseMessagesArgs(this.raw, this.isMovie);
+}
+
+Future<List<AnimeSeries>> parseMessagesCompute(ParseMessagesArgs args) async {
+  final raw = args.raw;
+  final isMovie = args.isMovie;
+  
+  // 1. Separate poster messages and episode messages
+  final List<td.Message> posterMessages = [];
+  final List<td.Message> episodeMessages = [];
+
+  for (final msg in raw) {
+    if (msg.content is td.MessagePhoto) {
+      final photo = msg.content as td.MessagePhoto;
+      if (photo.caption.text.isNotEmpty) {
+        posterMessages.add(msg);
+      }
+    } else if (msg.content is td.MessageVideo) {
+      episodeMessages.add(msg);
+    } else if (msg.content is td.MessageDocument) {
+      final fileName = HomeController.getMessageFileName(msg).toLowerCase();
+      final doc = msg.content as td.MessageDocument;
+      if (doc.document.mimeType.startsWith('video/') ||
+          fileName.endsWith('.mkv') ||
+          fileName.endsWith('.mp4') ||
+          fileName.endsWith('.avi') ||
+          fileName.endsWith('.mov') ||
+          fileName.endsWith('.webm') ||
+          fileName.endsWith('.flv') ||
+          fileName.endsWith('.wmv')) {
+        episodeMessages.add(msg);
+      }
+    }
+  }
+
+  // 2. Pre-process poster details & initialize series map/list
+  final List<Map<String, dynamic>> posterDetails = [];
+  final Map<String, AnimeSeries> seriesMap = {};
+  final List<AnimeSeries> seriesList = [];
+
+  for (final pMsg in posterMessages) {
+    final photo = pMsg.content as td.MessagePhoto;
+    final captionText = photo.caption.text;
+    final lines = captionText.split('\n');
+    final fullTitle = lines.first.trim();
+    final baseName = HomeController.normalizeSeriesName(fullTitle, isMovie: isMovie);
+    
+    final canonicalKey = baseName.toLowerCase().replaceAll(RegExp(r'[^a-zA-Z0-9]'), '');
+    String matchedKey = isMovie ? '${canonicalKey}_${pMsg.id}' : canonicalKey;
+
+    if (!isMovie) {
+      for (final existingKey in seriesMap.keys) {
+        if (existingKey.length >= 7 && canonicalKey.length >= 7) {
+          // Bypass prefix/substring grouping for franchise sequels/spinoffs
+          bool isFranchiseBypass = false;
+          const franchisePrefixes = ['dragonball', 'naruto', 'onepiece', 'bleach'];
+          for (final prefix in franchisePrefixes) {
+            if ((canonicalKey.startsWith(prefix) || existingKey.startsWith(prefix)) &&
+                canonicalKey != existingKey) {
+              isFranchiseBypass = true;
+              break;
+            }
+          }
+          if (isFranchiseBypass) continue;
+
+          if (canonicalKey.startsWith(existingKey)) {
+            matchedKey = existingKey;
+            break;
+          } else if (existingKey.startsWith(canonicalKey)) {
+            matchedKey = existingKey;
+            final existingSeries = seriesMap[existingKey]!;
+            if (baseName.length < existingSeries.coreName.length) {
+              seriesMap[existingKey] = AnimeSeries(
+                coreName: baseName,
+                seasons: existingSeries.seasons,
+              );
+              final idx = seriesList.indexOf(existingSeries);
+              if (idx != -1) {
+                seriesList[idx] = seriesMap[existingKey]!;
+              }
+              break;
+            }
+          }
+        }
+      }
+    }
+
+    if (!seriesMap.containsKey(matchedKey)) {
+      seriesMap[matchedKey] = AnimeSeries(coreName: baseName, seasons: []);
+      seriesList.add(seriesMap[matchedKey]!);
+    }
+
+    posterDetails.add({
+      'message': pMsg,
+      'fullTitle': fullTitle,
+      'baseName': baseName,
+      'matchedKey': matchedKey,
+      'episodesList': <td.Message>[],
+    });
+  }
+
+  // 3. Match each episode message to its preceding poster message (pure sequential chronological)
+  for (final ep in episodeMessages) {
+    Map<String, dynamic>? selectedPoster;
+    int maxPrecedingId = -1;
+
+    for (final pd in posterDetails) {
+      final pMsg = pd['message'] as td.Message;
+      if (pMsg.id < ep.id && pMsg.id > maxPrecedingId) {
+        maxPrecedingId = pMsg.id;
+        selectedPoster = pd;
+      }
+    }
+    
+    // Fallback: If no preceding poster, use the closest poster overall
+    if (selectedPoster == null && posterDetails.isNotEmpty) {
+      int minDistance = -1;
+      for (final pd in posterDetails) {
+        final pMsg = pd['message'] as td.Message;
+        final dist = (ep.id - pMsg.id).abs();
+        if (minDistance == -1 || dist < minDistance) {
+          minDistance = dist;
+          selectedPoster = pd;
+        }
+      }
+    }
+
+    if (selectedPoster != null) {
+      (selectedPoster['episodesList'] as List<td.Message>).add(ep);
+    }
+  }
+
+  // 4. Assemble seasons and populate the series list
+  for (final pd in posterDetails) {
+    final pMsg = pd['message'] as td.Message;
+    final fullTitle = pd['fullTitle'] as String;
+    final baseName = pd['baseName'] as String;
+    final matchedKey = pd['matchedKey'] as String;
+    final rawEps = pd['episodesList'] as List<td.Message>;
+
+    // Sort episodes inside the season numerically by episode number parsed from filename
+    final sortedEpisodes = List<td.Message>.from(rawEps)
+      ..sort((a, b) {
+        final epA = HomeController.parseEpisodeNumber(a);
+        final epB = HomeController.parseEpisodeNumber(b);
+        if (epA != epB) {
+          return epA.compareTo(epB);
+        }
+        return a.id.compareTo(b.id);
+      });
+
+    final newSeason = AnimeSeason(
+      fullTitle: fullTitle,
+      seasonName: HomeController.parseSeasonName(fullTitle, baseName),
+      posterMessage: pMsg,
+      episodes: sortedEpisodes,
+    );
+
+    final series = seriesMap[matchedKey];
+    if (series != null) {
+      final existingIndex = series.seasons.indexWhere((s) => s.posterMessage.id == pMsg.id);
+      if (existingIndex != -1) {
+        series.seasons[existingIndex] = newSeason;
+      } else {
+        series.seasons.add(newSeason);
+      }
+    }
+  }
+
+  return seriesList;
+}
+
 import '../../models/anime_models.dart';
 import '../../core/logger.dart';
 import '../player/pip_manager.dart';
@@ -888,184 +1064,15 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
   }
 
   @visibleForTesting
-  Future<List<AnimeSeries>> parseMessagesForTesting(List<td.Message> raw) async => await _parseMessages(raw);
+  Future<List<AnimeSeries>> parseMessagesForTesting(List<td.Message> raw) async {
+    return await compute(parseMessagesCompute, ParseMessagesArgs(raw, category.title == 'Movies'));
+  }
 
   @visibleForTesting
   Future<List<AnimeSeries>> applySearchAndSortForTesting(List<AnimeSeries> series) => _applySearchAndSort(series);
 
   Future<List<AnimeSeries>> _parseMessages(List<td.Message> raw) async {
-    // 1. Separate poster messages and episode messages
-    final List<td.Message> posterMessages = [];
-    final List<td.Message> episodeMessages = [];
-
-    int processedCount = 0;
-    for (final msg in raw) {
-      processedCount++;
-      if (processedCount % 100 == 0) await Future.delayed(Duration.zero);
-
-      if (msg.content is td.MessagePhoto) {
-        final photo = msg.content as td.MessagePhoto;
-        if (photo.caption.text.isNotEmpty) {
-          posterMessages.add(msg);
-        }
-      } else if (msg.content is td.MessageVideo) {
-        episodeMessages.add(msg);
-      } else if (msg.content is td.MessageDocument) {
-        final fileName = getMessageFileName(msg).toLowerCase();
-        final doc = msg.content as td.MessageDocument;
-        if (doc.document.mimeType.startsWith('video/') ||
-            fileName.endsWith('.mkv') ||
-            fileName.endsWith('.mp4') ||
-            fileName.endsWith('.avi') ||
-            fileName.endsWith('.mov') ||
-            fileName.endsWith('.webm') ||
-            fileName.endsWith('.flv') ||
-            fileName.endsWith('.wmv')) {
-          episodeMessages.add(msg);
-        }
-      }
-    }
-
-    // 2. Pre-process poster details & initialize series map/list
-    final List<Map<String, dynamic>> posterDetails = [];
-    final Map<String, AnimeSeries> seriesMap = {};
-    final List<AnimeSeries> seriesList = [];
-    final isMovie = category.title == 'Movies';
-
-    processedCount = 0;
-    for (final pMsg in posterMessages) {
-      processedCount++;
-      if (processedCount % 50 == 0) await Future.delayed(Duration.zero);
-      
-      final photo = pMsg.content as td.MessagePhoto;
-      final captionText = photo.caption.text;
-      final lines = captionText.split('\n');
-      final fullTitle = lines.first.trim();
-      final baseName = normalizeSeriesName(fullTitle, isMovie: isMovie);
-      
-      final canonicalKey = baseName.toLowerCase().replaceAll(RegExp(r'[^a-zA-Z0-9]'), '');
-      String matchedKey = isMovie ? '${canonicalKey}_${pMsg.id}' : canonicalKey;
-
-      if (!isMovie) {
-        for (final existingKey in seriesMap.keys) {
-          if (existingKey.length >= 7 && canonicalKey.length >= 7) {
-            // Bypass prefix/substring grouping for franchise sequels/spinoffs
-            bool isFranchiseBypass = false;
-            const franchisePrefixes = ['dragonball', 'naruto', 'onepiece', 'bleach'];
-            for (final prefix in franchisePrefixes) {
-              if ((canonicalKey.startsWith(prefix) || existingKey.startsWith(prefix)) &&
-                  canonicalKey != existingKey) {
-                isFranchiseBypass = true;
-                break;
-              }
-            }
-            if (isFranchiseBypass) continue;
-
-            if (canonicalKey.startsWith(existingKey)) {
-              matchedKey = existingKey;
-              break;
-            } else if (existingKey.startsWith(canonicalKey)) {
-              matchedKey = existingKey;
-              final existingSeries = seriesMap[existingKey]!;
-              if (baseName.length < existingSeries.coreName.length) {
-                seriesMap[existingKey] = AnimeSeries(
-                  coreName: baseName,
-                  seasons: existingSeries.seasons,
-                );
-                final idx = seriesList.indexOf(existingSeries);
-                if (idx != -1) {
-                  seriesList[idx] = seriesMap[existingKey]!;
-                }
-                break;
-              }
-            }
-          }
-        }
-      }
-
-      if (!seriesMap.containsKey(matchedKey)) {
-        seriesMap[matchedKey] = AnimeSeries(coreName: baseName, seasons: []);
-        seriesList.add(seriesMap[matchedKey]!);
-      }
-
-      posterDetails.add({
-        'message': pMsg,
-        'fullTitle': fullTitle,
-        'baseName': baseName,
-        'matchedKey': matchedKey,
-        'episodesList': <td.Message>[],
-      });
-    }
-
-    // 3. Match each episode message to its preceding poster message (pure sequential chronological)
-    for (final ep in episodeMessages) {
-      Map<String, dynamic>? selectedPoster;
-      int maxPrecedingId = -1;
-
-      for (final pd in posterDetails) {
-        final pMsg = pd['message'] as td.Message;
-        if (pMsg.id < ep.id && pMsg.id > maxPrecedingId) {
-          maxPrecedingId = pMsg.id;
-          selectedPoster = pd;
-        }
-      }
-      
-      // Fallback: If no preceding poster, use the closest poster overall
-      if (selectedPoster == null && posterDetails.isNotEmpty) {
-        int minDistance = -1;
-        for (final pd in posterDetails) {
-          final pMsg = pd['message'] as td.Message;
-          final dist = (ep.id - pMsg.id).abs();
-          if (minDistance == -1 || dist < minDistance) {
-            minDistance = dist;
-            selectedPoster = pd;
-          }
-        }
-      }
-
-      if (selectedPoster != null) {
-        (selectedPoster['episodesList'] as List<td.Message>).add(ep);
-      }
-    }
-
-    // 4. Assemble seasons and populate the series list
-    for (final pd in posterDetails) {
-      final pMsg = pd['message'] as td.Message;
-      final fullTitle = pd['fullTitle'] as String;
-      final baseName = pd['baseName'] as String;
-      final matchedKey = pd['matchedKey'] as String;
-      final rawEps = pd['episodesList'] as List<td.Message>;
-
-      // Sort episodes inside the season numerically by episode number parsed from filename
-      final sortedEpisodes = List<td.Message>.from(rawEps)
-        ..sort((a, b) {
-          final epA = _parseEpisodeNumber(a);
-          final epB = _parseEpisodeNumber(b);
-          if (epA != epB) {
-            return epA.compareTo(epB);
-          }
-          return a.id.compareTo(b.id);
-        });
-
-      final newSeason = AnimeSeason(
-        fullTitle: fullTitle,
-        seasonName: parseSeasonName(fullTitle, baseName),
-        posterMessage: pMsg,
-        episodes: sortedEpisodes,
-      );
-
-      final series = seriesMap[matchedKey];
-      if (series != null) {
-        final existingIndex = series.seasons.indexWhere((s) => s.posterMessage.id == pMsg.id);
-        if (existingIndex != -1) {
-          series.seasons[existingIndex] = newSeason;
-        } else {
-          series.seasons.add(newSeason);
-        }
-      }
-    }
-
-    return seriesList;
+    return await compute(parseMessagesCompute, ParseMessagesArgs(raw, category.title == 'Movies'));
   }
 
   static String getMessageFileName(td.Message msg) {
@@ -1108,7 +1115,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
     return fileName;
   }
 
-  static int _parseEpisodeNumber(td.Message ep) {
+  static int parseEpisodeNumber(td.Message ep) {
     String fileName = getMessageFileName(ep);
     
     final name = fileName.toLowerCase();
@@ -1415,6 +1422,34 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
       return null;
     }
   }
+  bool _updateMessageIncrementally(td.Message editedMsg) {
+    bool found = false;
+    for (final s in _allSeries) {
+      for (final season in s.seasons) {
+        if (season.posterMessage.id == editedMsg.id) {
+          season.posterMessage = editedMsg;
+          found = true;
+          break;
+        }
+        final epIndex = season.episodes.indexWhere((e) => e.id == editedMsg.id);
+        if (epIndex != -1) {
+          season.episodes[epIndex] = editedMsg;
+          // Re-sort episodes in case the filename/caption changed
+          season.episodes.sort((a, b) {
+            final epA = parseEpisodeNumber(a);
+            final epB = parseEpisodeNumber(b);
+            if (epA != epB) return epA.compareTo(epB);
+            return a.id.compareTo(b.id);
+          });
+          found = true;
+          break;
+        }
+      }
+      if (found) break;
+    }
+    return found;
+  }
+
   void _fetchAndAndUpdateSingleMessage(int messageId, TdlibService tdlibService) async {
     try {
       final res = await tdlibService.sendAsync(td.GetMessage(
@@ -1425,14 +1460,17 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
         final idx = _rawMessages.indexWhere((m) => m.id == messageId);
         if (idx != -1) {
           _rawMessages[idx] = res;
-          _allSeries = await _parseMessages(_rawMessages);
-          if (state.value != null) {
+          
+          final changed = _updateMessageIncrementally(res);
+          
+          if (changed && state.value != null) {
+            // Update UI state without a full heavy parse
             if (!_isDisposed) state = AsyncValue.data(await _applySearchAndSort(_allSeries));
           }
           if (_cacheLoadComplete) {
             _scheduleCatalogCacheWrite();
           }
-          Log.i('Real-time updated edited message in catalog: $messageId');
+          Log.i('Real-time updated edited message in catalog incrementally: $messageId');
         }
       }
     } catch (e) {

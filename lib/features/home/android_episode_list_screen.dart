@@ -54,6 +54,7 @@ class _AndroidEpisodeListScreenState extends ConsumerState<AndroidEpisodeListScr
   bool _isLoadingEpisodes = false;
   String? _errorMessage;
   final ScrollController _scrollController = ScrollController();
+  final ScrollController _seasonScrollController = ScrollController();
 
   @override
   void initState() {
@@ -200,7 +201,95 @@ class _AndroidEpisodeListScreenState extends ConsumerState<AndroidEpisodeListScr
   @override
   void dispose() {
     _scrollController.dispose();
+    _seasonScrollController.dispose();
     super.dispose();
+  }
+
+  void _scrollToSelectedSeason(int index) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_seasonScrollController.hasClients) return;
+      final screenWidth = MediaQuery.of(context).size.width;
+      final targetOffset = (index * 120.0) - (screenWidth / 2) + 60.0;
+      _seasonScrollController.animateTo(
+        targetOffset.clamp(0.0, _seasonScrollController.position.maxScrollExtent),
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
+    });
+  }
+
+  void _showSeasonAdminOverrideDialog(BuildContext context, String seasonName) async {
+    final tdlibService = ref.read(tdlibServiceProvider);
+    final me = tdlibService.getMe();
+    
+    if (me is td.User && me.usernames?.activeUsernames.contains('admin') == true ||
+        me is td.User && me.id == 1459249767) {
+        
+      final overrideKey = '${widget.series.coreName}_$seasonName';
+      final existingIds = FirebaseMetadataService.getOverride(overrideKey) ?? '';
+
+      final result = await showDialog<String>(
+        context: context,
+        builder: (c) => AdminOverrideDialog(
+          title: overrideKey,
+          initialText: existingIds,
+        ),
+      );
+      
+      if (result != null && result.trim().isNotEmpty) {
+        List<String> ids = [];
+        final input = result.trim();
+        if (input.startsWith('tt') || input.contains('imdb.com')) {
+          ids = MetadataService.extractAllImdbIds(input);
+        } else {
+          ids = MetadataService.extractAllMalIds(input);
+        }
+        
+        if (ids.isNotEmpty) {
+          showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (c) => const AlertDialog(
+              backgroundColor: Colors.black,
+              content: Row(
+                children: [
+                  CircularProgressIndicator(color: Colors.orange),
+                  SizedBox(width: 16),
+                  Text('Fetching Season Metadata...', style: TextStyle(color: Colors.white)),
+                ],
+              ),
+            ),
+          );
+
+          final metadataService = MetadataService();
+          List<SeriesMetadata> preloadedData = [];
+          for (final id in ids) {
+            SeriesMetadata? meta;
+            if (id.startsWith('tt')) {
+              meta = await metadataService.fetchTmdbByImdbId(id);
+            } else {
+              meta = await metadataService.fetchJikanByMalId(id);
+            }
+            if (meta != null) preloadedData.add(meta);
+          }
+
+          if (context.mounted) Navigator.pop(context);
+
+          await FirebaseMetadataService.saveOverride(
+            widget.categoryTitle ?? 'Anime',
+            overrideKey,
+            ids.join(','),
+            preloadedData: preloadedData,
+          );
+          
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Season Metadata Linked successfully! Tap another season and back to refresh.')),
+            );
+          }
+        }
+      }
+    }
   }
 
   void _toggleFavorite() {
@@ -457,6 +546,7 @@ class _AndroidEpisodeListScreenState extends ConsumerState<AndroidEpisodeListScr
                   height: 48,
                   margin: const EdgeInsets.only(top: 8, bottom: 4),
                   child: ListView.builder(
+                    controller: _seasonScrollController,
                     scrollDirection: Axis.horizontal,
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     itemCount: widget.series.seasons.length,
@@ -464,41 +554,49 @@ class _AndroidEpisodeListScreenState extends ConsumerState<AndroidEpisodeListScr
                       final season = widget.series.seasons[index];
                       final isSelected =
                           season.seasonName == selectedSeason.seasonName;
+                      
+                      if (isSelected) {
+                        _scrollToSelectedSeason(index);
+                      }
+                      
                       return Padding(
                         padding: const EdgeInsets.only(right: 10),
-                        child: ChoiceChip(
-                          label: Text(
-                            season.episodes.isNotEmpty
-                                ? '${season.seasonName} (${season.episodes.length} EP)'
-                                : season.seasonName,
-                            style: TextStyle(
-                              color: isSelected
-                                  ? theme.colorScheme.onPrimary
-                                  : theme.colorScheme.onSurface,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 13,
+                        child: GestureDetector(
+                          onLongPress: () => _showSeasonAdminOverrideDialog(context, season.seasonName),
+                          child: ChoiceChip(
+                            label: Text(
+                              season.episodes.isNotEmpty
+                                  ? '${season.seasonName} (${season.episodes.length} EP)'
+                                  : season.seasonName,
+                              style: TextStyle(
+                                color: isSelected
+                                    ? theme.colorScheme.onPrimary
+                                    : theme.colorScheme.onSurface,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                              ),
                             ),
-                          ),
-                          selected: isSelected,
-                          selectedColor: theme.colorScheme.primary,
-                          backgroundColor: theme.cardColor,
-                          side: BorderSide(
-                            color: isSelected
-                                ? theme.colorScheme.primary
-                                : theme.dividerColor,
-                            width: 1,
-                          ),
-                          onSelected: (selected) {
-                            if (selected) {
-                              setState(() {
-                                _selectedSeason = season;
-                              });
-                              widget.onSeasonChanged?.call(index);
-                              if (season.episodes.isEmpty) {
-                                _loadEpisodesDynamically();
+                            selected: isSelected,
+                            selectedColor: theme.colorScheme.primary,
+                            backgroundColor: theme.cardColor,
+                            side: BorderSide(
+                              color: isSelected
+                                  ? theme.colorScheme.primary
+                                  : theme.dividerColor,
+                              width: 1,
+                            ),
+                            onSelected: (selected) {
+                              if (selected) {
+                                setState(() {
+                                  _selectedSeason = season;
+                                });
+                                widget.onSeasonChanged?.call(index);
+                                if (season.episodes.isEmpty) {
+                                  _loadEpisodesDynamically();
+                                }
                               }
-                            }
-                          },
+                            },
+                          ),
                         ),
                       );
                     },
