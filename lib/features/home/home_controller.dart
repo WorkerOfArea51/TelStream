@@ -430,6 +430,11 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
     return sorted;
   }
 
+  static List<AnimeSeries> _parseCacheJson(String content) {
+    final List<dynamic> jsonList = json.decode(content);
+    return jsonList.map((s) => AnimeSeries.fromJson(s as Map<String, dynamic>)).toList();
+  }
+
   Future<void> loadMore() async {
     if (_isLoadingMore || !_hasMore) return;
     _isLoadingMore = true;
@@ -481,8 +486,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
       final file = File(cachePath);
       if (await file.exists()) {
         final content = await file.readAsString();
-        final List<dynamic> jsonList = json.decode(content);
-        final List<AnimeSeries> cachedList = jsonList.map((s) => AnimeSeries.fromJson(s as Map<String, dynamic>)).toList();
+        final List<AnimeSeries> cachedList = await compute(_parseCacheJson, content);
         
         _allSeries = cachedList;
         _rawMessages.clear();

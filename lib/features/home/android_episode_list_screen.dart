@@ -59,11 +59,13 @@ class _AndroidEpisodeListScreenState extends ConsumerState<AndroidEpisodeListScr
   String? _errorMessage;
   final ScrollController _scrollController = ScrollController();
   final ScrollController _seasonScrollController = ScrollController();
+  late List<GlobalKey> _seasonKeys;
 
   @override
   void initState() {
     super.initState();
     _selectedSeason = widget.season;
+    _seasonKeys = List.generate(widget.series.seasons.length, (index) => GlobalKey());
 
     if (widget.highlightMessageId != null) {
       for (final season in widget.series.seasons) {
@@ -91,6 +93,9 @@ class _AndroidEpisodeListScreenState extends ConsumerState<AndroidEpisodeListScr
   @override
   void didUpdateWidget(AndroidEpisodeListScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (widget.series.seasons.length != oldWidget.series.seasons.length) {
+      _seasonKeys = List.generate(widget.series.seasons.length, (index) => GlobalKey());
+    }
     if (widget.series != oldWidget.series || widget.season != oldWidget.season) {
       final matchingSeason = widget.series.seasons.firstWhere(
         (s) => s.seasonName == _selectedSeason.seasonName,
@@ -217,29 +222,26 @@ class _AndroidEpisodeListScreenState extends ConsumerState<AndroidEpisodeListScr
   }
 
   void _scrollToSelectedSeason(int index, {bool delay = false}) {
-    if (delay) {
-      Future.delayed(const Duration(milliseconds: 400), () {
-        if (!mounted || !_seasonScrollController.hasClients) return;
-        _performSeasonScroll(index);
-      });
-    } else {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted || !_seasonScrollController.hasClients) return;
-        _performSeasonScroll(index);
-      });
+    if (index < 0 || index >= _seasonKeys.length) return;
+    
+    void doScroll() {
+      if (!mounted) return;
+      final context = _seasonKeys[index].currentContext;
+      if (context != null) {
+        Scrollable.ensureVisible(
+          context,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
+          alignment: 0.5,
+        );
+      }
     }
-  }
 
-  void _performSeasonScroll(int index) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    // Calculate a more accurate offset for variable-width chips
-    // A typical chip is about 150px wide. 
-    final targetOffset = (index * 150.0) - (screenWidth / 2) + 75.0;
-    _seasonScrollController.animateTo(
-      targetOffset.clamp(0.0, _seasonScrollController.position.maxScrollExtent),
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeInOut,
-    );
+    if (delay) {
+      Future.delayed(const Duration(milliseconds: 400), doScroll);
+    } else {
+      WidgetsBinding.instance.addPostFrameCallback((_) => doScroll());
+    }
   }
 
   void _showSeasonAdminOverrideDialog(BuildContext context, String seasonName) async {
@@ -579,6 +581,7 @@ class _AndroidEpisodeListScreenState extends ConsumerState<AndroidEpisodeListScr
                             season.seasonName == selectedSeason.seasonName;
                         
                         return Padding(
+                          key: _seasonKeys[index],
                           padding: const EdgeInsets.only(right: 10),
                           child: GestureDetector(
                             onLongPress: () => _showSeasonAdminOverrideDialog(context, season.seasonName),
