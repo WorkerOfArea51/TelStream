@@ -428,6 +428,7 @@ class _DesktopMainScreenState extends ConsumerState<DesktopMainScreen> with Tick
                     
                     return Expanded(
                       child: AndroidSeriesDetailsScreen(
+                        key: ValueKey(selectedSeries.coreName),
                         series: selectedSeries,
                         categoryTitle: 'Anime',
                         metadata: meta,
