@@ -124,7 +124,11 @@ class SubtitleDownloaderService {
       };
       final lang2 = langMap[lang] ?? lang;
 
-      final url = Uri.parse('https://api.subdl.com/api/v1/subtitles?api_key=$apiKey&film_name=${Uri.encodeComponent(query)}&languages=$lang2');
+      final url = Uri.https('api.subdl.com', '/api/v1/subtitles', {
+        'api_key': apiKey,
+        'film_name': query,
+        'languages': lang2,
+      });
       
       final response = await http.get(
         url,
@@ -209,9 +213,15 @@ class SubtitleDownloaderService {
             throw const HttpException('OpenSubtitles returned an empty download link.');
           }
 
-          final fileResponse = await http.get(Uri.parse(link), headers: {
+          final linkUri = Uri.parse(link);
+          final allowedHosts = {'api.opensubtitles.com', 'opensubtitles.com', 'dl.opensubtitles.org'};
+          if (!linkUri.isScheme('https') || !allowedHosts.contains(linkUri.host)) {
+            throw HttpException('OpenSubtitles returned an untrusted download host: ${linkUri.host}');
+          }
+
+          final fileResponse = await http.get(linkUri, headers: {
             'User-Agent': 'TelStream v2.7.0',
-          }).timeout(const Duration(seconds: 10));
+          }).timeout(const Duration(seconds: 15));
 
           if (fileResponse.statusCode == 200) {
             bytes = fileResponse.bodyBytes;
@@ -243,8 +253,13 @@ class SubtitleDownloaderService {
       List<int> decodedBytes = bytes;
       const maxDecompressedBytes = 50 * 1024 * 1024; // 50 MB hard cap
 
+      if (bytes.length > maxDecompressedBytes) {
+        throw const HttpException('Compressed subtitle payload exceeds 50MB input cap.');
+      }
+
       if (downloadUrl.endsWith('.gz') || (bytes.length > 2 && bytes[0] == 0x1f && bytes[1] == 0x8b)) {
-        decodedBytes = gzip.decode(bytes);
+        final decoder = GZipDecoder();
+        decodedBytes = decoder.decodeBytes(bytes, verify: true);
         if (decodedBytes.length > maxDecompressedBytes) {
           throw const HttpException('Decompressed GZIP size exceeds 50MB limit.');
         }

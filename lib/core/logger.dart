@@ -56,7 +56,6 @@ class FileLogger implements Logger {
     try {
       final now = DateTime.now().toIso8601String();
       _sink!.writeln('[$now][$prefix] $message');
-      _sink!.flush();
     } catch (_) {}
   }
 

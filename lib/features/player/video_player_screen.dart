@@ -679,14 +679,11 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
       }
     } catch (_) {}
 
-    final playerToDispose = player;
-    Future.delayed(const Duration(milliseconds: 300), () {
-      try {
-        playerToDispose.dispose();
-      } catch (e, st) {
-        Log.e('Failed to dispose Player', e, st);
-      }
-    });
+    try {
+      player.dispose();
+    } catch (e, st) {
+      Log.e('Failed to dispose Player', e, st);
+    }
 
     try {
       final fileId = _resolvedVideoFileId ?? widget.videoFileId;

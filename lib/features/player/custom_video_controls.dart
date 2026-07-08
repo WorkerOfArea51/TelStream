@@ -274,6 +274,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
   }
 
   void _showSkipToast(String msg) {
+    if (!mounted) return;
     _toastTimer?.cancel();
     setState(() {
       _toastShowing = true;
@@ -297,6 +298,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
   }
 
   void _toggleAbRepeat() {
+    if (!mounted) return;
     final currentPos = widget.player.state.position;
     setState(() {
       if (_abRepeatA == null) {
@@ -319,6 +321,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
   }
 
   void _toggleMute() {
+    if (!mounted) return;
     setState(() {
       if (_isMuted) {
         _isMuted = false;
@@ -1217,6 +1220,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
   }
 
   void _toggleControls() {
+    if (!mounted) return;
     if (_showTrackSelectorPanel ||
         _showRatioPanel ||
         _showSpeedPanel ||
@@ -1243,6 +1247,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
   }
 
   void _toggleFullscreen() {
+    if (!mounted) return;
     setState(() {
       _isFullscreen = !_isFullscreen;
     });
@@ -1262,6 +1267,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
   }
 
   void _showSpeedSelectorDialog() {
+    if (!mounted) return;
     _hideTimer?.cancel();
     setState(() {
       _showSpeedPanel = true;
@@ -1274,6 +1280,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     double screenWidth,
     int seekDuration,
   ) {
+    if (!mounted) return;
     if (_isLocked) return;
 
     final x = details.globalPosition.dx;

@@ -10,6 +10,7 @@ import '../core/logger.dart';
 import '../core/secrets.dart';
 import '../core/widgets/wavy_progress_indicators.dart';
 import '../core/widgets/changelog_parser.dart';
+import 'package:ed25519_edwards/ed25519_edwards.dart' as ed;
 
 class AppUpdateInfo {
   final bool isUpdateAvailable;
@@ -17,6 +18,7 @@ class AppUpdateInfo {
   final String releaseNotes;
   final String releaseUrl;
   final String expectedSha256;
+  final String signatureUrl;
 
   AppUpdateInfo({
     required this.isUpdateAvailable,
@@ -24,6 +26,7 @@ class AppUpdateInfo {
     required this.releaseNotes,
     required this.releaseUrl,
     this.expectedSha256 = '',
+    this.signatureUrl = '',
   });
 }
 
@@ -56,7 +59,7 @@ class UpdateService {
       final request = await client.getUrl(Uri.parse(_apiUrl));
       request.headers.set('User-Agent', 'TelStream-App');
       
-      final response = await request.close();
+      final response = await request.close().timeout(const Duration(seconds: 15));
       if (response.statusCode == 200) {
         final body = await response.transform(utf8.decoder).join();
         final json = jsonDecode(body) as Map<String, dynamic>;
@@ -69,13 +72,16 @@ class UpdateService {
         final assets = json['assets'] as List<dynamic>? ?? [];
         String downloadUrl = htmlUrl;
 
+        String signatureUrl = '';
+
         if (Platform.isWindows) {
           for (final asset in assets) {
             if (asset is Map<String, dynamic>) {
               final assetName = asset['name'] as String? ?? '';
               if (assetName == 'telstream-setup.exe') {
                 downloadUrl = asset['browser_download_url'] as String? ?? downloadUrl;
-                break;
+              } else if (assetName == 'telstream-setup.exe.sig') {
+                signatureUrl = asset['browser_download_url'] as String? ?? signatureUrl;
               }
             }
           }
@@ -125,8 +131,8 @@ class UpdateService {
         // 1. Try to find the file-specific hash in the release notes
         // e.g., "- **telstream-arm64.apk:** `hash`"
         final specificHashRegex = RegExp(
-          '${RegExp.escape(fileName)}.*?([a-fA-F0-9]{64})', 
-          caseSensitive: false,
+          r'^\s*\*?\s*' + RegExp.escape(fileName) + r'\s*[:：]\s*`?([a-fA-F0-9]{64})`?\s*$', 
+          multiLine: true, caseSensitive: false,
         );
         final specificMatch = specificHashRegex.firstMatch(releaseNotes);
         
@@ -151,7 +157,7 @@ class UpdateService {
                 if (checksumUrl != null) {
                   try {
                     final checksumReq = await client.getUrl(Uri.parse(checksumUrl));
-                    final checksumRes = await checksumReq.close();
+                    final checksumRes = await checksumReq.close().timeout(const Duration(seconds: 15));
                     if (checksumRes.statusCode == 200) {
                       final checksumBody = await checksumRes.transform(utf8.decoder).join();
                       final fileName = downloadUrl.split('/').last;
@@ -181,6 +187,7 @@ class UpdateService {
             releaseNotes: releaseNotes,
             releaseUrl: downloadUrl,
             expectedSha256: parsedSha256,
+            signatureUrl: signatureUrl,
           );
         }
         
@@ -190,6 +197,7 @@ class UpdateService {
           releaseNotes: releaseNotes,
           releaseUrl: downloadUrl,
           expectedSha256: parsedSha256,
+          signatureUrl: signatureUrl,
         );
       }
     } catch (e, stack) {
@@ -228,9 +236,12 @@ class _UpdateDialogContentState extends State<UpdateDialogContent> {
   int _downloadedBytes = 0;
   int _totalBytes = 0;
 
+  HttpClient? _client;
+
   @override
   void dispose() {
     _activeRequest?.abort();
+    _client?.close(force: true);
     super.dispose();
   }
 
@@ -244,11 +255,11 @@ class _UpdateDialogContentState extends State<UpdateDialogContent> {
       _statusText = "Downloading...";
     });
 
-    final client = HttpClient();
+    _client = HttpClient();
     File? tempFile;
     try {
       final url = widget.updateInfo.releaseUrl;
-      final request = await client.getUrl(Uri.parse(url));
+      final request = await _client!.getUrl(Uri.parse(url));
       _activeRequest = request;
       
       final response = await request.close();
@@ -314,6 +325,48 @@ class _UpdateDialogContentState extends State<UpdateDialogContent> {
         throw Exception("Security Exception: Cannot verify installer integrity. No SHA-256 hash provided.");
       }
 
+      // Add Ed25519 signature verification for Windows
+      if (Platform.isWindows) {
+        if (widget.updateInfo.signatureUrl.isEmpty) {
+          await tempFile.delete();
+          throw Exception("Security Exception: Missing signature file (.sig) in release. Cannot verify authenticity.");
+        }
+        
+        setState(() {
+          _statusText = "Verifying cryptographic signature...";
+        });
+
+        final sigRequest = await _client!.getUrl(Uri.parse(widget.updateInfo.signatureUrl));
+        final sigResponse = await sigRequest.close();
+        if (sigResponse.statusCode != 200) {
+          await tempFile.delete();
+          throw Exception("Security Exception: Failed to download signature file.");
+        }
+        
+        final signatureBytes = await sigResponse.expand((b) => b).toList();
+        final fileBytes = await tempFile.readAsBytes();
+        
+        // Parse hex public key
+        final pubKeyHex = Secrets.updatePublicKey;
+        if (pubKeyHex.length != 64) {
+          await tempFile.delete();
+          throw Exception("Security Exception: Invalid hardcoded public key length.");
+        }
+        
+        final pubKeyBytes = List<int>.generate(
+          pubKeyHex.length ~/ 2,
+          (i) => int.parse(pubKeyHex.substring(i * 2, i * 2 + 2), radix: 16),
+        );
+        
+        final publicKey = ed.PublicKey(pubKeyBytes);
+        final isValid = ed.verify(publicKey, fileBytes, Uint8List.fromList(signatureBytes));
+        
+        if (!isValid) {
+          await tempFile.delete();
+          throw Exception("Security Exception: The installer's cryptographic signature is INVALID or corrupted.");
+        }
+      }
+
       setState(() {
         _statusText = "Preparing installation...";
         _progress = 1.0;
@@ -346,7 +399,7 @@ class _UpdateDialogContentState extends State<UpdateDialogContent> {
         } catch (_) {}
       }
     } finally {
-      client.close();
+      _client?.close(force: true);
       _activeRequest = null;
     }
   }

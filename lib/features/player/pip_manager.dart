@@ -119,6 +119,9 @@ class PipController extends Notifier<PipVideoState?> {
       try {
         oldPlayer.stop();
       } catch (_) {}
+      try {
+        oldPlayer.dispose();
+      } catch (_) {}
     }
     Future.microtask(() {
       ref.read(activePlayerProvider.notifier).setPlayer(player);
@@ -370,6 +373,9 @@ class PipController extends Notifier<PipVideoState?> {
       } catch (_) {}
       try {
         playerToDispose.stop();
+      } catch (_) {}
+      try {
+        playerToDispose.dispose();
       } catch (_) {}
     }
   }

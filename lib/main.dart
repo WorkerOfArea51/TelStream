@@ -21,10 +21,7 @@ import 'services/firebase_metadata_service.dart';
 import 'core/theme/app_theme.dart';
 import 'services/tdlib_service.dart';
 
-late DateTime _appBootTime;
-
 void main() async {
-  _appBootTime = DateTime.now();
   // 1. Catch synchronous framework errors.
   FlutterError.onError = (FlutterErrorDetails details) {
     Log.e('Flutter framework error: ${details.exception}', details.stack);
@@ -34,7 +31,7 @@ void main() async {
   // 2. Catch isolate-creation errors (compute() / Isolate.run).
   Isolate.current.addErrorListener(RawReceivePort((dynamic data) {
     final list = data as List;
-    Log.e('Isolate error: ${list[0]}', list[1] as StackTrace);
+    Log.e('Isolate error: ${list[0]}', null, StackTrace.fromString(list[1] as String));
   }).sendPort);
 
   // 3. Catch all other async errors.

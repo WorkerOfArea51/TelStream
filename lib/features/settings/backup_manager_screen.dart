@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:encrypt/encrypt.dart' as enc;
+import 'package:crypto/crypto.dart';
 import '../../services/storage_service.dart';
 import '../settings/settings_provider.dart';
 import '../../services/sync_service.dart';
@@ -21,6 +23,39 @@ class _BackupManagerScreenState extends ConsumerState<BackupManagerScreen> {
   bool _isSyncing = false;
   String? _statusMessage;
   Color _statusColor = Colors.green;
+
+  Future<String?> _promptPassword(String title) async {
+    String? password;
+    return showDialog<String>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF0F0F11),
+          title: Text(title, style: const TextStyle(color: Colors.white)),
+          content: TextField(
+            obscureText: true,
+            style: const TextStyle(color: Colors.white),
+            decoration: const InputDecoration(
+              hintText: 'Enter password',
+              hintStyle: TextStyle(color: Colors.white54),
+            ),
+            onChanged: (val) => password = val,
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel', style: TextStyle(color: Colors.white54)),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+              onPressed: () => Navigator.pop(context, password),
+              child: const Text('OK', style: TextStyle(color: Colors.black)),
+            ),
+          ],
+        );
+      }
+    );
+  }
 
   Future<void> _triggerManualSync() async {
     setState(() {
@@ -53,9 +88,14 @@ class _BackupManagerScreenState extends ConsumerState<BackupManagerScreen> {
     });
 
     try {
+      final password = await _promptPassword('Set Backup Password');
+      if (password == null || password.isEmpty) {
+        setState(() => _isExporting = false);
+        return;
+      }
+
       final storage = ref.read(storageServiceProvider);
-      // Retrieve the raw data Map
-      storage.getVideoSettings(); // Just to trigger/check
+      storage.getVideoSettings(); 
       
       // Let's get the entire underlying data map from storage_service.dart
       // Wait, we need to expose a way to get or we can just access it.
@@ -71,10 +111,17 @@ class _BackupManagerScreenState extends ConsumerState<BackupManagerScreen> {
       }
 
       final timestamp = DateTime.now().toString().replaceAll(':', '-').replaceAll(' ', '_').split('.').first;
-      final fileName = 'telstream_backup_$timestamp.json';
+      final fileName = 'telstream_backup_$timestamp.enc';
       final file = File('$selectedDirectory/$fileName');
       
-      await file.writeAsString(backupJson);
+      final keyBytes = sha256.convert(utf8.encode(password)).bytes;
+      final key = enc.Key(Uint8List.fromList(keyBytes));
+      final iv = enc.IV.fromSecureRandom(16);
+      final encrypter = enc.Encrypter(enc.AES(key, mode: enc.AESMode.cbc));
+      final encrypted = encrypter.encrypt(backupJson, iv: iv);
+      final backupData = '${iv.base64}:${encrypted.base64}';
+
+      await file.writeAsString(backupData);
       
       setState(() {
         _statusMessage = 'Backup saved to:\n${file.path}';
@@ -101,7 +148,7 @@ class _BackupManagerScreenState extends ConsumerState<BackupManagerScreen> {
     try {
       final FilePickerResult? result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
-        allowedExtensions: ['json'],
+        allowedExtensions: ['enc', 'json'],
       );
 
       if (result == null || result.files.single.path == null) {
@@ -114,8 +161,29 @@ class _BackupManagerScreenState extends ConsumerState<BackupManagerScreen> {
       final file = File(result.files.single.path!);
       final contents = await file.readAsString();
       
+      String decryptedJson;
+      if (contents.contains(':')) {
+        final password = await _promptPassword('Enter Backup Password');
+        if (password == null || password.isEmpty) {
+          setState(() => _isImporting = false);
+          return;
+        }
+        final keyBytes = sha256.convert(utf8.encode(password)).bytes;
+        final key = enc.Key(Uint8List.fromList(keyBytes));
+        final parts = contents.split(':');
+        final iv = enc.IV.fromBase64(parts[0]);
+        final encrypter = enc.Encrypter(enc.AES(key, mode: enc.AESMode.cbc));
+        try {
+          decryptedJson = encrypter.decrypt64(parts[1], iv: iv);
+        } catch (e) {
+          throw Exception('Incorrect password or corrupted backup.');
+        }
+      } else {
+        decryptedJson = contents; // Fallback for old plaintext backups
+      }
+
       // Validate contents
-      final Map<String, dynamic> parsed = json.decode(contents);
+      final Map<String, dynamic> parsed = json.decode(decryptedJson);
       if (!parsed.containsKey('history') && !parsed.containsKey('video_settings')) {
         throw Exception('Invalid backup file structure.');
       }
@@ -206,7 +274,7 @@ class _BackupManagerScreenState extends ConsumerState<BackupManagerScreen> {
                       ListTile(
                         leading: const Icon(Icons.download_rounded, color: Colors.orange, size: 30),
                         title: const Text('Export Backup', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                        subtitle: const Text('Save configuration and history to a JSON file', style: TextStyle(color: Colors.white54, fontSize: 12)),
+                        subtitle: const Text('Save configuration and history to an encrypted file', style: TextStyle(color: Colors.white54, fontSize: 12)),
                         trailing: _isExporting 
                             ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.orange))
                             : const Icon(Icons.arrow_forward_ios, color: Colors.white24, size: 16),
@@ -216,7 +284,7 @@ class _BackupManagerScreenState extends ConsumerState<BackupManagerScreen> {
                       ListTile(
                         leading: const Icon(Icons.upload_rounded, color: Colors.greenAccent, size: 30),
                         title: const Text('Restore Backup', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                        subtitle: const Text('Load settings and history from a JSON file', style: TextStyle(color: Colors.white54, fontSize: 12)),
+                        subtitle: const Text('Load settings and history from a backup file', style: TextStyle(color: Colors.white54, fontSize: 12)),
                         trailing: _isImporting 
                             ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.greenAccent))
                             : const Icon(Icons.arrow_forward_ios, color: Colors.white24, size: 16),

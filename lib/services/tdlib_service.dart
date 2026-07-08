@@ -97,7 +97,7 @@ class TdlibService {
 
   void _startOnlineHeartbeat() {
     _onlineHeartbeat?.cancel();
-    _onlineHeartbeat = Timer.periodic(const Duration(seconds: 2), (_) {
+    _onlineHeartbeat = Timer.periodic(const Duration(seconds: 30), (_) {
       if (_isDestroyed || _clientId == null) return;
       if (_isForeground) {
         send(const td.SetOption(
@@ -114,6 +114,11 @@ class TdlibService {
     Log.w('TDLib forceReset called. Clearing in-flight init.');
     await _initLock.synchronized(() async {
       _initFuture = null;
+      await _isolateReceivePort?.close();
+      _isolateReceivePort = null;
+      _eventIsolate?.kill(priority: Isolate.immediate);
+      _eventIsolate = null;
+      _eventLoopRunning = false;
       if (_clientId != null) {
         try {
           tdSend(_clientId!, const td.Close());
@@ -539,7 +544,8 @@ class TdlibService {
           final freePtr = _lib.lookup<NativeFunction<Void Function(Pointer<Void>)>>('td_free_string');
           _nativeFree = freePtr.asFunction<void Function(Pointer<Void>)>();
         } catch (e) {
-          Log.w('td_free_string not found in native library');
+          Log.e('td_free_string not found in native library — aborting FFI event loop to prevent native memory leak');
+          rethrow;
         }
         _libInitialized = true;
         Log.i('TDLib direct FFI receive library loaded successfully.');
@@ -738,18 +744,23 @@ class TdlibService {
     });
   }
 
-  void destroy() {
+  Future<void> destroy() async {
       _isDestroyed = true;
       _onlineHeartbeat?.cancel();
       _initPruneTimer?.cancel();
-      _updatesController.close();
+      await _isolateReceivePort?.close();
+      _isolateReceivePort = null;
+      _eventIsolate?.kill(priority: Isolate.immediate);
+      _eventIsolate = null;
+      _eventLoopRunning = false;
+      await _updatesController.close();
       if (_clientId != null) {
         try {
           tdSend(_clientId!, const td.Close());
         } catch (e, st) { Log.e('Ignored error in tdlib_service', e, st); }
         _clientId = null;
       }
-      _pendingLock.synchronized(() {
+      await _pendingLock.synchronized(() {
         for (final c in _pendingRequests.values) {
           if (!c.isCompleted) {
             c.completeError(StateError('TdlibService destroyed'));
