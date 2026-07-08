@@ -882,7 +882,6 @@ class _DesktopPlaybackControlsState extends State<DesktopPlaybackControls> {
     }
 
     return StreamBuilder<Duration>(
-      key: ValueKey(widget.pipState?.messageId),
       stream: player.stream.position,
       builder: (context, posSnapshot) {
         return StreamBuilder<Duration>(

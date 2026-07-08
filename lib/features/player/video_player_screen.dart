@@ -179,6 +179,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
     }
     if (widget.messageId != oldWidget.messageId) {
       // Episode changed on Desktop (reusing player)
+      _pipController.setActivePlayer(player);
       player.stop().then((_) {
         if (mounted) {
           setState(() {
