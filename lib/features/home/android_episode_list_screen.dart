@@ -897,39 +897,69 @@ class _EpisodeCardItemState extends ConsumerState<_EpisodeCardItem> {
             scale: _isTapped ? 0.97 : 1.0,
             duration: const Duration(milliseconds: 100),
             curve: Curves.easeOut,
-            child: Container(
-              margin: const EdgeInsets.only(bottom: 12),
-              decoration: BoxDecoration(
-                color: theme.cardColor,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: shouldGlow
-                      ? settingsAccent
-                      : theme.colorScheme.onSurface.withValues(
-                          alpha: _isTapped ? 0.16 : 0.08,
+            child: isCurrentlyPlaying
+                ? TweenAnimationBuilder<double>(
+                    tween: Tween<double>(begin: 0.4, end: 1.0),
+                    duration: const Duration(milliseconds: 1500),
+                    curve: Curves.easeInOutSine,
+                    builder: (context, value, child) {
+                      final pulseValue = (Math.sin(value * Math.pi * 2) + 1) / 2; // 0.0 to 1.0
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        decoration: BoxDecoration(
+                          color: theme.cardColor,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: settingsAccent,
+                            width: 2.0,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: settingsAccent.withValues(alpha: 0.3 + (0.4 * pulseValue)),
+                              blurRadius: 10 + (8 * pulseValue),
+                              spreadRadius: 2 + (3 * pulseValue),
+                            ),
+                          ],
                         ),
-                  width: shouldGlow || _isTapped ? 1.8 : 1.0,
-                ),
-                boxShadow: [
-                  if (shouldGlow)
-                    BoxShadow(
-                      color: settingsAccent.withValues(alpha: 0.4),
-                      blurRadius: 10,
-                      spreadRadius: 1.5,
-                    )
-                  else
-                    BoxShadow(
-                      color: Colors.black.withValues(
-                        alpha: _isTapped ? 0.15 : 0.08,
+                        clipBehavior: Clip.antiAlias,
+                        child: child,
+                      );
+                    },
+                    child: child,
+                  )
+                : Container(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    decoration: BoxDecoration(
+                      color: theme.cardColor,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: shouldGlow
+                            ? settingsAccent
+                            : theme.colorScheme.onSurface.withValues(
+                                alpha: _isTapped ? 0.16 : 0.08,
+                              ),
+                        width: shouldGlow || _isTapped ? 1.8 : 1.0,
                       ),
-                      blurRadius: _isTapped ? 3 : 6,
-                      offset: Offset(0, _isTapped ? 1.5 : 3),
+                      boxShadow: [
+                        if (shouldGlow)
+                          BoxShadow(
+                            color: settingsAccent.withValues(alpha: 0.4),
+                            blurRadius: 10,
+                            spreadRadius: 1.5,
+                          )
+                        else
+                          BoxShadow(
+                            color: Colors.black.withValues(
+                              alpha: _isTapped ? 0.15 : 0.08,
+                            ),
+                            blurRadius: _isTapped ? 3 : 6,
+                            offset: Offset(0, _isTapped ? 1.5 : 3),
+                          ),
+                      ],
                     ),
-                ],
-              ),
-              clipBehavior: Clip.antiAlias,
-              child: child,
-            ),
+                    clipBehavior: Clip.antiAlias,
+                    child: child,
+                  ),
           );
         },
         child: Padding(

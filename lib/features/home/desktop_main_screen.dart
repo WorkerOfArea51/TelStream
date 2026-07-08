@@ -749,7 +749,11 @@ class _DesktopMainScreenState extends ConsumerState<DesktopMainScreen> with Tick
           if (player.platform is NativePlayer) {
             final nativePlayer = player.platform as NativePlayer;
             if (newDecoderMode != 'no') {
-              nativePlayer.setProperty('hwdec', Platform.isAndroid ? newDecoderMode : 'auto');
+              // On PC, if they selected auto, use auto-copy or d3d11va-copy to prevent glitching,
+              // but allow them to use their selected newDecoderMode directly.
+              String pcMode = newDecoderMode;
+              if (pcMode == 'auto') pcMode = 'no'; // default to software on PC for maximum stability
+              nativePlayer.setProperty('hwdec', Platform.isAndroid ? newDecoderMode : pcMode);
             } else {
               nativePlayer.setProperty('hwdec', 'no');
             }
@@ -876,6 +880,7 @@ class _DesktopPlaybackControlsState extends State<DesktopPlaybackControls> {
     }
 
     return StreamBuilder<Duration>(
+      key: ValueKey(widget.pipState?.messageId),
       stream: player.stream.position,
       builder: (context, posSnapshot) {
         return StreamBuilder<Duration>(
@@ -945,21 +950,19 @@ class _DesktopPlaybackControlsState extends State<DesktopPlaybackControls> {
                               ),
                               IconButton(
                                 icon: const Icon(Icons.skip_previous, size: 20),
-                                onPressed: () {
-                                  if (widget.pipState != null && widget.pipState!.currentIndex > 0) {
-                                    widget.pipNotifier.playQueueIndex(context, widget.pipState!.currentIndex - 1);
-                                  } else {
-                                    player.seek(Duration.zero);
-                                  }
-                                },
+                                onPressed: (widget.pipState != null && widget.pipState!.currentIndex > 0)
+                                    ? () {
+                                        widget.pipNotifier.playQueueIndex(context, widget.pipState!.currentIndex - 1);
+                                      }
+                                    : null,
                               ),
                               IconButton(
                                 icon: const Icon(Icons.skip_next, size: 20),
-                                onPressed: () {
-                                  if (widget.pipState != null && widget.pipState!.currentIndex + 1 < widget.pipState!.queue.length) {
-                                    widget.pipNotifier.playQueueIndex(context, widget.pipState!.currentIndex + 1);
-                                  }
-                                },
+                                onPressed: (widget.pipState != null && widget.pipState!.currentIndex + 1 < widget.pipState!.queue.length)
+                                    ? () {
+                                        widget.pipNotifier.playQueueIndex(context, widget.pipState!.currentIndex + 1);
+                                      }
+                                    : null,
                               ),
                               
                               const SizedBox(width: 16),

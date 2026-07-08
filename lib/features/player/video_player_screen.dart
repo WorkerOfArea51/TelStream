@@ -1258,9 +1258,9 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
           }
         } else {
           String safeMode = hwDecMode;
-          // media_kit's default auto (d3d11va) can cause severe macroblocking/smearing on TDLib streams
-          if (safeMode == 'auto') {
-            safeMode = 'auto-copy';
+          // media_kit's default auto (d3d11va) and auto-copy can cause severe macroblocking/smearing on TDLib streams
+          if (safeMode == 'auto' || safeMode == 'auto-copy') {
+            safeMode = 'no'; // Default to software decoding on PC for flawless playback
           }
           nativePlayer.setProperty('hwdec', safeMode);
           Log.i('Set hardware decoder mode to $safeMode on player init (PC)');

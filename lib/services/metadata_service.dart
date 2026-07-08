@@ -291,8 +291,18 @@ class MetadataService {
     
     try {
       final url = Uri.parse('$_jikanBaseUrl/anime/$malId/full');
-      final res = await http.get(url);
-      if (res.statusCode != 200) return null;
+      http.Response? res;
+      for (int attempt = 0; attempt < 3; attempt++) {
+        res = await http.get(url);
+        if (res.statusCode == 429) {
+          if (attempt < 2) {
+            await Future.delayed(Duration(milliseconds: 1000 * (attempt + 1)));
+            continue;
+          }
+        }
+        break;
+      }
+      if (res == null || res.statusCode != 200) return null;
 
       final json = jsonDecode(res.body);
       final data = json['data'];
@@ -333,8 +343,18 @@ class MetadataService {
       List<RelatedContent> recs = [];
       try {
         final recUrl = Uri.parse('$_jikanBaseUrl/anime/$malId/recommendations');
-        final recRes = await http.get(recUrl);
-        if (recRes.statusCode == 200) {
+        http.Response? recRes;
+        for (int attempt = 0; attempt < 3; attempt++) {
+          recRes = await http.get(recUrl);
+          if (recRes.statusCode == 429) {
+            if (attempt < 2) {
+              await Future.delayed(Duration(milliseconds: 1000 * (attempt + 1)));
+              continue;
+            }
+          }
+          break;
+        }
+        if (recRes != null && recRes.statusCode == 200) {
           final recJson = jsonDecode(recRes.body);
           if (recJson['data'] != null) {
             final List r = recJson['data'];

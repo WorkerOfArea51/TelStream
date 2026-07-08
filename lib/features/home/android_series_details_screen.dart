@@ -302,12 +302,40 @@ class _AndroidSeriesDetailsScreenState extends ConsumerState<AndroidSeriesDetail
 
     final targetClean = cleanString(rec.title);
     final targetFetchedClean = fetchedMeta != null ? cleanString(fetchedMeta.title) : null;
+    final targetIdStr = rec.id.toString();
 
+    // 1. Try to match by explicit Override ID first
     for (final s in allSeries) {
-      final sClean = cleanString(s.coreName);
-      if (sClean == targetClean || (targetFetchedClean != null && sClean == targetFetchedClean)) {
-        matchedSeries = s;
-        break;
+      final overrideIdStr = FirebaseMetadataService.getOverride(s.coreName);
+      if (overrideIdStr != null && overrideIdStr.isNotEmpty) {
+        final overrideIds = overrideIdStr.split(',');
+        if (overrideIds.contains(targetIdStr)) {
+          matchedSeries = s;
+          break;
+        }
+      }
+    }
+
+    // 2. Fallback to Exact Title Match
+    if (matchedSeries == null) {
+      for (final s in allSeries) {
+        final sClean = cleanString(s.coreName);
+        if (sClean == targetClean || (targetFetchedClean != null && sClean == targetFetchedClean)) {
+          matchedSeries = s;
+          break;
+        }
+      }
+    }
+
+    // 3. Smart Substring Fallback Match
+    if (matchedSeries == null) {
+      for (final s in allSeries) {
+        final sClean = cleanString(s.coreName);
+        // Ensure library item name is at least 3 chars to prevent false positives like matching "a"
+        if (sClean.length > 2 && (targetClean.contains(sClean) || (targetFetchedClean != null && targetFetchedClean.contains(sClean)))) {
+          matchedSeries = s;
+          break; // Use the first decent match
+        }
       }
     }
 
@@ -411,7 +439,9 @@ class _AndroidSeriesDetailsScreenState extends ConsumerState<AndroidSeriesDetail
 
     final meta = _currentMetadata!;
     return Scaffold(
+      backgroundColor: Colors.black,
       body: NestedScrollView(
+        key: ValueKey(_selectedSeasonIndex),
         headerSliverBuilder: (context, innerBoxIsScrolled) {
           return [
             if (_trailerPlaying && _ytController != null)
