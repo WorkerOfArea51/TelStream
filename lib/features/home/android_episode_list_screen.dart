@@ -83,7 +83,7 @@ class _AndroidEpisodeListScreenState extends ConsumerState<AndroidEpisodeListScr
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final index = widget.series.seasons.indexOf(_selectedSeason);
       if (index != -1) {
-        _scrollToSelectedSeason(index);
+        _scrollToSelectedSeason(index, delay: true);
       }
     });
   }
@@ -216,17 +216,30 @@ class _AndroidEpisodeListScreenState extends ConsumerState<AndroidEpisodeListScr
     super.dispose();
   }
 
-  void _scrollToSelectedSeason(int index) {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!_seasonScrollController.hasClients) return;
-      final screenWidth = MediaQuery.of(context).size.width;
-      final targetOffset = (index * 120.0) - (screenWidth / 2) + 60.0;
-      _seasonScrollController.animateTo(
-        targetOffset.clamp(0.0, _seasonScrollController.position.maxScrollExtent),
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeInOut,
-      );
-    });
+  void _scrollToSelectedSeason(int index, {bool delay = false}) {
+    if (delay) {
+      Future.delayed(const Duration(milliseconds: 400), () {
+        if (!mounted || !_seasonScrollController.hasClients) return;
+        _performSeasonScroll(index);
+      });
+    } else {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || !_seasonScrollController.hasClients) return;
+        _performSeasonScroll(index);
+      });
+    }
+  }
+
+  void _performSeasonScroll(int index) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    // Calculate a more accurate offset for variable-width chips
+    // A typical chip is about 150px wide. 
+    final targetOffset = (index * 150.0) - (screenWidth / 2) + 75.0;
+    _seasonScrollController.animateTo(
+      targetOffset.clamp(0.0, _seasonScrollController.position.maxScrollExtent),
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+    );
   }
 
   void _showSeasonAdminOverrideDialog(BuildContext context, String seasonName) async {

@@ -52,8 +52,8 @@ Future<List<AnimeSeries>> parseMessagesWithYield(List<td.Message> raw, bool isMo
         episodeMessages.add(msg);
       }
     }
-    // Yield every 500 messages to prevent UI lag
-    if (count % 500 == 0) await Future.delayed(Duration.zero);
+    // Yield every 50 messages to prevent UI lag
+    if (count % 50 == 0) await Future.delayed(Duration.zero);
   }
 
   // 2. Pre-process poster details & initialize series map/list
@@ -157,7 +157,7 @@ Future<List<AnimeSeries>> parseMessagesWithYield(List<td.Message> raw, bool isMo
     
     // Yield to keep UI smooth
     epCount++;
-    if (epCount % 500 == 0) await Future.delayed(Duration.zero);
+    if (epCount % 50 == 0) await Future.delayed(Duration.zero);
   }
 
   // 4. Assemble seasons and populate the series list
