@@ -30,6 +30,8 @@ class FirebaseMetadataService {
         final Map<String, String> newCache = {};
         
         data.forEach((key, value) {
+          if (key.endsWith('_count')) return;
+          
           if (value is Map<String, dynamic>) {
             // Check if this is a Category node containing encoded keys
             value.forEach((subKey, subValue) {
@@ -120,9 +122,11 @@ class FirebaseMetadataService {
             final Map<String, dynamic> catData = json.decode(countRes.body);
             int count = catData.keys.where((k) => k != '_count').length;
             await http.put(
-              Uri.parse('$_baseUrl/metadata/$safeCategory/_count.json'),
+              Uri.parse('$_baseUrl/metadata/${safeCategory}_count.json'),
               body: json.encode(count),
             );
+            // Clean up the old mis-placed count
+            await http.delete(Uri.parse('$_baseUrl/metadata/$safeCategory/_count.json'));
           }
         } catch (e) {
           Log.w('Failed to update category count');
