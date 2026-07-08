@@ -479,6 +479,53 @@ class MetadataService {
         rank = '#${data['rank']}';
       }
 
+      String castStr = '';
+      try {
+        final castUrl = Uri.parse('$_jikanBaseUrl/anime/$malId/characters');
+        http.Response? castRes;
+        for (int attempt = 0; attempt < 3; attempt++) {
+          castRes = await http.get(castUrl);
+          if (castRes.statusCode == 429 || castRes.statusCode >= 500) {
+            if (attempt < 2) {
+              await Future.delayed(Duration(milliseconds: 1000 * (attempt + 1)));
+              continue;
+            }
+          }
+          break;
+        }
+        if (castRes != null && castRes.statusCode == 200) {
+          final castJson = jsonDecode(castRes.body);
+          if (castJson['data'] != null) {
+            final List c = castJson['data'];
+            List<String> actors = [];
+            for (int i = 0; i < c.length && actors.length < 8; i++) {
+              final character = c[i]['character'];
+              final voiceActors = c[i]['voice_actors'] as List?;
+              String actorName = '';
+              if (voiceActors != null && voiceActors.isNotEmpty) {
+                 final jpActor = voiceActors.firstWhere(
+                   (v) => v['language'] == 'Japanese', 
+                   orElse: () => voiceActors.first
+                 );
+                 if (jpActor['person'] != null) {
+                   actorName = jpActor['person']['name'] ?? '';
+                 }
+              }
+              if (actorName.isNotEmpty) {
+                actors.add(actorName);
+              } else if (character != null && character['name'] != null) {
+                actors.add(character['name']);
+              }
+            }
+            if (actors.isNotEmpty) {
+              castStr = actors.join(', ');
+            }
+          }
+        }
+      } catch (e) {
+        Log.e('Failed to fetch Jikan cast', e);
+      }
+
       String source = data['source'] ?? '';
       
       String airedDates = '';
@@ -498,7 +545,7 @@ class MetadataService {
         backdropUrl: trailerId.isNotEmpty ? 'https://img.youtube.com/vi/$trailerId/maxresdefault.jpg' : (data['images']?['jpg']?['large_image_url'] ?? ''), // Jikan has no backdrop
         releaseYear: year,
         genres: genres,
-        cast: 'Anime Cast', 
+        cast: castStr, 
         maturityRating: data['rating'] ?? 'NR',
         trailerYoutubeId: trailerId,
         status: status,
