@@ -242,7 +242,7 @@ class PipController extends Notifier<PipVideoState?> {
     isTransitioning = true;
     final wasPip = currentState.isPip;
     final oldActivePlayer = ref.read(activePlayerProvider);
-    if (oldActivePlayer != null) {
+    if (oldActivePlayer != null && !Platform.isWindows) {
       Future.microtask(() {
         ref.read(activePlayerProvider.notifier).setPlayer(null);
       });

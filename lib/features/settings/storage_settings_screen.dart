@@ -187,7 +187,6 @@ class _StorageSettingsScreenState extends ConsumerState<StorageSettingsScreen> {
 
       final int totalBytes = await compute((params) async {
         final docPath = params[0] as String;
-        final customPath = params[1];
         int total = 0;
 
         try {
@@ -201,28 +200,20 @@ class _StorageSettingsScreenState extends ConsumerState<StorageSettingsScreen> {
           }
         } catch (_) {}
 
-        if (customPath != null && customPath.isNotEmpty) {
-          try {
-            final customDir = Directory(customPath);
-            if (customDir.existsSync()) {
-              for (final entity in customDir.listSync(recursive: true, followLinks: false)) {
-                if (entity is File) {
-                  total += entity.lengthSync();
-                }
-              }
-            }
-          } catch (_) {}
-        }
         return total;
-      }, [docDir.path, customPath]);
+      }, [docDir.path]);
 
       final storage = ref.read(storageServiceProvider);
       final downloadedFiles = storage.getDownloadedFiles();
       int dlSum = 0;
+      final String normalizedDocPath = docDir.path.replaceAll('\\', '/');
       for (final path in downloadedFiles.values) {
         final file = File(path);
         if (file.existsSync()) {
-          dlSum += file.lengthSync();
+          final normalizedFilePath = path.replaceAll('\\', '/');
+          if (normalizedFilePath.startsWith(normalizedDocPath)) {
+            dlSum += file.lengthSync();
+          }
         }
       }
 
