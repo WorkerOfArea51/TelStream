@@ -126,7 +126,9 @@ class _DesktopMainScreenState extends ConsumerState<DesktopMainScreen> with Tick
     windowManager.addListener(this);
     _initWindowState();
     _tabController = TabController(length: 3, vsync: this);
-    _checkForUpdates();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkForUpdates();
+    });
   }
 
   void _checkForUpdates() async {
