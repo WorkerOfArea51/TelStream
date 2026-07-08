@@ -435,6 +435,42 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
     return jsonList.map((s) => AnimeSeries.fromJson(s as Map<String, dynamic>)).toList();
   }
 
+  void updateSeasonEpisodes(String coreName, int posterId, List<td.Message> episodes) async {
+    bool changed = false;
+    await _mutationLock.synchronized(() async {
+      for (int i = 0; i < _allSeries.length; i++) {
+        if (_allSeries[i].coreName == coreName) {
+          for (int j = 0; j < _allSeries[i].seasons.length; j++) {
+            if (_allSeries[i].seasons[j].posterMessage.id == posterId) {
+              _allSeries[i].seasons[j] = _allSeries[i].seasons[j].copyWith(episodes: episodes);
+              changed = true;
+              break;
+            }
+          }
+        }
+        if (changed) break;
+      }
+      
+      if (changed) {
+        for (final ep in episodes) {
+          if (!_rawMessageIds.contains(ep.id)) {
+            _rawMessages.add(ep);
+            _rawMessageIds.add(ep.id);
+          }
+        }
+      }
+    });
+
+    if (changed) {
+      if (state.value != null && !_isDisposed) {
+        state = AsyncValue.data(await _applySearchAndSort(_allSeries));
+      }
+      if (_cacheLoadComplete) {
+        _scheduleCatalogCacheWrite();
+      }
+    }
+  }
+
   Future<void> loadMore() async {
     if (_isLoadingMore || !_hasMore) return;
     _isLoadingMore = true;

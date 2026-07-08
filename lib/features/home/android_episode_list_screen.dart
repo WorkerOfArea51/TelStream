@@ -192,16 +192,38 @@ class _AndroidEpisodeListScreenState extends ConsumerState<AndroidEpisodeListScr
         }
       }
 
+      // Sort the episodes chronologically/numerically just like HomeController does
+      collectedEpisodes.sort((a, b) {
+        final epA = HomeController.parseEpisodeNumber(a);
+        final epB = HomeController.parseEpisodeNumber(b);
+        if (epA != epB) return epA.compareTo(epB);
+        return a.id.compareTo(b.id);
+      });
+
       if (mounted) {
         setState(() {
           _selectedSeason = AnimeSeason(
             fullTitle: _selectedSeason.fullTitle,
             seasonName: _selectedSeason.seasonName,
             posterMessage: _selectedSeason.posterMessage,
-            episodes: collectedEpisodes.reversed.toList(),
+            episodes: collectedEpisodes,
           );
           _isLoadingEpisodes = false;
         });
+
+        // Inject these dynamically loaded episodes back into the global controller
+        // so they get saved to the JSON cache and never have to be loaded again!
+        final providerNotifier = widget.categoryTitle == 'Anime'
+            ? ref.read(animeControllerProvider.notifier)
+            : widget.categoryTitle == 'Movies'
+                ? ref.read(moviesControllerProvider.notifier)
+                : ref.read(webSeriesControllerProvider.notifier);
+        
+        providerNotifier.updateSeasonEpisodes(
+          widget.series.coreName,
+          _selectedSeason.posterMessage.id,
+          collectedEpisodes,
+        );
         _scrollToHighlightedEpisode();
       }
     } catch (e) {
