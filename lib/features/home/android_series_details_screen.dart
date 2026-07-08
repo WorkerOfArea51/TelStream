@@ -21,6 +21,7 @@ class AndroidSeriesDetailsScreen extends ConsumerStatefulWidget {
   final List<String>? overrideIds;
   final List<SeriesMetadata>? preloadedMetadata;
   final VoidCallback? onBack;
+  final int initialSeasonIndex;
 
   const AndroidSeriesDetailsScreen({
     super.key,
@@ -30,6 +31,7 @@ class AndroidSeriesDetailsScreen extends ConsumerStatefulWidget {
     this.overrideIds,
     this.preloadedMetadata,
     this.onBack,
+    this.initialSeasonIndex = 0,
   });
 
   @override
@@ -53,6 +55,7 @@ class _AndroidSeriesDetailsScreenState extends ConsumerState<AndroidSeriesDetail
     super.initState();
     _currentMetadata = widget.metadata;
     _overrideIds = widget.overrideIds;
+    _selectedSeasonIndex = widget.initialSeasonIndex;
     _tabController = TabController(length: 3, vsync: this);
 
     _initYtController(_currentMetadata);
@@ -403,6 +406,28 @@ class _AndroidSeriesDetailsScreenState extends ConsumerState<AndroidSeriesDetail
         if (context.mounted) Navigator.pop(context);
       }
 
+      // Smart initial season selection based on recommendation title
+      int initialSeasonIndex = 0;
+      for (int i = 0; i < matchedSeries.seasons.length; i++) {
+        final season = matchedSeries.seasons[i];
+        final cleanSeasonTitle = cleanString(season.fullTitle);
+        final cleanSeasonName = cleanString(season.seasonName);
+        if (cleanSeasonTitle == targetClean || cleanSeasonName == targetClean) {
+          initialSeasonIndex = i;
+          break;
+        }
+      }
+      if (initialSeasonIndex == 0) {
+        for (int i = 0; i < matchedSeries.seasons.length; i++) {
+          final season = matchedSeries.seasons[i];
+          final cleanSeasonTitle = cleanString(season.fullTitle);
+          if (cleanSeasonTitle.contains(targetClean) || targetClean.contains(cleanSeasonTitle)) {
+            initialSeasonIndex = i;
+            break;
+          }
+        }
+      }
+
       if (context.mounted) {
         Navigator.push(
           context,
@@ -412,6 +437,7 @@ class _AndroidSeriesDetailsScreenState extends ConsumerState<AndroidSeriesDetail
               categoryTitle: widget.categoryTitle,
               metadata: newMeta,
               overrideIds: overrideIds,
+              initialSeasonIndex: initialSeasonIndex,
             ),
           ),
         );
@@ -477,7 +503,7 @@ class _AndroidSeriesDetailsScreenState extends ConsumerState<AndroidSeriesDetail
 
     if (_currentMetadata == null) {
         return AndroidEpisodeListScreen(
-          season: latestSeries.seasons.first,
+          season: latestSeries.seasons[_selectedSeasonIndex < latestSeries.seasons.length ? _selectedSeasonIndex : 0],
           series: latestSeries,
           heroTag:
               'hero_library_${widget.categoryTitle}_${latestSeries.coreName}',
