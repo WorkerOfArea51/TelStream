@@ -15,6 +15,24 @@ class RelatedContent {
     required this.posterUrl,
     required this.synopsis,
   });
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'title': title,
+      'posterUrl': posterUrl,
+      'synopsis': synopsis,
+    };
+  }
+
+  factory RelatedContent.fromJson(Map<String, dynamic> json) {
+    return RelatedContent(
+      id: json['id'] ?? 0,
+      title: json['title'] ?? '',
+      posterUrl: json['posterUrl'] ?? '',
+      synopsis: json['synopsis'] ?? '',
+    );
+  }
 }
 
 class SeriesMetadata {
@@ -70,6 +88,67 @@ class SeriesMetadata {
     this.recommendations = const [],
   });
 
+  Map<String, dynamic> toJson() {
+    return {
+      'title': title,
+      'synopsis': synopsis,
+      'posterUrl': posterUrl,
+      'backdropUrl': backdropUrl,
+      'releaseYear': releaseYear,
+      'genres': genres,
+      'cast': cast,
+      'maturityRating': maturityRating,
+      'trailerYoutubeId': trailerYoutubeId,
+      'status': status,
+      'runtime': runtime,
+      'productionCompanies': productionCompanies,
+      'userScore': userScore,
+      'rank': rank,
+      'source': source,
+      'airedDates': airedDates,
+      'episodesCount': episodesCount,
+      'spokenLanguages': spokenLanguages,
+      'budgetRevenue': budgetRevenue,
+      'director': director,
+      'writers': writers,
+      'imdbId': imdbId,
+      'malId': malId,
+      'recommendations': recommendations.map((e) => e.toJson()).toList(),
+    };
+  }
+
+  factory SeriesMetadata.fromJson(Map<String, dynamic> json) {
+    return SeriesMetadata(
+      title: json['title'] ?? '',
+      synopsis: json['synopsis'] ?? '',
+      posterUrl: json['posterUrl'] ?? '',
+      backdropUrl: json['backdropUrl'] ?? '',
+      releaseYear: json['releaseYear'] ?? '',
+      genres: List<String>.from(json['genres'] ?? []),
+      cast: json['cast'] ?? '',
+      maturityRating: json['maturityRating'] ?? '',
+      trailerYoutubeId: json['trailerYoutubeId'] ?? '',
+      status: json['status'] ?? '',
+      runtime: json['runtime'] ?? '',
+      productionCompanies: json['productionCompanies'] ?? '',
+      userScore: json['userScore'] ?? '',
+      rank: json['rank'] ?? '',
+      source: json['source'] ?? '',
+      airedDates: json['airedDates'] ?? '',
+      episodesCount: json['episodesCount'] ?? '',
+      spokenLanguages: json['spokenLanguages'] ?? '',
+      budgetRevenue: json['budgetRevenue'] ?? '',
+      director: json['director'] ?? '',
+      writers: json['writers'] ?? '',
+      imdbId: json['imdbId'] ?? '',
+      malId: json['malId'] ?? '',
+      recommendations: (json['recommendations'] as List?)
+              ?.map((e) => RelatedContent.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          const [],
+    );
+  }
+
   factory SeriesMetadata.empty() {
     return SeriesMetadata(
       title: '',
@@ -81,6 +160,21 @@ class SeriesMetadata {
       cast: '',
       maturityRating: '',
       trailerYoutubeId: '',
+      status: '',
+      runtime: '',
+      productionCompanies: '',
+      userScore: '',
+      rank: '',
+      source: '',
+      airedDates: '',
+      episodesCount: '',
+      spokenLanguages: '',
+      budgetRevenue: '',
+      director: '',
+      writers: '',
+      imdbId: '',
+      malId: '',
+      recommendations: const [],
     );
   }
 }

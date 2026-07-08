@@ -410,16 +410,34 @@ class _DesktopMainScreenState extends ConsumerState<DesktopMainScreen> with Tick
           child: Column(
             children: [
               if (selectedSeries != null) ...[
-
-                Expanded(
-                  child: AndroidSeriesDetailsScreen(
-                    series: selectedSeries,
-                    categoryTitle: 'Anime',
-                    onBack: () {
-                      ref.read(desktopSelectedSeriesProvider.notifier).state = null;
-                      ref.read(desktopSelectedEpisodeProvider.notifier).state = null;
-                    },
-                  ),
+                Builder(
+                  builder: (context) {
+                    final overrideId = FirebaseMetadataService.getOverride(selectedSeries.coreName);
+                    final preloadedMetadata = FirebaseMetadataService.getPreloadedMetadata(selectedSeries.coreName);
+                    
+                    SeriesMetadata? meta;
+                    List<String>? overrideIds;
+                    if (overrideId != null && overrideId.isNotEmpty) {
+                      overrideIds = overrideId.split(',');
+                      if (preloadedMetadata != null && preloadedMetadata.isNotEmpty) {
+                        meta = preloadedMetadata.first;
+                      }
+                    }
+                    
+                    return Expanded(
+                      child: AndroidSeriesDetailsScreen(
+                        series: selectedSeries,
+                        categoryTitle: 'Anime',
+                        metadata: meta,
+                        overrideIds: overrideIds,
+                        preloadedMetadata: preloadedMetadata,
+                        onBack: () {
+                          ref.read(desktopSelectedSeriesProvider.notifier).state = null;
+                          ref.read(desktopSelectedEpisodeProvider.notifier).state = null;
+                        },
+                      ),
+                    );
+                  }
                 ),
               ] else if (_currentRightPanelView == 'library') ...[
                 // Custom TabBar

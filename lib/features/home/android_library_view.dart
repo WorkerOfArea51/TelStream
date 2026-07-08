@@ -1733,22 +1733,30 @@ class LibraryItemActionHandler {
       return;
     }
     final overrideId = FirebaseMetadataService.getOverride(series.coreName);
+    final preloadedMetadata = FirebaseMetadataService.getPreloadedMetadata(series.coreName);
+    
     if (overrideId != null && overrideId.isNotEmpty) {
       final overrideIds = overrideId.split(',');
       final firstId = overrideIds.first;
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (c) => const Center(child: CircularProgressIndicator()),
-      );
-      final metadataService = MetadataService();
       SeriesMetadata? meta;
-      if (firstId.startsWith('tt')) {
-        meta = await metadataService.fetchTmdbByImdbId(firstId);
+
+      if (preloadedMetadata != null && preloadedMetadata.isNotEmpty) {
+        meta = preloadedMetadata.first;
       } else {
-        meta = await metadataService.fetchJikanByMalId(firstId);
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (c) => const Center(child: CircularProgressIndicator()),
+        );
+        final metadataService = MetadataService();
+        if (firstId.startsWith('tt')) {
+          meta = await metadataService.fetchTmdbByImdbId(firstId);
+        } else {
+          meta = await metadataService.fetchJikanByMalId(firstId);
+        }
+        if (context.mounted) Navigator.pop(context);
       }
-      if (context.mounted) Navigator.pop(context);
+
       if (context.mounted) {
         Navigator.push(
           context,
@@ -1758,6 +1766,7 @@ class LibraryItemActionHandler {
               categoryTitle: categoryTitle,
               metadata: meta,
               overrideIds: overrideIds,
+              preloadedMetadata: preloadedMetadata,
             ),
           ),
         );
@@ -1802,10 +1811,55 @@ class LibraryItemActionHandler {
           ids = MetadataService.extractAllMalIds(input);
         }
         if (ids.isNotEmpty) {
+          showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (c) => const AlertDialog(
+              backgroundColor: Colors.black,
+              content: Row(
+                children: [
+                  CircularProgressIndicator(color: Colors.orange),
+                  SizedBox(width: 16),
+                  Text('Fetching Metadata & Syncing...', style: TextStyle(color: Colors.white)),
+                ],
+              ),
+            ),
+          );
+
+          final metadataService = MetadataService();
+          List<SeriesMetadata> preloadedData = [];
+          for (final id in ids) {
+            SeriesMetadata? meta;
+            if (id.startsWith('tt')) {
+              meta = await metadataService.fetchTmdbByImdbId(id);
+            } else {
+              meta = await metadataService.fetchJikanByMalId(id);
+            }
+            if (meta != null) {
+              preloadedData.add(meta);
+            } else {
+              if (id.startsWith('tt')) {
+                final empty = SeriesMetadata.empty();
+                preloadedData.add(SeriesMetadata(
+                  title: '', synopsis: '', posterUrl: '', backdropUrl: '', releaseYear: '',
+                  genres: [], cast: '', maturityRating: '', trailerYoutubeId: '', imdbId: id, malId: '',
+                ));
+              } else {
+                preloadedData.add(SeriesMetadata(
+                  title: '', synopsis: '', posterUrl: '', backdropUrl: '', releaseYear: '',
+                  genres: [], cast: '', maturityRating: '', trailerYoutubeId: '', malId: id, imdbId: '',
+                ));
+              }
+            }
+          }
+
+          if (context.mounted) Navigator.pop(context);
+
           await FirebaseMetadataService.saveOverride(
             categoryTitle,
             series.coreName,
             ids.join(','),
+            preloadedData: preloadedData,
           );
           if (context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(

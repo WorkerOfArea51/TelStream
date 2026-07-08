@@ -19,6 +19,7 @@ class AndroidSeriesDetailsScreen extends ConsumerStatefulWidget {
   final String categoryTitle;
   final SeriesMetadata? metadata;
   final List<String>? overrideIds;
+  final List<SeriesMetadata>? preloadedMetadata;
   final VoidCallback? onBack;
 
   const AndroidSeriesDetailsScreen({
@@ -27,6 +28,7 @@ class AndroidSeriesDetailsScreen extends ConsumerStatefulWidget {
     required this.categoryTitle,
     this.metadata,
     this.overrideIds,
+    this.preloadedMetadata,
     this.onBack,
   });
 
@@ -57,11 +59,25 @@ class _AndroidSeriesDetailsScreenState extends ConsumerState<AndroidSeriesDetail
     
     if (_currentMetadata != null) {
       _metadataCache[0] = _currentMetadata!;
-      if (_overrideIds != null && _overrideIds!.length > 1) {
+      if (widget.preloadedMetadata != null && widget.preloadedMetadata!.isNotEmpty) {
+        for (int i = 0; i < widget.preloadedMetadata!.length; i++) {
+          _metadataCache[i] = widget.preloadedMetadata![i];
+        }
+      } else if (_overrideIds != null && _overrideIds!.length > 1) {
         _prefetchOtherMetadata(_overrideIds!);
       }
     } else {
-      _checkAndFetchMetadata();
+      if (widget.preloadedMetadata != null && widget.preloadedMetadata!.isNotEmpty) {
+        for (int i = 0; i < widget.preloadedMetadata!.length; i++) {
+          _metadataCache[i] = widget.preloadedMetadata![i];
+        }
+        if (_metadataCache.containsKey(0) && _metadataCache[0]!.title.isNotEmpty) {
+          _currentMetadata = _metadataCache[0];
+          _initYtController(_currentMetadata);
+        }
+      } else {
+        _checkAndFetchMetadata();
+      }
     }
   }
 

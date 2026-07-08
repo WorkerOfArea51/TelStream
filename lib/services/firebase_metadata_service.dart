@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'metadata_service.dart';
 import '../core/logger.dart';
 
 class FirebaseMetadataService {
@@ -11,6 +12,7 @@ class FirebaseMetadataService {
   );
 
   static Map<String, String> _cache = {};
+  static Map<String, List<SeriesMetadata>> _preloadedCache = {};
 
   /// Loads all metadata overrides from Firebase into local memory.
   /// This should be called once on app startup.
@@ -32,7 +34,16 @@ class FirebaseMetadataService {
             // Check if this is a Category node containing encoded keys
             value.forEach((subKey, subValue) {
               if (subValue is Map<String, dynamic> && subValue.containsKey('id')) {
-                newCache[_decodeKey(subKey)] = subValue['id'].toString();
+                final decodedKey = _decodeKey(subKey);
+                newCache[decodedKey] = subValue['id'].toString();
+                if (subValue.containsKey('preloaded')) {
+                  try {
+                    final preloadedList = (subValue['preloaded'] as List).map((e) => SeriesMetadata.fromJson(e)).toList();
+                    _preloadedCache[decodedKey] = preloadedList;
+                  } catch (e) {
+                    Log.e('Failed to parse preloaded metadata for $decodedKey', e);
+                  }
+                }
               } else {
                 newCache[_decodeKey(subKey)] = subValue.toString();
               }
@@ -58,8 +69,13 @@ class FirebaseMetadataService {
     return _cache[coreName];
   }
 
+  /// Gets the preloaded metadata for a specific folder if it exists.
+  static List<SeriesMetadata>? getPreloadedMetadata(String coreName) {
+    return _preloadedCache[coreName];
+  }
+
   /// Saves a new override to Firebase and updates the local cache.
-  static Future<void> saveOverride(String category, String coreName, String ids) async {
+  static Future<void> saveOverride(String category, String coreName, String ids, {List<SeriesMetadata>? preloadedData}) async {
     if (_baseUrl.isEmpty) {
       Log.w('Firebase DB URL is not set. Cannot save override.');
       return;
@@ -67,6 +83,9 @@ class FirebaseMetadataService {
 
     // Update local cache immediately for instant UI updates
     _cache[coreName] = ids;
+    if (preloadedData != null) {
+      _preloadedCache[coreName] = preloadedData;
+    }
     Log.i('Saved metadata override locally for $coreName -> $ids');
 
     // Sync to Firebase in the background
@@ -74,10 +93,16 @@ class FirebaseMetadataService {
       final safeKey = _encodeKey(coreName);
       final safeCategory = category.replaceAll(' ', ''); // E.g., 'Web Series' -> 'WebSeries'
       
-      final payload = json.encode({
+      final payloadData = {
         'title': coreName,
         'id': ids,
-      });
+      };
+      
+      if (preloadedData != null) {
+        payloadData['preloaded'] = preloadedData.map((e) => e.toJson()).toList();
+      }
+      
+      final payload = json.encode(payloadData);
 
       final response = await http.put(
         Uri.parse('$_baseUrl/metadata/$safeCategory/$safeKey.json'),
