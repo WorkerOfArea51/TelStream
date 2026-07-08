@@ -3,7 +3,6 @@ import 'widgets/cached_video_widget.dart';
 import 'dart:async';
 import 'dart:io';
 import 'dart:ui';
-import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import 'package:flutter/services.dart';
@@ -1074,8 +1073,9 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
   void _checkAutoNextTrigger(Duration pos) {
     final settings = ref.read(videoSettingsProvider);
     if (!settings.autoplayNextVideo) return;
-    if (widget.isPip || !widget.hasNextEpisode || widget.onNextEpisode == null)
+    if (widget.isPip || !widget.hasNextEpisode || widget.onNextEpisode == null) {
       return;
+    }
 
     final dur = widget.player.state.duration;
     if (dur.inSeconds <= 0) return;
@@ -1139,8 +1139,9 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
 
     _autoNextTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (mounted) {
-        if (!widget.player.state.playing)
+        if (!widget.player.state.playing) {
           return; // Pause countdown if video is paused!
+        }
         setState(() {
           if (_autoNextSecondsRemaining > 1) {
             _autoNextSecondsRemaining--;
@@ -3034,16 +3035,18 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
               stream: widget.player.stream.subtitle,
               builder: (context, snapshot) {
                 final subtitleLines = snapshot.data;
-                if (subtitleLines == null || subtitleLines.isEmpty)
+                if (subtitleLines == null || subtitleLines.isEmpty) {
                   return const Positioned(child: SizedBox.shrink());
+                }
 
                 final subtitleText = subtitleLines.join('\n');
                 // Strip any raw ASS/SSA tags (like {\an8}, {\pos(x,y)}, etc.) to keep plain text clean in overlay mode
                 final cleanText = subtitleText
                     .replaceAll(RegExp(r'\{[^}]*\}'), '')
                     .trim();
-                if (cleanText.isEmpty)
+                if (cleanText.isEmpty) {
                   return const Positioned(child: SizedBox.shrink());
+                }
 
                 final activeBottomMargin =
                     _dragBottomMargin ?? settings.subtitleBottomMargin;

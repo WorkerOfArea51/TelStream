@@ -12,7 +12,7 @@ class FirebaseMetadataService {
   );
 
   static Map<String, String> _cache = {};
-  static Map<String, List<SeriesMetadata>> _preloadedCache = {};
+  static final Map<String, List<SeriesMetadata>> _preloadedCache = {};
 
   /// Loads all metadata overrides from Firebase into local memory.
   /// This should be called once on app startup.

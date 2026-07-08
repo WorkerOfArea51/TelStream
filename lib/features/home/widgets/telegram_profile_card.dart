@@ -297,7 +297,7 @@ class _TelegramProfileCardState extends ConsumerState<TelegramProfileCard> {
                     const SizedBox(height: 10),
                     ElevatedButton(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white.withOpacity(0.08),
+                        backgroundColor: Colors.white.withValues(alpha: 0.08),
                         foregroundColor: Colors.white,
                         elevation: 0,
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),

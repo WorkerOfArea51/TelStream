@@ -23,7 +23,6 @@ import 'package:media_kit/media_kit.dart';
 import 'airing_calendar_screen.dart';
 import '../../services/update_service.dart';
 import 'widgets/custom_about_dialog.dart';
-import 'network_stream_screen.dart';
 import 'dart:io';
 
 class DesktopMainScreen extends ConsumerStatefulWidget {
@@ -632,13 +631,13 @@ class _DesktopMainScreenState extends ConsumerState<DesktopMainScreen> with Tick
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.play_circle_outline, size: 64, color: Colors.white.withOpacity(0.2)),
+                        Icon(Icons.play_circle_outline, size: 64, color: Colors.white.withValues(alpha: 0.2)),
                         const SizedBox(height: 16),
                         Text(
                           'TelStream',
                           style: TextStyle(
                             fontSize: 24,
-                            color: Colors.white.withOpacity(0.2),
+                            color: Colors.white.withValues(alpha: 0.2),
                             fontWeight: FontWeight.bold,
                           ),
                         ),
@@ -675,11 +674,11 @@ class _DesktopMainScreenState extends ConsumerState<DesktopMainScreen> with Tick
                   width: 360,
                   height: 320,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1E1E1E).withOpacity(0.95), // Slight glassmorphism
+                    color: const Color(0xFF1E1E1E).withValues(alpha: 0.95), // Slight glassmorphism
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(color: Colors.white12),
                     boxShadow: [
-                      BoxShadow(color: Colors.black.withOpacity(0.6), blurRadius: 15, offset: const Offset(0, 8)),
+                      BoxShadow(color: Colors.black.withValues(alpha: 0.6), blurRadius: 15, offset: const Offset(0, 8)),
                     ],
                   ),
                   child: DefaultTabController(
@@ -706,7 +705,7 @@ class _DesktopMainScreenState extends ConsumerState<DesktopMainScreen> with Tick
                                 onPressed: () => Navigator.pop(context),
                                 padding: EdgeInsets.zero,
                                 constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                                hoverColor: Colors.red.withOpacity(0.8),
+                                hoverColor: Colors.red.withValues(alpha: 0.8),
                               ),
                             ],
                           ),

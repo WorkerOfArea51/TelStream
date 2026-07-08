@@ -18,7 +18,6 @@ import '../../core/logger.dart';
 import '../../core/constants.dart';
 import '../../services/streaming_proxy_service.dart';
 import '../../services/tracker_service.dart';
-import 'package:window_manager/window_manager.dart';
 
 class VideoPlayerScreen extends ConsumerStatefulWidget {
   final int messageId;

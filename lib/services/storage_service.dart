@@ -154,25 +154,28 @@ class StorageService {
     bool requiresMigrationSave = false;
     if (_data.containsKey('anilist_token')) {
       _anilistTokenCache = _data['anilist_token'] as String?;
-      if (_anilistTokenCache != null)
+      if (_anilistTokenCache != null) {
         await _secureStorage.write(
           key: 'anilist_token',
           value: _anilistTokenCache,
         );
+      }
       _data.remove('anilist_token');
       requiresMigrationSave = true;
     }
     if (_data.containsKey('mal_token')) {
       _malTokenCache = _data['mal_token'] as String?;
-      if (_malTokenCache != null)
+      if (_malTokenCache != null) {
         await _secureStorage.write(key: 'mal_token', value: _malTokenCache);
+      }
       _data.remove('mal_token');
       requiresMigrationSave = true;
     }
     if (_data.containsKey('trakt_token')) {
       _traktTokenCache = _data['trakt_token'] as String?;
-      if (_traktTokenCache != null)
+      if (_traktTokenCache != null) {
         await _secureStorage.write(key: 'trakt_token', value: _traktTokenCache);
+      }
       _data.remove('trakt_token');
       requiresMigrationSave = true;
     }
@@ -181,15 +184,17 @@ class StorageService {
       final vs = _data['video_settings'] as Map<String, dynamic>;
       if (vs.containsKey('openSubtitlesApiKey')) {
         _openSubtitlesApiKeyCache = vs['openSubtitlesApiKey'] as String?;
-        if (_openSubtitlesApiKeyCache != null)
+        if (_openSubtitlesApiKeyCache != null) {
           await _secureStorage.write(key: 'os_api_key', value: _openSubtitlesApiKeyCache);
+        }
         vs.remove('openSubtitlesApiKey');
         requiresMigrationSave = true;
       }
       if (vs.containsKey('subdlApiKey')) {
         _subdlApiKeyCache = vs['subdlApiKey'] as String?;
-        if (_subdlApiKeyCache != null)
+        if (_subdlApiKeyCache != null) {
           await _secureStorage.write(key: 'subdl_api_key', value: _subdlApiKeyCache);
+        }
         vs.remove('subdlApiKey');
         requiresMigrationSave = true;
       }

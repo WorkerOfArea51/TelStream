@@ -145,7 +145,7 @@ class _DesktopLibraryViewState extends ConsumerState<DesktopLibraryView> {
                       child: Container(
                         height: 56,
                         padding: const EdgeInsets.symmetric(horizontal: 24),
-                        color: theme.scaffoldBackgroundColor.withOpacity(0.95),
+                        color: theme.scaffoldBackgroundColor.withValues(alpha: 0.95),
                         child: Row(
                           children: [
                             Text(
@@ -323,7 +323,7 @@ class _DesktopLibraryViewState extends ConsumerState<DesktopLibraryView> {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   decoration: BoxDecoration(
-                    color: theme.colorScheme.surface.withOpacity(0.9),
+                    color: theme.colorScheme.surface.withValues(alpha: 0.9),
                     borderRadius: BorderRadius.circular(20),
                     boxShadow: [BoxShadow(color: Colors.black45, blurRadius: 10, offset: const Offset(0, 4))],
                   ),
@@ -417,7 +417,7 @@ class _DesktopPosterCardState extends ConsumerState<DesktopPosterCard> {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
             boxShadow: _isHovered
-                ? [BoxShadow(color: theme.primaryColor.withOpacity(0.3), blurRadius: 20, offset: const Offset(0, 8))]
+                ? [BoxShadow(color: theme.primaryColor.withValues(alpha: 0.3), blurRadius: 20, offset: const Offset(0, 8))]
                 : [BoxShadow(color: Colors.black26, blurRadius: 8, offset: const Offset(0, 4))],
           ),
           child: Stack(
@@ -446,7 +446,7 @@ class _DesktopPosterCardState extends ConsumerState<DesktopPosterCard> {
                       colors: [
                         Colors.transparent,
                         Colors.transparent,
-                        Colors.black.withOpacity(0.8),
+                        Colors.black.withValues(alpha: 0.8),
                         Colors.black,
                       ],
                     ),
@@ -542,10 +542,10 @@ class _DesktopListItemState extends ConsumerState<DesktopListItem> {
           margin: const EdgeInsets.only(bottom: 12),
           height: widget.isCompact ? 70 : 100,
           decoration: BoxDecoration(
-            color: _isHovered ? theme.primaryColor.withOpacity(0.1) : theme.cardColor,
+            color: _isHovered ? theme.primaryColor.withValues(alpha: 0.1) : theme.cardColor,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: _isHovered ? theme.primaryColor.withOpacity(0.5) : Colors.white10,
+              color: _isHovered ? theme.primaryColor.withValues(alpha: 0.5) : Colors.white10,
               width: _isHovered ? 1.5 : 1,
             ),
           ),

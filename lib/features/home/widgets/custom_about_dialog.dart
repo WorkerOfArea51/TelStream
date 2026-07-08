@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../core/constants.dart';
@@ -41,7 +40,7 @@ class _AboutContent extends StatelessWidget {
   final ScrollController? scrollController;
   final bool isDesktop;
 
-  const _AboutContent({this.scrollController, this.isDesktop = false});
+  const _AboutContent({this.scrollController}) : isDesktop = false;
 
   @override
   Widget build(BuildContext context) {

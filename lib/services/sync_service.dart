@@ -396,7 +396,9 @@ class ProgressSyncNotifier extends Notifier<void> {
                   if (chunksMap.length == totalParts) {
                     final sortedKeys = chunksMap.keys.toList()..sort();
                     String fullJson = '';
-                    for (final k in sortedKeys) fullJson += chunksMap[k]!;
+                    for (final k in sortedKeys) {
+                      fullJson += chunksMap[k]!;
+                    }
                     return json.decode(fullJson);
                   }
                 }

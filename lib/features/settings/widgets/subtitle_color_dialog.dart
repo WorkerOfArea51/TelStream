@@ -1,11 +1,11 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 class SubtitleColorDialog extends StatefulWidget {
   final String current;
   final double currentSize;
   final String currentFont;
   final Color accentColor;
 
-  const SubtitleColorDialog({
+  const SubtitleColorDialog({super.key, 
     required this.current,
     required this.currentSize,
     required this.currentFont,

@@ -15,7 +15,6 @@ import 'home_controller.dart';
 import 'android_episode_list_screen.dart';
 import '../settings/settings_provider.dart';
 import 'desktop_state.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../../services/tdlib_service.dart';
 import '../../services/metadata_service.dart';
 import 'android_series_details_screen.dart';

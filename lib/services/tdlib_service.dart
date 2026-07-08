@@ -114,7 +114,7 @@ class TdlibService {
     Log.w('TDLib forceReset called. Clearing in-flight init.');
     await _initLock.synchronized(() async {
       _initFuture = null;
-      await _isolateReceivePort?.close();
+      _isolateReceivePort?.close();
       _isolateReceivePort = null;
       _eventIsolate?.kill(priority: Isolate.immediate);
       _eventIsolate = null;
@@ -190,8 +190,9 @@ class TdlibService {
     bool needsMigration = isMigrated != 'true';
     
     String deviceModel = 'Unknown';
-    if (Platform.isAndroid) deviceModel = 'Android';
-    else if (Platform.isIOS) deviceModel = 'iOS';
+    if (Platform.isAndroid) {
+      deviceModel = 'Android';
+    } else if (Platform.isIOS) deviceModel = 'iOS';
     else if (Platform.isMacOS) deviceModel = 'macOS';
     else if (Platform.isWindows) deviceModel = 'Windows';
     else if (Platform.isLinux) deviceModel = 'Linux';
@@ -748,7 +749,7 @@ class TdlibService {
       _isDestroyed = true;
       _onlineHeartbeat?.cancel();
       _initPruneTimer?.cancel();
-      await _isolateReceivePort?.close();
+      _isolateReceivePort?.close();
       _isolateReceivePort = null;
       _eventIsolate?.kill(priority: Isolate.immediate);
       _eventIsolate = null;

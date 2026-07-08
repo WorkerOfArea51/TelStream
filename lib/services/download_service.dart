@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -259,14 +258,14 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
     // Listen to tdlib updates for file download progress
     final tdlibService = ref.read(tdlibServiceProvider);
     await _subscription?.cancel();
-    final Set<int> _savingFileIds = {};
+    final Set<int> savingFileIds = {};
     _subscription = tdlibService.updates.listen((event) {
       if (event is td.UpdateFile) {
         final fileId = event.file.id;
         if (state.containsKey(fileId)) {
           final task = state[fileId]!;
           if (task.isCompleted) return; // Already finished and saved
-          if (_savingFileIds.contains(fileId)) return;
+          if (savingFileIds.contains(fileId)) return;
 
           final expectedSize = event.file.expectedSize;
           final downloadedSize = event.file.local.downloadedSize;
@@ -281,9 +280,9 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
           String? tempPath = event.file.local.path;
 
           if (isCompleted && tempPath.isNotEmpty) {
-            _savingFileIds.add(fileId);
+            savingFileIds.add(fileId);
             _saveFilePermanently(fileId, tempPath, task.title).whenComplete(() {
-              _savingFileIds.remove(fileId);
+              savingFileIds.remove(fileId);
             });
             _lastDownloadedSizes.remove(fileId);
             _lastUpdateTimes.remove(fileId);

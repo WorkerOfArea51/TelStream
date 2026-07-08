@@ -420,7 +420,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                                                         child: AndroidEpisodeListScreen(
                                                           season: targetSeason,
                                                           series: matchedSeries!,
-                                                          heroTag: 'hero_history_${matchedSeries!.coreName}',
+                                                          heroTag: 'hero_history_${matchedSeries.coreName}',
                                                         ),
                                                       ),
                                                     );

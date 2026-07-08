@@ -4,7 +4,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:file_picker/file_picker.dart';
 import '../../services/permission_service.dart';
 import '../../services/storage_service.dart';
@@ -186,7 +185,7 @@ class _StorageSettingsScreenState extends ConsumerState<StorageSettingsScreen> {
       final customPath = ref.read(storageServiceProvider).getCustomDownloadDirectory();
 
       final int totalBytes = await compute((params) async {
-        final docPath = params[0] as String;
+        final docPath = params[0];
         int total = 0;
 
         try {

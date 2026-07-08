@@ -13,7 +13,7 @@ class SnackbarService {
     messenger.showSnackBar(
       SnackBar(
         content: Text(message, style: TextStyle(color: isError ? colorScheme.onError : colorScheme.onSurface)),
-        backgroundColor: isError ? colorScheme.error : colorScheme.surfaceVariant,
+        backgroundColor: isError ? colorScheme.error : colorScheme.surfaceContainerHighest,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),

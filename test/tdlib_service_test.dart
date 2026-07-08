@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:telstream/services/tdlib_service.dart';
@@ -27,7 +27,7 @@ void main() {
       final states = <td.ConnectionState>[];
       mockService.updates.listen((event) {
         if (event is td.UpdateConnectionState) {
-          states.add((event as td.UpdateConnectionState).state);
+          states.add((event).state);
         }
       });
 
@@ -49,7 +49,7 @@ void main() {
       final messages = <td.Message>[];
       mockService.updates.listen((event) {
         if (event is td.UpdateNewMessage) {
-          messages.add((event as td.UpdateNewMessage).message);
+          messages.add((event).message);
         }
       });
 

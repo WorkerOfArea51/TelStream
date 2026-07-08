@@ -1,4 +1,4 @@
-﻿import 'dart:io';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../services/storage_service.dart';
@@ -191,7 +191,7 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
                         : 'Stylized Native Blending',
                     style: TextStyle(color: subTextColor, fontSize: 12),
                   ),
-                  trailing: Icon(Icons.subtitles, color: subTextColor.withOpacity(0.5)),
+                  trailing: Icon(Icons.subtitles, color: subTextColor.withValues(alpha: 0.5)),
                 ),
                 Divider(color: divColor, height: 1),
                 ListTile(
@@ -206,7 +206,7 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
                                 : 'Auto ($decoderMode)',
                     style: TextStyle(color: subTextColor, fontSize: 12),
                   ),
-                  trailing: Icon(Icons.settings_input_component, color: subTextColor.withOpacity(0.5)),
+                  trailing: Icon(Icons.settings_input_component, color: subTextColor.withValues(alpha: 0.5)),
                 ),
               ],
             ),
@@ -222,7 +222,7 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
                 ListTile(
                   leading: Icon(
                     decoderMode == 'mediacodec' ? Icons.radio_button_checked : Icons.radio_button_off,
-                    color: decoderMode == 'mediacodec' ? Colors.orange : subTextColor.withOpacity(0.5),
+                    color: decoderMode == 'mediacodec' ? Colors.orange : subTextColor.withValues(alpha: 0.5),
                   ),
                   title: Text('Zero-Copy (mediacodec)', style: TextStyle(color: textColor)),
                   subtitle: Text('Highest performance, but may hide subtitles on Android.', style: TextStyle(color: subTextColor, fontSize: 11)),
@@ -232,7 +232,7 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
                 ListTile(
                   leading: Icon(
                     decoderMode == 'mediacodec-copy' ? Icons.radio_button_checked : Icons.radio_button_off,
-                    color: decoderMode == 'mediacodec-copy' ? Colors.orange : subTextColor.withOpacity(0.5),
+                    color: decoderMode == 'mediacodec-copy' ? Colors.orange : subTextColor.withValues(alpha: 0.5),
                   ),
                   title: Text('Copy-Back (mediacodec-copy)', style: TextStyle(color: textColor)),
                   subtitle: Text('Hardware accelerated video with full native subtitle blending.', style: TextStyle(color: subTextColor, fontSize: 11)),
@@ -242,7 +242,7 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
                 ListTile(
                   leading: Icon(
                     decoderMode == 'no' ? Icons.radio_button_checked : Icons.radio_button_off,
-                    color: decoderMode == 'no' ? Colors.orange : subTextColor.withOpacity(0.5),
+                    color: decoderMode == 'no' ? Colors.orange : subTextColor.withValues(alpha: 0.5),
                   ),
                   title: Text('Software Decoding (no)', style: TextStyle(color: textColor)),
                   subtitle: Text('Maximum subtitle compatibility. Decodes via CPU.', style: TextStyle(color: subTextColor, fontSize: 11)),

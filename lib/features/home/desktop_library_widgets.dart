@@ -8,7 +8,6 @@ import '../../core/widgets/td_thumbnail.dart';
 import '../../core/widgets/aligned_name_text.dart';
 import '../../services/storage_service.dart';
 import 'desktop_state.dart';
-import 'home_controller.dart';
 
 class DesktopFeaturedCarousel extends StatefulWidget {
   final List<AnimeSeries> seriesList;
@@ -121,7 +120,7 @@ class _DesktopFeaturedCarouselState extends State<DesktopFeaturedCarousel> {
                             borderRadius: BorderRadius.circular(16),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withOpacity(0.5),
+                                color: Colors.black.withValues(alpha: 0.5),
                                 blurRadius: 10,
                                 offset: const Offset(0, 5),
                               ),
@@ -147,8 +146,8 @@ class _DesktopFeaturedCarouselState extends State<DesktopFeaturedCarousel> {
                                     end: Alignment.bottomCenter,
                                     colors: [
                                       Colors.transparent,
-                                      Colors.black.withOpacity(0.2),
-                                      Colors.black.withOpacity(0.9),
+                                      Colors.black.withValues(alpha: 0.2),
+                                      Colors.black.withValues(alpha: 0.9),
                                     ],
                                     stops: const [0.4, 0.7, 1.0],
                                   ),
@@ -363,7 +362,7 @@ class DesktopContinueWatchingShelf extends StatelessWidget {
                               gradient: LinearGradient(
                                 begin: Alignment.topCenter,
                                 end: Alignment.bottomCenter,
-                                colors: [Colors.transparent, Colors.black.withOpacity(0.6)],
+                                colors: [Colors.transparent, Colors.black.withValues(alpha: 0.6)],
                               ),
                             ),
                           ),

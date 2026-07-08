@@ -4,13 +4,11 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:youtube_player_iframe/youtube_player_iframe.dart';
-import 'package:tdlib/td_api.dart' as td;
 import '../../core/constants.dart';
 import '../../services/metadata_service.dart';
 import '../../models/anime_models.dart';
 import 'android_episode_list_screen.dart';
 import 'home_controller.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../../services/firebase_metadata_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -394,7 +392,7 @@ class _AndroidSeriesDetailsScreenState extends ConsumerState<AndroidSeriesDetail
         );
 
         overrideIds = overrideId.split(',');
-        final firstId = overrideIds!.first;
+        final firstId = overrideIds.first;
         final metadataService = MetadataService();
 
         if (widget.categoryTitle.toLowerCase() == 'anime') {
@@ -706,7 +704,7 @@ class _AndroidSeriesDetailsScreenState extends ConsumerState<AndroidSeriesDetail
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: [
-                Colors.black.withOpacity(0.3),
+                Colors.black.withValues(alpha: 0.3),
                 Colors.transparent,
                 Colors.black,
               ],

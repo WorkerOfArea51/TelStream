@@ -681,7 +681,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
     Log.i('[_syncFromNetwork] Starting background sync execution for category: ${category.title}');
 
     ref.read(isSyncingProvider.notifier).state = true;
-    DateTime? _lastSyncDuringPlayback;
+    DateTime? lastSyncDuringPlayback;
     try {
       final tdlibService = ref.read(tdlibServiceProvider);
       
@@ -704,7 +704,6 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
       bool changed = false;
       bool reachedEnd = false;
       
-      int processedCount = 0;
       DateTime lastUiUpdateTime = DateTime.now();
 
       // Sync messages incrementally from the network in the background
@@ -712,13 +711,13 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
         try {
           if (ref.read(pipControllerProvider) != null) {
             final now = DateTime.now();
-            final lastRun = _lastSyncDuringPlayback ?? DateTime.fromMillisecondsSinceEpoch(0);
+            final lastRun = lastSyncDuringPlayback ?? DateTime.fromMillisecondsSinceEpoch(0);
             final elapsed = now.difference(lastRun);
             if (elapsed < const Duration(seconds: 60)) {
               await Future.delayed(const Duration(seconds: 5));
               continue;
             }
-            _lastSyncDuringPlayback = now;
+            lastSyncDuringPlayback = now;
           }
 
           final networkMessages = _cacheLoadComplete
@@ -1133,11 +1132,11 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
     if (msg.content is td.MessageVideo) {
       final video = msg.content as td.MessageVideo;
       fileName = video.video.fileName;
-      caption = video.caption?.text ?? '';
+      caption = video.caption.text;
     } else if (msg.content is td.MessageDocument) {
       final doc = msg.content as td.MessageDocument;
       fileName = doc.document.fileName;
-      caption = doc.caption?.text ?? '';
+      caption = doc.caption.text;
     }
 
     if (caption.isNotEmpty) {
