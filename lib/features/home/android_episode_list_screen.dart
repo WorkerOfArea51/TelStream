@@ -76,6 +76,23 @@ class _AndroidEpisodeListScreenState extends ConsumerState<AndroidEpisodeListScr
     }
   }
 
+  @override
+  void didUpdateWidget(AndroidEpisodeListScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.series != oldWidget.series || widget.season != oldWidget.season) {
+      final matchingSeason = widget.series.seasons.firstWhere(
+        (s) => s.name == _selectedSeason.name,
+        orElse: () => widget.season,
+      );
+      setState(() {
+        _selectedSeason = matchingSeason;
+      });
+      if (_selectedSeason.episodes.isEmpty) {
+        _loadEpisodesDynamically();
+      }
+    }
+  }
+
   void _scrollToHighlightedEpisode() {
     if (widget.highlightMessageId == null) return;
     final idx = _selectedSeason.episodes.indexWhere(

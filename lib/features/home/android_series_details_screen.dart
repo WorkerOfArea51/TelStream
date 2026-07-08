@@ -436,6 +436,19 @@ class _AndroidSeriesDetailsScreenState extends ConsumerState<AndroidSeriesDetail
 
   @override
   Widget build(BuildContext context) {
+    final category = Constants.categories.firstWhere(
+      (c) => c.title == widget.categoryTitle, 
+      orElse: () => Constants.categories.first,
+    );
+    final homeState = ref.watch(homeControllerProvider(category));
+    
+    AnimeSeries latestSeries = widget.series;
+    if (homeState is AsyncData && homeState.value != null) {
+      try {
+        latestSeries = homeState.value!.firstWhere((s) => s.coreName == widget.series.coreName);
+      } catch (_) {}
+    }
+
     if (_isLoadingMetadata) {
       return const Scaffold(
         backgroundColor: Colors.black,
@@ -445,10 +458,10 @@ class _AndroidSeriesDetailsScreenState extends ConsumerState<AndroidSeriesDetail
 
     if (_currentMetadata == null) {
         return AndroidEpisodeListScreen(
-          season: widget.series.seasons.first,
-          series: widget.series,
+          season: latestSeries.seasons.first,
+          series: latestSeries,
           heroTag:
-              'hero_library_${widget.categoryTitle}_${widget.series.coreName}',
+              'hero_library_${widget.categoryTitle}_${latestSeries.coreName}',
           categoryTitle: widget.categoryTitle,
           isEmbedded: false,
           onSeasonChanged: _onSeasonChanged,
@@ -595,9 +608,9 @@ class _AndroidSeriesDetailsScreenState extends ConsumerState<AndroidSeriesDetail
           controller: _tabController,
           children: [
             AndroidEpisodeListScreen(
-              season: widget.series.seasons[_selectedSeasonIndex],
-              series: widget.series,
-              heroTag: 'hero_library_details_${widget.series.coreName}',
+              season: latestSeries.seasons.length > _selectedSeasonIndex ? latestSeries.seasons[_selectedSeasonIndex] : latestSeries.seasons.first,
+              series: latestSeries,
+              heroTag: 'hero_library_details_${latestSeries.coreName}',
               categoryTitle: widget.categoryTitle,
               isEmbedded: true,
               onSeasonChanged: _onSeasonChanged,
