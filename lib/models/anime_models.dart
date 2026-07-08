@@ -28,7 +28,7 @@ class AnimeSeason {
 
   final String fullTitle;
   final String seasonName;
-  final td.Message posterMessage; // The Photo message
+  td.Message posterMessage; // The Photo message
   final List<td.Message> episodes; // The Video/Document messages
 
   AnimeSeason({

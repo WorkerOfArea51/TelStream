@@ -10,6 +10,12 @@ import '../../core/secrets.dart';
 import '../../services/tdlib_service.dart';
 import '../../services/storage_service.dart';
 
+import '../../models/anime_models.dart';
+import '../../core/logger.dart';
+import '../player/pip_manager.dart';
+import '../../core/utils/path_helper.dart';
+import 'package:synchronized/synchronized.dart';
+
 class ParseMessagesArgs {
   final List<td.Message> raw;
   final bool isMovie;
@@ -185,11 +191,7 @@ Future<List<AnimeSeries>> parseMessagesCompute(ParseMessagesArgs args) async {
   return seriesList;
 }
 
-import '../../models/anime_models.dart';
-import '../../core/logger.dart';
-import '../player/pip_manager.dart';
-import '../../core/utils/path_helper.dart';
-import 'package:synchronized/synchronized.dart';
+
 
 enum ConnectionStatus { connected, connecting, waitingForNetwork, unknown }
 class ConnectionStateNotifier extends Notifier<ConnectionStatus> { @override ConnectionStatus build() => ConnectionStatus.unknown; }
@@ -1048,8 +1050,8 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
             if (!exists) {
               s.seasons[i].episodes.add(msg);
               s.seasons[i].episodes.sort((a, b) {
-                final epA = _parseEpisodeNumber(a);
-                final epB = _parseEpisodeNumber(b);
+                final epA = parseEpisodeNumber(a);
+                final epB = parseEpisodeNumber(b);
                 if (epA != epB) return epA.compareTo(epB);
                 return a.id.compareTo(b.id);
               });

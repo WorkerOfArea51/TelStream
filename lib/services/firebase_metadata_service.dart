@@ -125,7 +125,7 @@ class FirebaseMetadataService {
             );
           }
         } catch (e) {
-          Log.w('Failed to update category count', e);
+          Log.w('Failed to update category count');
         }
       } else {
         Log.e('Failed to sync to Firebase. Status: ${response.statusCode}, Body: ${response.body}');

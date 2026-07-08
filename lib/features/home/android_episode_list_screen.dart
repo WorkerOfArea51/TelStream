@@ -18,6 +18,10 @@ import '../../services/tdlib_service.dart';
 
 import '../../core/widgets/shimmer_card.dart';
 import 'tracker_match_dialog.dart';
+import '../../services/metadata_service.dart';
+import '../../services/firebase_metadata_service.dart';
+import '../../core/constants.dart';
+import 'widgets/admin_override_dialog.dart';
 
 class AndroidEpisodeListScreen extends ConsumerStatefulWidget {
   final AnimeSeason season;
@@ -220,10 +224,9 @@ class _AndroidEpisodeListScreenState extends ConsumerState<AndroidEpisodeListScr
 
   void _showSeasonAdminOverrideDialog(BuildContext context, String seasonName) async {
     final tdlibService = ref.read(tdlibServiceProvider);
-    final me = tdlibService.getMe();
+    final me = await tdlibService.sendAsync(const td.GetMe());
     
-    if (me is td.User && me.usernames?.activeUsernames.contains('admin') == true ||
-        me is td.User && me.id == 1459249767) {
+    if (me is td.User && me.id == Constants.adminUserId) {
         
       final overrideKey = '${widget.series.coreName}_$seasonName';
       final existingIds = FirebaseMetadataService.getOverride(overrideKey) ?? '';
