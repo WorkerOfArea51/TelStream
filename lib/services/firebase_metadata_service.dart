@@ -93,7 +93,7 @@ class FirebaseMetadataService {
       final safeKey = _encodeKey(coreName);
       final safeCategory = category.replaceAll(' ', ''); // E.g., 'Web Series' -> 'WebSeries'
       
-      final payloadData = {
+      final Map<String, dynamic> payloadData = {
         'title': coreName,
         'id': ids,
       };

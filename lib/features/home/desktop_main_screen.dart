@@ -4,6 +4,8 @@ import 'package:window_manager/window_manager.dart';
 import '../../core/constants.dart';
 import '../../models/anime_models.dart';
 import 'desktop_state.dart';
+import '../../services/firebase_metadata_service.dart';
+import '../../services/metadata_service.dart';
 
 import 'downloads_screen.dart';
 import 'history_screen.dart';
