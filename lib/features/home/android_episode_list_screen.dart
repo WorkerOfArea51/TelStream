@@ -1,4 +1,5 @@
 import 'dart:ui';
+import 'dart:math' as math;
 
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -903,7 +904,7 @@ class _EpisodeCardItemState extends ConsumerState<_EpisodeCardItem> {
                     duration: const Duration(milliseconds: 1500),
                     curve: Curves.easeInOutSine,
                     builder: (context, value, child) {
-                      final pulseValue = (Math.sin(value * Math.pi * 2) + 1) / 2; // 0.0 to 1.0
+                      final pulseValue = (math.sin(value * math.pi * 2) + 1) / 2; // 0.0 to 1.0
                       return Container(
                         margin: const EdgeInsets.only(bottom: 12),
                         decoration: BoxDecoration(
