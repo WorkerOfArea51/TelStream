@@ -436,11 +436,14 @@ class _AndroidSeriesDetailsScreenState extends ConsumerState<AndroidSeriesDetail
 
   @override
   Widget build(BuildContext context) {
-    final category = Constants.categories.firstWhere(
-      (c) => c.title == widget.categoryTitle, 
-      orElse: () => Constants.categories.first,
-    );
-    final homeState = ref.watch(homeControllerProvider(category));
+    AsyncValue<List<AnimeSeries>> homeState;
+    if (widget.categoryTitle.toLowerCase() == 'movies') {
+      homeState = ref.watch(moviesControllerProvider);
+    } else if (widget.categoryTitle.toLowerCase() == 'web series') {
+      homeState = ref.watch(webSeriesControllerProvider);
+    } else {
+      homeState = ref.watch(animeControllerProvider);
+    }
     
     AnimeSeries latestSeries = widget.series;
     if (homeState is AsyncData && homeState.value != null) {

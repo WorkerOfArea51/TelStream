@@ -81,7 +81,7 @@ class _AndroidEpisodeListScreenState extends ConsumerState<AndroidEpisodeListScr
     super.didUpdateWidget(oldWidget);
     if (widget.series != oldWidget.series || widget.season != oldWidget.season) {
       final matchingSeason = widget.series.seasons.firstWhere(
-        (s) => s.name == _selectedSeason.name,
+        (s) => s.seasonName == _selectedSeason.seasonName,
         orElse: () => widget.season,
       );
       setState(() {
