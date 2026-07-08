@@ -512,9 +512,22 @@ class MetadataService {
                  }
               }
               if (actorName.isNotEmpty) {
-                actors.add(actorName);
+                if (actorName.contains(',')) {
+                  final parts = actorName.split(',');
+                  if (parts.length == 2) {
+                    actorName = '${parts[1].trim()} ${parts[0].trim()}';
+                  }
+                }
+                actors.add(actorName.trim());
               } else if (character != null && character['name'] != null) {
-                actors.add(character['name']);
+                String charName = character['name'];
+                if (charName.contains(',')) {
+                  final parts = charName.split(',');
+                  if (parts.length == 2) {
+                    charName = '${parts[1].trim()} ${parts[0].trim()}';
+                  }
+                }
+                actors.add(charName.trim());
               }
             }
             if (actors.isNotEmpty) {
