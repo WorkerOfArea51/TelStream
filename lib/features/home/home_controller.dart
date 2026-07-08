@@ -53,7 +53,7 @@ Future<List<AnimeSeries>> parseMessagesWithYield(List<td.Message> raw, bool isMo
       }
     }
     // Yield every 50 messages to prevent UI lag
-    if (count % 50 == 0) await Future.delayed(Duration.zero);
+    if (count % 50 == 0) await Future.delayed(const Duration(milliseconds: 1));
   }
 
   // 2. Pre-process poster details & initialize series map/list
@@ -157,7 +157,7 @@ Future<List<AnimeSeries>> parseMessagesWithYield(List<td.Message> raw, bool isMo
     
     // Yield to keep UI smooth
     epCount++;
-    if (epCount % 50 == 0) await Future.delayed(Duration.zero);
+    if (epCount % 50 == 0) await Future.delayed(const Duration(milliseconds: 1));
   }
 
   // 4. Assemble seasons and populate the series list
@@ -614,7 +614,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
       
       final List<Map<String, dynamic>> jsonList = [];
       for (int i = 0; i < _allSeries.length; i++) {
-        if (i > 0 && i % 100 == 0) await Future.delayed(Duration.zero);
+        if (i > 0 && i % 100 == 0) await Future.delayed(const Duration(milliseconds: 1));
         jsonList.add(_allSeries[i].toJson());
       }
       

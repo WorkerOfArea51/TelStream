@@ -568,58 +568,59 @@ class _AndroidEpisodeListScreenState extends ConsumerState<AndroidEpisodeListScr
                 child: Container(
                   height: 48,
                   margin: const EdgeInsets.only(top: 8, bottom: 4),
-                  child: ListView.builder(
+                  child: SingleChildScrollView(
                     controller: _seasonScrollController,
                     scrollDirection: Axis.horizontal,
                     padding: const EdgeInsets.symmetric(horizontal: 16),
-                    itemCount: widget.series.seasons.length,
-                    itemBuilder: (context, index) {
-                      final season = widget.series.seasons[index];
-                      final isSelected =
-                          season.seasonName == selectedSeason.seasonName;
-                      
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 10),
-                        child: GestureDetector(
-                          onLongPress: () => _showSeasonAdminOverrideDialog(context, season.seasonName),
-                          child: ChoiceChip(
-                            label: Text(
-                              season.episodes.isNotEmpty
-                                  ? '${season.seasonName} (${season.episodes.length} EP)'
-                                  : season.seasonName,
-                              style: TextStyle(
-                                color: isSelected
-                                    ? theme.colorScheme.onPrimary
-                                    : theme.colorScheme.onSurface,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 13,
+                    child: Row(
+                      children: List.generate(widget.series.seasons.length, (index) {
+                        final season = widget.series.seasons[index];
+                        final isSelected =
+                            season.seasonName == selectedSeason.seasonName;
+                        
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 10),
+                          child: GestureDetector(
+                            onLongPress: () => _showSeasonAdminOverrideDialog(context, season.seasonName),
+                            child: ChoiceChip(
+                              label: Text(
+                                season.episodes.isNotEmpty
+                                    ? '${season.seasonName} (${season.episodes.length} EP)'
+                                    : season.seasonName,
+                                style: TextStyle(
+                                  color: isSelected
+                                      ? theme.colorScheme.onPrimary
+                                      : theme.colorScheme.onSurface,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                ),
                               ),
-                            ),
-                            selected: isSelected,
-                            selectedColor: theme.colorScheme.primary,
-                            backgroundColor: theme.cardColor,
-                            side: BorderSide(
-                              color: isSelected
-                                  ? theme.colorScheme.primary
-                                  : theme.dividerColor,
-                              width: 1,
-                            ),
-                            onSelected: (selected) {
-                              if (selected) {
-                                setState(() {
-                                  _selectedSeason = season;
-                                });
-                                _scrollToSelectedSeason(index);
-                                widget.onSeasonChanged?.call(index);
-                                if (season.episodes.isEmpty) {
-                                  _loadEpisodesDynamically();
+                              selected: isSelected,
+                              selectedColor: theme.colorScheme.primary,
+                              backgroundColor: theme.cardColor,
+                              side: BorderSide(
+                                color: isSelected
+                                    ? theme.colorScheme.primary
+                                    : theme.dividerColor,
+                                width: 1,
+                              ),
+                              onSelected: (selected) {
+                                if (selected) {
+                                  setState(() {
+                                    _selectedSeason = season;
+                                  });
+                                  _scrollToSelectedSeason(index);
+                                  widget.onSeasonChanged?.call(index);
+                                  if (season.episodes.isEmpty) {
+                                    _loadEpisodesDynamically();
+                                  }
                                 }
-                              }
-                            },
+                              },
+                            ),
                           ),
-                        ),
-                      );
-                    },
+                        );
+                      }),
+                    ),
                   ),
                 ),
               ),
