@@ -185,6 +185,9 @@ class _AndroidSeriesDetailsScreenState extends ConsumerState<AndroidSeriesDetail
         if (newMeta != null) {
           _metadataCache[newIndex] = newMeta;
           _currentMetadata = newMeta;
+        } else {
+          // If metadata fetch fails, reset currentMetadata so it doesn't bleed from the previous season
+          _currentMetadata = null;
         }
         _isLoadingMetadata = false;
         _initYtController(_currentMetadata);
