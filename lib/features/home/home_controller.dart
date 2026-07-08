@@ -22,15 +22,15 @@ class ParseMessagesArgs {
   ParseMessagesArgs(this.raw, this.isMovie);
 }
 
-Future<List<AnimeSeries>> parseMessagesCompute(ParseMessagesArgs args) async {
-  final raw = args.raw;
-  final isMovie = args.isMovie;
+Future<List<AnimeSeries>> parseMessagesWithYield(List<td.Message> raw, bool isMovie) async {
   
   // 1. Separate poster messages and episode messages
   final List<td.Message> posterMessages = [];
   final List<td.Message> episodeMessages = [];
 
+  int count = 0;
   for (final msg in raw) {
+    count++;
     if (msg.content is td.MessagePhoto) {
       final photo = msg.content as td.MessagePhoto;
       if (photo.caption.text.isNotEmpty) {
@@ -52,6 +52,8 @@ Future<List<AnimeSeries>> parseMessagesCompute(ParseMessagesArgs args) async {
         episodeMessages.add(msg);
       }
     }
+    // Yield every 500 messages to prevent UI lag
+    if (count % 500 == 0) await Future.delayed(Duration.zero);
   }
 
   // 2. Pre-process poster details & initialize series map/list
@@ -118,9 +120,12 @@ Future<List<AnimeSeries>> parseMessagesCompute(ParseMessagesArgs args) async {
       'matchedKey': matchedKey,
       'episodesList': <td.Message>[],
     });
+    
+    if (posterDetails.length % 100 == 0) await Future.delayed(Duration.zero);
   }
 
   // 3. Match each episode message to its preceding poster message (pure sequential chronological)
+  int epCount = 0;
   for (final ep in episodeMessages) {
     Map<String, dynamic>? selectedPoster;
     int maxPrecedingId = -1;
@@ -149,6 +154,10 @@ Future<List<AnimeSeries>> parseMessagesCompute(ParseMessagesArgs args) async {
     if (selectedPoster != null) {
       (selectedPoster['episodesList'] as List<td.Message>).add(ep);
     }
+    
+    // Yield to keep UI smooth
+    epCount++;
+    if (epCount % 500 == 0) await Future.delayed(Duration.zero);
   }
 
   // 4. Assemble seasons and populate the series list
@@ -1067,14 +1076,14 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
 
   @visibleForTesting
   Future<List<AnimeSeries>> parseMessagesForTesting(List<td.Message> raw) async {
-    return await compute(parseMessagesCompute, ParseMessagesArgs(raw, category.title == 'Movies'));
+    return await parseMessagesWithYield(raw, category.title == 'Movies');
   }
 
   @visibleForTesting
   Future<List<AnimeSeries>> applySearchAndSortForTesting(List<AnimeSeries> series) => _applySearchAndSort(series);
 
   Future<List<AnimeSeries>> _parseMessages(List<td.Message> raw) async {
-    return await compute(parseMessagesCompute, ParseMessagesArgs(raw, category.title == 'Movies'));
+    return await parseMessagesWithYield(raw, category.title == 'Movies');
   }
 
   static String getMessageFileName(td.Message msg) {

@@ -79,6 +79,13 @@ class _AndroidEpisodeListScreenState extends ConsumerState<AndroidEpisodeListScr
     } else {
       _scrollToHighlightedEpisode();
     }
+    
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final index = widget.series.seasons.indexOf(_selectedSeason);
+      if (index != -1) {
+        _scrollToSelectedSeason(index);
+      }
+    });
   }
 
   @override
@@ -558,10 +565,6 @@ class _AndroidEpisodeListScreenState extends ConsumerState<AndroidEpisodeListScr
                       final isSelected =
                           season.seasonName == selectedSeason.seasonName;
                       
-                      if (isSelected) {
-                        _scrollToSelectedSeason(index);
-                      }
-                      
                       return Padding(
                         padding: const EdgeInsets.only(right: 10),
                         child: GestureDetector(
@@ -593,6 +596,7 @@ class _AndroidEpisodeListScreenState extends ConsumerState<AndroidEpisodeListScr
                                 setState(() {
                                   _selectedSeason = season;
                                 });
+                                _scrollToSelectedSeason(index);
                                 widget.onSeasonChanged?.call(index);
                                 if (season.episodes.isEmpty) {
                                   _loadEpisodesDynamically();
