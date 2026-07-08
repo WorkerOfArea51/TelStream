@@ -545,8 +545,7 @@ class TdlibService {
           final freePtr = _lib.lookup<NativeFunction<Void Function(Pointer<Void>)>>('td_free_string');
           _nativeFree = freePtr.asFunction<void Function(Pointer<Void>)>();
         } catch (e) {
-          Log.e('td_free_string not found in native library — aborting FFI event loop to prevent native memory leak');
-          rethrow;
+          Log.w('td_free_string not found in native library. Continuing without it.');
         }
         _libInitialized = true;
         Log.i('TDLib direct FFI receive library loaded successfully.');
