@@ -46,6 +46,7 @@ val patchMediaKitLibsAndroidVideo = {
                 }
             }
             if (patched) break
+        }
     } catch (e: Exception) {
         throw GradleException("Failed to auto-patch media_kit_libs_android_video build.gradle: ${e.message}")
     }
