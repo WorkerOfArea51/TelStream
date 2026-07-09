@@ -31,9 +31,8 @@ class TdlibService {
   final _pendingLock = Lock();
   final _initLock = Lock();
   
-  late final DynamicLibrary _lib;
-  late final Pointer<Utf8> Function(double timeout) _nativeReceive;
-  void Function(Pointer<Void>)? _nativeFree;
+  late DynamicLibrary _lib;
+  late Pointer<Utf8> Function(double timeout) _nativeReceive;
   bool _libInitialized = false;
   
   final _updatesController = StreamController<td.TdObject>.broadcast();
@@ -541,13 +540,6 @@ class TdlibService {
         } catch(e) {
           Log.w('td_send not found in native library');
         }
-        try {
-          final freePtr = _lib.lookup<NativeFunction<Void Function(Pointer<Void>)>>('td_free_string');
-          _nativeFree = freePtr.asFunction<void Function(Pointer<Void>)>();
-        } catch (e) {
-          Log.e('FATAL: td_free_string not found in native library. Every received TDLib event will leak memory. Refusing to start event loop.', e);
-          rethrow;
-        }
         _libInitialized = true;
         Log.i('TDLib direct FFI receive library loaded successfully.');
       } catch (e, stack) {
@@ -594,17 +586,10 @@ class TdlibService {
 
       _isolateReceivePort = ReceivePort();
       final receivePtr = _lib.lookup<NativeFunction<Pointer<Utf8> Function(Double)>>('td_receive');
-      Pointer<NativeFunction<Void Function(Pointer<Void>)>>? freePtrRes;
-      try {
-        freePtrRes = _lib.lookup<NativeFunction<Void Function(Pointer<Void>)>>('td_free_string');
-      } catch (e) {
-        // Ignore if not found
-      }
       
       _eventIsolate = await Isolate.spawn(_backgroundEventLoop, _EventLoopArgs(
         _isolateReceivePort!.sendPort,
         receivePtr.address,
-        freePtrRes?.address,
       ));
 
       _isolateReceivePort!.listen((message) async {
@@ -642,24 +627,17 @@ class TdlibService {
   static void _backgroundEventLoop(_EventLoopArgs args) {
     final receivePtr = Pointer<NativeFunction<Pointer<Utf8> Function(Double)>>.fromAddress(args.receiveAddress);
     final nativeReceive = receivePtr.asFunction<Pointer<Utf8> Function(double)>();
-    void Function(Pointer<Void>)? nativeFree;
-    if (args.freeAddress != null) {
-      final freePtr = Pointer<NativeFunction<Void Function(Pointer<Void>)>>.fromAddress(args.freeAddress!);
-      nativeFree = freePtr.asFunction<void Function(Pointer<Void>)>();
-    }
 
     while (true) {
       final rawPtr = nativeReceive(0.1); // Reduced timeout to fix isolate kill block
       if (rawPtr != nullptr) {
         final str = rawPtr.toDartString();
-        if (nativeFree != null) {
-          nativeFree(rawPtr.cast());
-        } else {
-          try { malloc.free(rawPtr.cast()); } catch (_) {}
-        }
+        // TDLib manages the string pointer and invalidates it on the next call to td_receive.
+        // We DO NOT need to free it.
         try {
           args.sendPort.send(str);
         } catch (e) {
+          // Send port might be closed
           break;
         }
       }
