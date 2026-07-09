@@ -761,6 +761,5 @@ class TdlibService {
 class _EventLoopArgs {
   final SendPort sendPort;
   final int receiveAddress;
-  final int? freeAddress;
-  _EventLoopArgs(this.sendPort, this.receiveAddress, this.freeAddress);
+  _EventLoopArgs(this.sendPort, this.receiveAddress);
 }
