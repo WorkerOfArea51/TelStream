@@ -297,6 +297,22 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
           });
         }
       }
+    }).catchError((Object e, StackTrace st) {
+      Log.e('player.open() failed for $finalPath', e, st);
+      if (mounted) {
+        setState(() {
+          _isInitializing = false;
+          _isPlaying = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Unable to open this video: $e'),
+            backgroundColor: Colors.redAccent,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+        Navigator.of(context, rootNavigator: true).maybePop();
+      }
     });
     player.setVolume(100.0);
   }
@@ -364,13 +380,21 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
           if (event.file.local.isDownloadingCompleted || downloadedDelta >= targetBuffer) {
             final seekTarget = _pendingSeekTarget!;
             _pendingSeekTarget = null;
+            _initialDownloadedSize = null;
             if (mounted) {
               setState(() {
                 _isBuffering = false;
               });
             }
             player.seek(seekTarget).then((_) {
-              player.play();
+              if (mounted) {
+                try { player.play(); } catch (e, st) { Log.e('player.play() after seek failed', e, st); }
+              }
+            }).catchError((Object e, StackTrace st) {
+              Log.e('player.seek() to $seekTarget failed', e, st);
+              if (mounted) {
+                try { player.play(); } catch (_) {}
+              }
             });
           }
         }
@@ -387,7 +411,23 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
           _isInitializing = false;
         });
       }
-      player.open(Media(widget.networkUrl!), play: true);
+      player.open(Media(widget.networkUrl!), play: true).catchError((Object e, StackTrace st) {
+        Log.e('player.open() failed for network URL ${widget.networkUrl}', e, st);
+        if (mounted) {
+          setState(() {
+            _isPlaying = false;
+            _isInitializing = false;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to load network stream: $e'),
+              backgroundColor: Colors.redAccent,
+              duration: const Duration(seconds: 4),
+            ),
+          );
+          Navigator.of(context, rootNavigator: true).maybePop();
+        }
+      });
       player.setVolume(100.0);
       return;
     }
@@ -681,7 +721,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
     // we call close() to clean up the state and set activePlayer to null.
     final isActive = _pipController.activePlayer == player;
     if (isActive) {
-      _pipController.close();
+      _pipController.clearActivePlayer(player);
     }
 
     try {
@@ -1185,11 +1225,13 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
               durSub = player.stream.duration.listen((dur) {
                 if (dur.inSeconds > 0) {
                   durSub.cancel();
+                  _subscriptions.remove(durSub);
                   if (mounted) {
                     _handleCustomSeek(currentPos);
                   }
                 }
               });
+              _subscriptions.add(durSub);
             }
           }
         });
