@@ -57,6 +57,8 @@ class StreamingProxyService {
   // Track last active timestamp of read/write per fileId and request offset to classify idle connections
   final Map<int, Map<int, DateTime>> _requestLastActive = {};
 
+  final Map<int, List<Completer<void>>> _abortCompleters = {};
+
   int getActiveDownloadOffset(int fileId) =>
       _activeDownloadOffsets[fileId] ?? 0;
   int getDownloadedSizeAtOffset(int fileId) =>
@@ -79,6 +81,17 @@ class StreamingProxyService {
     if (start >= activeOffset && end <= activeRangeEnd) return true;
 
     return false;
+  }
+
+  void abortActiveRequests(int fileId) {
+    final completers = _abortCompleters[fileId];
+    if (completers != null) {
+      Log.i('Proxy: Aborting ${completers.length} active requests for file $fileId to free mpv thread');
+      for (final c in completers) {
+        if (!c.isCompleted) c.complete();
+      }
+      completers.clear();
+    }
   }
 
   StreamingProxyService(this._tdlibService) {
@@ -275,6 +288,9 @@ class StreamingProxyService {
         _requestLastActive.putIfAbsent(fileId, () => {})[reqId] =
             DateTime.now();
       });
+
+      final abortCompleter = Completer<void>();
+      _abortCompleters.putIfAbsent(fileId, () => []).add(abortCompleter);
 
       try {
         // Auto-detect and shift TDLib download offset if the requested range is outside our current download buffer
@@ -559,9 +575,10 @@ class StreamingProxyService {
                   await Future.any([
                     availableCompleter.future,
                     request.response.done,
+                    abortCompleter.future,
                   ]).timeout(const Duration(seconds: 20));
 
-                  if (!clientDisconnected) {
+                  if (!clientDisconnected && !abortCompleter.isCompleted) {
                     waitSuccess = true;
                   }
                 } on TimeoutException {
@@ -588,6 +605,11 @@ class StreamingProxyService {
                   );
                   break;
                 }
+                
+                if (abortCompleter.isCompleted) {
+                  Log.i('Proxy: request aborted manually for file $fileId.');
+                  break;
+                }
 
                 if (!waitSuccess) {
                   Log.w(
@@ -608,6 +630,11 @@ class StreamingProxyService {
                 bytes = await raf.read(chunkNeeded);
               }
               if (bytes.isEmpty) break;
+
+              if (abortCompleter.isCompleted) {
+                Log.i('Proxy: request aborted manually during read for file $fileId.');
+                break;
+              }
 
               request.response.add(bytes);
               await request.response.flush();
@@ -638,6 +665,7 @@ class StreamingProxyService {
           } catch (_) {}
         }
       } finally {
+        _abortCompleters[fileId]?.remove(abortCompleter);
         await _stateLock.synchronized(() {
           final activeRequests = _activeRequestOffsets[fileId];
           if (activeRequests != null) {

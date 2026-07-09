@@ -580,6 +580,10 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
       const graceBuffer = 1 * 1024 * 1024; // 1 MB lookbehind buffer to align with proxy and keyframe seek queries
       final shiftOffset = (byteOffset - graceBuffer).clamp(0, expectedSize);
 
+      // Forcefully abort any active streaming proxy requests for this file to free up the mpv thread.
+      // If mpv is blocked waiting for an HTTP read from the proxy, player.seek() will block the Dart main isolate!
+      _proxyService.abortActiveRequests(fileId);
+
       // Update download offset in TDLib and Proxy synchronously to avoid race conditions
       final cachedFile = _proxyService.getCachedFile(fileId);
       _proxyService.setDownloadOffset(fileId, shiftOffset, cachedFile?.local.downloadedSize ?? 0);
