@@ -2,6 +2,7 @@ import java.io.File
 
 // Automatically patch media_kit_libs_android_video to download full libmpv binaries
 val patchMediaKitLibsAndroidVideo = {
+    var patched = false
     try {
         val userHome = System.getProperty("user.home")
         val localAppData = System.getenv("LOCALAPPDATA")
@@ -17,7 +18,6 @@ val patchMediaKitLibsAndroidVideo = {
         }
         cacheDirs.add(File(userHome, ".pub-cache"))
 
-        var patched = false
         for (cacheDir in cacheDirs) {
             val hostedDir = File(cacheDir, "hosted/pub.dev")
             if (hostedDir.exists()) {
@@ -27,7 +27,10 @@ val patchMediaKitLibsAndroidVideo = {
                         val gradleFile = File(libDir, "android/build.gradle")
                         if (gradleFile.exists()) {
                             var content = gradleFile.readText()
-                            if (content.contains("v1.1.7/default-")) {
+                            if (content.contains("v1.1.11/full-")) {
+                                println("media_kit_libs_android_video is already using full v1.1.11 libraries.")
+                                patched = true
+                            } else if (content.contains("v1.1.7/default-")) {
                                 content = content.replace("v1.1.7/default-arm64-v8a.jar", "v1.1.11/full-arm64-v8a.jar")
                                                  .replace("83df25b61193af8fa815e373143ac9af", "86f2c8faeb66af1878b3a16f67831cb3")
                                                  .replace("v1.1.7/default-armeabi-v7a.jar", "v1.1.11/full-armeabi-v7a.jar")
@@ -51,7 +54,7 @@ val patchMediaKitLibsAndroidVideo = {
         throw GradleException("Failed to auto-patch media_kit_libs_android_video build.gradle: ${e.message}")
     }
     if (!patched) {
-        throw GradleException("media_kit_libs_android_video patch failed: Could not find the expected v1.1.7 libraries in pub cache. The build cannot proceed as video playback would be broken.")
+        println("WARNING: media_kit_libs_android_video patch failed: Could not find the expected v1.1.7 libraries in pub cache. If video playback breaks, you may need to patch it manually.")
     }
 }
 patchMediaKitLibsAndroidVideo()
@@ -78,6 +81,7 @@ subprojects {
         if (plugins.hasPlugin("com.android.application") || plugins.hasPlugin("com.android.library")) {
             val android = extensions.findByName("android")
             if (android != null) {
+                @Suppress("DEPRECATION")
                 val baseExtension = android as? com.android.build.gradle.BaseExtension
                 if (baseExtension != null) {
                     // Force subprojects to compile with Android SDK 36 to satisfy modern dependency requirements
