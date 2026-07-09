@@ -176,8 +176,27 @@ class ProgressSyncNotifier extends Notifier<void> {
     final jsonPayload = json.encode(syncPayload);
 
     final chunks = <String>[];
-    for (var i = 0; i < jsonPayload.length; i += 4000) {
-      chunks.add(jsonPayload.substring(i, i + 4000 > jsonPayload.length ? jsonPayload.length : i + 4000));
+    int start = 0;
+    while (start < jsonPayload.length) {
+      int end = start;
+      int currentByteLength = 0;
+      while (end < jsonPayload.length) {
+        int charCode = jsonPayload.codeUnitAt(end);
+        int charsToConsume = 1;
+        if (charCode >= 0xD800 && charCode <= 0xDBFF && end + 1 < jsonPayload.length) {
+          charsToConsume = 2;
+        }
+        final substr = jsonPayload.substring(end, end + charsToConsume);
+        final byteLen = utf8.encode(substr).length;
+        if (currentByteLength + byteLen > 3900) break;
+        currentByteLength += byteLen;
+        end += charsToConsume;
+      }
+      if (start == end) {
+        end += 1; // Fallback to avoid infinite loop on malformed strings
+      }
+      chunks.add(jsonPayload.substring(start, end));
+      start = end;
     }
 
     if (mode == 'pinned') {

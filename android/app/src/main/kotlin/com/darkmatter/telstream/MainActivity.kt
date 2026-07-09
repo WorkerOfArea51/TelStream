@@ -69,7 +69,7 @@ class MainActivity : FlutterActivity() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED)
         } else {
-            registerReceiver(receiver, filter)
+            androidx.core.content.ContextCompat.registerReceiver(this, receiver, filter, androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED)
         }
         downloadReceiver = receiver
         
@@ -161,9 +161,12 @@ class MainActivity : FlutterActivity() {
         // Security Sandbox: Restrict installable APKs exclusively to our updates directories
         val canonicalPath = file.canonicalPath
         val allowedCacheDir = File(context.cacheDir, "updates").canonicalPath + File.separator
-        val allowedExtDir = context.getExternalFilesDir(null)?.let { File(it, "updates").canonicalPath + File.separator } ?: ""
+        val allowedExtDir = context.getExternalFilesDir(null)?.let { File(it, "updates").canonicalPath + File.separator }
         
-        if (canonicalPath.isEmpty() || (!canonicalPath.startsWith(allowedCacheDir) && !canonicalPath.startsWith(allowedExtDir))) {
+        val isCache = canonicalPath.startsWith(allowedCacheDir)
+        val isExt = allowedExtDir != null && canonicalPath.startsWith(allowedExtDir)
+        
+        if (canonicalPath.isEmpty() || (!isCache && !isExt)) {
             throw SecurityException("Install path not whitelisted: $canonicalPath")
         }
 

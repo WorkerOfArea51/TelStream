@@ -236,14 +236,21 @@ class SubtitleDownloaderService {
           throw HttpException('OpenSubtitles download endpoint returned error code ${downloadLinkResponse.statusCode}');
         }
       } else {
+        final uri = Uri.parse(downloadUrl);
+        final downloadUri = uri.isAbsolute ? uri : Uri.parse('https://subdl.com$downloadUrl');
+
         final response = await http.get(
-          Uri.parse(downloadUrl),
+          downloadUri,
           headers: {
             'User-Agent': 'TelStream v2.7.0',
           },
         ).timeout(const Duration(seconds: 10));
 
         if (response.statusCode == 200) {
+          if (response.headers['content-type']?.contains('application/json') == true ||
+              (response.body.trim().startsWith('{') && response.body.contains('error'))) {
+            throw const HttpException('SubDL API error or download limit reached (received JSON instead of subtitle file).');
+          }
           bytes = response.bodyBytes;
         } else {
           throw HttpException('Failed to download SubDL subtitle. Code: ${response.statusCode}');

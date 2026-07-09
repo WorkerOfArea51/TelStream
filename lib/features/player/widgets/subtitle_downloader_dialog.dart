@@ -259,8 +259,12 @@ class _SubtitleDownloaderDialogState extends ConsumerState<SubtitleDownloaderDia
                                               subtitleId: sub.id,
                                             );
                                             if (path != null) {
-                                              widget.player.setSubtitleTrack(SubtitleTrack.uri(path));
                                               if (context.mounted) {
+                                                try {
+                                                  widget.player.setSubtitleTrack(SubtitleTrack.uri(path));
+                                                } catch (e) {
+                                                  // Ignore if player is disposed
+                                                }
                                                 Navigator.pop(context); // Close panel
                                                 ScaffoldMessenger.of(context).showSnackBar(
                                                   SnackBar(

@@ -73,6 +73,8 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
   late final PipController _pipController;
   late VideoSettings _settings;
   late final StreamingProxyService _proxyService;
+  late final dynamic _historyLog;
+  late final dynamic _downloadController;
 
   @override
   void initState() {
@@ -84,6 +86,8 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
     _pipController = ref.read(pipControllerProvider.notifier);
     _settings = ref.read(videoSettingsProvider);
     _proxyService = ref.read(streamingProxyServiceProvider);
+    _historyLog = ref.read(historyLogProvider.notifier);
+    _downloadController = ref.read(downloadControllerProvider.notifier);
     
 
 
@@ -123,21 +127,29 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
     }
 
     _saveTimer = Timer.periodic(const Duration(minutes: 2), (timer) {
-      if (_settings.savePositionOnQuit && player.state.position.inSeconds > 0 && player.state.playing) {
-        _storageService.saveWatchPosition(widget.messageId, player.state.position.inSeconds);
-        if (player.state.duration.inSeconds > 0) {
-          _storageService.saveVideoDuration(widget.messageId, player.state.duration.inSeconds);
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      try {
+        if (_settings.savePositionOnQuit && player.state.position.inSeconds > 0 && player.state.playing) {
+          _storageService.saveWatchPosition(widget.messageId, player.state.position.inSeconds);
+          if (player.state.duration.inSeconds > 0) {
+            _storageService.saveVideoDuration(widget.messageId, player.state.duration.inSeconds);
+          }
+          if (!_storageService.isIncognitoMode() && widget.seriesName.isNotEmpty && widget.currentEpisodeIndex != null) {
+            _historyLog.addToHistory(
+              seriesName: widget.seriesName,
+              messageId: widget.messageId,
+              episodeIndex: widget.currentEpisodeIndex!,
+              episodeTitle: widget.videoTitle.replaceFirst('${widget.seriesName} - ', ''),
+              positionInSeconds: player.state.position.inSeconds,
+              videoFileId: _resolvedVideoFileId ?? widget.videoFileId,
+            );
+          }
         }
-        if (!_storageService.isIncognitoMode() && widget.seriesName.isNotEmpty && widget.currentEpisodeIndex != null) {
-          ref.read(historyLogProvider.notifier).addToHistory(
-            seriesName: widget.seriesName,
-            messageId: widget.messageId,
-            episodeIndex: widget.currentEpisodeIndex!,
-            episodeTitle: widget.videoTitle.replaceFirst('${widget.seriesName} - ', ''),
-            positionInSeconds: player.state.position.inSeconds,
-            videoFileId: _resolvedVideoFileId ?? widget.videoFileId,
-          );
-        }
+      } catch (e, st) {
+        Log.e('Failed to save watch position in periodic timer', e, st);
       }
 
       // Check and trigger tracker watch progress syncing if progress >= 80%
@@ -188,6 +200,11 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
             _expectedSize = 0;
           });
           _initDownload();
+        }
+      }).catchError((Object e, StackTrace st) {
+        Log.e('player.stop() failed during episode change', e, st);
+        if (mounted) {
+          _recreatePlayer(); // Force-recreate the player if stop failed.
         }
       });
     }
@@ -320,22 +337,25 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
   void _listenToUpdates() {
     _updatesSubscription?.cancel();
     _updatesSubscription = _tdlibService.updates.listen((event) {
-      if (event is td.UpdateFile && event.file.id == _resolvedVideoFileId) {
-        final localPath = event.file.local.path;
-        
-        final now = DateTime.now();
-        if (_lastUpdateTime == null || now.difference(_lastUpdateTime!).inMilliseconds > 500 || event.file.local.isDownloadingCompleted) {
-          _lastUpdateTime = now;
-          if (mounted) {
-            setState(() {
-              _downloadedPrefixSize = event.file.local.downloadedPrefixSize;
-              _expectedSize = event.file.expectedSize;
-              _activeDownloadOffset = _proxyService.getActiveDownloadOffset(_resolvedVideoFileId!);
-              final baseDownloaded = _proxyService.getDownloadedSizeAtOffset(_resolvedVideoFileId!);
-              _activeDownloadedSize = (event.file.local.downloadedSize - baseDownloaded).clamp(0, event.file.expectedSize);
-            });
+      try {
+        if (event is td.UpdateFile) {
+          final fileId = _resolvedVideoFileId;
+          if (fileId == null || event.file.id != fileId) return;
+          final localPath = event.file.local.path;
+          
+          final now = DateTime.now();
+          if (_lastUpdateTime == null || now.difference(_lastUpdateTime!).inMilliseconds > 500 || event.file.local.isDownloadingCompleted) {
+            _lastUpdateTime = now;
+            if (mounted) {
+              setState(() {
+                _downloadedPrefixSize = event.file.local.downloadedPrefixSize;
+                _expectedSize = event.file.expectedSize;
+                _activeDownloadOffset = _proxyService.getActiveDownloadOffset(fileId);
+                final baseDownloaded = _proxyService.getDownloadedSizeAtOffset(fileId);
+                _activeDownloadedSize = (event.file.local.downloadedSize - baseDownloaded).clamp(0, event.file.expectedSize);
+              });
+            }
           }
-        }
 
         if (event.file.local.isDownloadingCompleted) {
           // Boost buffer sizes since the file is completely downloaded
@@ -398,9 +418,12 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
             });
           }
         }
-      }
-    });
-  }
+      } // Close if (event is td.UpdateFile)
+    } catch (e, st) {
+      Log.e('Error processing TDLib update in player', e, st);
+    }
+  });
+}
 
   Future<void> _initDownload() async {
     if (widget.networkUrl != null && widget.networkUrl!.isNotEmpty) {
@@ -685,7 +708,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
           _storageService.saveVideoDuration(widget.messageId, player.state.duration.inSeconds);
         }
         if (!_storageService.isIncognitoMode() && widget.seriesName.isNotEmpty && widget.currentEpisodeIndex != null) {
-          ref.read(historyLogProvider.notifier).addToHistory(
+          _historyLog.addToHistory(
             seriesName: widget.seriesName,
             messageId: widget.messageId,
             episodeIndex: widget.currentEpisodeIndex!,
@@ -701,7 +724,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
 
     // Resume any downloads that were paused for streaming
     try {
-      ref.read(downloadControllerProvider.notifier).resumeDownloadsAfterStreaming();
+      _downloadController.resumeDownloadsAfterStreaming();
     } catch (e, st) {
       Log.e('Failed to resume downloads after streaming', e, st);
     }
@@ -1147,6 +1170,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         _isInitializing = true;
         _isPlaying = false;
         _updatesSubscription?.cancel();
+        _saveTimer?.cancel();
         for (final sub in _subscriptions) {
           sub.cancel();
         }
@@ -1355,7 +1379,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         // Apply custom MPV options
         final customOpts = _settings.customMpvOptions;
         if (customOpts.isNotEmpty) {
-          final pairs = customOpts.split(',');
+          final pairs = _parseMpvOptions(customOpts);
           for (final pair in pairs) {
             final idx = pair.indexOf('=');
             if (idx != -1) {
@@ -1390,12 +1414,40 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
     final hwDecMode = _storageService.getHardwareDecoderMode();
     final enableHw = hwDecMode != 'no';
     _pipController.setActivePlayer(player);
-    controller = VideoController(
-      player,
-      configuration: VideoControllerConfiguration(
-        enableHardwareAcceleration: enableHw,
-      ),
-    );
+    try {
+      controller = VideoController(
+        player,
+        configuration: VideoControllerConfiguration(
+          enableHardwareAcceleration: enableHw,
+        ),
+      );
+    } catch (e, st) {
+      Log.e('Failed to create VideoController. Disposing player.', e, st);
+      try { player.dispose(); } catch (_) {}
+      rethrow;
+    }
+  }
+
+  List<String> _parseMpvOptions(String raw) {
+    if (raw.trim().isEmpty) return const [];
+    final result = <String>[];
+    final buf = StringBuffer();
+    int bracketDepth = 0;
+    for (int i = 0; i < raw.length; i++) {
+      final c = raw[i];
+      if (c == '[' || c == '(') bracketDepth++;
+      if (c == ']' || c == ')') bracketDepth = (bracketDepth > 0) ? bracketDepth - 1 : 0;
+      if (c == ',' && bracketDepth == 0) {
+        final opt = buf.toString().trim();
+        if (opt.isNotEmpty) result.add(opt);
+        buf.clear();
+      } else {
+        buf.write(c);
+      }
+    }
+    final last = buf.toString().trim();
+    if (last.isNotEmpty) result.add(last);
+    return result;
   }
 
   void _setupPlayerListeners() {

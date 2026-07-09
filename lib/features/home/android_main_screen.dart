@@ -16,18 +16,36 @@ class AndroidMainScreen extends ConsumerStatefulWidget {
   ConsumerState<AndroidMainScreen> createState() => _AndroidMainScreenState();
 }
 
-class _AndroidMainScreenState extends ConsumerState<AndroidMainScreen> {
+class _AndroidMainScreenState extends ConsumerState<AndroidMainScreen> with WidgetsBindingObserver {
   int _currentIndex = 0;
   static const _downloadsChannel = MethodChannel('com.darkmatter.telstream/downloads');
+  DateTime? _lastUpdateCheck;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkUpdatesSilently();
       ref.read(permissionServiceProvider).requestAllImportantPermissions();
       _showWhatsNewIfNeeded();
     });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      final now = DateTime.now();
+      if (_lastUpdateCheck == null || now.difference(_lastUpdateCheck!).inMinutes >= 5) {
+        _checkUpdatesSilently();
+      }
+    }
   }
 
   void _showWhatsNewIfNeeded() async {
@@ -42,10 +60,8 @@ class _AndroidMainScreenState extends ConsumerState<AndroidMainScreen> {
   }
 
   void _checkUpdatesSilently() async {
-    final updateInfo = await UpdateService.checkForUpdate();
-    if (updateInfo != null && updateInfo.isUpdateAvailable && mounted) {
-      UpdateService.showUpdateDialog(context, updateInfo);
-    }
+    _lastUpdateCheck = DateTime.now();
+    await UpdateService.checkAndShowDialogIfAvailable(context, manual: false, showErrorSnack: false);
   }
 
   @override

@@ -32,6 +32,15 @@ class StorageService {
   String? _localFontPath;
   String? get localFontPath => _localFontPath;
 
+  bool _isInitialized = false;
+  
+  void _checkInit() {
+    if (!_isInitialized) {
+      Log.e('CRITICAL: StorageService accessed before init() completed!');
+      // throw StateError('StorageService not initialized'); // Too risky to throw right now without knowing app init flow, but logging it as critical.
+    }
+  }
+
   Future<void> init() async {
     final directory = await getAppDirectory();
     final primaryPath = '${directory.path}/user_storage.json';
@@ -204,6 +213,8 @@ class StorageService {
       await _save();
       Log.i('Migrated OAuth tokens to secure storage.');
     }
+    
+    _isInitialized = true;
   }
 
   Timer? _debounceTimer;
@@ -215,16 +226,24 @@ class StorageService {
     _debounceTimer?.cancel();
     _saveCompleter ??= Completer<void>();
     _debounceTimer = Timer(const Duration(milliseconds: 250), () async {
-      await _lock.synchronized(() async {
-        if (_dirty) {
-          await _executeSave();
-          _dirty = false;
+      try {
+        await _lock.synchronized(() async {
+          if (_dirty) {
+            await _executeSave();
+            _dirty = false;
+          }
+        });
+        final c = _saveCompleter;
+        _saveCompleter = null;
+        if (c != null && !c.isCompleted) {
+          c.complete();
         }
-      });
-      final c = _saveCompleter;
-      _saveCompleter = null;
-      if (c != null && !c.isCompleted) {
-        c.complete();
+      } catch (e, st) {
+        final c = _saveCompleter;
+        _saveCompleter = null;
+        if (c != null && !c.isCompleted) {
+          c.completeError(e, st);
+        }
       }
     });
     return _saveCompleter!.future;
@@ -277,6 +296,7 @@ class StorageService {
   // --- Settings Toggles ---
 
   bool isIncognitoMode() {
+    _checkInit();
     return _data['incognito_mode'] ?? false;
   }
 
@@ -286,6 +306,7 @@ class StorageService {
   }
 
   bool isDownloadedOnly() {
+    _checkInit();
     return _data['downloaded_only'] ?? false;
   }
 
@@ -295,6 +316,7 @@ class StorageService {
   }
 
   double getPlaybackSpeed() {
+    _checkInit();
     return (_data['playback_speed'] as num?)?.toDouble() ?? 1.0;
   }
 
@@ -313,8 +335,13 @@ class StorageService {
   }
 
   int getWatchPosition(int messageId) {
-    if (_data['history'] == null) return 0;
-    return _data['history'][messageId.toString()] ?? 0;
+    final history = _data['history'];
+    if (history is Map) {
+      final val = history[messageId.toString()];
+      if (val is num) return val.toInt();
+      if (val is String) return int.tryParse(val) ?? 0;
+    }
+    return 0;
   }
 
   Future<void> setLastWatched(
@@ -347,11 +374,11 @@ class StorageService {
   }) async {
     if (isIncognitoMode()) return;
 
-    _data['history_log'] ??= [];
-    final List<dynamic> logs = List.from(_data['history_log']);
+    final logsData = _data['history_log'];
+    final List<dynamic> logs = logsData is List ? List.from(logsData) : [];
 
     // Remove if already exists for this messageId to avoid duplicates in the timeline
-    logs.removeWhere((item) => item['messageId'] == messageId);
+    logs.removeWhere((item) => item is Map && item['messageId'] == messageId);
 
     logs.insert(0, {
       'seriesName': seriesName,
@@ -373,18 +400,16 @@ class StorageService {
   }
 
   List<Map<String, dynamic>> getHistoryLog() {
-    if (_data['history_log'] == null) return [];
-    return List<Map<String, dynamic>>.from(
-      (_data['history_log'] as List).map(
-        (item) => Map<String, dynamic>.from(item),
-      ),
-    );
+    final logs = _data['history_log'];
+    if (logs is! List) return [];
+    return logs.whereType<Map>().map((item) => Map<String, dynamic>.from(item)).toList();
   }
 
   Future<void> removeFromHistoryLog(int messageId) async {
-    if (_data['history_log'] == null) return;
-    final List<dynamic> logs = List.from(_data['history_log']);
-    logs.removeWhere((item) => item['messageId'] == messageId);
+    final logsData = _data['history_log'];
+    if (logsData is! List) return;
+    final List<dynamic> logs = List.from(logsData);
+    logs.removeWhere((item) => item is Map && item['messageId'] == messageId);
     _data['history_log'] = logs;
     await _save();
   }
@@ -413,8 +438,9 @@ class StorageService {
   // --- Favorites ---
 
   List<String> getFavorites() {
-    if (_data['favorites'] == null) return [];
-    return List<String>.from(_data['favorites']);
+    final favs = _data['favorites'];
+    if (favs is! List) return [];
+    return favs.whereType<String>().toList();
   }
 
   bool isFavorite(String coreName) {
@@ -422,8 +448,8 @@ class StorageService {
   }
 
   Future<void> toggleFavorite(String coreName) async {
-    _data['favorites'] ??= <dynamic>[];
-    List<String> favs = List<String>.from(_data['favorites']);
+    final favsData = _data['favorites'];
+    List<String> favs = favsData is List ? favsData.whereType<String>().toList() : [];
 
     if (favs.contains(coreName)) {
       favs.remove(coreName);
@@ -438,8 +464,9 @@ class StorageService {
   // --- Video Settings ---
 
   Map<String, dynamic> getVideoSettings() {
-    if (_data['video_settings'] == null) return {};
-    return Map<String, dynamic>.from(_data['video_settings']);
+    final vs = _data['video_settings'];
+    if (vs is! Map) return {};
+    return Map<String, dynamic>.from(vs);
   }
 
   Future<void> updateVideoSettings(Map<String, dynamic> settings) async {
@@ -496,14 +523,12 @@ class StorageService {
   // --- Downloaded Files Tracker ---
 
   Map<int, String> getDownloadedFiles() {
-    if (_data['downloaded_files'] == null) return {};
-    final Map<String, dynamic> rawMap = Map<String, dynamic>.from(
-      _data['downloaded_files'],
-    );
+    final df = _data['downloaded_files'];
+    if (df is! Map) return {};
     final result = <int, String>{};
-    for (final entry in rawMap.entries) {
-      final parsedKey = int.tryParse(entry.key);
-      if (parsedKey != null) {
+    for (final entry in df.entries) {
+      final parsedKey = int.tryParse(entry.key.toString());
+      if (parsedKey != null && entry.value is String) {
         result[parsedKey] = entry.value as String;
       }
     }
@@ -526,14 +551,12 @@ class StorageService {
   // --- Active (Incomplete) Downloads Queue ---
 
   Map<int, String> getActiveDownloads() {
-    if (_data['active_downloads'] == null) return {};
-    final Map<String, dynamic> rawMap = Map<String, dynamic>.from(
-      _data['active_downloads'],
-    );
+    final ad = _data['active_downloads'];
+    if (ad is! Map) return {};
     final result = <int, String>{};
-    for (final entry in rawMap.entries) {
-      final parsedKey = int.tryParse(entry.key);
-      if (parsedKey != null) {
+    for (final entry in ad.entries) {
+      final parsedKey = int.tryParse(entry.key.toString());
+      if (parsedKey != null && entry.value is String) {
         result[parsedKey] = entry.value as String;
       }
     }
@@ -541,8 +564,9 @@ class StorageService {
   }
 
   List<int> getActiveDownloadsOrder() {
-    if (_data['active_downloads_order'] == null) return [];
-    return List<int>.from(_data['active_downloads_order']);
+    final ado = _data['active_downloads_order'];
+    if (ado is! List) return [];
+    return ado.whereType<int>().toList();
   }
 
   Future<void> setActiveDownloadsOrder(List<int> order) async {
@@ -554,8 +578,8 @@ class StorageService {
     _data['active_downloads'] ??= <String, dynamic>{};
     _data['active_downloads'][fileId.toString()] = title;
 
-    _data['active_downloads_order'] ??= <dynamic>[];
-    final order = List<int>.from(_data['active_downloads_order']);
+    final ado = _data['active_downloads_order'];
+    final order = ado is List ? ado.whereType<int>().toList() : <int>[];
     if (!order.contains(fileId)) {
       order.add(fileId);
       _data['active_downloads_order'] = order;
@@ -569,8 +593,9 @@ class StorageService {
       _data['active_downloads'].remove(fileId.toString());
     }
 
-    if (_data['active_downloads_order'] != null) {
-      final order = List<int>.from(_data['active_downloads_order']);
+    final ado = _data['active_downloads_order'];
+    if (ado is List) {
+      final order = ado.whereType<int>().toList();
       order.remove(fileId);
       _data['active_downloads_order'] = order;
     }
@@ -929,8 +954,15 @@ class StorageService {
   // --- Series Files Mapping (for Cache Manager) ---
 
   Map<String, String> getSeriesFiles() {
-    if (_data['series_files'] == null) return {};
-    return Map<String, String>.from(_data['series_files']);
+    final sf = _data['series_files'];
+    if (sf is! Map) return {};
+    final result = <String, String>{};
+    for (final entry in sf.entries) {
+      if (entry.value is String) {
+        result[entry.key.toString()] = entry.value as String;
+      }
+    }
+    return result;
   }
 
   Future<void> associateFileWithSeries(String seriesName, int fileId) async {
@@ -970,15 +1002,14 @@ class StorageService {
   }
 
   List<String> getRecentNetworkStreams() {
-    if (_data['recent_network_streams'] == null) return [];
-    return List<String>.from(_data['recent_network_streams']);
+    final rns = _data['recent_network_streams'];
+    if (rns is! List) return [];
+    return rns.whereType<String>().toList();
   }
 
   Future<void> addRecentNetworkStream(String url) async {
-    _data['recent_network_streams'] ??= <dynamic>[];
-    final List<String> list = List<String>.from(
-      _data['recent_network_streams'],
-    );
+    final rns = _data['recent_network_streams'];
+    final List<String> list = rns is List ? rns.whereType<String>().toList() : [];
     list.remove(url);
     list.insert(0, url);
     if (list.length > 20) {
@@ -989,10 +1020,9 @@ class StorageService {
   }
 
   Future<void> removeRecentNetworkStream(String url) async {
-    if (_data['recent_network_streams'] != null) {
-      final List<String> list = List<String>.from(
-        _data['recent_network_streams'],
-      );
+    final rns = _data['recent_network_streams'];
+    if (rns is List) {
+      final List<String> list = rns.whereType<String>().toList();
       list.remove(url);
       _data['recent_network_streams'] = list;
       await _save();
@@ -1000,17 +1030,19 @@ class StorageService {
   }
 
   List<String> getSearchHistory(String category) {
-    if (_data['search_history'] == null) return [];
-    final map = _data['search_history'] as Map<String, dynamic>;
-    if (map[category] == null) return [];
-    return List<String>.from(map[category] as List);
+    final sh = _data['search_history'];
+    if (sh is! Map) return [];
+    final list = sh[category];
+    if (list is! List) return [];
+    return list.whereType<String>().toList();
   }
 
   Future<void> saveSearchHistory(String category, List<String> list) async {
-    _data['search_history'] ??= <String, dynamic>{};
-    final map = _data['search_history'] as Map<String, dynamic>;
+    final sh = _data['search_history'];
+    final map = sh is Map ? Map<String, dynamic>.from(sh) : <String, dynamic>{};
     final limited = list.take(10).toList();
     map[category] = limited;
+    _data['search_history'] = map;
     await _save();
   }
 

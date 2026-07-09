@@ -46,9 +46,11 @@ val patchMediaKitLibsAndroidVideo = {
                 }
             }
             if (patched) break
-        }
     } catch (e: Exception) {
-        println("Warning: Failed to auto-patch media_kit_libs_android_video build.gradle: ${e.message}")
+        throw GradleException("Failed to auto-patch media_kit_libs_android_video build.gradle: ${e.message}")
+    }
+    if (!patched) {
+        throw GradleException("media_kit_libs_android_video patch failed: Could not find the expected v1.1.7 libraries in pub cache. The build cannot proceed as video playback would be broken.")
     }
 }
 patchMediaKitLibsAndroidVideo()

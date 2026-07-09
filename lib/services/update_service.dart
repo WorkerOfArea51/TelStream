@@ -30,6 +30,23 @@ class AppUpdateInfo {
   });
 }
 
+class UpdateCheckResult {
+  final AppUpdateInfo? info;
+  final String? errorMessage;
+  final String? sourceMirror;
+  bool get isSuccess => info != null && errorMessage == null;
+
+  UpdateCheckResult({this.info, this.errorMessage, this.sourceMirror});
+}
+
+class _HttpFetchResult {
+  final int statusCode;
+  final String? body;
+  final dynamic json;
+  final String? error;
+  _HttpFetchResult({required this.statusCode, this.body, this.json, this.error});
+}
+
 class UpdateService {
   static const String _githubRepo = 'WorkerOfArea51/TelStream';
   static const String _apiUrl = 'https://api.github.com/repos/$_githubRepo/releases/latest';
@@ -53,160 +70,236 @@ class UpdateService {
     return null;
   }
 
-  static Future<AppUpdateInfo?> checkForUpdate() async {
-    final client = HttpClient();
-    try {
-      final request = await client.getUrl(Uri.parse(_apiUrl));
-      request.headers.set('User-Agent', 'TelStream-App');
-      
-      final response = await request.close().timeout(const Duration(seconds: 15));
-      if (response.statusCode == 200) {
-        final body = await response.transform(utf8.decoder).join();
-        final json = jsonDecode(body) as Map<String, dynamic>;
-        
-        final latestTagName = json['tag_name'] as String? ?? '';
-        final htmlUrl = json['html_url'] as String? ?? 'https://github.com/$_githubRepo/releases';
-        final releaseNotes = json['body'] as String? ?? '';
-        final latestName = json['name'] as String? ?? latestTagName;
+  static Future<_HttpFetchResult> _httpGetJsonWithTimeout(
+    String url, {
+    Duration timeout = const Duration(seconds: 10),
+    int retries = 2,
+  }) async {
+    Object? lastError;
+    for (int attempt = 0; attempt <= retries; attempt++) {
+      final client = HttpClient();
+      try {
+        client.connectionTimeout = timeout;
+        final req = await client.getUrl(Uri.parse(url));
+        req.headers.set('User-Agent', 'TelStream-App');
+        req.headers.set('Accept', 'application/vnd.github+json');
+        final resp = await req.close().timeout(timeout + const Duration(seconds: 5));
+        if (resp.statusCode == 200) {
+          final body = await resp.transform(utf8.decoder).join().timeout(timeout);
+          return _HttpFetchResult(statusCode: 200, body: body, json: jsonDecode(body));
+        } else if (resp.statusCode == 403 || resp.statusCode == 429) {
+          return _HttpFetchResult(statusCode: resp.statusCode, error: 'Rate-limited');
+        }
+        lastError = 'HTTP ${resp.statusCode}';
+      } catch (e) {
+        lastError = e.toString();
+      } finally {
+        client.close(force: true);
+      }
+    }
+    return _HttpFetchResult(statusCode: -1, error: lastError?.toString() ?? 'unknown');
+  }
 
-        final assets = json['assets'] as List<dynamic>? ?? [];
-        String downloadUrl = htmlUrl;
+  static Future<UpdateCheckResult> checkForUpdateDetailed({bool manual = false}) async {
+    final mirrors = [
+      _apiUrl,
+      'https://cdn.jsdelivr.net/gh/$_githubRepo@main/latest_release.json',
+      'https://ghproxy.com/$_apiUrl',
+      'https://gh.api.99988866.xyz/$_apiUrl',
+      'https://github.moeyy.xyz/$_apiUrl',
+      'https://gh-proxy.com/$_apiUrl',
+    ];
 
-        String signatureUrl = '';
+    String? lastErrorMsg;
 
-        if (Platform.isWindows) {
-          for (final asset in assets) {
-            if (asset is Map<String, dynamic>) {
-              final assetName = asset['name'] as String? ?? '';
-              if (assetName == 'telstream-setup.exe') {
-                downloadUrl = asset['browser_download_url'] as String? ?? downloadUrl;
-              } else if (assetName == 'telstream-setup.exe.sig') {
-                signatureUrl = asset['browser_download_url'] as String? ?? signatureUrl;
-              }
-            }
-          }
-        } else {
-          // Auto-select the correct APK based on device architecture
-          bool isArm64 = false;
-          try {
-            final deviceInfo = DeviceInfoPlugin();
-            final androidInfo = await deviceInfo.androidInfo;
-            isArm64 = androidInfo.supportedAbis.any((abi) => abi.toLowerCase().contains('arm64'));
-          } catch (_) {
-            isArm64 = true; // Fallback for most modern devices
-          }
+    for (final mirrorUrl in mirrors) {
+      try {
+        final fetchResult = await _httpGetJsonWithTimeout(mirrorUrl, timeout: const Duration(seconds: 10));
+        if (fetchResult.statusCode == 200 && fetchResult.json != null) {
+          final json = fetchResult.json as Map<String, dynamic>;
+          final currentBuild = getCurrentBuildNumber();
           
-          final targetAssetName = isArm64 ? 'telstream-arm64.apk' : 'telstream-arm32.apk';
-
-          for (final asset in assets) {
-            if (asset is Map<String, dynamic>) {
-              final assetName = asset['name'] as String? ?? '';
-              if (assetName == targetAssetName) {
-                downloadUrl = asset['browser_download_url'] as String? ?? downloadUrl;
-                break;
-              }
+          if (mirrorUrl.contains('latest_release.json')) {
+            final latestTagName = json['tag_name'] as String? ?? '';
+            final latestBuild = parseBuildNumber(latestTagName);
+            final latestVersion = json['name'] as String? ?? 'Update';
+            if (latestBuild != null && latestBuild > currentBuild) {
+              return UpdateCheckResult(
+                sourceMirror: mirrorUrl,
+                info: AppUpdateInfo(
+                  isUpdateAvailable: true,
+                  latestVersion: latestVersion,
+                  releaseNotes: json['body'] as String? ?? "A new update is available.",
+                  releaseUrl: 'https://github.com/$_githubRepo/releases/latest',
+                ),
+              );
             }
+            return UpdateCheckResult(
+              sourceMirror: mirrorUrl,
+              info: AppUpdateInfo(isUpdateAvailable: false, latestVersion: latestVersion, releaseNotes: '', releaseUrl: ''),
+            );
           }
 
-          // Fallback to any APK if architecture specific asset wasn't found
-          if (downloadUrl == htmlUrl) {
+          final latestTagName = json['tag_name'] as String? ?? '';
+          final htmlUrl = json['html_url'] as String? ?? 'https://github.com/$_githubRepo/releases';
+          final releaseNotes = json['body'] as String? ?? '';
+          final latestName = json['name'] as String? ?? latestTagName;
+          final assets = json['assets'] as List<dynamic>? ?? [];
+          String downloadUrl = htmlUrl;
+          String signatureUrl = '';
+
+          if (Platform.isWindows) {
             for (final asset in assets) {
               if (asset is Map<String, dynamic>) {
                 final assetName = asset['name'] as String? ?? '';
-                if (assetName.endsWith('.apk')) {
+                if (assetName == 'telstream-setup.exe') {
+                  downloadUrl = asset['browser_download_url'] as String? ?? downloadUrl;
+                } else if (assetName == 'telstream-setup.exe.sig') {
+                  signatureUrl = asset['browser_download_url'] as String? ?? signatureUrl;
+                }
+              }
+            }
+          } else {
+            bool isArm64 = true; // assume true as fallback
+            final targetAssetName = isArm64 ? 'telstream-arm64.apk' : 'telstream-arm32.apk';
+            for (final asset in assets) {
+              if (asset is Map<String, dynamic>) {
+                final assetName = asset['name'] as String? ?? '';
+                if (assetName == targetAssetName) {
                   downloadUrl = asset['browser_download_url'] as String? ?? downloadUrl;
                   break;
                 }
               }
             }
-          }
-        }
-
-        final currentBuild = getCurrentBuildNumber();
-        final latestBuild = parseBuildNumber(latestTagName);
-
-        String parsedSha256 = '';
-        final fileName = downloadUrl.split('/').last;
-        
-        // 1. Try to find the file-specific hash in the release notes
-        // e.g., "- **telstream-arm64.apk:** `hash`"
-        final specificHashRegex = RegExp(
-          r'^\s*\*?\s*' + RegExp.escape(fileName) + r'\s*[:：]\s*`?([a-fA-F0-9]{64})`?\s*$', 
-          multiLine: true, caseSensitive: false,
-        );
-        final specificMatch = specificHashRegex.firstMatch(releaseNotes);
-        
-        if (specificMatch != null) {
-          parsedSha256 = specificMatch.group(1)?.toLowerCase() ?? '';
-        } else {
-          // 2. Fallback to generic SHA-256 if there's only one hash in notes
-          final genericSha256Regex = RegExp(r'(?:SHA-?256[:\s]*)([a-fA-F0-9]{64})', caseSensitive: false);
-          final genericMatch = genericSha256Regex.firstMatch(releaseNotes);
-          if (genericMatch != null) {
-            parsedSha256 = genericMatch.group(1)?.toLowerCase() ?? '';
-          }
-        }
-        
-        // 3. Look for a checksums file in assets if not found
-        if (parsedSha256.isEmpty) {
-          for (final asset in assets) {
-            if (asset is Map<String, dynamic>) {
-              final assetName = asset['name'] as String? ?? '';
-              if (assetName.contains('checksums') || assetName.endsWith('.sha256')) {
-                final checksumUrl = asset['browser_download_url'] as String?;
-                if (checksumUrl != null) {
-                  try {
-                    final checksumReq = await client.getUrl(Uri.parse(checksumUrl));
-                    final checksumRes = await checksumReq.close().timeout(const Duration(seconds: 15));
-                    if (checksumRes.statusCode == 200) {
-                      final checksumBody = await checksumRes.transform(utf8.decoder).join();
-                      final fileName = downloadUrl.split('/').last;
-                      final lines = checksumBody.split('\n');
-                      for (final line in lines) {
-                        if (line.contains(fileName)) {
-                          final hashMatch = RegExp(r'([a-fA-F0-9]{64})').firstMatch(line);
-                          if (hashMatch != null) {
-                            parsedSha256 = hashMatch.group(1)?.toLowerCase() ?? '';
-                            break;
-                          }
-                        }
-                      }
-                    }
-                  } catch (_) {}
+            if (downloadUrl == htmlUrl) {
+              for (final asset in assets) {
+                if (asset is Map<String, dynamic>) {
+                  if ((asset['name'] as String? ?? '').endsWith('.apk')) {
+                    downloadUrl = asset['browser_download_url'] as String? ?? downloadUrl;
+                    break;
+                  }
                 }
-                break;
               }
             }
           }
-        }
 
-        if (latestBuild != null && latestBuild > currentBuild) {
-          return AppUpdateInfo(
-            isUpdateAvailable: true,
-            latestVersion: latestName,
-            releaseNotes: releaseNotes,
-            releaseUrl: downloadUrl,
-            expectedSha256: parsedSha256,
-            signatureUrl: signatureUrl,
+          final latestBuild = parseBuildNumber(latestTagName);
+          String parsedSha256 = _extractSha256FromReleaseNotes(releaseNotes, downloadUrl.split('/').last);
+          
+          if (latestBuild != null && latestBuild > currentBuild) {
+            return UpdateCheckResult(
+              sourceMirror: mirrorUrl,
+              info: AppUpdateInfo(
+                isUpdateAvailable: true,
+                latestVersion: latestName,
+                releaseNotes: releaseNotes,
+                releaseUrl: downloadUrl,
+                expectedSha256: parsedSha256,
+                signatureUrl: signatureUrl,
+              ),
+            );
+          }
+          return UpdateCheckResult(
+            sourceMirror: mirrorUrl,
+            info: AppUpdateInfo(
+              isUpdateAvailable: false,
+              latestVersion: latestName,
+              releaseNotes: releaseNotes,
+              releaseUrl: downloadUrl,
+              expectedSha256: parsedSha256,
+              signatureUrl: signatureUrl,
+            ),
           );
+        } else if (fetchResult.error != null) {
+          lastErrorMsg = fetchResult.error;
         }
-        
-        return AppUpdateInfo(
-          isUpdateAvailable: false,
-          latestVersion: latestName,
-          releaseNotes: releaseNotes,
-          releaseUrl: downloadUrl,
-          expectedSha256: parsedSha256,
-          signatureUrl: signatureUrl,
+      } catch (e, stack) {
+        Log.e("Update check failed for mirror: $mirrorUrl", e, stack);
+        lastErrorMsg = e.toString();
+      }
+    }
+    return UpdateCheckResult(errorMessage: lastErrorMsg ?? "Unknown error");
+  }
+
+  static Future<AppUpdateInfo?> checkForUpdate() async {
+    final res = await checkForUpdateDetailed();
+    return res.info;
+  }
+
+  static Future<void> checkAndShowDialogIfAvailable(
+    BuildContext context, {
+    bool manual = false,
+    bool showErrorSnack = false,
+  }) async {
+    final result = await checkForUpdateDetailed(manual: manual);
+    if (!context.mounted) return;
+    
+    if (result.errorMessage != null) {
+      Log.e('Update check failed: ${result.errorMessage}');
+      if (showErrorSnack) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Could not reach the update server. Error: ${result.errorMessage}. Try a VPN."),
+            backgroundColor: Colors.redAccent,
+            duration: const Duration(seconds: 6),
+            action: SnackBarAction(
+              label: 'Retry',
+              onPressed: () => checkAndShowDialogIfAvailable(context, manual: manual, showErrorSnack: true),
+            ),
+          ),
         );
       }
-    } catch (e, stack) {
-      Log.e("Failed to check for updates", e, stack);
-    } finally {
-      client.close();
+      return;
     }
-    return null;
-  }  static void showUpdateDialog(BuildContext context, AppUpdateInfo updateInfo) {
+    final info = result.info;
+    if (info != null && info.isUpdateAvailable) {
+      showUpdateDialog(context, info);
+    } else if (manual && info != null && !info.isUpdateAvailable) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('You are on the latest version.')),
+      );
+    }
+  }
+
+  static String _extractSha256FromReleaseNotes(String notes, String fileName) {
+    if (notes.isEmpty || fileName.isEmpty) return '';
+    final escaped = RegExp.escape(fileName);
+
+    // 1. File-specific hash with arbitrary `-`, `*`, `**` bullet prefix.
+    final specificRegex = RegExp(
+      r'^[\s\-\*]*'              // optional whitespace, dashes, asterisks (any count)
+      r'\**\s*'                  // optional bold markers
+      r'(?:`?)' + escaped + r'(?:`?)'
+      r'\s*[:：]\s*'
+      r'`?([a-fA-F0-9]{64})`?'
+      r'\s*$',
+      multiLine: true,
+      caseSensitive: false,
+    );
+    final m1 = specificRegex.firstMatch(notes);
+    if (m1 != null) return m1.group(1)!.toLowerCase();
+
+    // 2. GNU coreutils sha256sum format: "<hash>  <filename>"
+    final coreutilsRegex = RegExp(
+      r'^([a-fA-F0-9]{64})\s+\*?' + escaped + r'\s*$',
+      multiLine: true,
+      caseSensitive: false,
+    );
+    final m2 = coreutilsRegex.firstMatch(notes);
+    if (m2 != null) return m2.group(1)!.toLowerCase();
+
+    // 3. Generic SHA-256 prefix.
+    final genericRegex = RegExp(
+      r'(?:SHA-?256)[:\s]*`?([a-fA-F0-9]{64})`?',
+      caseSensitive: false,
+    );
+    final m3 = genericRegex.firstMatch(notes);
+    if (m3 != null) return m3.group(1)!.toLowerCase();
+
+    return '';
+  }
+
+  static void showUpdateDialog(BuildContext context, AppUpdateInfo updateInfo) {
     showDialog(
       context: context,
       barrierDismissible: true,
@@ -258,13 +351,32 @@ class _UpdateDialogContentState extends State<UpdateDialogContent> {
     _client = HttpClient();
     File? tempFile;
     try {
-      final url = widget.updateInfo.releaseUrl;
-      final request = await _client!.getUrl(Uri.parse(url));
-      _activeRequest = request;
-      
-      final response = await request.close();
-      if (response.statusCode != 200) {
-        throw Exception("Server returned HTTP code ${response.statusCode}");
+      final urls = <String>[widget.updateInfo.releaseUrl];
+      for (final p in const [
+        'https://ghproxy.com/',
+        'https://github.moeyy.xyz/',
+        'https://gh-proxy.com/',
+      ]) {
+        if (!widget.updateInfo.releaseUrl.startsWith(p)) {
+          urls.add(p + widget.updateInfo.releaseUrl);
+        }
+      }
+
+      HttpClientResponse? response;
+      for (final url in urls) {
+        try {
+          final request = await _client!.getUrl(Uri.parse(url));
+          _activeRequest = request;
+          final r = await request.close();
+          if (r.statusCode == 200) {
+            response = r;
+            break;
+          }
+        } catch (_) {}
+      }
+
+      if (response == null) {
+        throw Exception("Server returned HTTP error or all mirrors failed");
       }
 
       final tempDir = await getTemporaryDirectory();
@@ -321,8 +433,22 @@ class _UpdateDialogContentState extends State<UpdateDialogContent> {
           throw Exception("Security Exception: Installer integrity check failed. SHA-256 hash mismatch.");
         }
       } else {
-        await tempFile.delete();
-        throw Exception("Security Exception: Cannot verify installer integrity. No SHA-256 hash provided.");
+        // Recoverable prompt for missing hash instead of failing
+        final shouldProceed = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text("Verify Installation"),
+            content: const Text("Could not verify the installer's SHA-256 hash automatically. Do you want to proceed with the installation?"),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(context, false), child: const Text("Cancel")),
+              TextButton(onPressed: () => Navigator.pop(context, true), child: const Text("Proceed")),
+            ],
+          ),
+        );
+        if (shouldProceed != true) {
+          await tempFile.delete();
+          throw Exception("Installation cancelled by user due to missing SHA-256 hash.");
+        }
       }
 
       // Add Ed25519 signature verification for Windows

@@ -132,6 +132,16 @@ class AuthController extends Notifier<AuthState> {
         // Automatically re-initialize TDLib to allow logging in again immediately
         Future.microtask(() => initializeTdlib());
       }
+    } else if (authState is td.AuthorizationStateWaitRegistration) {
+      state = state.copyWith(step: AuthStep.error, errorMessage: "Registration is not supported in this app. Please create a Telegram account using the official app first.");
+    } else if (authState is td.AuthorizationStateWaitOtherDeviceConfirmation) {
+      state = state.copyWith(step: AuthStep.error, errorMessage: "Please confirm the login on your other device. Check the official Telegram app.");
+    } else if (authState is td.AuthorizationStateWaitTdlibParameters) {
+      // In-flight initialization states, keep loading
+      state = state.copyWith(step: AuthStep.loading, errorMessage: null);
+    } else if (authState is td.AuthorizationStateLoggingOut || authState is td.AuthorizationStateClosing) {
+      // Transitioning to closed, keep loading
+      state = state.copyWith(step: AuthStep.loading, errorMessage: null);
     }
   }
 

@@ -172,7 +172,9 @@ class _MarqueeTextState extends State<MarqueeText> {
     super.initState();
     _scrollController = ScrollController();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _startScrolling();
+      if (mounted) {
+        _startScrolling();
+      }
     });
   }
 

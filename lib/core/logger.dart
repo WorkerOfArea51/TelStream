@@ -28,9 +28,12 @@ class FileLogger implements Logger {
   }
 
   Future<void> dispose() async {
-    await _sink?.flush();
-    await _sink?.close();
-    _sink = null;
+    try {
+      await _sink?.flush();
+    } catch (_) {} finally {
+      await _sink?.close();
+      _sink = null;
+    }
   }
 
   Future<void> _rotateIfNeeded() async {

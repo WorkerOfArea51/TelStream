@@ -93,6 +93,7 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
   final List<int> _pausedForStreamingFileIds = [];
   final Map<int, int> _lastDownloadedSizes = {};
   final Map<int, int> _lastUpdateTimes = {};
+  final Map<int, int> _lastStateUpdateTimes = {};
   Timer? _schedulerTimer;
   final Set<int> _pausedBySchedulerFileIds = {};
 
@@ -110,6 +111,7 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
       _schedulerTimer?.cancel();
       _connectivitySubscription?.cancel();
       _pwmTimer?.cancel();
+      _channel.setMethodCallHandler(null);
     });
     _init();
     _setupConnectivityListener();
@@ -281,11 +283,15 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
 
           if (isCompleted && tempPath.isNotEmpty) {
             savingFileIds.add(fileId);
-            _saveFilePermanently(fileId, tempPath, task.title).whenComplete(() {
+            _saveFilePermanently(fileId, tempPath, task.title).then((_) {
               savingFileIds.remove(fileId);
+            }).catchError((Object e, StackTrace st) {
+              savingFileIds.remove(fileId);
+              Log.e('Failed to save downloaded file $fileId', e, st);
             });
             _lastDownloadedSizes.remove(fileId);
             _lastUpdateTimes.remove(fileId);
+            _lastStateUpdateTimes.remove(fileId);
           } else {
             // Speed and ETA calculation
             final now = DateTime.now().millisecondsSinceEpoch;
@@ -311,16 +317,23 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
               _lastUpdateTimes[fileId] = now;
             }
 
-            state = {
-              ...state,
-              fileId: task.copyWith(
-                progress: progress,
-                isCompleted: false,
-                speedBytesPerSecond: speed > 0 ? speed : task.speedBytesPerSecond,
-                etaSeconds: eta > 0 ? eta : task.etaSeconds,
-                isPaused: false,
-              ),
-            };
+            final lastStateUpdate = _lastStateUpdateTimes[fileId] ?? 0;
+            final bool shouldUpdateState = progress >= 1.0 ||
+                (now - lastStateUpdate) >= 250 ||
+                (speed - task.speedBytesPerSecond).abs() > (task.speedBytesPerSecond * 0.2);
+
+            if (shouldUpdateState) {
+              _lastStateUpdateTimes[fileId] = now;
+              state = {
+                ...state,
+                fileId: task.copyWith(
+                  progress: progress,
+                  isCompleted: false,
+                  speedBytesPerSecond: speed > 0 ? speed : task.speedBytesPerSecond,
+                  etaSeconds: eta > 0 ? eta : task.etaSeconds,
+                ),
+              };
+            }
             _updateNativeNotification(fileId, task.title, progress, isPaused: false);
           }
         }
@@ -739,8 +752,8 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
         cleanTitle = cleanTitle.substring(0, cleanTitle.length - (ext.length + 1));
       }
 
-      // 4. Construct path (clean, no fileId prefixes)
-      final permanentPath = '${downloadsDir.path}/$cleanTitle.$ext';
+      // 4. Construct path (append fileId to prevent overwrite)
+      final permanentPath = '${downloadsDir.path}/${cleanTitle}_$fileId.$ext';
       final partPath = '$permanentPath.part';
 
       final tempFile = File(tempPath);
@@ -902,7 +915,7 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
         return;
       }
 
-      _pwmCycleElapsedMs += 500;
+      _pwmCycleElapsedMs += 250;
       final isNewCycle = _pwmCycleElapsedMs >= 1000;
       if (isNewCycle) {
         _pwmCycleElapsedMs = 0;
@@ -1004,7 +1017,7 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
 
     if (hasActiveIncomplete) {
       if (_pwmTimer == null) {
-        _pwmTimer = Timer.periodic(const Duration(milliseconds: 500), (_) {
+        _pwmTimer = Timer.periodic(const Duration(milliseconds: 250), (_) {
           _onPwmTick();
         });
         Log.i('PWM Speed Limiter started with limit: ${settings.downloadSpeedLimit}');
@@ -1031,6 +1044,10 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
       if (!currentOrder.contains(entry.key)) {
         currentOrder.add(entry.key);
       }
+    }
+
+    if (oldIndex < newIndex) {
+      newIndex -= 1;
     }
 
     if (oldIndex < currentOrder.length && newIndex < currentOrder.length) {

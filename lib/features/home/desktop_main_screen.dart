@@ -32,7 +32,7 @@ class DesktopMainScreen extends ConsumerStatefulWidget {
   ConsumerState<DesktopMainScreen> createState() => _DesktopMainScreenState();
 }
 
-class _DesktopMainScreenState extends ConsumerState<DesktopMainScreen> with TickerProviderStateMixin, WindowListener {
+class _DesktopMainScreenState extends ConsumerState<DesktopMainScreen> with TickerProviderStateMixin, WindowListener, WidgetsBindingObserver {
   bool _isFullScreen = false;
   bool _wasMaximized = false;
   bool _isTopHovered = false;
@@ -43,6 +43,7 @@ class _DesktopMainScreenState extends ConsumerState<DesktopMainScreen> with Tick
   String _currentRightPanelView = 'library'; // 'library', 'downloads', 'history'
   
   late TabController _tabController;
+  DateTime? _lastUpdateCheck;
 
   void _showNotImplementedDialog(String featureName) {
     showDialog(
@@ -124,6 +125,7 @@ class _DesktopMainScreenState extends ConsumerState<DesktopMainScreen> with Tick
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     windowManager.addListener(this);
     _initWindowState();
     _tabController = TabController(length: 3, vsync: this);
@@ -132,11 +134,19 @@ class _DesktopMainScreenState extends ConsumerState<DesktopMainScreen> with Tick
     });
   }
 
-  void _checkForUpdates() async {
-    final updateInfo = await UpdateService.checkForUpdate();
-    if (updateInfo != null && updateInfo.isUpdateAvailable && mounted) {
-      UpdateService.showUpdateDialog(context, updateInfo);
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      final now = DateTime.now();
+      if (_lastUpdateCheck == null || now.difference(_lastUpdateCheck!).inMinutes >= 5) {
+        _checkForUpdates();
+      }
     }
+  }
+
+  void _checkForUpdates() async {
+    _lastUpdateCheck = DateTime.now();
+    await UpdateService.checkAndShowDialogIfAvailable(context, manual: false, showErrorSnack: false);
   }
 
   void _initWindowState() async {
@@ -156,6 +166,7 @@ class _DesktopMainScreenState extends ConsumerState<DesktopMainScreen> with Tick
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     windowManager.removeListener(this);
     _tabController.dispose();
     super.dispose();
@@ -209,16 +220,8 @@ class _DesktopMainScreenState extends ConsumerState<DesktopMainScreen> with Tick
                           child: CircularProgressIndicator(color: Colors.orange),
                         ),
                       );
-                      final updateInfo = await UpdateService.checkForUpdate();
+                      await UpdateService.checkAndShowDialogIfAvailable(context, manual: true, showErrorSnack: true);
                       if (context.mounted) Navigator.pop(context); // Close loading
-                      
-                      if (updateInfo != null && updateInfo.isUpdateAvailable && context.mounted) {
-                        UpdateService.showUpdateDialog(context, updateInfo);
-                      } else if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('You are on the latest version!')),
-                        );
-                      }
                     } else if (value == 'about') {
                       CustomAboutDialog.show(context);
                     } else if (value == 'open') {

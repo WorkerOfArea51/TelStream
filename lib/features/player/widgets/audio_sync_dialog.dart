@@ -56,7 +56,7 @@ class _AudioSyncDialogState extends State<AudioSyncDialog> {
     setState(() {
       _delay = roundedVal;
     });
-    if (widget.player.platform is NativePlayer) {
+    if (widget.player.platform is NativePlayer && mounted) {
       try {
         (widget.player.platform as NativePlayer).setProperty('audio-delay', roundedVal.toString());
       } catch (_) {}

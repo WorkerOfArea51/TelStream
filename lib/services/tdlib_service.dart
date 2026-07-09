@@ -545,7 +545,8 @@ class TdlibService {
           final freePtr = _lib.lookup<NativeFunction<Void Function(Pointer<Void>)>>('td_free_string');
           _nativeFree = freePtr.asFunction<void Function(Pointer<Void>)>();
         } catch (e) {
-          Log.w('td_free_string not found in native library. Continuing without it.');
+          Log.e('FATAL: td_free_string not found in native library. Every received TDLib event will leak memory. Refusing to start event loop.', e);
+          rethrow;
         }
         _libInitialized = true;
         Log.i('TDLib direct FFI receive library loaded successfully.');
@@ -648,10 +649,14 @@ class TdlibService {
     }
 
     while (true) {
-      final rawPtr = nativeReceive(1.0); // Blocking receive, yields native thread
+      final rawPtr = nativeReceive(0.1); // Reduced timeout to fix isolate kill block
       if (rawPtr != nullptr) {
         final str = rawPtr.toDartString();
-        if (nativeFree != null) nativeFree(rawPtr.cast());
+        if (nativeFree != null) {
+          nativeFree(rawPtr.cast());
+        } else {
+          try { malloc.free(rawPtr.cast()); } catch (_) {}
+        }
         try {
           args.sendPort.send(str);
         } catch (e) {

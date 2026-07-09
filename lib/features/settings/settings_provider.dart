@@ -1,5 +1,6 @@
 import 'package:collection/collection.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../core/logger.dart';
 import '../../services/storage_service.dart';
 
 class VideoSettings {
@@ -353,7 +354,6 @@ class VideoSettings {
   int get hashCode {
     return Object.hashAll([doubleTapSeekDuration, savePositionOnQuit, autoplayNextVideo, volumeNormalization, pitchCorrection, seekbarStyle, dynamicSpeedOverlay, horizontalSwipeToSeek, volumeGestures, brightnessGestures, pinchToZoom, cacheLimitMb, cacheTtlDays, streamingProfile, leftSwipeGesture, rightSwipeGesture, downloadSchedulerEnabled, downloadStartHour, downloadEndHour, subtitleRendererMode, dynamicRangeCompression, equalizerEnabled, equalizerBands, equalizerPreset, longPressSpeed, gestureSensitivity, animeLayout, moviesLayout, webSeriesLayout, preferredSubtitleProvider, customMpvOptions, showStatsForNerds, subtitleFontSize, subtitleColor, subtitleDelay, subtitleFont, downloadSpeedLimit, progressSyncMode, subtitleBottomMargin, subtitleHorizontalOffset, rememberSpeed, longPressVibration, ]);
   }
-
 }
 
 class VideoSettingsNotifier extends Notifier<VideoSettings> {
@@ -388,7 +388,11 @@ class VideoSettingsNotifier extends Notifier<VideoSettings> {
       updatedJson['animeLayout'] = animeLayout;
       updatedJson['moviesLayout'] = moviesLayout;
       updatedJson['webSeriesLayout'] = webSeriesLayout;
-      return VideoSettings.fromJson(updatedJson);
+      try {
+        return VideoSettings.fromJson(updatedJson);
+      } catch (e, stack) {
+        Log.e('Failed to parse VideoSettings from storage, using defaults', e, stack);
+      }
     }
     return VideoSettings(
       subtitleFontSize: storageService.getSubtitleFontSize(),
@@ -413,6 +417,3 @@ class VideoSettingsNotifier extends Notifier<VideoSettings> {
 final videoSettingsProvider = NotifierProvider<VideoSettingsNotifier, VideoSettings>(() {
   return VideoSettingsNotifier();
 });
-
-
-

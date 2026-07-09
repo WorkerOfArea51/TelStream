@@ -48,6 +48,13 @@ jobs:
       - name: Decode Keystore
         run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/upload-keystore.jks
 
+      - name: Download Prebuilt libtdjson.so
+        run: |
+          mkdir -p android/app/src/main/jniLibs
+          # Attempt to download a prebuilt TDLib Android binary
+          curl -L -o jniLibs.tar.gz https://github.com/KylinO/tdlib-android/releases/download/v1.8.44/jniLibs.tar.gz
+          tar -xzf jniLibs.tar.gz -C android/app/src/main/ || echo "Failed to extract jniLibs.tar.gz"
+
       - name: Build Split APKs (ARM64 and ARM32)
         env:
           KEYSTORE_FILE: upload-keystore.jks
@@ -142,6 +149,10 @@ jobs:
           GITHUB_SHA: ${{ github.sha }}
         run: python build_changelog.py
 
+      - name: Generate jsDelivr fallback stub
+        run: |
+          echo "{\"version\": \"$APP_VERSION\", \"build\": $GITHUB_RUN_NUMBER}" > ./release_assets/latest_release.json
+
       - name: Create Unified GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -153,6 +164,7 @@ jobs:
             ./release_assets/telstream-arm32.apk
             ./release_assets/telstream-setup.exe
             ./release_assets/checksums.txt
+            ./release_assets/latest_release.json
           draft: false
           prerelease: false
         env:

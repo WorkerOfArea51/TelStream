@@ -44,6 +44,7 @@ class _CachedVideoWidgetState extends State<CachedVideoWidget> {
             child: AspectRatio(
               aspectRatio: widget.customAspectRatio!,
               child: Video(
+                key: ValueKey(widget.controller),
                 controller: widget.controller,
                 controls: NoVideoControls,
                 fit: BoxFit.fill,
@@ -52,6 +53,7 @@ class _CachedVideoWidgetState extends State<CachedVideoWidget> {
             ),
           )
         : Video(
+            key: ValueKey(widget.controller),
             controller: widget.controller,
             controls: NoVideoControls,
             fit: widget.fit,
@@ -64,4 +66,3 @@ class _CachedVideoWidgetState extends State<CachedVideoWidget> {
     return RepaintBoundary(child: _cachedWidget);
   }
 }
-

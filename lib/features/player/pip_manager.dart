@@ -110,6 +110,7 @@ class PipController extends Notifier<PipVideoState?> {
     final activePlayer = ref.read(activePlayerProvider);
     if (activePlayer != null && activePlayer != player) {
       final oldPlayer = activePlayer;
+      ref.read(activePlayerProvider.notifier).setPlayer(null);
       try {
         oldPlayer.setVolume(0.0);
       } catch (_) {}
@@ -123,9 +124,7 @@ class PipController extends Notifier<PipVideoState?> {
         oldPlayer.dispose();
       } catch (_) {}
     }
-    Future.microtask(() {
-      ref.read(activePlayerProvider.notifier).setPlayer(player);
-    });
+    ref.read(activePlayerProvider.notifier).setPlayer(player);
   }
 
   void clearActivePlayer(Player player) {
@@ -356,14 +355,7 @@ class PipController extends Notifier<PipVideoState?> {
 
   void maximize() {}
 
-  void clearActivePlayer(Player? expected) {
-    final current = ref.read(activePlayerProvider);
-    if (expected != null && current != expected) return;
-    state = null;
-    Future.microtask(() {
-      ref.read(activePlayerProvider.notifier).setPlayer(null);
-    });
-  }
+
 
   void close() {
     state = null;

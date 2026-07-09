@@ -560,59 +560,10 @@ class _AndroidMoreScreenState extends ConsumerState<AndroidMoreScreen> {
       ),
     );
 
-    final updateInfo = await UpdateService.checkForUpdate();
+    await UpdateService.checkAndShowDialogIfAvailable(context, manual: true, showErrorSnack: true);
 
     if (context.mounted) {
       Navigator.pop(context); // Close loading indicator
-    }
-
-    if (updateInfo == null) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Failed to check for updates. Please check your internet connection.',
-              style: TextStyle(color: Colors.white),
-            ),
-            backgroundColor: Colors.redAccent,
-          ),
-        );
-      }
-      return;
-    }
-
-    if (context.mounted) {
-      if (updateInfo.isUpdateAvailable) {
-        UpdateService.showUpdateDialog(context, updateInfo);
-      } else {
-        showDialog(
-          context: context,
-          builder: (context) => AlertDialog(
-            backgroundColor: theme.cardColor,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-              side: BorderSide(color: theme.colorScheme.onSurface.withValues(alpha: 0.08), width: 1),
-            ),
-            title: Row(
-              children: [
-                const Icon(Icons.check_circle_outline_rounded, color: Colors.green, size: 28),
-                const SizedBox(width: 12),
-                Text('Up to Date', style: TextStyle(color: theme.colorScheme.onSurface)),
-              ],
-            ),
-            content: Text(
-              'You are running the latest version of TelStream.',
-              style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.7)),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: Text('OK', style: TextStyle(color: theme.primaryColor)),
-              ),
-            ],
-          ),
-        );
-      }
     }
   }
 

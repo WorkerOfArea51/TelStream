@@ -42,6 +42,39 @@ class DownloadService : Service() {
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
+        loadActiveDownloads()
+    }
+
+    private fun saveActiveDownloads() {
+        val prefs = getSharedPreferences("telstream_downloads", Context.MODE_PRIVATE)
+        val editor = prefs.edit()
+        val jsonArray = org.json.JSONArray()
+        activeDownloads.forEach { (fileId, triple) ->
+            val obj = org.json.JSONObject()
+            obj.put("fileId", fileId)
+            obj.put("title", triple.first)
+            obj.put("progress", triple.second)
+            obj.put("isPaused", triple.third)
+            jsonArray.put(obj)
+        }
+        editor.putString("downloads", jsonArray.toString())
+        editor.apply()
+    }
+
+    private fun loadActiveDownloads() {
+        val prefs = getSharedPreferences("telstream_downloads", Context.MODE_PRIVATE)
+        val data = prefs.getString("downloads", null) ?: return
+        try {
+            val jsonArray = org.json.JSONArray(data)
+            for (i in 0 until jsonArray.length()) {
+                val obj = jsonArray.getJSONObject(i)
+                val fileId = obj.getInt("fileId")
+                val title = obj.getString("title")
+                val progress = obj.getDouble("progress")
+                val isPaused = obj.getBoolean("isPaused")
+                activeDownloads[fileId] = Triple(title, progress, isPaused)
+            }
+        } catch (e: Exception) {}
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -71,7 +104,6 @@ class DownloadService : Service() {
             }
             sendBroadcast(broadcastIntent)
 
-            // If it is cancel, remove from activeDownloads immediately
             if (action == ACTION_CANCEL) {
                 activeDownloads.remove(fileId)
             } else if (action == ACTION_PAUSE || action == ACTION_RESUME) {
@@ -80,6 +112,7 @@ class DownloadService : Service() {
                     activeDownloads[fileId] = Triple(existing.first, existing.second, action == ACTION_PAUSE)
                 }
             }
+            saveActiveDownloads()
         } else {
             val title = intent.getStringExtra("title") ?: "Download"
             val progress = intent.getDoubleExtra("progress", 0.0)
@@ -93,6 +126,7 @@ class DownloadService : Service() {
                 } else {
                     activeDownloads[fileId] = Triple(title, progress, isPaused)
                 }
+                saveActiveDownloads()
             }
         }
 
