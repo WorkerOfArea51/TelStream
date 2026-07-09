@@ -250,6 +250,13 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         Future<void> performRobustStartupSeek() async {
           for (int i = 0; i < 5; i++) {
             if (!mounted) return;
+            
+            // Abort any active proxy reads to free the mpv thread so player.seek won't deadlock
+            final fileId = _resolvedVideoFileId ?? widget.videoFileId;
+            if (fileId != 0) {
+              _proxyService.abortActiveRequests(fileId);
+            }
+            
             await player.seek(Duration(seconds: savedPos));
             await Future.delayed(Duration(milliseconds: 300 + (i * 200)));
             if (!mounted) return;
@@ -559,6 +566,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
       final isNearActiveOffset = byteOffset >= activeOffset && byteOffset <= activeOffset + 8 * 1024 * 1024;
 
       if (isCompleted || isWithinDownloadedRange || isNearActiveOffset) {
+        _proxyService.abortActiveRequests(fileId);
         player.seek(position);
         return;
       }
