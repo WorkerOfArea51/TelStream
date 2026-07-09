@@ -594,10 +594,12 @@ class TdlibService {
 
       _isolateReceivePort!.listen((message) async {
         if (_isDestroyed) return;
-        if (message is String) {
+        if (message is td.TdObject) {
+          _processEvent(message);
+        } else if (message is String) {
           try {
             final jsonMap = jsonDecode(message);
-            final sanitized = sanitizeJson(jsonMap);
+            final sanitized = TdJsonUtil.sanitize(jsonMap);
             final event = td.convertToObject(jsonEncode(sanitized));
             if (event != null) {
               _processEvent(event);
@@ -635,10 +637,20 @@ class TdlibService {
         // TDLib manages the string pointer and invalidates it on the next call to td_receive.
         // We DO NOT need to free it.
         try {
-          args.sendPort.send(str);
-        } catch (e) {
-          // Send port might be closed
-          break;
+          final jsonMap = jsonDecode(str);
+          final sanitized = TdJsonUtil.sanitize(jsonMap);
+          final event = td.convertToObject(jsonEncode(sanitized));
+          if (event != null) {
+            args.sendPort.send(event);
+          } else {
+            args.sendPort.send(str);
+          }
+        } catch (_) {
+          try {
+            args.sendPort.send(str);
+          } catch (e) {
+            break;
+          }
         }
       }
     }
