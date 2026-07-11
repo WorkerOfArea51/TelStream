@@ -190,22 +190,26 @@ class StorageService {
     }
 
     if (_data.containsKey('video_settings')) {
-      final vs = _data['video_settings'] as Map<String, dynamic>;
-      if (vs.containsKey('openSubtitlesApiKey')) {
-        _openSubtitlesApiKeyCache = vs['openSubtitlesApiKey'] as String?;
-        if (_openSubtitlesApiKeyCache != null) {
-          await _secureStorage.write(key: 'os_api_key', value: _openSubtitlesApiKeyCache);
+      final vs = _data['video_settings'];
+      if (vs is! Map<String, dynamic>) {
+        Log.w('video_settings in storage is corrupted (not a Map), skipping migration');
+      } else {
+        if (vs.containsKey('openSubtitlesApiKey')) {
+          _openSubtitlesApiKeyCache = vs['openSubtitlesApiKey'] as String?;
+          if (_openSubtitlesApiKeyCache != null) {
+            await _secureStorage.write(key: 'os_api_key', value: _openSubtitlesApiKeyCache);
+          }
+          vs.remove('openSubtitlesApiKey');
+          requiresMigrationSave = true;
         }
-        vs.remove('openSubtitlesApiKey');
-        requiresMigrationSave = true;
-      }
-      if (vs.containsKey('subdlApiKey')) {
-        _subdlApiKeyCache = vs['subdlApiKey'] as String?;
-        if (_subdlApiKeyCache != null) {
-          await _secureStorage.write(key: 'subdl_api_key', value: _subdlApiKeyCache);
+        if (vs.containsKey('subdlApiKey')) {
+          _subdlApiKeyCache = vs['subdlApiKey'] as String?;
+          if (_subdlApiKeyCache != null) {
+            await _secureStorage.write(key: 'subdl_api_key', value: _subdlApiKeyCache);
+          }
+          vs.remove('subdlApiKey');
+          requiresMigrationSave = true;
         }
-        vs.remove('subdlApiKey');
-        requiresMigrationSave = true;
       }
     }
 
@@ -259,37 +263,36 @@ class StorageService {
   }
 
   Future<void> _executeSave() async {
-    if (_file != null) {
-      try {
-        final snapshot = json.decode(json.encode(_data)) as Map<String, dynamic>;
-        final tmpFile = File('${_file!.path}.tmp');
-        final backupFile = File('${_file!.path}.bak');
-        final content = json.encode(snapshot);
+    if (_file == null) {
+      throw StateError('StorageService._file is null — init() not called');
+    }
+    // No try/catch here — let errors propagate to _save()'s Completer
+    // so callers can detect save failures via completeError().
+    final snapshot = json.decode(json.encode(_data)) as Map<String, dynamic>;
+    final tmpFile = File('${_file!.path}.tmp');
+    final backupFile = File('${_file!.path}.bak');
+    final content = json.encode(snapshot);
 
-        await tmpFile.writeAsString(content);
+    await tmpFile.writeAsString(content);
 
-        final tempContent = await tmpFile.readAsString();
-        json.decode(tempContent); // Verify valid JSON
+    final tempContent = await tmpFile.readAsString();
+    json.decode(tempContent); // Verify valid JSON
 
-        if (await _file!.exists()) {
-          if (await backupFile.exists()) {
-            await backupFile.delete();
-          }
-          await _file!.copy(backupFile.path);
-        }
-
-        try {
-          await tmpFile.rename(_file!.path);
-        } on PathExistsException {
-          await tmpFile.copy(_file!.path);
-          try { await tmpFile.delete(); } catch (_) {}
-        } catch (_) {
-          await tmpFile.copy(_file!.path);
-          try { await tmpFile.delete(); } catch (_) {}
-        }
-      } catch (e, stackTrace) {
-        Log.e('Failed to save user storage atomically', e, stackTrace);
+    if (await _file!.exists()) {
+      if (await backupFile.exists()) {
+        await backupFile.delete();
       }
+      await _file!.copy(backupFile.path);
+    }
+
+    try {
+      await tmpFile.rename(_file!.path);
+    } on PathExistsException {
+      await tmpFile.copy(_file!.path);
+      try { await tmpFile.delete(); } catch (_) {}
+    } catch (_) {
+      await tmpFile.copy(_file!.path);
+      try { await tmpFile.delete(); } catch (_) {}
     }
   }
 

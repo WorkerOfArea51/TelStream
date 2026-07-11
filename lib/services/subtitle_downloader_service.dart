@@ -297,11 +297,41 @@ class SubtitleDownloaderService {
         }
       }
 
+      // Validate the decoded content looks like a real subtitle file
+      final contentStr = utf8.decode(decodedBytes, allowMalformed: true);
+      final lowerExt = fileName.toLowerCase();
+      final bool looksValid;
+      if (lowerExt.endsWith('.vtt')) {
+        looksValid = contentStr.trimLeft().startsWith('WEBVTT');
+      } else if (lowerExt.endsWith('.srt')) {
+        looksValid = contentStr.contains('-->') &&
+            RegExp(r'^\d+\s*$', multiLine: true).hasMatch(contentStr);
+      } else if (lowerExt.endsWith('.ass')) {
+        looksValid = contentStr.contains('[Script Info]') ||
+            contentStr.contains('[V4+ Styles]');
+      } else {
+        looksValid = contentStr.contains('-->') || contentStr.contains('WEBVTT');
+      }
+      // Reject HTML error pages
+      final lowerContent = contentStr.trimLeft().toLowerCase();
+      if (lowerContent.startsWith('<!doctype html') || lowerContent.startsWith('<html')) {
+        throw HttpException(
+          'Downloaded content is an HTML page, not a subtitle file. '
+          'The provider may have returned an error page.'
+        );
+      }
+      if (!looksValid) {
+        throw HttpException(
+          'Downloaded content does not look like a valid $lowerExt subtitle file. '
+          'First 80 chars: "${contentStr.substring(0, contentStr.length < 80 ? contentStr.length : 80)}".'
+        );
+      }
+
       final tempDir = await getTemporaryDirectory();
       final safeName = fileName.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_');
       final file = File('${tempDir.path}/$safeName');
       await file.writeAsBytes(decodedBytes);
-      Log.i('Downloaded and saved subtitle to: ${file.path}');
+      Log.i('Downloaded and validated subtitle (${decodedBytes.length} bytes) to: ${file.path}');
       return file.path;
       
     } catch (e) {
