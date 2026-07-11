@@ -382,7 +382,10 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
       // Schedule background sync to start in the next event loop tick,
       // ensuring the provider is fully built and state is set before updating it.
       Future.delayed(const Duration(milliseconds: 200), () {
-        return _syncFromNetwork();
+        if (_isDisposed) return;
+        return _syncFromNetwork().catchError((Object e, StackTrace stack) {
+          Log.e('Background sync failed for category: ${category.title}', e, stack);
+        });
       });
       
       return initialList;
@@ -1267,10 +1270,17 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
 
       for (final season in seasonsToFetch) {
         if (_isDisposed) return;
-        while (ref.read(pipControllerProvider) != null && !_isDisposed) {
+        // Cap PiP-wait at 5 minutes (100 * 3s); skip this season if still blocked.
+        int waitTicks = 0;
+        while (ref.read(pipControllerProvider) != null && !_isDisposed && waitTicks < 100) {
           await Future.delayed(const Duration(seconds: 3));
+          waitTicks++;
         }
         if (_isDisposed) return;
+        if (ref.read(pipControllerProvider) != null) {
+          // PiP still active after 5min — skip this season, try the next.
+          continue;
+        }
 
         final title = season.fullTitle;
         final cleanTitle = normalizeSeriesName(title, isMovie: category.title == 'Movies');
