@@ -261,7 +261,9 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
     final shouldPlayImmediately = savedPos <= 0;
 
     final proxyHeaders = finalPath.startsWith('http://127.0.0.1') ? _proxyService.getAuthHeaders() : null;
-    player.open(Media(finalPath, httpHeaders: proxyHeaders), play: shouldPlayImmediately).then((_) {
+    player.open(Media(finalPath, httpHeaders: proxyHeaders), play: shouldPlayImmediately)
+        .timeout(const Duration(seconds: 30))
+        .then((_) {
       if (!mounted) return;
       if (savedPos > 0) {
         Future<void> performRobustStartupSeek() async {
@@ -434,7 +436,9 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
           _isInitializing = false;
         });
       }
-      player.open(Media(widget.networkUrl!), play: true).catchError((Object e, StackTrace st) {
+      player.open(Media(widget.networkUrl!), play: true)
+          .timeout(const Duration(seconds: 30))
+          .catchError((Object e, StackTrace st) {
         Log.e('player.open() failed for network URL ${widget.networkUrl}', e, st);
         if (mounted) {
           setState(() {
@@ -1196,7 +1200,9 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
 
       final fileId = _resolvedVideoFileId ?? widget.videoFileId;
       if (widget.networkUrl != null && widget.networkUrl!.isNotEmpty) {
-        player.open(Media(widget.networkUrl!), play: isPlayingState).then((_) {
+        player.open(Media(widget.networkUrl!), play: isPlayingState)
+            .timeout(const Duration(seconds: 30))
+            .then((_) {
           if (!mounted) return;
           setState(() {
             _isPlaying = true;
@@ -1235,7 +1241,9 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         }
 
         final proxyHeaders = mediaUrl.startsWith('http://127.0.0.1') ? _proxyService.getAuthHeaders() : null;
-        player.open(Media(mediaUrl, httpHeaders: proxyHeaders), play: isPlayingState).then((_) {
+        player.open(Media(mediaUrl, httpHeaders: proxyHeaders), play: isPlayingState)
+            .timeout(const Duration(seconds: 30))
+            .then((_) {
           if (!mounted) return;
           setState(() {
             _isPlaying = true;
