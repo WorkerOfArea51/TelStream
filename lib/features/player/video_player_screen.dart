@@ -1421,7 +1421,13 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
 
     final hwDecMode = _storageService.getHardwareDecoderMode();
     final enableHw = hwDecMode != 'no';
-    _pipController.setActivePlayer(player);
+    // Defer to after the widget tree finishes building — Riverpod forbids
+    // modifying providers during initState/build.
+    Future.microtask(() {
+      if (mounted) {
+        _pipController.setActivePlayer(player);
+      }
+    });
     try {
       controller = VideoController(
         player,
