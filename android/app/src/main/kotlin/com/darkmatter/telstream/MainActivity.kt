@@ -20,6 +20,9 @@ class MainActivity : FlutterActivity() {
     private val CHANNEL = "com.darkmatter.telstream/updater"
     private val DOWNLOAD_CHANNEL = "com.darkmatter.telstream/downloads"
 
+    private val lastUpdateTimes = java.util.Collections.synchronizedMap(mutableMapOf<Int, Long>())
+    private val lastProgressValues = java.util.Collections.synchronizedMap(mutableMapOf<Int, Double>())
+
     override fun onDestroy() {
         downloadReceiver?.let {
             try {
@@ -93,15 +96,13 @@ class MainActivity : FlutterActivity() {
                 }
                 "getStorageSpace" -> {
                     try {
-                        val path = Environment.getDataDirectory()
-                        val stat = StatFs(path.path)
-                        val blockSize = stat.blockSizeLong
-                        val totalBlocks = stat.blockCountLong
-                        val availableBlocks = stat.availableBlocksLong
-                        
+                        // Check the EXTERNAL storage (where downloads actually go)
+                        val target = getExternalFilesDir(null) ?: filesDir
+                        val stat = StatFs(target.absolutePath)
                         val space = mapOf(
-                            "total" to (totalBlocks * blockSize),
-                            "free" to (availableBlocks * blockSize)
+                            "total" to (stat.blockCountLong * stat.blockSizeLong),
+                            "free" to (stat.availableBlocksLong * stat.blockSizeLong),
+                            "path" to target.absolutePath
                         )
                         result.success(space)
                     } catch (e: Exception) {
@@ -128,6 +129,25 @@ class MainActivity : FlutterActivity() {
                     val isCancelled = call.argument<Boolean>("isCancelled") ?: false
                     val isPaused = call.argument<Boolean>("isPaused") ?: false
 
+                    // Throttle: max 4 updates/sec per fileId, skip if no meaningful change
+                    val now = android.os.SystemClock.elapsedRealtime()
+                    val lastTime = lastUpdateTimes[fileId] ?: 0L
+                    val lastProgress = lastProgressValues[fileId] ?: -1.0
+                    val isTerminal = isCompleted || isCancelled || isPaused
+                    val progressChanged = kotlin.math.abs(progress - lastProgress) >= 0.01
+                    val throttleOk = (now - lastTime) >= 250L
+
+                    if (!isTerminal && !progressChanged) {
+                        result.success(true)
+                        return@setMethodCallHandler
+                    }
+                    if (!isTerminal && !throttleOk) {
+                        result.success(true)
+                        return@setMethodCallHandler
+                    }
+                    lastUpdateTimes[fileId] = now
+                    lastProgressValues[fileId] = progress
+
                     val serviceIntent = Intent(this, DownloadService::class.java).apply {
                         putExtra("fileId", fileId)
                         putExtra("title", title)
@@ -136,11 +156,14 @@ class MainActivity : FlutterActivity() {
                         putExtra("isCancelled", isCancelled)
                         putExtra("isPaused", isPaused)
                     }
-
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                        startForegroundService(serviceIntent)
-                    } else {
-                        startService(serviceIntent)
+                    try {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                            startForegroundService(serviceIntent)
+                        } else {
+                            startService(serviceIntent)
+                        }
+                    } catch (e: IllegalStateException) {
+                        android.util.Log.w("MainActivity", "startForegroundService rejected", e)
                     }
                     result.success(true)
                 }

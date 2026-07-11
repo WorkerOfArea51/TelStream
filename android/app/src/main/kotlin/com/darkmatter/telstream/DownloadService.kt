@@ -175,19 +175,24 @@ class DownloadService : Service() {
     }
 
     private fun showOrUpdateNotification() {
-        val count = activeDownloads.size
+        // Take a consistent snapshot under the map's intrinsic lock to avoid CME
+        val snapshot: Map<Int, Triple<String, Double, Boolean>> = synchronized(activeDownloads) {
+            activeDownloads.toMap()
+        }
+        val count = snapshot.size
+        if (count == 0) return
         val titleText = if (count == 1) {
-            "Downloading: ${activeDownloads.values.first().first}"
+            "Downloading: ${snapshot.values.first().first}"
         } else {
             "Downloading $count videos"
         }
 
         // Calculate average progress
-        val totalProgress = activeDownloads.values.sumOf { it.second }
-        val avgProgress = if (count > 0) totalProgress / count else 0.0
+        val totalProgress = snapshot.values.sumOf { it.second }
+        val avgProgress = totalProgress / count
         val progressPercent = (avgProgress * 100).toInt()
 
-        val anyPaused = activeDownloads.values.any { it.third }
+        val anyPaused = snapshot.values.any { it.third }
         val contentText = if (anyPaused) "Paused" else "${progressPercent}% completed"
 
         // Open app when notification clicked
