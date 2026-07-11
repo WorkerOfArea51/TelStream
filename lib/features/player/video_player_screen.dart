@@ -258,6 +258,9 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
     }
 
     final savedPos = _storageService.getWatchPosition(widget.messageId);
+    // We don't know the duration yet, so we can't check if savedPos is 
+    // near the end here. We'll check inside performRobustStartupSeek 
+    // after the player reports the duration.
     final shouldPlayImmediately = savedPos <= 0;
 
     final proxyHeaders = finalPath.startsWith('http://127.0.0.1') ? _proxyService.getAuthHeaders() : null;
@@ -267,6 +270,20 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
       if (!mounted) return;
       if (savedPos > 0) {
         Future<void> performRobustStartupSeek() async {
+          // If savedPos is >= 95% of duration, restart from beginning
+          // (video was already watched to the end)
+          final duration = player.state.duration;
+          if (duration.inSeconds > 0 &&
+              savedPos >= (duration.inSeconds * 0.95).toInt()) {
+            Log.i('savedPos ($savedPos) is near end of video (duration ${duration.inSeconds}s), restarting from beginning');
+            if (mounted) {
+              player.play();
+              setState(() {
+                _isInitializing = false;
+              });
+            }
+            return;
+          }
           for (int i = 0; i < 5; i++) {
             if (!mounted) return;
             
@@ -460,6 +477,22 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
     }
 
     _resolvedVideoFileId = widget.videoFileId;
+
+    // Check if the original file ID already has a completed download.
+    // If yes, skip fresh file ID resolution and use the original.
+    final originalFile = _proxyService.getCachedFile(widget.videoFileId);
+    if (originalFile != null &&
+        originalFile.local.path.isNotEmpty &&
+        originalFile.local.isDownloadingCompleted) {
+      Log.i('Original file ID ${widget.videoFileId} already fully downloaded, skipping fresh file ID resolution');
+      _resolvedVideoFileId = widget.videoFileId;
+      _startPlayback(originalFile.local.path);
+      if (!_nextEpisodePreloaded) {
+        _nextEpisodePreloaded = true;
+        _preloadNextEpisode();
+      }
+      return;
+    }
 
     // Pre-emptively resolve the fresh file ID from TDLib to prevent stale file ID errors
     Log.i('Resolving fresh file ID for message ${widget.messageId}...');
