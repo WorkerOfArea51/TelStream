@@ -160,7 +160,16 @@ class UpdateService {
               }
             }
           } else {
-            bool isArm64 = true; // assume true as fallback
+            // Android: detect ARM architecture
+            bool isArm64;
+            try {
+              final deviceInfo = DeviceInfoPlugin();
+              final androidInfo = await deviceInfo.androidInfo;
+              isArm64 = androidInfo.supportedAbis.any((abi) => abi.toLowerCase().contains('arm64'));
+            } catch (e) {
+              Log.w('Could not detect ARM architecture, defaulting to arm64: $e');
+              isArm64 = true;
+            }
             final targetAssetName = isArm64 ? 'telstream-arm64.apk' : 'telstream-arm32.apk';
             for (final asset in assets) {
               if (asset is Map<String, dynamic>) {
@@ -270,7 +279,7 @@ class UpdateService {
       r'^[\s\-\*]*'              // optional whitespace, dashes, asterisks (any count)
       r'\**\s*'                  // optional bold markers
       r'(?:`?)' + escaped + r'(?:`?)'
-      r'\s*[:：]\s*'
+      r'\s*[:：]\**\s*'
       r'`?([a-fA-F0-9]{64})`?'
       r'\s*$',
       multiLine: true,

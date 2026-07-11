@@ -50,6 +50,27 @@ jobs:
 
 
 
+      - name: Download libtdjson.so prebuilt binaries
+        run: |
+          set -euo pipefail
+          TDLIB_VERSION="v1.8.52"
+          BASE_URL="https://github.com/up9cloud/android-libtdjson/releases/download/${TDLIB_VERSION}"
+          mkdir -p android/app/src/main/jniLibs/arm64-v8a
+          mkdir -p android/app/src/main/jniLibs/armeabi-v7a
+          mkdir -p android/app/src/main/jniLibs/x86_64
+          curl -fL "${BASE_URL}/jniLibs.tar.gz" -o /tmp/jniLibs.tar.gz
+          tar -xzf /tmp/jniLibs.tar.gz -C /tmp
+          cp /tmp/jniLibs/arm64-v8a/libtdjson.so android/app/src/main/jniLibs/arm64-v8a/
+          cp /tmp/jniLibs/armeabi-v7a/libtdjson.so android/app/src/main/jniLibs/armeabi-v7a/
+          cp /tmp/jniLibs/x86_64/libtdjson.so android/app/src/main/jniLibs/x86_64/ || true
+          # Verify all ABIs present
+          for abi in arm64-v8a armeabi-v7a; do
+            test -f "android/app/src/main/jniLibs/${abi}/libtdjson.so" || { echo "ERROR: libtdjson.so missing for ${abi}"; exit 1; }
+          done
+
+      - name: Verify libtdjson.so presence
+        run: ls -lh android/app/src/main/jniLibs/*/libtdjson.so
+
       - name: Build Split APKs (ARM64 and ARM32)
         env:
           KEYSTORE_FILE: upload-keystore.jks
@@ -57,7 +78,7 @@ jobs:
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
-          flutter build apk --split-per-abi --target-platform android-arm,android-arm64 --release --build-number=${{ github.run_number }} --dart-define=FIREBASE_DB_URL=${{ secrets.FIREBASE_DB_URL }}
+          flutter build apk --split-per-abi --target-platform android-arm,android-arm64,android-x64 --release --build-number=${{ github.run_number }} --dart-define=FIREBASE_DB_URL=${{ secrets.FIREBASE_DB_URL }}
           cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk build/app/outputs/flutter-apk/telstream-arm64.apk
           cp build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk build/app/outputs/flutter-apk/telstream-arm32.apk
 

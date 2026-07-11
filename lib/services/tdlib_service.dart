@@ -519,6 +519,8 @@ class TdlibService {
   int _requestId = 0;
 
   void Function(int, Pointer<Utf8>)? _nativeSend;
+  late final void Function(Pointer<Void>) _nativeFree;
+  int? _nativeFreeAddress;
 
   void _initNativeLibrary() {
       if (_libInitialized) return;
@@ -540,6 +542,16 @@ class TdlibService {
         } catch(e) {
           Log.w('td_send not found in native library');
         }
+
+        try {
+          final freePtr = _lib.lookup<NativeFunction<Void Function(Pointer<Void>)>>('td_free_string');
+          _nativeFree = freePtr.asFunction<void Function(Pointer<Void>)>();
+          _nativeFreeAddress = freePtr.address;
+        } catch (e) {
+          Log.e('FATAL: td_free_string not found in native library. Aborting.', e);
+          rethrow;
+        }
+
         _libInitialized = true;
         Log.i('TDLib direct FFI receive library loaded successfully.');
       } catch (e, stack) {
@@ -590,6 +602,7 @@ class TdlibService {
       _eventIsolate = await Isolate.spawn(_backgroundEventLoop, _EventLoopArgs(
         _isolateReceivePort!.sendPort,
         receivePtr.address,
+        _nativeFreeAddress,
       ));
 
       _isolateReceivePort!.listen((message) async {
@@ -630,12 +643,17 @@ class TdlibService {
     final receivePtr = Pointer<NativeFunction<Pointer<Utf8> Function(Double)>>.fromAddress(args.receiveAddress);
     final nativeReceive = receivePtr.asFunction<Pointer<Utf8> Function(double)>();
 
+    void Function(Pointer<Void>)? nativeFree;
+    if (args.freeAddress != null) {
+      final freePtr = Pointer<NativeFunction<Void Function(Pointer<Void>)>>.fromAddress(args.freeAddress!);
+      nativeFree = freePtr.asFunction<void Function(Pointer<Void>)>();
+    }
+
     while (true) {
       final rawPtr = nativeReceive(0.1); // Reduced timeout to fix isolate kill block
       if (rawPtr != nullptr) {
         final str = rawPtr.toDartString();
-        // TDLib manages the string pointer and invalidates it on the next call to td_receive.
-        // We DO NOT need to free it.
+        if (nativeFree != null) nativeFree(rawPtr.cast());
         try {
           final jsonMap = jsonDecode(str);
           final sanitized = TdJsonUtil.sanitize(jsonMap);
@@ -773,5 +791,6 @@ class TdlibService {
 class _EventLoopArgs {
   final SendPort sendPort;
   final int receiveAddress;
-  _EventLoopArgs(this.sendPort, this.receiveAddress);
+  final int? freeAddress;
+  _EventLoopArgs(this.sendPort, this.receiveAddress, this.freeAddress);
 }
