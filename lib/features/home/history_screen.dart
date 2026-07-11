@@ -426,15 +426,17 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                                                     );
                                                   }
                                                   
+                                                  final msgId = episodeMsg?.id ?? (log['messageId'] as int?) ?? 0;
+                                                  final epIdx = episodeListIndex ?? (log['episodeIndex'] as int?) ?? 0;
                                                   Future.delayed(const Duration(milliseconds: 50), () {
-                                                    if (context.mounted) {
+                                                    if (context.mounted && fileId != null) {
                                                       ref.read(pipControllerProvider.notifier).playVideo(
                                                         context,
-                                                        messageId: episodeMsg?.id ?? log['messageId'] as int,
+                                                        messageId: msgId,
                                                         videoFileId: fileId!,
                                                         videoTitle: '$seriesName - ${epFileName.isNotEmpty ? epFileName : episodeTitle}',
                                                         episodeList: targetSeason.episodes,
-                                                        currentEpisodeIndex: episodeListIndex ?? log['episodeIndex'] as int,
+                                                        currentEpisodeIndex: epIdx,
                                                         seriesName: seriesName,
                                                       );
                                                     }
