@@ -500,16 +500,39 @@ class _AndroidSeriesDetailsScreenState extends ConsumerState<AndroidSeriesDetail
     }
 
     if (_currentMetadata == null) {
-        return AndroidEpisodeListScreen(
-          season: latestSeries.seasons[_selectedSeasonIndex < latestSeries.seasons.length ? _selectedSeasonIndex : 0],
-          series: latestSeries,
-          heroTag:
-              'hero_library_${widget.categoryTitle}_${latestSeries.coreName}',
-          categoryTitle: widget.categoryTitle,
-          isEmbedded: false,
-          onSeasonChanged: _onSeasonChanged,
-          onBack: widget.onBack,
+      if (latestSeries.seasons.isEmpty) {
+        return Scaffold(
+          backgroundColor: Colors.black,
+          appBar: AppBar(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            leading: IconButton(
+              icon: const Icon(Icons.arrow_back, color: Colors.white),
+              onPressed: widget.onBack ?? () => Navigator.pop(context),
+            ),
+          ),
+          body: const Center(
+            child: Padding(
+              padding: EdgeInsets.all(24),
+              child: Text(
+                'No episodes available for this series yet.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.white70, fontSize: 16),
+              ),
+            ),
+          ),
         );
+      }
+      final safeIndex = _selectedSeasonIndex < latestSeries.seasons.length ? _selectedSeasonIndex : 0;
+      return AndroidEpisodeListScreen(
+        season: latestSeries.seasons[safeIndex],
+        series: latestSeries,
+        heroTag: 'hero_library_${widget.categoryTitle}_${latestSeries.coreName}',
+        categoryTitle: widget.categoryTitle,
+        isEmbedded: false,
+        onSeasonChanged: _onSeasonChanged,
+        onBack: widget.onBack,
+      );
     }
 
     final meta = _currentMetadata!;
@@ -650,14 +673,25 @@ class _AndroidSeriesDetailsScreenState extends ConsumerState<AndroidSeriesDetail
         body: TabBarView(
           controller: _tabController,
           children: [
-            AndroidEpisodeListScreen(
-              season: latestSeries.seasons.length > _selectedSeasonIndex ? latestSeries.seasons[_selectedSeasonIndex] : latestSeries.seasons.first,
-              series: latestSeries,
-              heroTag: 'hero_library_details_${latestSeries.coreName}',
-              categoryTitle: widget.categoryTitle,
-              isEmbedded: true,
-              onSeasonChanged: _onSeasonChanged,
-            ),
+            if (latestSeries.seasons.isEmpty)
+              const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(24),
+                  child: Text(
+                    'No episodes available',
+                    style: TextStyle(color: Colors.white54),
+                  ),
+                ),
+              )
+            else
+              AndroidEpisodeListScreen(
+                season: latestSeries.seasons.length > _selectedSeasonIndex ? latestSeries.seasons[_selectedSeasonIndex] : latestSeries.seasons[0],
+                series: latestSeries,
+                heroTag: 'hero_library_details_${latestSeries.coreName}',
+                categoryTitle: widget.categoryTitle,
+                isEmbedded: true,
+                onSeasonChanged: _onSeasonChanged,
+              ),
             _buildMoreDetailsTab(meta),
             _buildMoreLikeThisTab(meta),
           ],
