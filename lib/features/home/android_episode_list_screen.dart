@@ -784,12 +784,7 @@ class _AndroidEpisodeListScreenState extends ConsumerState<AndroidEpisodeListScr
                             '',
                           ),
                           positionInSeconds: resolvedDuration,
-                          videoFileId: msg.content is td.MessageVideo
-                              ? (msg.content as td.MessageVideo).video.video.id
-                              : (msg.content as td.MessageDocument)
-                                    .document
-                                    .document
-                                    .id,
+                          videoFileId: _extractFileId(msg) ?? 0,
                         );
                   }
 
@@ -820,6 +815,16 @@ class _AndroidEpisodeListScreenState extends ConsumerState<AndroidEpisodeListScr
       },
     );
   }
+}
+
+int? _extractFileId(td.Message msg) {
+  if (msg.content is td.MessageVideo) {
+    return (msg.content as td.MessageVideo).video.video.id;
+  }
+  if (msg.content is td.MessageDocument) {
+    return (msg.content as td.MessageDocument).document.document.id;
+  }
+  return null;
 }
 
 class _EpisodeCardItem extends ConsumerStatefulWidget {
@@ -932,7 +937,36 @@ class _EpisodeCardItemState extends ConsumerState<_EpisodeCardItem> {
       }
     }
 
-    if (fileId == null) return const SizedBox.shrink();
+    if (fileId == null) {
+      return Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Theme.of(context).cardColor,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: Theme.of(context).colorScheme.error.withValues(alpha: 0.3),
+          ),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.error_outline, color: Colors.orangeAccent),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'Episode ${widget.index + 1} — unsupported media type',
+                style: TextStyle(
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? Colors.white70
+                      : Colors.black54,
+                  fontSize: 13,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
 
     // Clean up episode title: Remove potential numerical prefix (e.g., "01. ", "1 - ")
     final epTitle = fileTitle.replaceFirst(RegExp(r'^\d+\s*[\.\-]\s*'), '');
