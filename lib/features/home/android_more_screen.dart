@@ -24,7 +24,8 @@ class AndroidMoreScreen extends ConsumerStatefulWidget {
   ConsumerState<AndroidMoreScreen> createState() => _AndroidMoreScreenState();
 }
 
-class _AndroidMoreScreenState extends ConsumerState<AndroidMoreScreen> {
+class _AndroidMoreScreenState extends ConsumerState<AndroidMoreScreen>
+    with WidgetsBindingObserver {
   td.User? _currentUser;
   String? _localPhotoPath;
   bool _isLoadingUser = true;
@@ -37,13 +38,22 @@ class _AndroidMoreScreenState extends ConsumerState<AndroidMoreScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadTelegramUser();
     _loadStats();
     _startScreenTimeTracker();
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && mounted) {
+      _loadStats();
+    }
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _screenTimeTimer?.cancel();
     super.dispose();
   }
@@ -131,9 +141,11 @@ class _AndroidMoreScreenState extends ConsumerState<AndroidMoreScreen> {
   void _startScreenTimeTracker() {
     _screenTimeTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
       if (!mounted) return;
+      // Don't accrue screen time while the app is backgrounded.
+      if (WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed) return;
       final storage = ref.read(storageServiceProvider);
       storage.incrementScreenTime(5).then((_) {
-        if (mounted) {
+        if (mounted && WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed) {
           _loadStats();
         }
       });

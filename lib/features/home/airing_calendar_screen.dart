@@ -62,6 +62,7 @@ class _AiringCalendarScreenState extends ConsumerState<AiringCalendarScreen> wit
   final List<String> _dayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
   String _searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
+  Timer? _searchDebounce;
 
   @override
   void initState() {
@@ -77,6 +78,7 @@ class _AiringCalendarScreenState extends ConsumerState<AiringCalendarScreen> wit
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     _tabController.dispose();
     _searchController.dispose();
     super.dispose();
@@ -127,8 +129,13 @@ class _AiringCalendarScreenState extends ConsumerState<AiringCalendarScreen> wit
                   child: TextField(
                     controller: _searchController,
                     onChanged: (val) {
-                      setState(() {
-                        _searchQuery = val.trim().toLowerCase();
+                      _searchDebounce?.cancel();
+                      _searchDebounce = Timer(const Duration(milliseconds: 300), () {
+                        if (mounted) {
+                          setState(() {
+                            _searchQuery = val.trim().toLowerCase();
+                          });
+                        }
                       });
                     },
                     style: const TextStyle(fontSize: 13),
