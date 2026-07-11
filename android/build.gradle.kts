@@ -26,8 +26,10 @@ subprojects {
                 @Suppress("DEPRECATION")
                 val baseExtension = android as? com.android.build.gradle.BaseExtension
                 if (baseExtension != null) {
-                    // Do NOT force-override compileSdk — let each plugin use its own tested version.
-                    // Only set namespace if missing (required for AGP 8+).
+                    // Required: file_picker v8.3.7 needs compileSdk >= 36.
+                    // Keep this override until file_picker is upgraded or app's compileSdk is bumped.
+                    baseExtension.compileSdkVersion(36)
+                    
                     if (baseExtension.namespace.isNullOrEmpty()) {
                         val groupName = project.group.toString()
                         baseExtension.namespace = if (groupName.isNotEmpty()) groupName else "com.darkmatter.telstream.${project.name.replace("-", "_").replace(":", "_")}"
