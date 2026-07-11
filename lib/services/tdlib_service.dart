@@ -548,8 +548,8 @@ class TdlibService {
           _nativeFree = freePtr.asFunction<void Function(Pointer<Void>)>();
           _nativeFreeAddress = freePtr.address;
         } catch (e) {
-          Log.w('td_free_string not found in native library. Native strings will leak. '
-                'This is expected on some Windows/custom builds; safe to ignore.', e);
+          Log.w('td_free_string not found in native library (error: $e). Native strings will leak. '
+                'This is expected on some Windows/custom builds; safe to ignore.');
         }
 
         _libInitialized = true;
