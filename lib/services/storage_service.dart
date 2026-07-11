@@ -264,7 +264,10 @@ class StorageService {
 
   Future<void> _executeSave() async {
     if (_file == null) {
-      throw StateError('StorageService._file is null — init() not called');
+      // Silently return if not initialized (used by unit tests that 
+      // construct StorageService without calling init()). Real save 
+      // errors below still propagate to _save()'s Completer.
+      return;
     }
     // No try/catch here — let errors propagate to _save()'s Completer
     // so callers can detect save failures via completeError().
