@@ -381,11 +381,13 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
       
       // Schedule background sync to start in the next event loop tick,
       // ensuring the provider is fully built and state is set before updating it.
-      Future.delayed(const Duration(milliseconds: 200), () {
+      Future.delayed(const Duration(milliseconds: 200), () async {
         if (_isDisposed) return;
-        return _syncFromNetwork().catchError((Object e, StackTrace stack) {
+        try {
+          await _syncFromNetwork();
+        } catch (e, stack) {
           Log.e('Background sync failed for category: ${category.title}', e, stack);
-        });
+        }
       });
       
       return initialList;
