@@ -26,9 +26,8 @@ subprojects {
                 @Suppress("DEPRECATION")
                 val baseExtension = android as? com.android.build.gradle.BaseExtension
                 if (baseExtension != null) {
-                    // Force subprojects to compile with Android SDK 36 to satisfy modern dependency requirements
-                    baseExtension.compileSdkVersion(36)
-                    
+                    // Do NOT force-override compileSdk — let each plugin use its own tested version.
+                    // Only set namespace if missing (required for AGP 8+).
                     if (baseExtension.namespace.isNullOrEmpty()) {
                         val groupName = project.group.toString()
                         baseExtension.namespace = if (groupName.isNotEmpty()) groupName else "com.darkmatter.telstream.${project.name.replace("-", "_").replace(":", "_")}"
