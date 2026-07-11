@@ -40,6 +40,7 @@ class _AndroidLibraryViewState extends ConsumerState<AndroidLibraryView>
 
   bool _isSearching = false;
   bool _showFavoritesOnly = false;
+  bool _autoLoadMoreInFlight = false;
 
   @override
   void initState() {
@@ -383,9 +384,18 @@ class _AndroidLibraryViewState extends ConsumerState<AndroidLibraryView>
           }
 
           // Automatically load more if we have very few series and there is more content
-          if (filteredList.length < 6 && ref.read(provider.notifier).hasMore) {
+          if (filteredList.length < 6 &&
+              ref.read(provider.notifier).hasMore &&
+              !_autoLoadMoreInFlight) {
+            _autoLoadMoreInFlight = true;
             WidgetsBinding.instance.addPostFrameCallback((_) {
-              ref.read(provider.notifier).loadMore();
+              if (!mounted) {
+                _autoLoadMoreInFlight = false;
+                return;
+              }
+              ref.read(provider.notifier).loadMore().whenComplete(() {
+                _autoLoadMoreInFlight = false;
+              });
             });
           }
 
@@ -911,8 +921,9 @@ class _FeaturedCarouselState extends State<FeaturedCarousel> {
                 animation: _pageController,
                 builder: (context, child) {
                   double value = 1.0;
-                  if (_pageController.position.haveDimensions) {
-                    value = _pageController.page! - index;
+                  if (_pageController.hasClients && _pageController.position.haveDimensions) {
+                    final page = _pageController.page ?? _currentPage.toDouble();
+                    value = page - index;
                     value = (1 - (value.abs() * 0.1)).clamp(0.9, 1.0);
                   } else {
                     value = _currentPage == index ? 1.0 : 0.9;
