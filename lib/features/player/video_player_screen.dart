@@ -292,13 +292,12 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         .then((_) {
       if (!mounted) return;
       if (savedPos > 0) {
-        Future<void> performRobustStartupSeek() async {
+        Future<void> performRobustStartupSeek(Duration knownDuration) async {
           // If savedPos is >= 95% of duration, restart from beginning
           // (video was already watched to the end)
-          final duration = player.state.duration;
-          if (duration.inSeconds > 0 &&
-              savedPos >= (duration.inSeconds * 0.95).toInt()) {
-            Log.i('savedPos ($savedPos) is near end of video (duration ${duration.inSeconds}s), restarting from beginning');
+          if (knownDuration.inSeconds > 0 &&
+              savedPos >= (knownDuration.inSeconds * 0.95).toInt()) {
+            Log.i('savedPos ($savedPos) is near end of video (duration ${knownDuration.inSeconds}s), restarting from beginning');
             if (mounted) {
               player.play();
               setState(() {
@@ -337,7 +336,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         }
 
         if (player.state.duration.inSeconds > 0) {
-          performRobustStartupSeek();
+          performRobustStartupSeek(player.state.duration);
         } else {
           late final StreamSubscription<Duration> durSub;
           durSub = player.stream.duration.listen((dur) {
@@ -345,7 +344,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
               durSub.cancel();
               _subscriptions.remove(durSub);
               if (mounted) {
-                performRobustStartupSeek();
+                performRobustStartupSeek(dur);
               }
             }
           });
