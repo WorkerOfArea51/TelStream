@@ -352,6 +352,13 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         }
       } else {
         if (mounted) {
+          // Explicit play() needed on PC (software decoding) — 
+          // play: true in player.open() doesn't always auto-start on PC
+          try {
+            player.play();
+          } catch (e) {
+            Log.w('player.play() after open failed: $e');
+          }
           setState(() {
             _isInitializing = false;
           });
