@@ -218,6 +218,14 @@ class StorageService {
       Log.i('Migrated OAuth tokens to secure storage.');
     }
     
+    // Migrate old subtitle font sizes to new default (20.0)
+    // Old default was 45.0 which was too large
+    final subSize = _data['subtitle_font_size'];
+    if (subSize == null || (subSize is num && subSize.toDouble() == 45.0)) {
+      _data['subtitle_font_size'] = 20.0;
+      Log.i('Migrated subtitle_font_size from ${subSize ?? 'null'} to 20.0');
+    }
+
     _isInitialized = true;
   }
 

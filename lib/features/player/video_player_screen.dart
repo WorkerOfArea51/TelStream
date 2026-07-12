@@ -213,7 +213,13 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
     }
     if (widget.messageId != oldWidget.messageId) {
       // Episode changed on Desktop (reusing player)
-      _pipController.setActivePlayer(player);
+      // Defer to after the widget tree finishes building — Riverpod forbids
+      // modifying providers during didUpdateWidget.
+      Future.microtask(() {
+        if (mounted) {
+          _pipController.setActivePlayer(player);
+        }
+      });
       player.stop().then((_) {
         if (mounted) {
           setState(() {
@@ -1415,8 +1421,11 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
           }
         } else {
           String safeMode = hwDecMode;
-          // media_kit's default auto (d3d11va) and auto-copy can cause severe macroblocking/smearing on TDLib streams
-          if (safeMode == 'auto' || safeMode == 'auto-copy') {
+          // Sanitize Android-only decoders and problematic PC decoders
+          // - mediacodec-copy is Android-only, doesn't exist on PC
+          // - auto/auto-copy (d3d11va) causes macroblocking on TDLib streams
+          if (safeMode == 'auto' || safeMode == 'auto-copy' || 
+              safeMode == 'mediacodec-copy' || safeMode == 'mediacodec') {
             safeMode = 'no'; // Default to software decoding on PC for flawless playback
           }
           nativePlayer.setProperty('hwdec', safeMode);
