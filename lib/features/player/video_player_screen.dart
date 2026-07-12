@@ -307,7 +307,9 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
             }
             return;
           }
-          for (int i = 0; i < 5; i++) {
+          // Reduced from 5 to 2 retries — each retry calls abortActiveRequests
+          // which can cause HttpException flood if set too high.
+          for (int i = 0; i < 2; i++) {
             if (!mounted) return;
             
             // Abort any active proxy reads to free the mpv thread so player.seek won't deadlock

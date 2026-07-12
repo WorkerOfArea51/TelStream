@@ -853,7 +853,7 @@ class StorageService {
   // --- Subtitle Preferences ---
 
   double getSubtitleFontSize() {
-    return (_data['subtitle_font_size'] as num?)?.toDouble() ?? 45.0;
+    return (_data['subtitle_font_size'] as num?)?.toDouble() ?? 20.0;
   }
 
   Future<void> setSubtitleFontSize(double value) async {

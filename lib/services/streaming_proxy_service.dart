@@ -666,6 +666,15 @@ class StreamingProxyService {
               await raf.close();
             } catch (_) {}
           }
+          // If the request was aborted, remove Content-Length header 
+          // before closing to prevent HttpException about content size 
+          // mismatch. The HttpServer checks Content-Length vs actual 
+          // bytes written and throws if they don't match.
+          if (abortCompleter.isCompleted) {
+            try {
+              request.response.headers.removeAll(HttpHeaders.contentLengthHeader);
+            } catch (_) {}
+          }
           try {
             await request.response.close();
           } catch (_) {}
