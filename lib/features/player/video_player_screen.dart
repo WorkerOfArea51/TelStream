@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/gestures.dart';
@@ -63,6 +64,8 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
   bool _initialTrackSelectionDone = false;
 
   final List<StreamSubscription> _subscriptions = [];
+  StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
+  bool _wasNetworkConnected = true;
   Timer? _saveTimer;
   bool _nextEpisodePreloaded = false;
   Timer? _preloadCooldownTimer;
@@ -81,6 +84,26 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     
+    _connectivitySubscription = Connectivity().onConnectivityChanged.listen((results) {
+      final isConnected = results.any((r) => r != ConnectivityResult.none);
+      if (!isConnected && _wasNetworkConnected) {
+        Log.w('Network disconnected — pausing playback');
+        try { player.pause(); } catch (_) {}
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Network disconnected. Playback paused.'),
+              duration: Duration(seconds: 3),
+            ),
+          );
+        }
+      } else if (isConnected && !_wasNetworkConnected) {
+        Log.i('Network reconnected — resuming playback');
+        try { player.play(); } catch (_) {}
+      }
+      _wasNetworkConnected = isConnected;
+    });
+
     _storageService = ref.read(storageServiceProvider);
     _tdlibService = ref.read(tdlibServiceProvider);
     _pipController = ref.read(pipControllerProvider.notifier);
@@ -717,6 +740,15 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
       } catch (e, st) {
         Log.e('player.pause() in lifecycle pause failed', e, st);
       }
+    } else if (state == AppLifecycleState.resumed) {
+      // Refresh player state when returning to the app
+      try {
+        if (player.state.playing) {
+          player.play();
+        }
+      } catch (e, st) {
+        Log.w('Failed to refresh player on resume: $e');
+      }
     }
   }
 
@@ -815,6 +847,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
       Log.e('Failed to cancel active downloads on dispose', e, st);
     }
     
+    _connectivitySubscription?.cancel();
     super.dispose();
   }
 
@@ -828,10 +861,10 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
     final nextFileId = nextItem.videoFileId;
 
     if (nextFileId != 0) {
-      Log.i('Preloading next episode (ID: $nextFileId) - downloading entire file');
+      Log.i('Preloading next episode (ID: $nextFileId) - low priority background download');
       _tdlibService.send(td.DownloadFile(
         fileId: nextFileId,
-        priority: 1, // Low priority for background preloading
+        priority: 32, // LOWEST priority — don't compete with active playback
         offset: 0,
         limit: 0, // 0 means unlimited / entire file
         synchronous: false,
