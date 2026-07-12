@@ -5,7 +5,7 @@ void main() {
   group('Subtitle Customization Settings Tests', () {
     test('VideoSettings default values are set correctly', () {
       const settings = VideoSettings();
-      expect(settings.subtitleFontSize, 45.0);
+      expect(settings.subtitleFontSize, 20.0);
       expect(settings.subtitleColor, '#FFFFFF');
       expect(settings.subtitleDelay, 0.0);
       expect(settings.subtitleFont, 'Roboto');
