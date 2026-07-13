@@ -1560,6 +1560,21 @@ final animeControllerProvider = AsyncNotifierProvider<AnimeController, List<Anim
 final moviesControllerProvider = AsyncNotifierProvider<MoviesController, List<AnimeSeries>>(MoviesController.new);
 final webSeriesControllerProvider = AsyncNotifierProvider<WebSeriesController, List<AnimeSeries>>(WebSeriesController.new);
 
+/// Family provider for user-added channels. Each user channel gets 
+/// its own HomeController instance with the correct channel ID.
+final userChannelControllerProvider = AsyncNotifierProvider.family<UserChannelController, List<AnimeSeries>, ChannelCategory>(
+  UserChannelController.new,
+);
+
+class UserChannelController extends HomeController {
+  final ChannelCategory _category;
+  
+  UserChannelController(this._category);
+  
+  @override
+  ChannelCategory get category => _category;
+}
+
 class SeasonSortKey implements Comparable<SeasonSortKey> {
   final int seasonNum;
   final double partNum;
