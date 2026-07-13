@@ -181,7 +181,7 @@ Future<List<AnimeSeries>> parseMessagesWithYield(List<td.Message> raw, bool isMo
 
     final newSeason = AnimeSeason(
       fullTitle: fullTitle,
-      seasonName: HomeController.parseSeasonName(fullTitle, baseName),
+      seasonName: HomeController.parseSeasonName(fullTitle, baseName, isMovie: isMovie),
       posterMessage: pMsg,
       episodes: sortedEpisodes,
     );
@@ -958,7 +958,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
     return normalized.trim();
   }
 
-  static String parseSeasonName(String fullTitle, String baseName) {
+  static String parseSeasonName(String fullTitle, String baseName, {bool isMovie = false}) {
     final ft = fullTitle.trim();
     final bn = baseName.trim();
     
@@ -967,7 +967,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
     if (yearMatch != null) {
       final year = yearMatch.group(1)!;
       final cleanFullTitle = ft.replaceAll(RegExp(r'\s*[\[\(]\d{4}[\]\)]\s*'), ' ').trim();
-      final cleanSeason = parseSeasonName(cleanFullTitle, bn);
+      final cleanSeason = parseSeasonName(cleanFullTitle, bn, isMovie: isMovie);
       if (cleanSeason.contains(year)) {
         return cleanSeason;
       }
@@ -975,11 +975,11 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
     }
 
     if (ft.toLowerCase() == bn.toLowerCase()) {
-      return 'Season 1';
+      return isMovie ? 'Movie' : 'Season 1';
     }
     
     if (ft.length <= bn.length) {
-      return 'Season 1';
+      return isMovie ? 'Movie' : 'Season 1';
     }
 
     var diff = ft.substring(bn.length).trim();
@@ -987,7 +987,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
     diff = diff.replaceAll(RegExp(r'^[-–—:|,\s]+'), '').trim();
     
     if (diff.isEmpty) {
-      return 'Season 1';
+      return isMovie ? 'Movie' : 'Season 1';
     }
 
     // Check if diff is Root A or √A
@@ -1065,7 +1065,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
       
       final newSeason = AnimeSeason(
         fullTitle: fullTitle,
-        seasonName: parseSeasonName(fullTitle, baseName),
+        seasonName: parseSeasonName(fullTitle, baseName, isMovie: isMovie),
         posterMessage: msg,
         episodes: [],
       );

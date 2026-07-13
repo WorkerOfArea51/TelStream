@@ -909,15 +909,11 @@ class _EpisodeCardItemState extends ConsumerState<_EpisodeCardItem> {
       final sizeMb = (video.video.video.expectedSize / 1024 / 1024)
           .toStringAsFixed(1);
       final duration = Duration(seconds: video.video.duration);
-      final minutes = duration.inMinutes
-          .remainder(60)
-          .toString()
-          .padLeft(2, '0');
-      final seconds = duration.inSeconds
-          .remainder(60)
-          .toString()
-          .padLeft(2, '0');
-      metadata = '$minutes:$seconds • $sizeMb MB';
+      final h = duration.inHours;
+      final m = duration.inMinutes.remainder(60).toString().padLeft(2, '0');
+      final s = duration.inSeconds.remainder(60).toString().padLeft(2, '0');
+      final durStr = h > 0 ? '$h:$m:$s' : '$m:$s';
+      metadata = '$durStr • $sizeMb MB';
       } else if (widget.msg.content is td.MessageDocument) {
         final doc = widget.msg.content as td.MessageDocument;
         fileTitle = HomeController.getMessageFileName(widget.msg)
