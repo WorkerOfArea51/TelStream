@@ -10,6 +10,8 @@ import '../../services/metadata_service.dart';
 import 'downloads_screen.dart';
 import 'history_screen.dart';
 import 'global_search_screen.dart';
+import 'user_channels_provider.dart';
+import 'user_channels_home_screen.dart';
 
 import 'desktop_library_view.dart';
 import 'android_series_details_screen.dart';
@@ -42,7 +44,6 @@ class _DesktopMainScreenState extends ConsumerState<DesktopMainScreen> with Tick
   
   String _currentRightPanelView = 'library'; // 'library', 'downloads', 'history'
   
-  late TabController _tabController;
   DateTime? _lastUpdateCheck;
 
   void _showNotImplementedDialog(String featureName) {
@@ -128,7 +129,6 @@ class _DesktopMainScreenState extends ConsumerState<DesktopMainScreen> with Tick
     WidgetsBinding.instance.addObserver(this);
     windowManager.addListener(this);
     _initWindowState();
-    _tabController = TabController(length: 3, vsync: this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkForUpdates();
     });
@@ -168,7 +168,6 @@ class _DesktopMainScreenState extends ConsumerState<DesktopMainScreen> with Tick
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     windowManager.removeListener(this);
-    _tabController.dispose();
     super.dispose();
   }
 
@@ -396,6 +395,9 @@ class _DesktopMainScreenState extends ConsumerState<DesktopMainScreen> with Tick
 
   Widget _buildRightPanel(bool showTop, bool showRight, AnimeSeries? selectedSeries) {
     final theme = Theme.of(context);
+    final userChannels = ref.watch(userChannelsProvider);
+    final hasUserChannels = userChannels.isNotEmpty;
+
     return AnimatedPositioned(
       duration: const Duration(milliseconds: 250),
       top: showTop ? 40 : 0,
@@ -451,37 +453,46 @@ class _DesktopMainScreenState extends ConsumerState<DesktopMainScreen> with Tick
                   }
                 ),
               ] else if (_currentRightPanelView == 'library') ...[
-                // Custom TabBar
-                Container(
-                  color: theme.scaffoldBackgroundColor,
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: TabBar(
-                          controller: _tabController,
-                          indicatorColor: theme.primaryColor,
-                          labelColor: Colors.white,
-                          unselectedLabelColor: Colors.grey,
-                          labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                          tabs: const [
-                            Tab(text: 'Anime'),
-                            Tab(text: 'Movies'),
-                            Tab(text: 'Web Series'),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                // TabBarView
                 Expanded(
-                  child: TabBarView(
-                    controller: _tabController,
-                    children: [
-                      DesktopLibraryView(category: Constants.categories[0]),
-                      DesktopLibraryView(category: Constants.categories[1]),
-                      DesktopLibraryView(category: Constants.categories[2]),
-                    ],
+                  child: DefaultTabController(
+                    length: hasUserChannels ? 4 : 3,
+                    child: Column(
+                      children: [
+                        // Custom TabBar
+                        Container(
+                          color: theme.scaffoldBackgroundColor,
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: TabBar(
+                                  indicatorColor: theme.primaryColor,
+                                  labelColor: Colors.white,
+                                  unselectedLabelColor: Colors.grey,
+                                  labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                                  tabs: [
+                                    if (hasUserChannels) const Tab(text: 'My Channels'),
+                                    const Tab(text: 'Anime'),
+                                    const Tab(text: 'Movies'),
+                                    const Tab(text: 'Web Series'),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        // TabBarView
+                        Expanded(
+                          child: TabBarView(
+                            children: [
+                              if (hasUserChannels) UserChannelsHomeScreen(isActive: _currentRightPanelView == 'library'),
+                              DesktopLibraryView(category: Constants.categories[0]),
+                              DesktopLibraryView(category: Constants.categories[1]),
+                              DesktopLibraryView(category: Constants.categories[2]),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ] else if (_currentRightPanelView == 'search') ...[

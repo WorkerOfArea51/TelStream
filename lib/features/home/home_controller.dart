@@ -138,18 +138,7 @@ Future<List<AnimeSeries>> parseMessagesWithYield(List<td.Message> raw, bool isMo
       }
     }
     
-    // Fallback: If no preceding poster, use the closest poster overall
-    if (selectedPoster == null && posterDetails.isNotEmpty) {
-      int minDistance = -1;
-      for (final pd in posterDetails) {
-        final pMsg = pd['message'] as td.Message;
-        final dist = (ep.id - pMsg.id).abs();
-        if (minDistance == -1 || dist < minDistance) {
-          minDistance = dist;
-          selectedPoster = pd;
-        }
-      }
-    }
+
 
     if (selectedPoster != null) {
       (selectedPoster['episodesList'] as List<td.Message>).add(ep);
