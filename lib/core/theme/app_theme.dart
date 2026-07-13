@@ -267,14 +267,125 @@ class AppThemeNotifier extends Notifier<AppThemeState> {
         brightness: isDark ? Brightness.dark : Brightness.light,
         primary: effectivePrimary,
         surface: scaffoldBg,
+        surfaceContainerHighest: cardBg,
       ),
       appBarTheme: AppBarTheme(
         backgroundColor: isDark
             ? (isAmoled ? Colors.black : scaffoldBg)
             : Colors.transparent,
         elevation: 0,
+        scrolledUnderElevation: 0,
         foregroundColor: textColor,
         iconTheme: IconThemeData(color: textColor),
+        titleTextStyle: TextStyle(
+          color: textColor,
+          fontSize: 20,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+      cardTheme: CardThemeData(
+        color: cardBg,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        margin: EdgeInsets.zero,
+      ),
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          backgroundColor: effectivePrimary,
+          foregroundColor: isDark ? Colors.black : Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+          textStyle: const TextStyle(fontWeight: FontWeight.w600),
+        ),
+      ),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: cardBg,
+          foregroundColor: textColor,
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+        ),
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(
+          foregroundColor: effectivePrimary,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
+        ),
+      ),
+      iconButtonTheme: IconButtonThemeData(
+        style: IconButton.styleFrom(
+          foregroundColor: textColor,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+      ),
+      dialogTheme: DialogThemeData(
+        backgroundColor: cardBg,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(28),
+        ),
+        titleTextStyle: TextStyle(
+          color: textColor,
+          fontSize: 24,
+          fontWeight: FontWeight.bold,
+        ),
+        contentTextStyle: TextStyle(
+          color: subTextColor,
+          fontSize: 16,
+        ),
+      ),
+      sliderTheme: SliderThemeData(
+        activeTrackColor: effectivePrimary,
+        inactiveTrackColor: effectivePrimary.withValues(alpha: 0.2),
+        thumbColor: effectivePrimary,
+        overlayColor: effectivePrimary.withValues(alpha: 0.1),
+        trackHeight: 4,
+        thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
+        overlayShape: const RoundSliderOverlayShape(overlayRadius: 16),
+      ),
+      progressIndicatorTheme: ProgressIndicatorThemeData(
+        color: effectivePrimary,
+        linearTrackColor: effectivePrimary.withValues(alpha: 0.2),
+        circularTrackColor: effectivePrimary.withValues(alpha: 0.2),
+      ),
+      bottomSheetTheme: BottomSheetThemeData(
+        backgroundColor: cardBg,
+        modalBackgroundColor: cardBg,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        ),
+      ),
+      snackBarTheme: SnackBarThemeData(
+        backgroundColor: cardBg,
+        contentTextStyle: TextStyle(color: textColor),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+      ),
+      chipTheme: ChipThemeData(
+        backgroundColor: effectivePrimary.withValues(alpha: 0.1),
+        labelStyle: TextStyle(color: effectivePrimary),
+        side: BorderSide.none,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+      ),
+      dividerTheme: DividerThemeData(
+        color: textColor.withValues(alpha: 0.1),
+        thickness: 1,
+        space: 1,
       ),
       bottomNavigationBarTheme: BottomNavigationBarThemeData(
         backgroundColor: isDark
@@ -287,18 +398,20 @@ class AppThemeNotifier extends Notifier<AppThemeState> {
         backgroundColor: isDark
             ? (isAmoled ? Colors.black : scaffoldBg)
             : Colors.white,
+        elevation: 0,
+        height: 80,
         indicatorColor: effectivePrimary.withValues(alpha: 0.15),
         indicatorShape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
         ),
         iconTheme: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) {
-            return IconThemeData(color: effectivePrimary);
+            return IconThemeData(color: effectivePrimary, size: 24);
           }
-          return IconThemeData(color: subTextColor);
+          return IconThemeData(color: subTextColor, size: 24);
         }),
         labelTextStyle: WidgetStateProperty.resolveWith((states) {
-          final style = TextStyle(fontSize: 12, fontWeight: FontWeight.w500);
+          final style = TextStyle(fontSize: 11, fontWeight: FontWeight.w500);
           if (states.contains(WidgetState.selected)) {
             return style.copyWith(
               color: effectivePrimary,
@@ -316,7 +429,23 @@ class AppThemeNotifier extends Notifier<AppThemeState> {
               : effectivePrimary,
         ),
       ],
-      textTheme: const TextTheme().apply(
+      textTheme: const TextTheme(
+        displayLarge: TextStyle(fontSize: 57, fontWeight: FontWeight.bold),
+        displayMedium: TextStyle(fontSize: 45, fontWeight: FontWeight.bold),
+        displaySmall: TextStyle(fontSize: 36, fontWeight: FontWeight.bold),
+        headlineLarge: TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
+        headlineMedium: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+        headlineSmall: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+        titleLarge: TextStyle(fontSize: 22, fontWeight: FontWeight.w600),
+        titleMedium: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+        titleSmall: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+        bodyLarge: TextStyle(fontSize: 16, fontWeight: FontWeight.normal),
+        bodyMedium: TextStyle(fontSize: 14, fontWeight: FontWeight.normal),
+        bodySmall: TextStyle(fontSize: 12, fontWeight: FontWeight.normal),
+        labelLarge: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+        labelMedium: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+        labelSmall: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+      ).apply(
         bodyColor: textColor,
         displayColor: textColor,
       ),
