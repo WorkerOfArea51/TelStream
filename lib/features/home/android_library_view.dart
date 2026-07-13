@@ -724,11 +724,13 @@ class _LibraryGridItemState extends ConsumerState<_LibraryGridItem> {
               width: _isTapped ? 1.5 : 1,
             ),
             boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.3),
-                blurRadius: _isTapped ? 4 : 8,
-                offset: Offset(0, _isTapped ? 2 : 4),
-              ),
+              // Reduced shadow to prevent overlapping dark spots in grid gaps
+              if (_isTapped)
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.2),
+                  blurRadius: 4,
+                  offset: const Offset(0, 2),
+                ),
             ],
           ),
           clipBehavior: Clip.hardEdge,
@@ -1454,11 +1456,13 @@ class _LibraryCompactItemState extends ConsumerState<_LibraryCompactItem> {
               width: _isTapped ? 1.5 : 1,
             ),
             boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.3),
-                blurRadius: _isTapped ? 4 : 8,
-                offset: Offset(0, _isTapped ? 2 : 4),
-              ),
+              // Reduced shadow to prevent overlapping dark spots in grid gaps
+              if (_isTapped)
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.2),
+                  blurRadius: 4,
+                  offset: const Offset(0, 2),
+                ),
             ],
           ),
           clipBehavior: Clip.hardEdge,
