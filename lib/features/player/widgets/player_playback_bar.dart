@@ -107,14 +107,15 @@ class _PlayerSeekBarState extends State<PlayerSeekBar> {
 
                   return SliderTheme(
                     data: SliderTheme.of(context).copyWith(
-                      trackHeight: widget.seekbarStyle == 'Thick' ? 8.0 : 4.0,
+                      trackHeight: widget.seekbarStyle == 'Thick' ? 10.0 : 6.0,
                       trackShape: trackShape,
                       thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6.0),
                       overlayShape: const RoundSliderOverlayShape(overlayRadius: 14.0),
-                      activeTrackColor: widget.settingsAccent,
-                      secondaryActiveTrackColor: widget.settingsAccent.withValues(alpha: 0.35),
+                      activeTrackColor: Theme.of(context).colorScheme.primary,
+                      secondaryActiveTrackColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.35),
                       inactiveTrackColor: Colors.white24,
-                      thumbColor: widget.settingsAccent,
+                      thumbColor: Theme.of(context).colorScheme.primary,
+                      overlayColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.2),
                     ),
                     child: Slider(
                       min: 0,
