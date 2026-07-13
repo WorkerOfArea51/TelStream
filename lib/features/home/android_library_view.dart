@@ -33,7 +33,7 @@ class AndroidLibraryView extends ConsumerStatefulWidget {
 
 class _AndroidLibraryViewState extends ConsumerState<AndroidLibraryView>
     with SingleTickerProviderStateMixin, WidgetsBindingObserver {
-  late dynamic provider;
+  late final AsyncNotifierProvider<HomeController, List<AnimeSeries>> provider;
   final ScrollController _scrollController = ScrollController();
   final TextEditingController _searchController = TextEditingController();
   Timer? _debounce;
@@ -49,14 +49,18 @@ class _AndroidLibraryViewState extends ConsumerState<AndroidLibraryView>
 
     // Select provider based on category
     if (widget.category.title == 'Anime') {
-      provider = animeControllerProvider;
+      provider = animeControllerProvider
+          as AsyncNotifierProvider<HomeController, List<AnimeSeries>>;
     } else if (widget.category.title == 'Movies') {
-      provider = moviesControllerProvider;
+      provider = moviesControllerProvider
+          as AsyncNotifierProvider<HomeController, List<AnimeSeries>>;
     } else if (widget.category.title == 'Web Series') {
-      provider = webSeriesControllerProvider;
+      provider = webSeriesControllerProvider
+          as AsyncNotifierProvider<HomeController, List<AnimeSeries>>;
     } else {
       // User-added channel — use family provider keyed by category
-      provider = userChannelControllerProvider(widget.category);
+      provider = userChannelControllerProvider(widget.category)
+          as AsyncNotifierProvider<HomeController, List<AnimeSeries>>;
     }
 
 
