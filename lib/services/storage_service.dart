@@ -7,6 +7,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:synchronized/synchronized.dart';
 import '../core/logger.dart';
 import '../core/utils/path_helper.dart';
+import '../core/constants.dart';
 
 final storageServiceProvider = Provider<StorageService>((ref) {
   return StorageService();
@@ -532,6 +533,51 @@ class StorageService {
   Future<void> setCustomDownloadDirectory(String? path) async {
     _data['custom_download_directory'] = path;
     await _save();
+  }
+
+  // --- User-Added Channels ---
+
+  List<UserChannel> getUserChannels() {
+    final raw = _data['user_channels'];
+    if (raw is! List) return [];
+    final result = <UserChannel>[];
+    for (final item in raw) {
+      if (item is Map) {
+        try {
+          result.add(UserChannel.fromJson(Map<String, dynamic>.from(item)));
+        } catch (_) {
+          // skip malformed entry
+        }
+      }
+    }
+    return result;
+  }
+
+  Future<void> addUserChannel(UserChannel channel) async {
+    final channels = getUserChannels();
+    // Don't add duplicates (same channelId)
+    if (channels.any((c) => c.channelId == channel.channelId)) {
+      return;
+    }
+    channels.add(channel);
+    _data['user_channels'] = channels.map((c) => c.toJson()).toList();
+    await _save();
+  }
+
+  Future<void> removeUserChannel(String id) async {
+    final channels = getUserChannels();
+    channels.removeWhere((c) => c.id == id);
+    _data['user_channels'] = channels.map((c) => c.toJson()).toList();
+    await _save();
+  }
+
+  Future<void> clearUserChannels() async {
+    _data['user_channels'] = <Map<String, dynamic>>[];
+    await _save();
+  }
+
+  bool isUserChannel(int channelId) {
+    return getUserChannels().any((c) => c.channelId == channelId);
   }
 
   // --- Downloaded Files Tracker ---

@@ -15,6 +15,42 @@ class ChannelCategory {
   });
 }
 
+class UserChannel {
+  final String id;          // unique ID (use timestamp or UUID)
+  final String title;       // user-defined name (e.g., "My Anime Channel")
+  final int channelId;      // Telegram channel ID (e.g., -1001234567890)
+  final String? inviteLink; // optional Telegram invite link
+  final String icon;        // icon name (e.g., 'movie', 'tv', 'anime', 'custom')
+  final DateTime addedAt;   // when the channel was added
+  
+  const UserChannel({
+    required this.id,
+    required this.title,
+    required this.channelId,
+    this.inviteLink,
+    required this.icon,
+    required this.addedAt,
+  });
+  
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'title': title,
+    'channelId': channelId,
+    'inviteLink': inviteLink,
+    'icon': icon,
+    'addedAt': addedAt.toIso8601String(),
+  };
+  
+  factory UserChannel.fromJson(Map<String, dynamic> json) => UserChannel(
+    id: json['id'] as String,
+    title: json['title'] as String,
+    channelId: json['channelId'] as int,
+    inviteLink: json['inviteLink'] as String?,
+    icon: json['icon'] as String? ?? 'custom',
+    addedAt: DateTime.tryParse(json['addedAt'] as String? ?? '') ?? DateTime.now(),
+  );
+}
+
 class Constants {
   static String _currentVersion = '0.0.0+0';
   static String get currentVersion => _currentVersion;
