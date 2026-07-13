@@ -16,6 +16,7 @@ import 'user_channels_home_screen.dart';
 import 'desktop_library_view.dart';
 import 'android_series_details_screen.dart';
 import '../settings/settings_screen.dart';
+import '../settings/user_channels_screen.dart';
 import '../settings/settings_provider.dart';
 import '../player/pip_manager.dart';
 import '../player/video_player_screen.dart';
@@ -249,6 +250,7 @@ class _DesktopMainScreenState extends ConsumerState<DesktopMainScreen> with Tick
                     _buildMenuItem('downloads', 'Downloads', shortcut: 'Ctrl+D'),
                     _buildMenuItem('history', 'History / Playback', shortcut: 'Ctrl+H'),
                     _buildMenuItem('calendar', 'Airing Calendar', shortcut: 'Ctrl+Cal'),
+                    _buildMenuItem('mychannels', 'My Channels', shortcut: 'Ctrl+M'),
                     _buildMenuItem('div1', '', isDivider: true),
                     _buildMenuItem('video', 'Video', hasSubmenu: true),
                     _buildMenuItem('audio', 'Audio', hasSubmenu: true),
@@ -516,9 +518,11 @@ class _DesktopMainScreenState extends ConsumerState<DesktopMainScreen> with Tick
                         child: Text(
                           _currentRightPanelView == 'downloads'
                               ? 'Downloads'
-                              : _currentRightPanelView == 'preferences'
+                              : (_currentRightPanelView == 'preferences'
                                   ? 'Settings'
-                                  : 'History',
+                                  : (_currentRightPanelView == 'mychannels'
+                                      ? 'My Channels'
+                                      : 'History')),
                           style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                         ),
                       ),
@@ -528,9 +532,11 @@ class _DesktopMainScreenState extends ConsumerState<DesktopMainScreen> with Tick
                 Expanded(
                   child: _currentRightPanelView == 'downloads'
                       ? const DownloadsScreen()
-                      : _currentRightPanelView == 'preferences'
+                      : (_currentRightPanelView == 'preferences'
                           ? const SettingsScreen()
-                          : const HistoryScreen(),
+                          : (_currentRightPanelView == 'mychannels'
+                              ? const UserChannelsScreen()
+                              : const HistoryScreen())),
                 ),
               ]
             ],
