@@ -8,6 +8,8 @@ import '../../services/storage_service.dart';
 import '../../core/widgets/whats_new_dialog.dart';
 import 'android_library_view.dart';
 import 'android_more_screen.dart';
+import 'user_channels_provider.dart';
+import 'user_channels_home_screen.dart';
 
 class AndroidMainScreen extends ConsumerStatefulWidget {
   const AndroidMainScreen({super.key});
@@ -29,6 +31,14 @@ class _AndroidMainScreenState extends ConsumerState<AndroidMainScreen> with Widg
       _checkUpdatesSilently();
       ref.read(permissionServiceProvider).requestAllImportantPermissions();
       _showWhatsNewIfNeeded();
+    });
+
+    // Default to "My Channels" tab if user has channels
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final userChannels = ref.read(userChannelsProvider);
+      if (userChannels.isNotEmpty && _currentIndex == 0) {
+        // Already at index 0, which is now "My Channels" — that's correct
+      }
     });
   }
 
@@ -67,15 +77,61 @@ class _AndroidMainScreenState extends ConsumerState<AndroidMainScreen> with Widg
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final userChannels = ref.watch(userChannelsProvider);
+    final hasUserChannels = userChannels.isNotEmpty;
+
+    // Build the list of screens and destinations dynamically
+    final screens = <Widget>[];
+    final destinations = <NavigationDestination>[];
+
+    if (hasUserChannels) {
+      screens.add(UserChannelsHomeScreen(isActive: _currentIndex == 0));
+      destinations.add(const NavigationDestination(
+        icon: Icon(Icons.playlist_play_outlined),
+        selectedIcon: Icon(Icons.playlist_play),
+        label: 'My Channels',
+      ));
+    }
+
+    final animeIndex = screens.length;
+    screens.add(AndroidLibraryView(category: Constants.categories[0], isActive: _currentIndex == animeIndex));
+    destinations.add(const NavigationDestination(
+      icon: Icon(Icons.tv_outlined),
+      selectedIcon: Icon(Icons.tv),
+      label: 'Anime',
+    ));
+
+    final moviesIndex = screens.length;
+    screens.add(AndroidLibraryView(category: Constants.categories[1], isActive: _currentIndex == moviesIndex));
+    destinations.add(const NavigationDestination(
+      icon: Icon(Icons.movie_outlined),
+      selectedIcon: Icon(Icons.movie),
+      label: 'Movies',
+    ));
+
+    final webSeriesIndex = screens.length;
+    screens.add(AndroidLibraryView(category: Constants.categories[2], isActive: _currentIndex == webSeriesIndex));
+    destinations.add(const NavigationDestination(
+      icon: Icon(Icons.video_collection_outlined),
+      selectedIcon: Icon(Icons.video_collection),
+      label: 'Web Series',
+    ));
+
+    screens.add(const AndroidMoreScreen());
+    destinations.add(const NavigationDestination(
+      icon: Icon(Icons.more_horiz_outlined),
+      selectedIcon: Icon(Icons.more_horiz),
+      label: 'More',
+    ));
+
+    // Clamp _currentIndex to valid range
+    if (_currentIndex >= screens.length) {
+      _currentIndex = 0;
+    }
 
     Widget mainBody = IndexedStack(
       index: _currentIndex,
-      children: [
-        AndroidLibraryView(category: Constants.categories[0], isActive: _currentIndex == 0), // Anime
-        AndroidLibraryView(category: Constants.categories[1], isActive: _currentIndex == 1), // Movies
-        AndroidLibraryView(category: Constants.categories[2], isActive: _currentIndex == 2), // Web Series
-        const AndroidMoreScreen(),
-      ],
+      children: screens,
     );
 
     return PopScope(
@@ -95,28 +151,7 @@ class _AndroidMainScreenState extends ConsumerState<AndroidMainScreen> with Widg
               _currentIndex = index;
             });
           },
-          destinations: const [
-            NavigationDestination(
-              icon: Icon(Icons.tv_outlined),
-              selectedIcon: Icon(Icons.tv),
-              label: 'Anime',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.movie_outlined),
-              selectedIcon: Icon(Icons.movie),
-              label: 'Movies',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.video_collection_outlined),
-              selectedIcon: Icon(Icons.video_collection),
-              label: 'Web Series',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.more_horiz_outlined),
-              selectedIcon: Icon(Icons.more_horiz),
-              label: 'More',
-            ),
-          ],
+          destinations: destinations,
         ),
       ),
     );
