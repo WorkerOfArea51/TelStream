@@ -202,7 +202,7 @@ class _DesktopMainScreenState extends ConsumerState<DesktopMainScreen> with Tick
                   ),
                   tooltip: 'Menu',
                   onSelected: (value) async {
-                    if (value == 'downloads' || value == 'history' || value == 'preferences') {
+                    if (value == 'downloads' || value == 'history' || value == 'preferences' || value == 'mychannels') {
                       setState(() {
                         _currentRightPanelView = value;
                         _isRightPanelOpen = true; // Ensure it's open
