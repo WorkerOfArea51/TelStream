@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/constants.dart';
-import '../../core/theme/app_theme.dart';
-import '../../core/widgets/m3_animated_menu_tile.dart';
 import '../home/user_channels_provider.dart';
 
 class UserChannelsScreen extends ConsumerStatefulWidget {
