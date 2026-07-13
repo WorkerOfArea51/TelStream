@@ -783,7 +783,7 @@ class _LibraryGridItemState extends ConsumerState<_LibraryGridItem> {
               // Glassmorphic pill badge for total episodes available
               Positioned(
                 top: 8,
-                left: 8,
+                right: 8,
                 child: Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 8,
@@ -1480,7 +1480,7 @@ class _LibraryCompactItemState extends ConsumerState<_LibraryCompactItem> {
 
               Positioned(
                 top: 6,
-                left: 6,
+                right: 6,
                 child: Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 6,
