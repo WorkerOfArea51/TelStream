@@ -433,8 +433,8 @@ class _AndroidLibraryViewState extends ConsumerState<AndroidLibraryView>
                   _buildContinueWatchingSliver(context, filteredList),
                 SliverPadding(
                   padding: EdgeInsets.only(
-                    left: 12,
-                    right: 12,
+                    left: 16,
+                    right: 16,
                     top: 12,
                     bottom: Platform.isWindows ? 24 : 96,
                   ),
@@ -719,9 +719,9 @@ class _LibraryGridItemState extends ConsumerState<_LibraryGridItem> {
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
               color: theme.colorScheme.onSurface.withValues(
-                alpha: _isTapped ? 0.16 : 0.08,
+                alpha: _isTapped ? 0.25 : 0.15,
               ),
-              width: _isTapped ? 1.5 : 1,
+              width: _isTapped ? 2 : 1.5,
             ),
             boxShadow: [
               // Reduced shadow to prevent overlapping dark spots in grid gaps
@@ -1451,9 +1451,9 @@ class _LibraryCompactItemState extends ConsumerState<_LibraryCompactItem> {
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
               color: theme.colorScheme.onSurface.withValues(
-                alpha: _isTapped ? 0.16 : 0.08,
+                alpha: _isTapped ? 0.25 : 0.15,
               ),
-              width: _isTapped ? 1.5 : 1,
+              width: _isTapped ? 2 : 1.5,
             ),
             boxShadow: [
               // Reduced shadow to prevent overlapping dark spots in grid gaps
