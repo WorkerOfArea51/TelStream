@@ -46,8 +46,14 @@ class _UserChannelsHomeScreenState extends ConsumerState<UserChannelsHomeScreen>
         elevation: 0,
         automaticallyImplyLeading: false,
       ),
-      body: ListView.builder(
+      body: GridView.builder(
         padding: const EdgeInsets.all(16),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          crossAxisSpacing: 12,
+          mainAxisSpacing: 12,
+          childAspectRatio: 1.1,
+        ),
         itemCount: channels.length,
         itemBuilder: (context, index) {
           final channel = channels[index];
@@ -71,29 +77,9 @@ class _UserChannelsHomeScreenState extends ConsumerState<UserChannelsHomeScreen>
 
           return Card(
             color: theme.cardColor,
-            margin: const EdgeInsets.only(bottom: 12),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            child: ListTile(
-              contentPadding: const EdgeInsets.all(16),
-              leading: Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.orange.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(iconData, color: Colors.orange, size: 28),
-              ),
-              title: Text(
-                channel.title,
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-              ),
-              subtitle: Text(
-                channel.inviteLink ?? 'Channel ID: ${channel.channelId}',
-                style: const TextStyle(color: Colors.white54, fontSize: 12),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              trailing: const Icon(Icons.chevron_right, color: Colors.white54),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(12),
               onTap: () {
                 Navigator.push(
                   context,
@@ -105,6 +91,37 @@ class _UserChannelsHomeScreenState extends ConsumerState<UserChannelsHomeScreen>
                   ),
                 );
               },
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Icon(iconData, color: Colors.orange, size: 36),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      channel.title,
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                      maxLines: 2,
+                      textAlign: TextAlign.center,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      channel.inviteLink ?? 'ID: ${channel.channelId}',
+                      style: const TextStyle(color: Colors.white54, fontSize: 11),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
             ),
           );
         },
