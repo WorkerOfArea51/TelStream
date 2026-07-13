@@ -345,7 +345,9 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
           _fetchAndAndUpdateSingleMessage(event.messageId, tdlibService);
         }
       } else if (event is td.UpdateDeleteMessages) {
-        if (event.chatId == category.channelId && !event.fromCache) {
+        // Note: UpdateDeleteMessages does NOT have a chatId field in TDLib.
+        // We must check if any of the deleted message IDs exist in our local cache.
+        if (!event.fromCache) {
           await _mutationLock.synchronized(() async {
             bool changed = false;
             for (final id in event.messageIds) {
