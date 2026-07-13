@@ -15,6 +15,15 @@ class ChannelCategory {
     required this.inviteLink,
     this.isMovie = false,
   });
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ChannelCategory &&
+          channelId == other.channelId;
+
+  @override
+  int get hashCode => channelId.hashCode;
 }
 
 class UserChannel {

@@ -576,6 +576,14 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
       );
     }
     
+    // Ensure TDLib has loaded the chat (needed for user-added channels 
+    // that aren't in the main chat list yet)
+    try {
+      await sendWithTimeout(td.OpenChat(chatId: category.channelId));
+    } catch (_) {
+      // OpenChat may fail if chat is already open — that's OK
+    }
+    
     td.TdObject chatRes = await sendWithTimeout(td.GetChat(chatId: category.channelId));
     if (chatRes is td.TdError) {
       try {
