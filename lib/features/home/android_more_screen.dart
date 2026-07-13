@@ -16,6 +16,7 @@ import 'network_stream_screen.dart';
 import 'downloads_screen.dart';
 import 'global_search_screen.dart';
 import 'airing_calendar_screen.dart';
+import '../settings/user_channels_screen.dart';
 
 class AndroidMoreScreen extends ConsumerStatefulWidget {
   const AndroidMoreScreen({super.key});
@@ -453,6 +454,19 @@ class _AndroidMoreScreenState extends ConsumerState<AndroidMoreScreen>
                     value: isIncognitoMode,
                     onChanged: (val) {
                       ref.read(incognitoModeProvider.notifier).toggle(val);
+                    },
+                  ),
+                ),
+                _buildIndividualBar(
+                  child: M3AnimatedMenuTile(
+                    icon: Icons.playlist_add_rounded,
+                    title: 'My Channels',
+                    subtitle: 'Add your own Telegram channels',
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const UserChannelsScreen()),
+                      );
                     },
                   ),
                 ),
