@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/constants.dart';
 import '../home/user_channels_provider.dart';
+import '../../services/tdlib_service.dart';
+import '../../services/channel_resolver.dart';
 
 class UserChannelsScreen extends ConsumerStatefulWidget {
   const UserChannelsScreen({super.key});
@@ -15,6 +17,13 @@ class _UserChannelsScreenState extends ConsumerState<UserChannelsScreen> {
   final _linkController = TextEditingController();
   String _selectedIcon = 'custom';
   bool _isAdding = false;
+  late final ChannelResolver _resolver;
+
+  @override
+  void initState() {
+    super.initState();
+    _resolver = ChannelResolver(ref.read(tdlibServiceProvider));
+  }
 
   static const _iconOptions = [
     ('custom', Icons.folder_outlined),
@@ -113,20 +122,21 @@ class _UserChannelsScreenState extends ConsumerState<UserChannelsScreen> {
                   : () async {
                       final title = _titleController.text.trim();
                       final link = _linkController.text.trim();
-                      if (title.isEmpty || link.isEmpty) {
+                      if (link.isEmpty) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Please fill in all fields')),
+                          const SnackBar(content: Text('Please provide a link or username')),
                         );
                         return;
                       }
                       setDialogState(() => _isAdding = true);
                       try {
-                        // For now, create a placeholder channel with channelId = 0
-                        // Round 3 will add TDLib validation to resolve the link to a real channelId
+                        final resolved = await _resolver.resolve(link);
+                        final finalTitle = title.isNotEmpty ? title : resolved.title;
+
                         final channel = UserChannel(
                           id: DateTime.now().millisecondsSinceEpoch.toString(),
-                          title: title,
-                          channelId: 0, // Will be resolved in Round 3
+                          title: finalTitle,
+                          channelId: resolved.channelId,
                           inviteLink: link,
                           icon: _selectedIcon,
                           addedAt: DateTime.now(),
@@ -249,9 +259,7 @@ class _UserChannelsScreenState extends ConsumerState<UserChannelsScreen> {
                     ),
                     title: Text(channel.title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                     subtitle: Text(
-                      channel.channelId == 0
-                          ? 'Pending resolution: ${channel.inviteLink ?? 'N/A'}'
-                          : 'ID: ${channel.channelId}',
+                      'ID: ${channel.channelId}',
                       style: const TextStyle(color: Colors.white54, fontSize: 12),
                     ),
                     trailing: IconButton(
