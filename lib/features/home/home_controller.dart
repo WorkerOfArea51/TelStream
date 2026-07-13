@@ -268,7 +268,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
       try {
         final directory = await getAppDirectory();
         for (final cat in Constants.categories) {
-          final cachePath = '${directory.path}/catalog_cache_${cat.title.replaceAll(' ', '_')}.json';
+          final cachePath = '${directory.path}/catalog_cache_${cat.channelId}.json';
           final file = File(cachePath);
           try {
             if (await file.exists()) {
@@ -523,7 +523,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
     // 1. Try loading catalog cache FIRST (instant return, no network or stagger delay)
     try {
       final directory = await getAppDirectory();
-      final cachePath = '${directory.path}/catalog_cache_${category.title.replaceAll(' ', '_')}.json';
+      final cachePath = '${directory.path}/catalog_cache_${category.channelId}.json';
       final file = File(cachePath);
       if (await file.exists()) {
         final content = await file.readAsString();
@@ -562,7 +562,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
     final tdlibService = ref.read(tdlibServiceProvider);
     
     // Stagger startup requests to prevent concurrent connection sessions to TDLib (runs asynchronously)
-    if (category.title == 'Movies') {
+    if (category.isMovie) {
       await Future.delayed(const Duration(milliseconds: 1500));
     } else if (category.title == 'Web Series') {
       await Future.delayed(const Duration(milliseconds: 3000));
@@ -654,7 +654,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
   Future<void> _saveCatalogCache() async {
     try {
       final directory = await getAppDirectory();
-      final cachePath = '${directory.path}/catalog_cache_${category.title.replaceAll(' ', '_')}.json';
+      final cachePath = '${directory.path}/catalog_cache_${category.channelId}.json';
       final file = File(cachePath);
       
       final List<Map<String, dynamic>> jsonList = [];
@@ -676,7 +676,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
 
     // Stagger startup requests to prevent concurrent connection sessions to TDLib (runs asynchronously in background)
     if (!forceDeep) {
-      if (category.title == 'Movies') {
+      if (category.isMovie) {
         await Future.delayed(const Duration(seconds: 3));
       } else if (category.title == 'Web Series') {
         await Future.delayed(const Duration(seconds: 6));
@@ -1052,7 +1052,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
       if (photo.caption.text.isEmpty) return false;
       
       final fullTitle = photo.caption.text.split('\n').first.trim();
-      final isMovie = category.title == 'Movies';
+      final isMovie = category.isMovie;
       final baseName = normalizeSeriesName(fullTitle, isMovie: isMovie);
       
       AnimeSeries? existingSeries;
@@ -1120,14 +1120,14 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
 
   @visibleForTesting
   Future<List<AnimeSeries>> parseMessagesForTesting(List<td.Message> raw) async {
-    return await parseMessagesWithYield(raw, category.title == 'Movies');
+    return await parseMessagesWithYield(raw, category.isMovie);
   }
 
   @visibleForTesting
   Future<List<AnimeSeries>> applySearchAndSortForTesting(List<AnimeSeries> series) => _applySearchAndSort(series);
 
   Future<List<AnimeSeries>> _parseMessages(List<td.Message> raw) async {
-    return await parseMessagesWithYield(raw, category.title == 'Movies');
+    return await parseMessagesWithYield(raw, category.isMovie);
   }
 
   static String getMessageFileName(td.Message msg) {
@@ -1285,7 +1285,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
         }
 
         final title = season.fullTitle;
-        final cleanTitle = normalizeSeriesName(title, isMovie: category.title == 'Movies');
+        final cleanTitle = normalizeSeriesName(title, isMovie: category.isMovie);
         int? fetchedYear;
         
         try {
@@ -1367,7 +1367,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
       final apiKey = Secrets.tmdbApiKey;
       if (apiKey.isNotEmpty && apiKey != 'YOUR_TMDB_API_KEY') {
         final query = Uri.encodeComponent(title);
-        final isMovie = category.title == 'Movies';
+        final isMovie = category.isMovie;
         final path = isMovie ? 'movie' : 'tv';
         final url = 'https://api.themoviedb.org/3/search/$path?api_key=$apiKey&query=$query&page=1';
 
@@ -1448,7 +1448,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
   Future<int?> _fetchMediaReleaseYearFromTraktFallback(String title) async {
     try {
       final query = Uri.encodeComponent(title);
-      final type = category.title == 'Movies' ? 'movie' : 'show';
+      final type = category.isMovie ? 'movie' : 'show';
       final url = 'https://api.trakt.tv/search/$type?query=$query&limit=1';
       
       final headers = {

@@ -7,11 +7,13 @@ class ChannelCategory {
   final String title;
   final int channelId;
   final String inviteLink;
+  final bool isMovie;
   
   const ChannelCategory({
     required this.title,
     required this.channelId,
     required this.inviteLink,
+    this.isMovie = false,
   });
 }
 
@@ -83,16 +85,19 @@ class Constants {
       title: 'Anime',
       channelId: Secrets.animeChannelId,
       inviteLink: Secrets.animeInviteLink,
+      isMovie: false,
     ),
     ChannelCategory(
       title: 'Movies',
       channelId: Secrets.movieChannelId,
       inviteLink: Secrets.movieInviteLink,
+      isMovie: true,
     ),
     ChannelCategory(
       title: 'Web Series',
       channelId: Secrets.webSeriesChannelId,
       inviteLink: Secrets.webSeriesInviteLink,
+      isMovie: false,
     ),
   ];
 }
