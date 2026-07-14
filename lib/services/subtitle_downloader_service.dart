@@ -35,10 +35,28 @@ class SubtitleDownloaderService {
     final provider = settings.preferredSubtitleProvider;
     final storage = _ref.read(storageServiceProvider);
 
+    // Clean the query for better matching
+    String cleanQuery = query;
+    // Remove file extensions
+    cleanQuery = cleanQuery.replaceAll(RegExp(r'\.(mkv|mp4|avi|mov|webm|flv|wmv|ts|m4v)$', caseSensitive: false), '');
+    // Remove common release group tags
+    cleanQuery = cleanQuery.replaceAll(RegExp(r'\[[^\]]*\]'), '');
+    cleanQuery = cleanQuery.replaceAll(RegExp(r'\([^)]*\)'), '');
+    // Remove quality/codec info (1080p, 720p, x264, x265, HEVC, etc.)
+    cleanQuery = cleanQuery.replaceAll(RegExp(r'\b(1080p|720p|480p|2160p|4K|UHD|HDR|BluRay|BRRip|DVDRip|WEBRip|WEB-DL|x264|x265|HEVC|AVC|10bit|10-bit|AAC|AC3|DDP|DDPA|5\.1|7\.1|DS4K|ESub|Org)\b', caseSensitive: false), '');
+    // Remove episode numbering patterns (S01E01, EP01, Episode 1)
+    cleanQuery = cleanQuery.replaceAll(RegExp(r'\b(S\d+E\d+|EP?\s*\d+|Episode\s*\d+)\b', caseSensitive: false), '');
+    // Clean up extra spaces and dashes
+    cleanQuery = cleanQuery.replaceAll(RegExp(r'[\s\-_:]+'), ' ').trim();
+    
+    if (cleanQuery.isEmpty) cleanQuery = query;
+    
+    Log.i('Searching subtitles for: "$cleanQuery" (original: "$query")');
+
     if (provider == 'subdl') {
-      return _searchSubDL(query, lang: lang, apiKey: storage.getSubdlApiKey());
+      return _searchSubDL(cleanQuery, lang: lang, apiKey: storage.getSubdlApiKey());
     } else {
-      return _searchOpenSubtitles(query, lang: lang, apiKey: storage.getOpenSubtitlesApiKey());
+      return _searchOpenSubtitles(cleanQuery, lang: lang, apiKey: storage.getOpenSubtitlesApiKey());
     }
   }
 

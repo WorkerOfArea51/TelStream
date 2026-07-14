@@ -115,11 +115,21 @@ class _SubtitleDownloaderDialogState extends ConsumerState<SubtitleDownloaderDia
                 style: const TextStyle(color: Colors.white, fontSize: 13),
                 items: const [
                   DropdownMenuItem(value: 'eng', child: Text('English')),
+                  DropdownMenuItem(value: 'jpn', child: Text('Japanese')),
+                  DropdownMenuItem(value: 'chi', child: Text('Chinese')),
+                  DropdownMenuItem(value: 'kor', child: Text('Korean')),
+                  DropdownMenuItem(value: 'hin', child: Text('Hindi')),
                   DropdownMenuItem(value: 'spa', child: Text('Spanish')),
                   DropdownMenuItem(value: 'fre', child: Text('French')),
                   DropdownMenuItem(value: 'ger', child: Text('German')),
+                  DropdownMenuItem(value: 'ita', child: Text('Italian')),
+                  DropdownMenuItem(value: 'por', child: Text('Portuguese')),
+                  DropdownMenuItem(value: 'rus', child: Text('Russian')),
+                  DropdownMenuItem(value: 'tur', child: Text('Turkish')),
                   DropdownMenuItem(value: 'ind', child: Text('Indonesian')),
                   DropdownMenuItem(value: 'ara', child: Text('Arabic')),
+                  DropdownMenuItem(value: 'tha', child: Text('Thai')),
+                  DropdownMenuItem(value: 'vie', child: Text('Vietnamese')),
                 ],
                 onChanged: (val) {
                   if (val != null) {
@@ -161,6 +171,51 @@ class _SubtitleDownloaderDialogState extends ConsumerState<SubtitleDownloaderDia
                         }
                       },
                 child: const Icon(Icons.search, color: Colors.black),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          // Auto-download button
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              TextButton.icon(
+                onPressed: _isSearching
+                    ? null
+                    : () async {
+                        setState(() {
+                          _isSearching = true;
+                          _searchResults = [];
+                          _errorMessage = null;
+                        });
+                        try {
+                          final res = await downloader.searchSubtitles(
+                            _queryController.text.trim(),
+                            lang: _selectedLangCode,
+                          );
+                          if (res.isNotEmpty) {
+                            // Auto-download the first result
+                            final path = await downloader.downloadSubtitle(
+                              res.first,
+                            );
+                            if (path != null && mounted) {
+                              Navigator.pop(context, path);
+                            }
+                          } else {
+                            setState(() {
+                              _isSearching = false;
+                              _errorMessage = 'No subtitles found for auto-download.';
+                            });
+                          }
+                        } catch (e) {
+                          setState(() {
+                            _isSearching = false;
+                            _errorMessage = e.toString().replaceAll('HttpException:', '').replaceAll('Exception:', '').trim();
+                          });
+                        }
+                      },
+                icon: const Icon(Icons.auto_awesome, size: 16),
+                label: const Text('Auto-download first', style: TextStyle(fontSize: 12)),
               ),
             ],
           ),
