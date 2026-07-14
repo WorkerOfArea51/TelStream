@@ -428,7 +428,7 @@ class MetadataService {
       final data = jsonDecode(seasonRes.body);
 
       // Also fetch show-level data for fallback fields (genres, content rating)
-      final showUrl = Uri.parse('$_tmdbBaseUrl/tv/$tmdbId?append_to_response=content_ratings$queryParam');
+      final showUrl = Uri.parse('$_tmdbBaseUrl/tv/$tmdbId?append_to_response=content_ratings,recommendations$queryParam');
       final showRes = await http.get(showUrl, headers: authHeaders);
       Map<String, dynamic>? showData;
       if (showRes.statusCode == 200) {
@@ -489,6 +489,22 @@ class MetadataService {
         }
       }
 
+      // Extract recommendations from show-level data
+      List<RelatedContent> recommendations = [];
+      if (showData != null && showData['recommendations'] != null && 
+          showData['recommendations']['results'] != null) {
+        final List recs = showData['recommendations']['results'];
+        for (int i = 0; i < recs.length && i < 10; i++) {
+          final r = recs[i];
+          recommendations.add(RelatedContent(
+            title: r['name'] ?? r['title'] ?? '',
+            posterUrl: r['poster_path'] != null ? 'https://image.tmdb.org/t/p/w500${r['poster_path']}' : '',
+            year: (r['first_air_date'] ?? r['release_date'] ?? '').toString().substring(0, 4),
+            imdbId: '',
+          ));
+        }
+      }
+
       final metadata = SeriesMetadata(
         title: data['name'] ?? '',
         synopsis: overview,
@@ -501,6 +517,7 @@ class MetadataService {
         trailerYoutubeId: trailerId,
         imdbId: imdbId,
         malId: '',
+        recommendations: recommendations,
       );
 
       _cache[cacheKey] = metadata;

@@ -1152,6 +1152,20 @@ class StorageService {
     logs[todayStr] = current + seconds;
     await _save();
   }
+
+  Map<String, dynamic>? getSeasonMetadataCache(String key) {
+    final raw = _data['season_metadata_cache'];
+    if (raw is! Map) return null;
+    final item = raw[key];
+    if (item is! Map) return null;
+    return Map<String, dynamic>.from(item);
+  }
+
+  Future<void> saveSeasonMetadataCache(String key, Map<String, dynamic> metadata) async {
+    _data['season_metadata_cache'] ??= <String, dynamic>{};
+    (_data['season_metadata_cache'] as Map)[key] = metadata;
+    await _save();
+  }
 }
 
 class FavoritesNotifier extends Notifier<List<String>> {

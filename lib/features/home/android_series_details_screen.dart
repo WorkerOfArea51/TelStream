@@ -129,6 +129,23 @@ class _AndroidSeriesDetailsScreenState extends ConsumerState<AndroidSeriesDetail
         });
       }
       
+      // Check local cache first for instant loading
+      final storage = ref.read(storageServiceProvider);
+      final cacheKey = 'season_meta_${widget.series.coreName}_${seasonNumber - 1}';
+      final cachedJson = storage.getSeasonMetadataCache(cacheKey);
+      if (cachedJson != null) {
+        final cachedMeta = SeriesMetadata.fromJson(cachedJson);
+        if (mounted) {
+          setState(() {
+            _currentMetadata = cachedMeta;
+            _metadataCache[seasonNumber - 1] = cachedMeta;
+            _isLoadingMetadata = false;
+          });
+          _initYtController(_currentMetadata);
+        }
+        return;
+      }
+
       final targetId = ids.first;
       final metadataService = MetadataService();
       SeriesMetadata? newMeta;
@@ -233,6 +250,17 @@ class _AndroidSeriesDetailsScreenState extends ConsumerState<AndroidSeriesDetail
         _isLoadingMetadata = false;
         _initYtController(_currentMetadata);
       });
+    }
+
+    // Persist season metadata to storage for instant loading next time
+    if (newMeta != null) {
+      try {
+        final storage = ref.read(storageServiceProvider);
+        final cacheKey = 'season_meta_${widget.series.coreName}_$newIndex';
+        await storage.saveSeasonMetadataCache(cacheKey, newMeta.toJson());
+      } catch (e) {
+        Log.w('Failed to cache season metadata: $e');
+      }
     }
   }
 
