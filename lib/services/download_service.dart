@@ -335,6 +335,16 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
               };
             }
             _updateNativeNotification(fileId, task.title, progress, isPaused: false);
+
+            // Check for stuck downloads (0% progress for 60+ seconds)
+            if (!task.isPaused && !task.isCompleted && 
+                task.progress == 0.0 && task.speedBytesPerSecond == 0.0) {
+              final lastUpdate = _lastUpdateTimes[fileId] ?? 0;
+              if (now - lastUpdate > 60000) {
+                Log.w('Download stuck for 60s, retrying: ${task.title}');
+                _retryFailedDownload(fileId, task.title);
+              }
+            }
           }
         }
       }
@@ -766,45 +776,60 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
     Log.i('Paused all active downloads');
   }
 
+  // Auto-retry on download failure
+  void _retryFailedDownload(int fileId, String title, {int attempt = 1}) async {
+    if (attempt > 3) {
+      Log.e('Download retry failed after 3 attempts: $title (ID: $fileId)');
+      state = {
+        ...state,
+        fileId: (state[fileId] ?? DownloadTask(
+          fileId: fileId, title: title, progress: 0.0,
+          isCompleted: false, isPaused: true, isQueued: false,
+          isScheduled: false, speedBytesPerSecond: 0.0, etaSeconds: 0,
+          localPath: null,
+        )).copyWith(
+          isPaused: true,
+          speedBytesPerSecond: 0.0,
+        ),
+      };
+      _updateNativeNotification(fileId, title, 0.0, isPaused: true);
+      return;
+    }
+
+    Log.w('Retrying download: $title (attempt $attempt/3)');
+    await Future.delayed(Duration(seconds: 2 * attempt));
+    
+    final task = state[fileId];
+    if (task == null || task.isCompleted || task.isPaused) return;
+    
+    ref.read(tdlibServiceProvider).send(td.DownloadFile(
+      fileId: fileId,
+      priority: 1,
+      offset: 0,
+      limit: 0,
+      synchronous: false,
+    ));
+  }
+
   Future<void> resumeAllDownloads() async {
     final tdlib = ref.read(tdlibServiceProvider);
     final pausedTasks = state.entries
         .where((e) => e.value.isPaused && !e.value.isCompleted)
         .toList();
 
+    // Mark all as un-paused and QUEUED (not active yet)
     state = state.map((fileId, task) {
       if (task.isPaused && !task.isCompleted) {
-        final willBeQueued = _activeDownloadCount >= _maxConcurrentDownloads;
         return MapEntry(fileId, task.copyWith(
           isPaused: false,
-          isQueued: willBeQueued,
+          isQueued: true,
         ));
       }
       return MapEntry(fileId, task);
     });
 
-    // Start downloads up to max concurrent
-    final activeCount = state.values.where((t) => 
-        !t.isPaused && !t.isCompleted && !t.isQueued && !t.isScheduled).length;
-    final toStart = state.entries.where((e) => 
-        e.value.isQueued && !e.value.isPaused).take(_maxConcurrentDownloads - activeCount);
-
-    for (final entry in toStart) {
-      final task = state[entry.key];
-      if (task != null) {
-        state = {
-          ...state,
-          entry.key: task.copyWith(isQueued: false),
-        };
-        tdlib.send(td.DownloadFile(
-          fileId: entry.key,
-          priority: 1,
-          offset: 0,
-          limit: 0,
-          synchronous: false,
-        ));
-      }
-    }
+    // Let _processQueue handle starting the right number
+    _processQueue();
     _updatePwmState();
     Log.i('Resumed all paused downloads');
   }
