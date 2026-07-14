@@ -196,7 +196,9 @@ class _SubtitleDownloaderDialogState extends ConsumerState<SubtitleDownloaderDia
                           if (res.isNotEmpty) {
                             // Auto-download the first result
                             final path = await downloader.downloadSubtitle(
-                              res.first,
+                              res.first.downloadUrl,
+                              res.first.fileName,
+                              subtitleId: res.first.id,
                             );
                             if (path != null && mounted) {
                               Navigator.pop(context, path);
