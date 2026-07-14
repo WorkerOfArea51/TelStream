@@ -116,6 +116,12 @@ class _AndroidSeriesDetailsScreenState extends ConsumerState<AndroidSeriesDetail
     
     if (overrideStr != null && overrideStr.isNotEmpty) {
       final ids = overrideStr.split(',');
+      
+      final currentSeasonIndex = widget.series.seasons.indexWhere(
+        (s) => s.seasonName == currentSeason,
+      );
+      final seasonNumber = currentSeasonIndex >= 0 ? currentSeasonIndex + 1 : 1;
+
       if (mounted) {
         setState(() {
           _overrideIds = ids;
@@ -127,7 +133,7 @@ class _AndroidSeriesDetailsScreenState extends ConsumerState<AndroidSeriesDetail
       final metadataService = MetadataService();
       SeriesMetadata? newMeta;
       if (targetId.startsWith('tt')) {
-        newMeta = await metadataService.fetchTmdbByImdbId(targetId);
+        newMeta = await metadataService.fetchTmdbSeasonByImdbId(targetId, seasonNumber);
       } else {
         newMeta = await metadataService.fetchJikanByMalId(targetId);
       }
@@ -208,7 +214,9 @@ class _AndroidSeriesDetailsScreenState extends ConsumerState<AndroidSeriesDetail
     SeriesMetadata? newMeta;
     final metadataService = MetadataService();
     if (targetId.startsWith('tt')) {
-      newMeta = await metadataService.fetchTmdbByImdbId(targetId);
+      // Fetch season-specific metadata from TMDB
+      // Season numbers are 1-indexed (index 0 = Season 1)
+      newMeta = await metadataService.fetchTmdbSeasonByImdbId(targetId, newIndex + 1);
     } else {
       newMeta = await metadataService.fetchJikanByMalId(targetId);
     }

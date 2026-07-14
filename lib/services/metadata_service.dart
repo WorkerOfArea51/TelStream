@@ -380,6 +380,138 @@ class MetadataService {
     }
   }
 
+  /// Fetches season-specific metadata from TMDB.
+  /// Uses the show's IMDB ID to find the TMDB ID, then fetches
+  /// /tv/{tmdb_id}/season/{seasonNumber} for season-specific data.
+  Future<SeriesMetadata?> fetchTmdbSeasonByImdbId(String imdbId, int seasonNumber) async {
+    final cacheKey = '${imdbId}_season_$seasonNumber';
+    if (_cache.containsKey(cacheKey)) return _cache[cacheKey];
+    
+    if (Constants.tmdbApiKey == 'YOUR_TMDB_API_KEY' || Constants.tmdbApiKey.isEmpty) {
+      Log.e('TMDB API Key is missing. Cannot fetch season metadata.');
+      return null;
+    }
+
+    try {
+      final isJwt = Constants.tmdbApiKey.length > 50;
+      final authHeaders = isJwt 
+          ? {'Authorization': 'Bearer ${Constants.tmdbApiKey}', 'Accept': 'application/json'} 
+          : {'Accept': 'application/json'};
+      final queryParam = isJwt ? '' : '&api_key=${Constants.tmdbApiKey}';
+
+      // Step 1: Find TMDB ID from IMDB ID
+      final findUrl = Uri.parse('$_tmdbBaseUrl/find/$imdbId?external_source=imdb_id$queryParam');
+      final findRes = await http.get(findUrl, headers: authHeaders);
+      if (findRes.statusCode != 200) {
+        Log.e('TMDB Find API failed with status ${findRes.statusCode}');
+        return null;
+      }
+
+      final findData = jsonDecode(findRes.body);
+      int? tmdbId;
+
+      if (findData['tv_results'] != null && findData['tv_results'].isNotEmpty) {
+        tmdbId = findData['tv_results'][0]['id'];
+      } else {
+        return null;
+      }
+
+      // Step 2: Fetch season-specific details
+      final seasonUrl = Uri.parse('$_tmdbBaseUrl/tv/$tmdbId/season/$seasonNumber?append_to_response=credits,images,videos$queryParam');
+      final seasonRes = await http.get(seasonUrl, headers: authHeaders);
+      if (seasonRes.statusCode != 200) {
+        Log.e('TMDB Season API failed with status ${seasonRes.statusCode}');
+        // Fallback to show-level metadata
+        return await fetchTmdbByImdbId(imdbId);
+      }
+
+      final data = jsonDecode(seasonRes.body);
+
+      // Also fetch show-level data for fallback fields (genres, content rating)
+      final showUrl = Uri.parse('$_tmdbBaseUrl/tv/$tmdbId?append_to_response=content_ratings$queryParam');
+      final showRes = await http.get(showUrl, headers: authHeaders);
+      Map<String, dynamic>? showData;
+      if (showRes.statusCode == 200) {
+        showData = jsonDecode(showRes.body);
+      }
+
+      // Extract season-specific data
+      String posterPath = data['poster_path'] ?? '';
+      String backdropPath = (data['images']?['backdrops']?.isNotEmpty ?? false) 
+          ? (data['images']['backdrops'][0]['file_path'] ?? '') 
+          : '';
+      
+      String overview = data['overview'] ?? '';
+      if (overview.isEmpty && showData != null) {
+        overview = showData['overview'] ?? '';
+      }
+
+      String airDate = data['air_date'] ?? '';
+      String releaseYear = airDate.isNotEmpty ? airDate.substring(0, 4) : '';
+
+      // Extract trailer
+      String trailerId = '';
+      if (data['videos'] != null && data['videos']['results'] != null) {
+        final List videos = data['videos']['results'];
+        final trailer = videos.firstWhere(
+          (v) => v['site'] == 'YouTube' && v['type'] == 'Trailer',
+          orElse: () => videos.isNotEmpty ? videos.first : null,
+        );
+        if (trailer != null) {
+          trailerId = trailer['key'] ?? '';
+        }
+      }
+
+      // Extract cast from season credits
+      List<String> castList = [];
+      if (data['credits'] != null && data['credits']['cast'] != null) {
+        final List cast = data['credits']['cast'];
+        for (int i = 0; i < cast.length && i < 15; i++) {
+          castList.add(cast[i]['name'] ?? '');
+        }
+      }
+
+      // Extract genres from show-level data (seasons don't have genres)
+      List<String> genres = [];
+      if (showData != null && showData['genres'] != null) {
+        for (final g in showData['genres']) {
+          genres.add(g['name'] ?? '');
+        }
+      }
+
+      // Extract maturity rating from show-level data
+      String maturityRating = '';
+      if (showData != null && showData['content_ratings'] != null && 
+          showData['content_ratings']['results'] != null) {
+        final List ratings = showData['content_ratings']['results'];
+        if (ratings.isNotEmpty) {
+          maturityRating = ratings[0]['rating'] ?? '';
+        }
+      }
+
+      final metadata = SeriesMetadata(
+        title: data['name'] ?? '',
+        synopsis: overview,
+        posterUrl: posterPath.isNotEmpty ? 'https://image.tmdb.org/t/p/w500$posterPath' : '',
+        backdropUrl: backdropPath.isNotEmpty ? 'https://image.tmdb.org/t/p/original$backdropPath' : '',
+        releaseYear: releaseYear,
+        genres: genres,
+        cast: castList.join(', '),
+        maturityRating: maturityRating,
+        trailerYoutubeId: trailerId,
+        imdbId: imdbId,
+        malId: '',
+      );
+
+      _cache[cacheKey] = metadata;
+      return metadata;
+    } catch (e, stackTrace) {
+      Log.e('Error fetching TMDB season metadata for $imdbId season $seasonNumber', e, stackTrace);
+      // Fallback to show-level metadata
+      return await fetchTmdbByImdbId(imdbId);
+    }
+  }
+
   Future<SeriesMetadata?> fetchJikanByMalId(String malId) async {
     if (_cache.containsKey(malId)) return _cache[malId];
     
