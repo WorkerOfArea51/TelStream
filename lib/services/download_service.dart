@@ -355,9 +355,17 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
     _connectivitySubscription?.cancel();
     _connectivitySubscription = Connectivity().onConnectivityChanged.listen((results) {
       final hasConnection = results.any((result) => result != ConnectivityResult.none);
+      final isOnWifi = results.any((result) => result == ConnectivityResult.wifi);
+      final settings = ref.read(videoSettingsProvider);
+      
       if (hasConnection) {
-        Log.i('Network connectivity restored: Auto-resuming active download queue.');
-        resumeActiveQueueDownloads();
+        if (settings.wifiOnlyDownloads && !isOnWifi) {
+          Log.i('Network restored but on cellular — WiFi-only mode active, pausing downloads.');
+          pauseAllDownloads();
+        } else {
+          Log.i('Network connectivity restored: Auto-resuming active download queue.');
+          resumeActiveQueueDownloads();
+        }
       }
     });
   }

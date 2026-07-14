@@ -39,6 +39,39 @@ class VideoSettings {
   final double subtitleFontSize;
   final String subtitleColor;
   final double subtitleDelay;
+  final bool autoplayNextVideo;
+  final bool volumeNormalization;
+  final bool pitchCorrection;
+  final String seekbarStyle;
+  final bool dynamicSpeedOverlay;
+  final bool horizontalSwipeToSeek;
+  final bool volumeGestures;
+  final bool brightnessGestures;
+  final bool pinchToZoom;
+  final int cacheLimitMb;
+  final int cacheTtlDays;
+  final String streamingProfile;
+  final String leftSwipeGesture;
+  final String rightSwipeGesture;
+  final bool downloadSchedulerEnabled;
+  final int downloadStartHour;
+  final int downloadEndHour;
+  final String subtitleRendererMode;
+  final bool dynamicRangeCompression;
+  final bool equalizerEnabled;
+  final List<double> equalizerBands;
+  final String equalizerPreset;
+  final double longPressSpeed;
+  final String gestureSensitivity;
+  final String animeLayout;
+  final String moviesLayout;
+  final String webSeriesLayout;
+  final String preferredSubtitleProvider;
+  final String customMpvOptions;
+  final bool showStatsForNerds;
+  final double subtitleFontSize;
+  final String subtitleColor;
+  final double subtitleDelay;
   final String subtitleFont;
   final String downloadSpeedLimit;
   final String progressSyncMode;
@@ -46,6 +79,7 @@ class VideoSettings {
   final double subtitleHorizontalOffset;
   final bool rememberSpeed;
   final bool longPressVibration;
+  final bool wifiOnlyDownloads;
 
   const VideoSettings({
     this.doubleTapSeekDuration = 10,
@@ -90,6 +124,7 @@ class VideoSettings {
     this.subtitleHorizontalOffset = 0.0,
     this.rememberSpeed = false,
     this.longPressVibration = true,
+    this.wifiOnlyDownloads = false,
   });
 
   String getLayoutForCategory(String categoryTitle) {
@@ -161,6 +196,7 @@ class VideoSettings {
     double? subtitleHorizontalOffset,
     bool? rememberSpeed,
     bool? longPressVibration,
+    bool? wifiOnlyDownloads,
   }) {
     return VideoSettings(
       doubleTapSeekDuration: doubleTapSeekDuration ?? this.doubleTapSeekDuration,
@@ -205,6 +241,7 @@ class VideoSettings {
       subtitleHorizontalOffset: subtitleHorizontalOffset ?? this.subtitleHorizontalOffset,
       rememberSpeed: rememberSpeed ?? this.rememberSpeed,
       longPressVibration: longPressVibration ?? this.longPressVibration,
+      wifiOnlyDownloads: wifiOnlyDownloads ?? this.wifiOnlyDownloads,
     );
   }
 
@@ -252,6 +289,7 @@ class VideoSettings {
       'subtitleHorizontalOffset': subtitleHorizontalOffset,
       'rememberSpeed': rememberSpeed,
       'longPressVibration': longPressVibration,
+      'wifiOnlyDownloads': wifiOnlyDownloads,
     };
   }
 
@@ -299,6 +337,7 @@ class VideoSettings {
       subtitleHorizontalOffset: (json['subtitleHorizontalOffset'] as num?)?.toDouble() ?? 0.0,
       rememberSpeed: json['rememberSpeed'] ?? false,
       longPressVibration: json['longPressVibration'] ?? true,
+      wifiOnlyDownloads: json['wifiOnlyDownloads'] as bool? ?? false,
     );
   }
 
@@ -347,12 +386,13 @@ class VideoSettings {
       other.subtitleBottomMargin == subtitleBottomMargin &&
       other.subtitleHorizontalOffset == subtitleHorizontalOffset &&
       other.rememberSpeed == rememberSpeed &&
-      other.longPressVibration == longPressVibration;
+      other.longPressVibration == longPressVibration &&
+      other.wifiOnlyDownloads == wifiOnlyDownloads;
   }
 
   @override
   int get hashCode {
-    return Object.hashAll([doubleTapSeekDuration, savePositionOnQuit, autoplayNextVideo, volumeNormalization, pitchCorrection, seekbarStyle, dynamicSpeedOverlay, horizontalSwipeToSeek, volumeGestures, brightnessGestures, pinchToZoom, cacheLimitMb, cacheTtlDays, streamingProfile, leftSwipeGesture, rightSwipeGesture, downloadSchedulerEnabled, downloadStartHour, downloadEndHour, subtitleRendererMode, dynamicRangeCompression, equalizerEnabled, equalizerBands, equalizerPreset, longPressSpeed, gestureSensitivity, animeLayout, moviesLayout, webSeriesLayout, preferredSubtitleProvider, customMpvOptions, showStatsForNerds, subtitleFontSize, subtitleColor, subtitleDelay, subtitleFont, downloadSpeedLimit, progressSyncMode, subtitleBottomMargin, subtitleHorizontalOffset, rememberSpeed, longPressVibration, ]);
+    return Object.hashAll([doubleTapSeekDuration, savePositionOnQuit, autoplayNextVideo, volumeNormalization, pitchCorrection, seekbarStyle, dynamicSpeedOverlay, horizontalSwipeToSeek, volumeGestures, brightnessGestures, pinchToZoom, cacheLimitMb, cacheTtlDays, streamingProfile, leftSwipeGesture, rightSwipeGesture, downloadSchedulerEnabled, downloadStartHour, downloadEndHour, subtitleRendererMode, dynamicRangeCompression, equalizerEnabled, equalizerBands, equalizerPreset, longPressSpeed, gestureSensitivity, animeLayout, moviesLayout, webSeriesLayout, preferredSubtitleProvider, customMpvOptions, showStatsForNerds, subtitleFontSize, subtitleColor, subtitleDelay, subtitleFont, downloadSpeedLimit, progressSyncMode, subtitleBottomMargin, subtitleHorizontalOffset, rememberSpeed, longPressVibration, wifiOnlyDownloads, ]);
   }
 }
 

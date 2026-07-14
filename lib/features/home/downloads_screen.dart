@@ -387,6 +387,36 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> with SingleTi
                   ],
                 ),
               ),
+              // WiFi-only mode toggle
+              Container(
+                margin: const EdgeInsets.symmetric(horizontal: 16),
+                child: Card(
+                  color: theme.cardColor,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  child: SwitchListTile(
+                    title: const Text('WiFi Only Downloads'),
+                    subtitle: const Text(
+                      'Pause downloads when on cellular data',
+                      style: TextStyle(fontSize: 12),
+                    ),
+                    secondary: Icon(
+                      settings.wifiOnlyDownloads ? Icons.wifi : Icons.signal_cellular_alt,
+                      color: settings.wifiOnlyDownloads ? Colors.green : Colors.orange,
+                    ),
+                    value: settings.wifiOnlyDownloads,
+                    onChanged: (value) {
+                      ref.read(videoSettingsProvider.notifier).updateSettings(
+                        settings.copyWith(wifiOnlyDownloads: value),
+                      );
+                      if (!value) {
+                        // If turned off, resume downloads
+                        ref.read(downloadControllerProvider.notifier).resumeActiveQueueDownloads();
+                      }
+                    },
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
               Expanded(
                 child: activeDownloads.isEmpty
                     ? Center(
