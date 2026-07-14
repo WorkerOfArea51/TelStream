@@ -35,6 +35,8 @@
 *   💾 **Smart Cache Controller**: An in-app storage optimizer that lets you sweep and purge cached media to prevent local storage bloat.
 *   ⭐ **Favorites Management**: Save channels, chats, and specific episodes/videos to your favorites list for quick access.
 *   ⚙️ **Modern Slate UI**: Responsive dark theme with a clean interface tailored for video browsing and media playback.
+*   📡 **Dynamic Metadata Fetching**: Automatically resolves season-specific TMDB metadata (posters, cast, plot, and recommendations) for accurate UI rendering.
+*   ⚡ **Persistent Metadata Caching**: Optimized instant loading utilizing local secure caching for season metadata.
 
 ---
 
