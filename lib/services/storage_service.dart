@@ -1166,6 +1166,12 @@ class StorageService {
     (_data['season_metadata_cache'] as Map)[key] = metadata;
     await _save();
   }
+
+  Future<void> clearSeasonMetadataCache() async {
+    _data['season_metadata_cache'] = <String, dynamic>{};
+    await _save();
+    Log.i('Cleared all season metadata cache');
+  }
 }
 
 class FavoritesNotifier extends Notifier<List<String>> {

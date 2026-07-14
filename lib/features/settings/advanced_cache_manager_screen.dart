@@ -416,6 +416,54 @@ class _AdvancedCacheManagerScreenState extends ConsumerState<AdvancedCacheManage
     }
   }
 
+  Future<void> _clearSeasonMetadataCache() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Clear Season Metadata?'),
+        content: const Text(
+          'This will delete all cached season metadata (posters, cast, plot). '
+          'The app will re-fetch from TMDB next time you open each season. '
+          'Your settings and watch history will NOT be affected.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Clear'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      try {
+        final storage = ref.read(storageServiceProvider);
+        await storage.clearSeasonMetadataCache();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Season metadata cache cleared.'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to clear cache: $e'),
+              backgroundColor: Colors.redAccent,
+            ),
+          );
+        }
+      }
+    }
+  }
+
   Future<void> _compactDatabaseAction() async {
     final theme = Theme.of(context);
     final confirmed = await showDialog<bool>(
@@ -622,6 +670,24 @@ class _AdvancedCacheManagerScreenState extends ConsumerState<AdvancedCacheManage
                         icon: const Icon(Icons.delete_sweep, color: Colors.redAccent),
                         onPressed: _clearMetadataCacheAction,
                       ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 12),
+                  Card(
+                    color: theme.cardColor,
+                    margin: const EdgeInsets.only(bottom: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    child: ListTile(
+                      leading: const Icon(Icons.movie_filter_outlined, color: Colors.orange),
+                      title: const Text('Clear Season Metadata Cache'),
+                      subtitle: const Text(
+                        'Delete cached season posters, cast, and plot info. '
+                        'App will re-fetch from TMDB on next visit.',
+                        style: TextStyle(fontSize: 12),
+                      ),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: _clearSeasonMetadataCache,
                     ),
                   ),
 

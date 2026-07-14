@@ -229,6 +229,25 @@ class _AndroidSeriesDetailsScreenState extends ConsumerState<AndroidSeriesDetail
       _trailerPlaying = false;
     });
 
+    // Check persistent cache first for instant season switching
+    final storage = ref.read(storageServiceProvider);
+    final cacheKey = 'season_meta_${widget.series.coreName}_$newIndex';
+    final cachedJson = storage.getSeasonMetadataCache(cacheKey);
+    if (cachedJson != null) {
+      final cachedMeta = SeriesMetadata.fromJson(cachedJson);
+      if (mounted) {
+        setState(() {
+          _selectedSeasonIndex = newIndex;
+          _currentMetadata = cachedMeta;
+          _metadataCache[newIndex] = cachedMeta;
+          _isLoadingMetadata = false;
+          _trailerPlaying = false;
+        });
+        _initYtController(_currentMetadata);
+      }
+      return;
+    }
+
     SeriesMetadata? newMeta;
     final metadataService = MetadataService();
     if (targetId.startsWith('tt')) {

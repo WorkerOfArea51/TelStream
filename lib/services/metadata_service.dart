@@ -428,7 +428,7 @@ class MetadataService {
       final data = jsonDecode(seasonRes.body);
 
       // Also fetch show-level data for fallback fields (genres, content rating)
-      final showUrl = Uri.parse('$_tmdbBaseUrl/tv/$tmdbId?append_to_response=content_ratings,recommendations$queryParam');
+      final showUrl = Uri.parse('$_tmdbBaseUrl/tv/$tmdbId?append_to_response=content_ratings,recommendations,credits,videos$queryParam');
       final showRes = await http.get(showUrl, headers: authHeaders);
       Map<String, dynamic>? showData;
       if (showRes.statusCode == 200) {
@@ -505,6 +505,60 @@ class MetadataService {
         }
       }
 
+      // Extract director and writers from show-level credits
+      String director = '';
+      List<String> writers = [];
+      if (showData != null && showData['credits'] != null) {
+        final credits = showData['credits'];
+        if (credits['crew'] != null) {
+          for (final crew in credits['crew']) {
+            final job = crew['job'] ?? '';
+            if (job == 'Director' && director.isEmpty) {
+              director = crew['name'] ?? '';
+            }
+            if (job == 'Writer' || job == 'Screenplay' || job == 'Story') {
+              final name = crew['name'] ?? '';
+              if (name.isNotEmpty && !writers.contains(name)) {
+                writers.add(name);
+              }
+            }
+          }
+        }
+      }
+
+      // Extract status, runtime, episodes count from show-level data
+      String status = showData?['status'] ?? '';
+      String runtime = '';
+      if (showData != null) {
+        final numSeasons = showData['number_of_seasons'] ?? 0;
+        final numEpisodes = showData['number_of_episodes'] ?? 0;
+        if (numSeasons > 0 && numEpisodes > 0) {
+          runtime = '$numSeasons Seasons, $numEpisodes Episodes';
+        }
+      }
+      
+      // Episode count for this season
+      String episodesCount = '';
+      if (data['episodes'] != null) {
+        final episodeList = data['episodes'] as List;
+        episodesCount = '${episodeList.length} Episodes';
+      }
+
+      // Extract user score from show-level data
+      String userScore = '';
+      if (showData != null && showData['vote_average'] != null) {
+        final score = (showData['vote_average'] as num).toDouble();
+        if (score > 0) {
+          userScore = '${score.toStringAsFixed(1)}/10';
+        }
+      }
+
+      // Extract air dates
+      String airedDates = '';
+      if (data['air_date'] != null) {
+        airedDates = data['air_date'];
+      }
+
       final metadata = SeriesMetadata(
         title: data['name'] ?? '',
         synopsis: overview,
@@ -513,11 +567,19 @@ class MetadataService {
         releaseYear: releaseYear,
         genres: genres,
         cast: castList.join(', '),
+        director: director,
+        writers: writers.join(', '),
+        status: status,
+        runtime: runtime,
+        episodesCount: episodesCount,
+        userScore: userScore,
         maturityRating: maturityRating,
         trailerYoutubeId: trailerId,
         imdbId: imdbId,
         malId: '',
         recommendations: recommendations,
+        rank: '',
+        airedDates: airedDates,
       );
 
       _cache[cacheKey] = metadata;
