@@ -447,7 +447,7 @@ class _DesktopMainScreenState extends ConsumerState<DesktopMainScreen> with Tick
                       child: AndroidSeriesDetailsScreen(
                         key: ValueKey(selectedSeries.coreName),
                         series: selectedSeries,
-                        categoryTitle: widget.currentCategory ?? 'Anime',
+                        categoryTitle: 'Anime',
                         metadata: meta,
                         overrideIds: overrideIds,
                         preloadedMetadata: preloadedMetadata,
