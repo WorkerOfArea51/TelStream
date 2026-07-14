@@ -656,6 +656,38 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
     _updatePwmState();
   }
 
+  Future<void> startBatchDownload(List<int> fileIds, List<String> titles, List<int> messageIds, List<int> chatIds) async {
+    int started = 0;
+    for (int i = 0; i < fileIds.length; i++) {
+      final fileId = fileIds[i];
+      if (state.containsKey(fileId) && state[fileId]!.isCompleted) {
+        continue; // Skip already downloaded
+      }
+      if (started >= _maxConcurrentDownloads) {
+        // Queue the rest — they'll start automatically as current ones finish
+        state = {
+          ...state,
+          fileId: DownloadTask(
+            fileId: fileId,
+            title: titles[i],
+            progress: 0.0,
+            isCompleted: false,
+            isPaused: false,
+            isQueued: true,
+            isScheduled: false,
+            speedBytesPerSecond: 0.0,
+            etaSeconds: 0,
+            localPath: null,
+          ),
+        };
+      } else {
+        await startDownload(fileId, titles[i], messageId: messageIds[i], chatId: chatIds[i]);
+        started++;
+      }
+    }
+    Log.i('Batch download: started $started, queued ${fileIds.length - started}');
+  }
+
   Future<void> pauseDownload(int fileId) async {
     final task = state[fileId];
     if (task == null || task.isPaused) return;

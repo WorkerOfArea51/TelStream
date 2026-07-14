@@ -127,6 +127,66 @@ class _AndroidEpisodeListScreenState extends ConsumerState<AndroidEpisodeListScr
     }
   }
 
+  Future<void> _downloadAllEpisodes(AnimeSeason season) async {
+    final fileIds = <int>[];
+    final titles = <String>[];
+    final messageIds = <int>[];
+    final chatIds = <int>[];
+
+    for (final msg in season.episodes) {
+      final fileId = _extractFileId(msg);
+      if (fileId != null && fileId != 0) {
+        final title = HomeController.getMessageFileName(msg)
+            .replaceAll('_', ' ')
+            .replaceAll(RegExp(r'\.(mkv|mp4|avi|mov|webm|flv|wmv|ts|m4v|3gp)$', caseSensitive: false), '')
+            .trim();
+        fileIds.add(fileId);
+        titles.add(title.isNotEmpty ? title : 'Episode ${msg.id}');
+        messageIds.add(msg.id);
+        chatIds.add(msg.chatId);
+      }
+    }
+
+    if (fileIds.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No downloadable episodes found.')),
+      );
+      return;
+    }
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Download All?'),
+        content: Text('This will download ${fileIds.length} episodes. '
+            'Up to 3 will download simultaneously, the rest will be queued.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Download All'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      await ref.read(downloadControllerProvider.notifier)
+          .startBatchDownload(fileIds, titles, messageIds, chatIds);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Started batch download for ${fileIds.length} episodes'),
+            backgroundColor: Theme.of(context).primaryColor,
+          ),
+        );
+      }
+    }
+  }
+
   Future<void> _loadEpisodesDynamically() async {
     if (!mounted) return;
     setState(() {
@@ -648,6 +708,24 @@ class _AndroidEpisodeListScreenState extends ConsumerState<AndroidEpisodeListScr
                   ),
                 ),
               ),
+              // Download All button
+              if (selectedSeason.episodes.isNotEmpty)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    child: SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.icon(
+                        onPressed: () => _downloadAllEpisodes(selectedSeason),
+                        icon: const Icon(Icons.download_for_offline_outlined),
+                        label: Text('Download All (${selectedSeason.episodes.length} Episodes)'),
+                        style: FilledButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
             if (_isLoadingEpisodes)
               SliverPadding(
                 padding: const EdgeInsets.all(16),
