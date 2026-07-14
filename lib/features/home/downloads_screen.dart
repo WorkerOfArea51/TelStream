@@ -188,6 +188,38 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> with SingleTi
           ),
         ),
         iconTheme: IconThemeData(color: isDark ? Colors.white : Colors.black87),
+        actions: [
+          // Pause All button
+          if (activeDownloads.any((e) => !e.value.isPaused && !e.value.isCompleted))
+            IconButton(
+              icon: const Icon(Icons.pause_circle_outline),
+              tooltip: 'Pause All',
+              onPressed: () {
+                ref.read(downloadControllerProvider.notifier).pauseAllDownloads();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('All downloads paused'),
+                    duration: Duration(seconds: 2),
+                  ),
+                );
+              },
+            ),
+          // Resume All button
+          if (activeDownloads.any((e) => e.value.isPaused))
+            IconButton(
+              icon: const Icon(Icons.play_circle_outline),
+              tooltip: 'Resume All',
+              onPressed: () {
+                ref.read(downloadControllerProvider.notifier).resumeAllDownloads();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('All downloads resumed'),
+                    duration: Duration(seconds: 2),
+                  ),
+                );
+              },
+            ),
+        ],
         bottom: TabBar(
           controller: _tabController,
           indicatorColor: settingsAccent,

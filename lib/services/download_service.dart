@@ -698,7 +698,75 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
 
     _updateNativeNotification(fileId, task.title, task.progress, isPaused: false);
     _updatePwmState();
+    _updatePwmState();
     _processQueue();
+  }
+
+  Future<void> pauseAllDownloads() async {
+    final tdlib = ref.read(tdlibServiceProvider);
+    for (final entry in state.entries.toList()) {
+      final task = entry.value;
+      if (!task.isPaused && !task.isCompleted && !task.isScheduled) {
+        tdlib.send(td.CancelDownloadFile(
+          fileId: entry.key,
+          onlyIfPending: false,
+        ));
+      }
+    }
+    state = state.map((fileId, task) {
+      if (!task.isPaused && !task.isCompleted) {
+        return MapEntry(fileId, task.copyWith(
+          isPaused: true,
+          speedBytesPerSecond: 0.0,
+        ));
+      }
+      return MapEntry(fileId, task);
+    });
+    _updatePwmState();
+    Log.i('Paused all active downloads');
+  }
+
+  Future<void> resumeAllDownloads() async {
+    final tdlib = ref.read(tdlibServiceProvider);
+    final pausedTasks = state.entries
+        .where((e) => e.value.isPaused && !e.value.isCompleted)
+        .toList();
+
+    state = state.map((fileId, task) {
+      if (task.isPaused && !task.isCompleted) {
+        final willBeQueued = _activeDownloadCount >= _maxConcurrentDownloads;
+        return MapEntry(fileId, task.copyWith(
+          isPaused: false,
+          isQueued: willBeQueued,
+        ));
+      }
+      return MapEntry(fileId, task);
+    });
+
+    // Start downloads up to max concurrent
+    final activeCount = state.values.where((t) => 
+        !t.isPaused && !t.isCompleted && !t.isQueued && !t.isScheduled).length;
+    final toStart = state.entries.where((e) => 
+        e.value.isQueued && !e.value.isPaused).take(_maxConcurrentDownloads - activeCount);
+
+    for (final entry in toStart) {
+      final task = state[entry.key];
+      if (task != null) {
+        state = {
+          ...state,
+          entry.key: task.copyWith(isQueued: false),
+        };
+        tdlib.send(td.DownloadFile(
+          fileId: entry.key,
+          priority: 1,
+          offset: 0,
+          limit: 0,
+          synchronous: false,
+        ));
+      }
+    }
+    _updatePwmState();
+    Log.i('Resumed all paused downloads');
   }
 
   Future<void> cancelDownload(int fileId) async {
