@@ -497,10 +497,10 @@ class MetadataService {
         for (int i = 0; i < recs.length && i < 10; i++) {
           final r = recs[i];
           recommendations.add(RelatedContent(
+            id: r['id'] ?? 0,
             title: r['name'] ?? r['title'] ?? '',
             posterUrl: r['poster_path'] != null ? 'https://image.tmdb.org/t/p/w500${r['poster_path']}' : '',
-            year: (r['first_air_date'] ?? r['release_date'] ?? '').toString().substring(0, 4),
-            imdbId: '',
+            synopsis: r['overview'] ?? '',
           ));
         }
       }

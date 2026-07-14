@@ -11,7 +11,8 @@ import 'android_episode_list_screen.dart';
 import 'home_controller.dart';
 import '../../services/firebase_metadata_service.dart';
 import 'package:url_launcher/url_launcher.dart';
-
+import '../../services/storage_service.dart';
+import '../../core/logger.dart';
 class AndroidSeriesDetailsScreen extends ConsumerStatefulWidget {
   final AnimeSeries series;
   final String categoryTitle;
