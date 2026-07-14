@@ -10,7 +10,7 @@ class WhatsNewDialog extends StatelessWidget {
   static void show(BuildContext context, [String? content]) {
     showDialog(
       context: context,
-      barrierDismissible: false,
+      barrierDismissible: true,
       builder: (context) => WhatsNewDialog(content: content ?? Constants.changelog),
     );
   }

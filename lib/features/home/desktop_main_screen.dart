@@ -429,6 +429,11 @@ class _DesktopMainScreenState extends ConsumerState<DesktopMainScreen> with Tick
                       preloadedMetadata = FirebaseMetadataService.getPreloadedMetadata(selectedSeries.coreName);
                     }
                     
+                    // Also check for season-specific preloaded metadata
+                    if (preloadedMetadata == null || preloadedMetadata.isEmpty) {
+                      preloadedMetadata = FirebaseMetadataService.getPreloadedMetadata('${selectedSeries.coreName}_$currentSeason');
+                    }
+                    
                     SeriesMetadata? meta;
                     List<String>? overrideIds;
                     if (overrideId != null && overrideId.isNotEmpty) {
@@ -442,7 +447,7 @@ class _DesktopMainScreenState extends ConsumerState<DesktopMainScreen> with Tick
                       child: AndroidSeriesDetailsScreen(
                         key: ValueKey(selectedSeries.coreName),
                         series: selectedSeries,
-                        categoryTitle: 'Anime',
+                        categoryTitle: widget.currentCategory ?? 'Anime',
                         metadata: meta,
                         overrideIds: overrideIds,
                         preloadedMetadata: preloadedMetadata,

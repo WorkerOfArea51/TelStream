@@ -37,6 +37,11 @@
 *   ⚙️ **Modern Slate UI**: Responsive dark theme with a clean interface tailored for video browsing and media playback.
 *   📡 **Dynamic Metadata Fetching**: Automatically resolves season-specific TMDB metadata (posters, cast, plot, and recommendations) for accurate UI rendering.
 *   ⚡ **Persistent Metadata Caching**: Optimized instant loading utilizing local secure caching for season metadata.
+*   📚 **Batch Download**: Download entire seasons with one tap!
+*   📶 **WiFi-Only Downloads**: Toggle to pause downloads on cellular data.
+*   ⏸️ **Pause All / Resume All**: Bulk control all downloads from the Downloads screen.
+*   💬 **Auto-Download Subtitles**: One-tap auto-download of the first subtitle match with 16 languages supported.
+*   📝 **User-Added Channels**: Add your own Telegram channels/groups via More → My Channels.
 
 ---
 
