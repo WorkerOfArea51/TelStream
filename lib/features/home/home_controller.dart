@@ -68,7 +68,7 @@ Future<List<AnimeSeries>> parseMessagesWithYield(List<td.Message> raw, bool isMo
     final fullTitle = lines.first.trim();
     final baseName = HomeController.normalizeSeriesName(fullTitle, isMovie: isMovie);
     
-    final canonicalKey = baseName.toLowerCase().replaceAll(RegExp(r'[^a-zA-Z0-9]'), '');
+    final canonicalKey = baseName.toLowerCase().replaceAll(RegExp(r'[^\p{L}\p{N}]', unicode: true), '');
     String matchedKey = isMovie ? '${canonicalKey}_${pMsg.id}' : canonicalKey;
 
     if (!isMovie) {
@@ -150,7 +150,7 @@ Future<List<AnimeSeries>> parseMessagesWithYield(List<td.Message> raw, bool isMo
           ? epFileName.replaceAll(RegExp(r'\.(mkv|mp4|avi|mov|webm|flv|wmv|ts|m4v|3gp)$', caseSensitive: false), '').replaceAll('_', ' ').trim()
           : 'Video ${ep.id}';
       final epBaseName = HomeController.normalizeSeriesName(epTitle, isMovie: isMovie);
-      final epKey = isMovie ? '${epBaseName}_${ep.id}' : epBaseName.toLowerCase().replaceAll(RegExp(r'[^a-zA-Z0-9]'), '');
+      final epKey = isMovie ? '${epBaseName}_${ep.id}' : epBaseName.toLowerCase().replaceAll(RegExp(r'[^\p{L}\p{N}]', unicode: true), '');
       
       // Create a synthetic poster entry using the video message itself as the "poster"
       final standalonePoster = {
@@ -1181,8 +1181,8 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
         final baseName = fileName.replaceAll(RegExp(r'\.[a-zA-Z0-9]+$'), '');
         final prefix = baseName.length > 20 ? baseName.substring(0, 20) : baseName;
         
-        final cleanPrefix = prefix.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '').toLowerCase();
-        final cleanFirstLine = firstLine.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '').toLowerCase();
+        final cleanPrefix = prefix.replaceAll(RegExp(r'[^\p{L}\p{N}]', unicode: true), '').toLowerCase();
+        final cleanFirstLine = firstLine.replaceAll(RegExp(r'[^\p{L}\p{N}]', unicode: true), '').toLowerCase();
         
         if (firstLine.length > fileName.length && cleanFirstLine.startsWith(cleanPrefix)) {
           return firstLine;
@@ -1833,7 +1833,7 @@ List<AnimeSeries> _computeSearchAndSortIsolate(_SearchPayload payload) {
   }
 
   for (var series in sorted) {
-    final key = series.coreName.toLowerCase().replaceAll(RegExp(r'[^a-zA-Z0-9]'), '');
+    final key = series.coreName.toLowerCase().replaceAll(RegExp(r'[^\p{L}\p{N}]', unicode: true), '');
     if (key == 'naruto') {
       series.seasons.sort((a, b) {
         // Can't use storage in isolate, so use basic parsing
