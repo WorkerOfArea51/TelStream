@@ -234,6 +234,15 @@ class StorageService {
   bool _dirty = false;
   Completer<void>? _saveCompleter;
 
+  String getAppLanguage() {
+    return _data['app_language'] as String? ?? 'en';
+  }
+
+  Future<void> setAppLanguage(String lang) async {
+    _data['app_language'] = lang;
+    await _save();
+  }
+
   Future<void> _save() async {
     _dirty = true;
     _debounceTimer?.cancel();

@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:isolate';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:tdlib/td_client.dart';
 import 'package:path_provider/path_provider.dart';
@@ -157,6 +158,8 @@ class TelStreamApp extends ConsumerWidget {
       theme: themeState.lightTheme,
       darkTheme: themeState.darkTheme,
       themeMode: themeState.themeMode,
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
       home: const AuthWrapper(),
     );
   }

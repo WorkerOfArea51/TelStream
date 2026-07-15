@@ -63,6 +63,14 @@ class UserChannel {
 }
 
 class Constants {
+  static Locale getLocale(String langCode) {
+    switch (langCode) {
+      case 'ru':
+        return const Locale('ru');
+      default:
+        return const Locale('en');
+    }
+  }
   static String _currentVersion = '0.0.0+0';
   static String get currentVersion => _currentVersion;
 
