@@ -238,6 +238,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
 
   int _lastMessageId = 0;
   bool _hasMore = true;
+  int? _emptyFetchCount;
   String _currentQuery = '';
   bool _isLoadingMore = false;
   SortOrder _sortOrder = SortOrder.newest;
@@ -491,8 +492,14 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
     }
   }
 
+  int _loadMoreRetries = 0;
+  
   Future<void> loadMore() async {
     if (_isLoadingMore || !_hasMore) return;
+    if (_loadMoreRetries >= 3) {
+      Log.w('loadMore: 3 consecutive retries with no new content, stopping.');
+      return;
+    }
     _isLoadingMore = true;
     
     try {
@@ -524,6 +531,11 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
       }
       if (changed && _cacheLoadComplete) {
         _scheduleCatalogCacheWrite();
+      }
+      if (!changed) {
+        _loadMoreRetries++;
+      } else {
+        _loadMoreRetries = 0;
       }
     } finally {
       _isLoadingMore = false;
@@ -649,6 +661,24 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
       iterations++;
       final localMessages = await _fetchMessages(fromId: currentFromId, onlyLocal: true);
       if (localMessages.isEmpty) {
+        // Local DB is empty (new channel) — try network fetch for initial data
+        if (iterations == 1 && _rawMessages.isEmpty) {
+          Log.i('Local DB empty for ${category.title}, fetching from network...');
+          final networkMessages = await _fetchMessages(fromId: 0, onlyLocal: false);
+          if (networkMessages.isNotEmpty) {
+            for (final msg in networkMessages) {
+              if (!_rawMessageIds.contains(msg.id)) {
+                _rawMessages.add(msg);
+                _rawMessageIds.add(msg.id);
+              }
+            }
+            if (_rawMessages.isNotEmpty) {
+              currentFromId = _rawMessages.last.id;
+            }
+            await Future.delayed(const Duration(milliseconds: 10));
+            continue;
+          }
+        }
         break;
       }
       for (final msg in localMessages) {
@@ -757,10 +787,18 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
               break; // Truly reached the end of history
             }
             // Temporary network / cache delay, wait a bit and try again
+            // But don't retry forever — max 5 empty responses
+            _emptyFetchCount = (_emptyFetchCount ?? 0) + 1;
+            if ((_emptyFetchCount ?? 0) >= 5) {
+              Log.w('Sync: 5 consecutive empty fetches, stopping sync for ${category.title}');
+              _hasMore = false;
+              break;
+            }
             await Future.delayed(const Duration(seconds: 3));
             continue;
           }
           
+          _emptyFetchCount = 0;
           await _mutationLock.synchronized(() async {
             for (final msg in networkMessages) {
               

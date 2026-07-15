@@ -41,6 +41,7 @@ class _AndroidLibraryViewState extends ConsumerState<AndroidLibraryView>
   bool _isSearching = false;
   bool _showFavoritesOnly = false;
   bool _autoLoadMoreInFlight = false;
+  int _autoLoadMoreAttempts = 0;
 
   @override
   void initState() {
@@ -392,8 +393,10 @@ class _AndroidLibraryViewState extends ConsumerState<AndroidLibraryView>
           // Automatically load more if we have very few series and there is more content
           if (filteredList.length < 6 &&
               ref.read(provider.notifier).hasMore &&
-              !_autoLoadMoreInFlight) {
+              !_autoLoadMoreInFlight &&
+              _autoLoadMoreAttempts < 3) {
             _autoLoadMoreInFlight = true;
+            _autoLoadMoreAttempts++;
             WidgetsBinding.instance.addPostFrameCallback((_) {
               if (!mounted) {
                 _autoLoadMoreInFlight = false;
