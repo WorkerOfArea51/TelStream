@@ -27,10 +27,10 @@ class RelatedContent {
 
   factory RelatedContent.fromJson(Map<String, dynamic> json) {
     return RelatedContent(
-      id: json['id'] ?? 0,
-      title: json['title'] ?? '',
-      posterUrl: json['posterUrl'] ?? '',
-      synopsis: json['synopsis'] ?? '',
+      id: json['id'] is int ? json['id'] : int.tryParse(json['id']?.toString() ?? '0') ?? 0,
+      title: json['title']?.toString() ?? '',
+      posterUrl: json['posterUrl']?.toString() ?? '',
+      synopsis: json['synopsis']?.toString() ?? '',
     );
   }
 }
@@ -119,29 +119,29 @@ class SeriesMetadata {
 
   factory SeriesMetadata.fromJson(Map<String, dynamic> json) {
     return SeriesMetadata(
-      title: json['title'] ?? '',
-      synopsis: json['synopsis'] ?? '',
-      posterUrl: json['posterUrl'] ?? '',
-      backdropUrl: json['backdropUrl'] ?? '',
-      releaseYear: json['releaseYear'] ?? '',
-      genres: List<String>.from(json['genres'] ?? []),
-      cast: json['cast'] ?? '',
-      maturityRating: json['maturityRating'] ?? '',
-      trailerYoutubeId: json['trailerYoutubeId'] ?? '',
-      status: json['status'] ?? '',
-      runtime: json['runtime'] ?? '',
-      productionCompanies: json['productionCompanies'] ?? '',
-      userScore: json['userScore'] ?? '',
-      rank: json['rank'] ?? '',
-      source: json['source'] ?? '',
-      airedDates: json['airedDates'] ?? '',
-      episodesCount: json['episodesCount'] ?? '',
-      spokenLanguages: json['spokenLanguages'] ?? '',
-      budgetRevenue: json['budgetRevenue'] ?? '',
-      director: json['director'] ?? '',
-      writers: json['writers'] ?? '',
-      imdbId: json['imdbId'] ?? '',
-      malId: json['malId'] ?? '',
+      title: json['title']?.toString() ?? '',
+      synopsis: json['synopsis']?.toString() ?? '',
+      posterUrl: json['posterUrl']?.toString() ?? '',
+      backdropUrl: json['backdropUrl']?.toString() ?? '',
+      releaseYear: json['releaseYear']?.toString() ?? '',
+      genres: (json['genres'] as List?)?.map((e) => e.toString()).toList() ?? const [],
+      cast: json['cast']?.toString() ?? '',
+      maturityRating: json['maturityRating']?.toString() ?? '',
+      trailerYoutubeId: json['trailerYoutubeId']?.toString() ?? '',
+      status: json['status']?.toString() ?? '',
+      runtime: json['runtime']?.toString() ?? '',
+      productionCompanies: json['productionCompanies']?.toString() ?? '',
+      userScore: json['userScore']?.toString() ?? '',
+      rank: json['rank']?.toString() ?? '',
+      source: json['source']?.toString() ?? '',
+      airedDates: json['airedDates']?.toString() ?? '',
+      episodesCount: json['episodesCount']?.toString() ?? '',
+      spokenLanguages: json['spokenLanguages']?.toString() ?? '',
+      budgetRevenue: json['budgetRevenue']?.toString() ?? '',
+      director: json['director']?.toString() ?? '',
+      writers: json['writers']?.toString() ?? '',
+      imdbId: json['imdbId']?.toString() ?? '',
+      malId: json['malId']?.toString() ?? '',
       recommendations: (json['recommendations'] as List?)
               ?.map((e) => RelatedContent.fromJson(e as Map<String, dynamic>))
               .toList() ??
