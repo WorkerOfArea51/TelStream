@@ -41,8 +41,22 @@ class FirebaseMetadataService {
                 newCache[decodedKey] = subValue['id'].toString();
                 if (subValue.containsKey('preloaded')) {
                   try {
-                    final preloadedList = (subValue['preloaded'] as List).map((e) => SeriesMetadata.fromJson(e)).toList();
-                    _preloadedCache[decodedKey] = preloadedList;
+                    final rawPreloaded = subValue['preloaded'];
+                    List<SeriesMetadata> preloadedList = [];
+                    if (rawPreloaded is List) {
+                      preloadedList = rawPreloaded.where((e) => e != null).map((e) => SeriesMetadata.fromJson(e)).toList();
+                    } else if (rawPreloaded is Map) {
+                      // If it's a Map (e.g. {"0": {...}}), extract the values
+                      final sortedKeys = rawPreloaded.keys.toList()..sort();
+                      for (final k in sortedKeys) {
+                        if (rawPreloaded[k] != null) {
+                          preloadedList.add(SeriesMetadata.fromJson(rawPreloaded[k]));
+                        }
+                      }
+                    }
+                    if (preloadedList.isNotEmpty) {
+                      _preloadedCache[decodedKey] = preloadedList;
+                    }
                   } catch (e) {
                     Log.e('Failed to parse preloaded metadata for $decodedKey', e);
                   }
