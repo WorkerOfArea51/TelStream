@@ -153,6 +153,7 @@ class _AndroidSeriesDetailsScreenState extends ConsumerState<AndroidSeriesDetail
       }
       
       // 2. Check local cache first for instant loading
+      final targetId = ids.first;
       final storage = ref.read(storageServiceProvider);
       final cacheKey = 'season_meta_${widget.series.coreName}_${targetId}_${seasonNumber - 1}';
       final cachedJson = storage.getSeasonMetadataCache(cacheKey);
@@ -170,7 +171,6 @@ class _AndroidSeriesDetailsScreenState extends ConsumerState<AndroidSeriesDetail
       }
 
       // 3. Fallback to API if no manual metadata or local cache
-      final targetId = ids.first;
       final metadataService = MetadataService();
       SeriesMetadata? newMeta;
       if (targetId.startsWith('tt')) {
