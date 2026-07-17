@@ -109,7 +109,8 @@ class _AndroidSeriesDetailsScreenState extends ConsumerState<AndroidSeriesDetail
 
   Future<void> _checkAndFetchMetadata() async {
     final currentSeason = widget.series.seasons.isNotEmpty ? widget.series.seasons[0].seasonName : '';
-    String? overrideStr = FirebaseMetadataService.getOverride('${widget.series.coreName}_$currentSeason');
+    final seasonSpecificKey = '${widget.series.coreName}_$currentSeason';
+    String? overrideStr = FirebaseMetadataService.getOverride(seasonSpecificKey);
     
     if (overrideStr == null || overrideStr.isEmpty) {
       overrideStr = FirebaseMetadataService.getOverride(widget.series.coreName);
@@ -130,7 +131,28 @@ class _AndroidSeriesDetailsScreenState extends ConsumerState<AndroidSeriesDetail
         });
       }
       
-      // Check local cache first for instant loading
+      // 1. Check if Firebase has preloaded manual metadata for this season or series
+      List<SeriesMetadata>? preloadedMeta;
+      final specificOverrideStr = FirebaseMetadataService.getOverride(seasonSpecificKey);
+      if (specificOverrideStr != null && specificOverrideStr.isNotEmpty) {
+        preloadedMeta = FirebaseMetadataService.getPreloadedMetadata(seasonSpecificKey);
+      } else {
+        preloadedMeta = FirebaseMetadataService.getPreloadedMetadata(widget.series.coreName);
+      }
+
+      if (preloadedMeta != null && preloadedMeta.isNotEmpty) {
+        if (mounted) {
+          setState(() {
+            _currentMetadata = preloadedMeta!.first;
+            _metadataCache[seasonNumber - 1] = preloadedMeta!.first;
+            _isLoadingMetadata = false;
+          });
+          _initYtController(_currentMetadata);
+        }
+        return; // We have manual DB metadata, skip fetching!
+      }
+      
+      // 2. Check local cache first for instant loading
       final storage = ref.read(storageServiceProvider);
       final cacheKey = 'season_meta_${widget.series.coreName}_${seasonNumber - 1}';
       final cachedJson = storage.getSeasonMetadataCache(cacheKey);
@@ -147,6 +169,7 @@ class _AndroidSeriesDetailsScreenState extends ConsumerState<AndroidSeriesDetail
         return;
       }
 
+      // 3. Fallback to API if no manual metadata or local cache
       final targetId = ids.first;
       final metadataService = MetadataService();
       SeriesMetadata? newMeta;
@@ -160,7 +183,7 @@ class _AndroidSeriesDetailsScreenState extends ConsumerState<AndroidSeriesDetail
         setState(() {
           if (newMeta != null) {
             _currentMetadata = newMeta;
-            _metadataCache[0] = newMeta;
+            _metadataCache[seasonNumber - 1] = newMeta;
           }
           _isLoadingMetadata = false;
           _initYtController(_currentMetadata);
@@ -197,7 +220,8 @@ class _AndroidSeriesDetailsScreenState extends ConsumerState<AndroidSeriesDetail
 
   Future<void> _onSeasonChanged(int newIndex) async {
     final newSeasonName = widget.series.seasons.length > newIndex ? widget.series.seasons[newIndex].seasonName : '';
-    final seasonOverrideStr = FirebaseMetadataService.getOverride('${widget.series.coreName}_$newSeasonName');
+    final seasonSpecificKey = '${widget.series.coreName}_$newSeasonName';
+    final seasonOverrideStr = FirebaseMetadataService.getOverride(seasonSpecificKey);
     
     if ((_overrideIds == null || _overrideIds!.isEmpty) && (seasonOverrideStr == null || seasonOverrideStr.isEmpty)) {
       return;
@@ -229,7 +253,37 @@ class _AndroidSeriesDetailsScreenState extends ConsumerState<AndroidSeriesDetail
       _trailerPlaying = false;
     });
 
-    // Check persistent cache first for instant season switching
+    // 1. Check if Firebase has preloaded manual metadata for this season
+    if (seasonOverrideStr != null && seasonOverrideStr.isNotEmpty) {
+      final preloadedMeta = FirebaseMetadataService.getPreloadedMetadata(seasonSpecificKey);
+      if (preloadedMeta != null && preloadedMeta.isNotEmpty) {
+        if (mounted) {
+          setState(() {
+            _currentMetadata = preloadedMeta.first;
+            _metadataCache[newIndex] = preloadedMeta.first;
+            _isLoadingMetadata = false;
+          });
+          _initYtController(_currentMetadata);
+        }
+        return; // Skip fetching from API since we have manual metadata
+      }
+    } else {
+      // If no season override, check if we have a series-level preloaded data matching this index
+      final seriesPreloaded = FirebaseMetadataService.getPreloadedMetadata(widget.series.coreName);
+      if (seriesPreloaded != null && newIndex < seriesPreloaded.length) {
+        if (mounted) {
+          setState(() {
+            _currentMetadata = seriesPreloaded[newIndex];
+            _metadataCache[newIndex] = seriesPreloaded[newIndex];
+            _isLoadingMetadata = false;
+          });
+          _initYtController(_currentMetadata);
+        }
+        return; // Skip fetching
+      }
+    }
+
+    // 2. Check persistent cache first for instant season switching
     final storage = ref.read(storageServiceProvider);
     final cacheKey = 'season_meta_${widget.series.coreName}_$newIndex';
     final cachedJson = storage.getSeasonMetadataCache(cacheKey);

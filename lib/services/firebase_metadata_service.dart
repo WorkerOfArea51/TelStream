@@ -46,6 +46,13 @@ class FirebaseMetadataService {
                   } catch (e) {
                     Log.e('Failed to parse preloaded metadata for $decodedKey', e);
                   }
+                } else if (subValue.containsKey('posterUrl') || subValue.containsKey('synopsis') || subValue.containsKey('releaseYear')) {
+                  // Fallback: allow manual entry of flat metadata fields directly on the node
+                  try {
+                    _preloadedCache[decodedKey] = [SeriesMetadata.fromJson(subValue)];
+                  } catch (e) {
+                    Log.e('Failed to parse direct manual metadata for $decodedKey', e);
+                  }
                 }
               } else {
                 newCache[_decodeKey(subKey)] = subValue.toString();
