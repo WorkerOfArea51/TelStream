@@ -154,7 +154,7 @@ class _AndroidSeriesDetailsScreenState extends ConsumerState<AndroidSeriesDetail
       
       // 2. Check local cache first for instant loading
       final storage = ref.read(storageServiceProvider);
-      final cacheKey = 'season_meta_${widget.series.coreName}_${seasonNumber - 1}';
+      final cacheKey = 'season_meta_${widget.series.coreName}_${targetId}_${seasonNumber - 1}';
       final cachedJson = storage.getSeasonMetadataCache(cacheKey);
       if (cachedJson != null) {
         final cachedMeta = SeriesMetadata.fromJson(cachedJson);
@@ -285,7 +285,7 @@ class _AndroidSeriesDetailsScreenState extends ConsumerState<AndroidSeriesDetail
 
     // 2. Check persistent cache first for instant season switching
     final storage = ref.read(storageServiceProvider);
-    final cacheKey = 'season_meta_${widget.series.coreName}_$newIndex';
+    final cacheKey = 'season_meta_${widget.series.coreName}_${targetId}_$newIndex';
     final cachedJson = storage.getSeasonMetadataCache(cacheKey);
     if (cachedJson != null) {
       final cachedMeta = SeriesMetadata.fromJson(cachedJson);
@@ -319,7 +319,7 @@ class _AndroidSeriesDetailsScreenState extends ConsumerState<AndroidSeriesDetail
           _currentMetadata = newMeta;
         } else {
           // If metadata fetch fails, reset currentMetadata so it doesn't bleed from the previous season
-          _currentMetadata = null;
+          _currentMetadata = SeriesMetadata.empty();
         }
         _isLoadingMetadata = false;
         _initYtController(_currentMetadata);
@@ -327,12 +327,12 @@ class _AndroidSeriesDetailsScreenState extends ConsumerState<AndroidSeriesDetail
     }
 
     // Persist season metadata to storage for instant loading next time
-    if (newMeta != null) {
-      try {
-        final storage = ref.read(storageServiceProvider);
-        final cacheKey = 'season_meta_${widget.series.coreName}_$newIndex';
-        await storage.saveSeasonMetadataCache(cacheKey, newMeta.toJson());
-      } catch (e) {
+      if (newMeta != null) {
+        try {
+          final storage = ref.read(storageServiceProvider);
+          final cacheKey = 'season_meta_${widget.series.coreName}_${targetId}_$newIndex';
+          await storage.saveSeasonMetadataCache(cacheKey, newMeta.toJson());
+        } catch (e) {
         Log.w('Failed to cache season metadata: $e');
       }
     }
@@ -726,15 +726,14 @@ class _AndroidSeriesDetailsScreenState extends ConsumerState<AndroidSeriesDetail
                             ),
                           ),
                         ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            meta.genres.join(', '),
-                            style: const TextStyle(color: Colors.white70),
-                            overflow: TextOverflow.ellipsis,
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              meta.genres.join(', '),
+                              style: const TextStyle(color: Colors.white70),
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
                     ),
                     const SizedBox(height: 16),
                     const SizedBox(height: 16),
