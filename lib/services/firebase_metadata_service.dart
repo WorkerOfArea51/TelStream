@@ -36,9 +36,10 @@ class FirebaseMetadataService {
             // Check if this is a Category node containing encoded keys
             value.forEach((subKey, subValue) {
               if (subKey == '_count') return;
-              if (subValue is Map<String, dynamic> && subValue.containsKey('id')) {
+              if (subValue is Map<String, dynamic>) {
                 final decodedKey = _decodeKey(subKey);
-                newCache[decodedKey] = subValue['id'].toString();
+                newCache[decodedKey] = subValue.containsKey('id') ? subValue['id'].toString() : 'preloaded';
+                
                 if (subValue.containsKey('preloaded')) {
                   try {
                     final rawPreloaded = subValue['preloaded'];
@@ -73,6 +74,13 @@ class FirebaseMetadataService {
                     _preloadedCache[decodedKey] = [SeriesMetadata.fromJson(subValue)];
                   } catch (e) {
                     Log.e('Failed to parse direct manual metadata for $decodedKey', e);
+                  }
+                } else if (subValue.containsKey(decodedKey) && subValue[decodedKey] is Map) {
+                  // Fallback: user imported a JSON file where the root key is the series name
+                  try {
+                    _preloadedCache[decodedKey] = [SeriesMetadata.fromJson(subValue[decodedKey])];
+                  } catch (e) {
+                    Log.e('Failed to parse imported JSON metadata for $decodedKey', e);
                   }
                 }
               } else {
