@@ -175,10 +175,15 @@ class FirebaseMetadataService {
 
   /// Decodes the Base64Url string back into the folder name.
   static String _decodeKey(String encodedKey) {
-    String normalized = encodedKey;
-    while (normalized.length % 4 != 0) {
-      normalized += '=';
+    try {
+      String normalized = encodedKey;
+      while (normalized.length % 4 != 0) {
+        normalized += '=';
+      }
+      return utf8.decode(base64Url.decode(normalized));
+    } catch (e) {
+      Log.w('Failed to decode key $encodedKey: $e');
+      return encodedKey; // Fallback to raw key if decoding fails
     }
-    return utf8.decode(base64Url.decode(normalized));
   }
 }
