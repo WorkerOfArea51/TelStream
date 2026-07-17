@@ -46,6 +46,13 @@ class FirebaseMetadataService {
                   } catch (e) {
                     Log.e('Failed to parse preloaded metadata for $decodedKey', e);
                   }
+                } else if (subValue.containsKey('0') && subValue['0'] is Map) {
+                  // Fallback: user created a '0' folder directly on the node instead of inside 'preloaded'
+                  try {
+                    _preloadedCache[decodedKey] = [SeriesMetadata.fromJson(subValue['0'])];
+                  } catch (e) {
+                    Log.e('Failed to parse manual metadata in 0 folder for $decodedKey', e);
+                  }
                 } else if (subValue.containsKey('posterUrl') || subValue.containsKey('synopsis') || subValue.containsKey('releaseYear')) {
                   // Fallback: allow manual entry of flat metadata fields directly on the node
                   try {
