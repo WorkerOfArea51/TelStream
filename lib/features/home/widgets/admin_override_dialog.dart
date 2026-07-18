@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 
 class AdminOverrideDialog extends StatefulWidget {
@@ -38,6 +39,11 @@ class _AdminOverrideDialogState extends State<AdminOverrideDialog> {
           Text(
             'Linking: ${widget.title}',
             style: const TextStyle(color: Colors.white70, fontSize: 14),
+          ),
+          const SizedBox(height: 8),
+          SelectableText(
+            'Firebase Folder: ${base64Url.encode(utf8.encode(widget.title)).replaceAll("=", "")}',
+            style: const TextStyle(color: Colors.orange, fontSize: 12, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 16),
           TextField(
