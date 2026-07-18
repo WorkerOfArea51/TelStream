@@ -124,7 +124,7 @@ class SeriesMetadata {
       posterUrl: json['posterUrl']?.toString() ?? '',
       backdropUrl: json['backdropUrl']?.toString() ?? '',
       releaseYear: json['releaseYear']?.toString() ?? '',
-      genres: (json['genres'] as List?)?.map((e) => e.toString()).toList() ?? const [],
+      genres: _parseStringList(json['genres']),
       cast: json['cast']?.toString() ?? '',
       maturityRating: json['maturityRating']?.toString() ?? '',
       trailerYoutubeId: json['trailerYoutubeId']?.toString() ?? '',
@@ -142,11 +142,32 @@ class SeriesMetadata {
       writers: json['writers']?.toString() ?? '',
       imdbId: json['imdbId']?.toString() ?? '',
       malId: json['malId']?.toString() ?? '',
-      recommendations: (json['recommendations'] as List?)
-              ?.map((e) => RelatedContent.fromJson(e as Map<String, dynamic>))
-              .toList() ??
-          const [],
+      recommendations: _parseRecommendations(json['recommendations']),
     );
+  }
+
+  static List<String> _parseStringList(dynamic raw) {
+    if (raw == null || raw == '') return [];
+    if (raw is List) return raw.map((e) => e.toString()).toList();
+    if (raw is Map) return raw.values.map((e) => e.toString()).toList();
+    return [raw.toString()];
+  }
+
+  static List<RelatedContent> _parseRecommendations(dynamic raw) {
+    if (raw == null || raw == '') return [];
+    if (raw is List) {
+      return raw
+          .whereType<Map<dynamic, dynamic>>()
+          .map((e) => RelatedContent.fromJson(Map<String, dynamic>.from(e)))
+          .toList();
+    }
+    if (raw is Map) {
+      return raw.values
+          .whereType<Map<dynamic, dynamic>>()
+          .map((e) => RelatedContent.fromJson(Map<String, dynamic>.from(e)))
+          .toList();
+    }
+    return [];
   }
 
   factory SeriesMetadata.empty() {
