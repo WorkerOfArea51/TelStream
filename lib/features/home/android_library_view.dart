@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import '../../l10n/app_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'dart:io';
@@ -164,7 +165,7 @@ class _AndroidLibraryViewState extends ConsumerState<AndroidLibraryView>
                                   style: TextStyle(color: textColor),
                                   autofocus: true,
                                   decoration: InputDecoration(
-                                    hintText: 'Search...',
+                                    hintText: AppLocalizations.of(context)!.search,
                                     hintStyle: TextStyle(color: subTextColor),
                                     border: InputBorder.none,
                                     icon: Icon(
@@ -350,7 +351,7 @@ class _AndroidLibraryViewState extends ConsumerState<AndroidLibraryView>
                                 ),
                                 const SizedBox(width: 12),
                                 Text(
-                                  _showFavoritesOnly ? 'Hide Marked' : 'Show Marked',
+                                  _showFavoritesOnly ? AppLocalizations.of(context)!.hideMarked : AppLocalizations.of(context)!.showMarked,
                                   style: TextStyle(color: textColor),
                                 ),
                               ],
@@ -370,7 +371,7 @@ class _AndroidLibraryViewState extends ConsumerState<AndroidLibraryView>
         children: [
           if (ref.watch(connectionStateProvider) == ConnectionStatus.waitingForNetwork)
             MaterialBanner(
-              content: const Text('No internet connection. Channel updates paused.'),
+              content: Text(AppLocalizations.of(context)!.noInternetChannelUpdatesPaused),
               backgroundColor: theme.colorScheme.errorContainer,
               actions: const [SizedBox.shrink()],
             ),
@@ -626,8 +627,8 @@ class _AndroidLibraryViewState extends ConsumerState<AndroidLibraryView>
     // Return Tachiyomi styled empty layout with beautiful kaomoji
     final kaomoji = _showFavoritesOnly ? '(・_・;)' : '(・○・;)';
     final message = _showFavoritesOnly
-        ? 'No marked items in this category'
-        : 'Your library is empty';
+        ? AppLocalizations.of(context)!.noMarkedItemsInCategory
+        : AppLocalizations.of(context)!.libraryEmpty;
 
     return Center(
       child: Column(
@@ -656,7 +657,7 @@ class _AndroidLibraryViewState extends ConsumerState<AndroidLibraryView>
             onPressed: () {
               ref.invalidate(provider);
             },
-            child: const Text('Refresh Library'),
+            child: Text(AppLocalizations.of(context)!.refreshLibrary),
           ),
         ],
       ),
@@ -1817,6 +1818,7 @@ class LibraryItemActionHandler {
     final tdlibService = ref.read(tdlibServiceProvider);
     final me = await tdlibService.sendAsync(const td.GetMe());
     if (me is td.User && me.id == Constants.adminUserId) {
+      if (!context.mounted) return;
       final existingIds = FirebaseMetadataService.getOverride(series.coreName);
       final result = await showDialog<String>(
         context: context,
@@ -1834,6 +1836,7 @@ class LibraryItemActionHandler {
           ids = MetadataService.extractAllMalIds(input);
         }
         if (ids.isNotEmpty) {
+          if (!context.mounted) return;
           showDialog(
             context: context,
             barrierDismissible: false,
@@ -1862,7 +1865,6 @@ class LibraryItemActionHandler {
               preloadedData.add(meta);
             } else {
               if (id.startsWith('tt')) {
-                final empty = SeriesMetadata.empty();
                 preloadedData.add(SeriesMetadata(
                   title: '', synopsis: '', posterUrl: '', backdropUrl: '', releaseYear: '',
                   genres: [], cast: '', maturityRating: '', trailerYoutubeId: '', imdbId: id, malId: '',
@@ -1910,5 +1912,6 @@ class LibraryItemActionHandler {
     }
   }
 }
+
 
 

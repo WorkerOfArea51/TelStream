@@ -510,6 +510,11 @@ class StreamingProxyService {
 
               if (!isAvailable) {
                 if (!currentFile.local.isDownloadingCompleted) {
+                  // DISABLED: This continuous monitoring loop fights with mpv's simultaneous
+                  // requests for different byte ranges (start for playback, end for MOOV atom),
+                  // causing an infinite shift loop and ANR. The per-request shift above
+                  // (around line 342) is sufficient and only runs when mpv actually requests data.
+                  /*
                   final now = DateTime.now();
                   bool hasEarlierRequest = false;
                   await _stateLock.synchronized(() {
@@ -538,12 +543,6 @@ class StreamingProxyService {
                   final activeRangeEnd = activeOffset + downloadedDelta;
                   final isOutAfter =
                       currentOffset > activeRangeEnd + 3 * 1024 * 1024;
-
-                  // DISABLED: This continuous monitoring loop fights with mpv's simultaneous
-                  // requests for different byte ranges (start for playback, end for MOOV atom),
-                  // causing an infinite shift loop and ANR. The per-request shift above
-                  // (around line 342) is sufficient and only runs when mpv actually requests data.
-                  /*
                   if (isOutBefore ||
                       (isOutAfter && (!hasEarlierRequest || isTailQuery))) {
                     final shiftOffset = (currentOffset - 1 * 1024 * 1024).clamp(

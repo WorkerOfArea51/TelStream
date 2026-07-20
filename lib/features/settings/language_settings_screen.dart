@@ -61,7 +61,7 @@ class LanguageSettingsScreen extends ConsumerWidget {
                 ? Text(
                     lang['en']!,
                     style: TextStyle(
-                      color: theme.colorScheme.onSurface.withOpacity(0.6),
+                      color: theme.colorScheme.onSurface.withAlpha(153), // 0.6 opacity
                       fontSize: 12,
                     ),
                   )

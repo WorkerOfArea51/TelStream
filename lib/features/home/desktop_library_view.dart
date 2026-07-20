@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../l10n/app_localizations.dart';
 import 'package:tdlib/td_api.dart' as td;
 
 import '../../core/constants.dart';
@@ -149,7 +150,7 @@ class _DesktopLibraryViewState extends ConsumerState<DesktopLibraryView> {
                         child: Row(
                           children: [
                             Text(
-                              _showFavoritesOnly ? 'Favorites (${filteredList.length})' : 'All ${widget.category.title} (${filteredList.length})',
+                              _showFavoritesOnly ? AppLocalizations.of(context)!.favoritesCategory(filteredList.length) : AppLocalizations.of(context)!.allCategory(widget.category.title, filteredList.length),
                               style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
                             ),
                             const Spacer(),
@@ -162,7 +163,7 @@ class _DesktopLibraryViewState extends ConsumerState<DesktopLibraryView> {
                                   controller: _searchController,
                                   style: TextStyle(color: textColor, fontSize: 14),
                                   decoration: InputDecoration(
-                                    hintText: 'Search...',
+                                    hintText: AppLocalizations.of(context)!.search,
                                     hintStyle: TextStyle(color: subTextColor),
                                     contentPadding: const EdgeInsets.symmetric(horizontal: 16),
                                     border: OutlineInputBorder(
@@ -204,19 +205,19 @@ class _DesktopLibraryViewState extends ConsumerState<DesktopLibraryView> {
                               itemBuilder: (context) => [
                                 PopupMenuItem(
                                   value: SortOrder.aToZ,
-                                  child: Text('Name (A-Z)', style: TextStyle(color: textColor)),
+                                  child: Text(AppLocalizations.of(context)!.nameAToZ, style: TextStyle(color: textColor)),
                                 ),
                                 PopupMenuItem(
                                   value: SortOrder.zToA,
-                                  child: Text('Name (Z-A)', style: TextStyle(color: textColor)),
+                                  child: Text(AppLocalizations.of(context)!.nameZToA, style: TextStyle(color: textColor)),
                                 ),
                                 PopupMenuItem(
                                   value: SortOrder.newest,
-                                  child: Text('Newest First', style: TextStyle(color: textColor)),
+                                  child: Text(AppLocalizations.of(context)!.newestFirst, style: TextStyle(color: textColor)),
                                 ),
                                 PopupMenuItem(
                                   value: SortOrder.oldest,
-                                  child: Text('Oldest First', style: TextStyle(color: textColor)),
+                                  child: Text(AppLocalizations.of(context)!.oldestFirst, style: TextStyle(color: textColor)),
                                 ),
                               ],
                             ),
@@ -239,9 +240,9 @@ class _DesktopLibraryViewState extends ConsumerState<DesktopLibraryView> {
                                     );
                               },
                               itemBuilder: (context) => [
-                                PopupMenuItem(value: 'Grid', child: Text('Grid View', style: TextStyle(color: textColor))),
-                                PopupMenuItem(value: 'Compact', child: Text('Compact View', style: TextStyle(color: textColor))),
-                                PopupMenuItem(value: 'List', child: Text('List View', style: TextStyle(color: textColor))),
+                                PopupMenuItem(value: 'Grid', child: Text(AppLocalizations.of(context)!.gridView, style: TextStyle(color: textColor))),
+                                PopupMenuItem(value: 'Compact', child: Text(AppLocalizations.of(context)!.compactView, style: TextStyle(color: textColor))),
+                                PopupMenuItem(value: 'List', child: Text(AppLocalizations.of(context)!.listView, style: TextStyle(color: textColor))),
                               ],
                             ),
                           ],
@@ -260,7 +261,7 @@ class _DesktopLibraryViewState extends ConsumerState<DesktopLibraryView> {
                             Icon(Icons.folder_open, size: 64, color: Colors.white24),
                             const SizedBox(height: 16),
                             Text(
-                              isSyncing ? 'Syncing...' : 'No ${widget.category.title} found',
+                              isSyncing ? AppLocalizations.of(context)!.syncing : AppLocalizations.of(context)!.noCategoryFound(widget.category.title),
                               style: const TextStyle(color: Colors.white54, fontSize: 16),
                             ),
                           ],
@@ -336,7 +337,7 @@ class _DesktopLibraryViewState extends ConsumerState<DesktopLibraryView> {
                         child: CircularProgressIndicator(strokeWidth: 2, color: theme.primaryColor),
                       ),
                       const SizedBox(width: 12),
-                      const Text('Syncing cloud...', style: TextStyle(color: Colors.white, fontSize: 12)),
+                      Text(AppLocalizations.of(context)!.syncingCloud, style: const TextStyle(color: Colors.white, fontSize: 12)),
                     ],
                   ),
                 ),
@@ -413,7 +414,7 @@ class _DesktopPosterCardState extends ConsumerState<DesktopPosterCard> {
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 250),
           curve: Curves.easeOut,
-          transform: Matrix4.identity()..scale(_isHovered ? 1.05 : 1.0),
+          transform: Matrix4.diagonal3Values(_isHovered ? 1.05 : 1.0, _isHovered ? 1.05 : 1.0, 1.0),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
             boxShadow: _isHovered
@@ -476,7 +477,7 @@ class _DesktopPosterCardState extends ConsumerState<DesktopPosterCard> {
                         Icon(Icons.folder, size: 12, color: theme.primaryColor),
                         const SizedBox(width: 4),
                         Text(
-                          '${widget.series.seasons.length} Season${widget.series.seasons.length > 1 ? 's' : ''}',
+                          AppLocalizations.of(context)!.nSeasonsPlural(widget.series.seasons.length),
                           style: const TextStyle(color: Colors.white54, fontSize: 11),
                         ),
                       ],
@@ -615,3 +616,5 @@ class _DesktopShimmerCard extends StatelessWidget {
     );
   }
 }
+
+

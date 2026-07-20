@@ -143,8 +143,11 @@ class _AndroidSeriesDetailsScreenState extends ConsumerState<AndroidSeriesDetail
       if (preloadedMeta != null && preloadedMeta.isNotEmpty) {
         if (mounted) {
           setState(() {
-            _currentMetadata = preloadedMeta!.first;
-            _metadataCache[seasonNumber - 1] = preloadedMeta!.first;
+            final meta = preloadedMeta;
+            if (meta != null) {
+              _currentMetadata = meta.first;
+              _metadataCache[seasonNumber - 1] = meta.first;
+            }
             _isLoadingMetadata = false;
           });
           _initYtController(_currentMetadata);
@@ -420,11 +423,6 @@ class _AndroidSeriesDetailsScreenState extends ConsumerState<AndroidSeriesDetail
     Navigator.pop(context); // Close the popup first
 
     final isMovie = widget.categoryTitle.toLowerCase() == 'movies';
-    final normalizedRecTitle = HomeController.normalizeSeriesName(
-      rec.title,
-      isMovie: isMovie,
-    );
-    final normalizedFetchedTitle = fetchedMeta != null ? HomeController.normalizeSeriesName(fetchedMeta.title, isMovie: isMovie) : null;
 
     AsyncValue<List<AnimeSeries>> seriesState;
     if (isMovie) {

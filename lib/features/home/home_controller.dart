@@ -760,7 +760,6 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
       final storage = ref.read(storageServiceProvider);
       int currentFromId = 0;
       bool changed = false;
-      bool reachedEnd = false;
       
       DateTime lastUiUpdateTime = DateTime.now();
 
@@ -816,7 +815,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
             
             if (changed) {
               final now = DateTime.now();
-              final isNearEnd = reachedEnd || !_hasMore;
+              final isNearEnd = !_hasMore;
               if (isNearEnd || now.difference(lastUiUpdateTime) > const Duration(milliseconds: 1500)) {
                 _rawMessages.sort((a, b) => b.id.compareTo(a.id));
                 _allSeries = await _parseMessages(_rawMessages);
@@ -831,9 +830,6 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
             }
           });
           
-          if (reachedEnd) {
-            break;
-          }
           currentFromId = networkMessages.last.id;
           
           // Brief pause to respect Telegram rate limits and yield UI thread

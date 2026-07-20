@@ -32,7 +32,7 @@ class TdlibService {
   final _initLock = Lock();
   
   late DynamicLibrary _lib;
-  late Pointer<Utf8> Function(double timeout) _nativeReceive;
+  // late Pointer<Utf8> Function(double timeout) _nativeReceive;
   bool _libInitialized = false;
   
   final _updatesController = StreamController<td.TdObject>.broadcast();
@@ -191,10 +191,15 @@ class TdlibService {
     String deviceModel = 'Unknown';
     if (Platform.isAndroid) {
       deviceModel = 'Android';
-    } else if (Platform.isIOS) deviceModel = 'iOS';
-    else if (Platform.isMacOS) deviceModel = 'macOS';
-    else if (Platform.isWindows) deviceModel = 'Windows';
-    else if (Platform.isLinux) deviceModel = 'Linux';
+    } else if (Platform.isIOS) {
+      deviceModel = 'iOS';
+    } else if (Platform.isMacOS) {
+      deviceModel = 'macOS';
+    } else if (Platform.isWindows) {
+      deviceModel = 'Windows';
+    } else if (Platform.isLinux) {
+      deviceModel = 'Linux';
+    }
 
     final dbPath = '$safePath/database';
     
@@ -519,7 +524,7 @@ class TdlibService {
   int _requestId = 0;
 
   void Function(int, Pointer<Utf8>)? _nativeSend;
-  late final void Function(Pointer<Void>) _nativeFree;
+  // late final void Function(Pointer<Void>) _nativeFree;
   int? _nativeFreeAddress;
 
   void _initNativeLibrary() {
@@ -534,8 +539,8 @@ class TdlibService {
           libName = 'libtdjson.so';
         }
         _lib = DynamicLibrary.open(libName);
-        final receivePtr = _lib.lookup<NativeFunction<Pointer<Utf8> Function(Double)>>('td_receive');
-        _nativeReceive = receivePtr.asFunction<Pointer<Utf8> Function(double)>();
+        // final receivePtr = _lib.lookup<NativeFunction<Pointer<Utf8> Function(Double)>>('td_receive');
+        // _nativeReceive = receivePtr.asFunction<Pointer<Utf8> Function(double)>();
         try {
           final sendPtr = _lib.lookup<NativeFunction<Void Function(Int32, Pointer<Utf8>)>>('td_send');
           _nativeSend = sendPtr.asFunction<void Function(int, Pointer<Utf8>)>();
@@ -545,7 +550,7 @@ class TdlibService {
 
         try {
           final freePtr = _lib.lookup<NativeFunction<Void Function(Pointer<Void>)>>('td_free_string');
-          _nativeFree = freePtr.asFunction<void Function(Pointer<Void>)>();
+          // _nativeFree = freePtr.asFunction<void Function(Pointer<Void>)>();
           _nativeFreeAddress = freePtr.address;
         } catch (e) {
           Log.w('td_free_string not found in native library (error: $e). Native strings will leak. '

@@ -27,6 +27,7 @@ import 'airing_calendar_screen.dart';
 import '../../services/update_service.dart';
 import 'widgets/custom_about_dialog.dart';
 import 'dart:io';
+import '../../l10n/app_localizations.dart';
 
 class DesktopMainScreen extends ConsumerStatefulWidget {
   const DesktopMainScreen({super.key});
@@ -47,40 +48,23 @@ class _DesktopMainScreenState extends ConsumerState<DesktopMainScreen> with Tick
   
   DateTime? _lastUpdateCheck;
 
-  void _showNotImplementedDialog(String featureName) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF1c1c1c),
-        title: const Text('Coming Soon', style: TextStyle(color: Colors.white)),
-        content: Text('$featureName will be fully integrated once the native PC video player engine is connected.', style: const TextStyle(color: Colors.white70)),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('OK', style: TextStyle(color: Colors.orange)),
-          ),
-        ],
-      ),
-    );
-  }
-
   void _showOpenStreamDialog(BuildContext context) {
     final controller = TextEditingController();
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF1c1c1c),
-        title: const Text('Open Stream', style: TextStyle(color: Colors.white)),
+        title: Text(AppLocalizations.of(context)!.openStream, style: const TextStyle(color: Colors.white)),
         content: SizedBox(
           width: 400,
           child: TextField(
             controller: controller,
             style: const TextStyle(color: Colors.white),
-            decoration: const InputDecoration(
-              hintText: 'Enter stream URL (e.g., https://...)',
-              hintStyle: TextStyle(color: Colors.white54),
-              enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.white30)),
-              focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.orange)),
+            decoration: InputDecoration(
+              hintText: AppLocalizations.of(context)!.enterStreamUrl,
+              hintStyle: const TextStyle(color: Colors.white54),
+              enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Colors.white30)),
+              focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Colors.orange)),
             ),
             autofocus: true,
             onSubmitted: (value) {
@@ -90,7 +74,7 @@ class _DesktopMainScreenState extends ConsumerState<DesktopMainScreen> with Tick
                   context,
                   messageId: 0,
                   videoFileId: 0,
-                  videoTitle: 'Network Stream',
+                  videoTitle: AppLocalizations.of(context)!.networkStream,
                   networkUrl: value,
                 );
               }
@@ -100,7 +84,7 @@ class _DesktopMainScreenState extends ConsumerState<DesktopMainScreen> with Tick
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel', style: TextStyle(color: Colors.white70)),
+            child: Text(AppLocalizations.of(context)!.cancel, style: const TextStyle(color: Colors.white70)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
@@ -112,12 +96,12 @@ class _DesktopMainScreenState extends ConsumerState<DesktopMainScreen> with Tick
                   context,
                   messageId: 0,
                   videoFileId: 0,
-                  videoTitle: 'Network Stream',
+                  videoTitle: AppLocalizations.of(context)!.networkStream,
                   networkUrl: value,
                 );
               }
             },
-            child: const Text('Play', style: TextStyle(color: Colors.white)),
+            child: Text(AppLocalizations.of(context)!.play, style: const TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -221,7 +205,7 @@ class _DesktopMainScreenState extends ConsumerState<DesktopMainScreen> with Tick
                         ),
                       );
                       await UpdateService.checkAndShowDialogIfAvailable(context, manual: true, showErrorSnack: true);
-                      if (context.mounted) Navigator.pop(context); // Close loading
+                      if (mounted) Navigator.pop(context); // Close loading
                     } else if (value == 'about') {
                       CustomAboutDialog.show(context);
                     } else if (value == 'open') {
@@ -246,21 +230,21 @@ class _DesktopMainScreenState extends ConsumerState<DesktopMainScreen> with Tick
                     }
                   },
                   itemBuilder: (context) => [
-                    _buildMenuItem('open', 'Open Stream...', shortcut: 'Ctrl+O'),
-                    _buildMenuItem('downloads', 'Downloads', shortcut: 'Ctrl+D'),
-                    _buildMenuItem('history', 'History / Playback', shortcut: 'Ctrl+H'),
-                    _buildMenuItem('calendar', 'Airing Calendar', shortcut: 'Ctrl+Cal'),
-                    _buildMenuItem('mychannels', 'My Channels', shortcut: 'Ctrl+M'),
+                    _buildMenuItem('open', AppLocalizations.of(context)!.openStreamMenu, shortcut: 'Ctrl+O'),
+                    _buildMenuItem('downloads', AppLocalizations.of(context)!.downloads, shortcut: 'Ctrl+D'),
+                    _buildMenuItem('history', AppLocalizations.of(context)!.historyPlayback, shortcut: 'Ctrl+H'),
+                    _buildMenuItem('calendar', AppLocalizations.of(context)!.airingCalendar, shortcut: 'Ctrl+Cal'),
+                    _buildMenuItem('mychannels', AppLocalizations.of(context)!.myChannels, shortcut: 'Ctrl+M'),
                     _buildMenuItem('div1', '', isDivider: true),
-                    _buildMenuItem('video', 'Video', hasSubmenu: true),
-                    _buildMenuItem('audio', 'Audio', hasSubmenu: true),
-                    _buildMenuItem('subtitles', 'Subtitles', hasSubmenu: true),
+                    _buildMenuItem('video', AppLocalizations.of(context)!.video, hasSubmenu: true),
+                    _buildMenuItem('audio', AppLocalizations.of(context)!.audio, hasSubmenu: true),
+                    _buildMenuItem('subtitles', AppLocalizations.of(context)!.subtitles, hasSubmenu: true),
                     _buildMenuItem('div2', '', isDivider: true),
-                    _buildMenuItem('preferences', 'Preferences...', shortcut: 'F5'),
-                    _buildMenuItem('update', 'Check for Update'),
-                    _buildMenuItem('about', 'About'),
+                    _buildMenuItem('preferences', AppLocalizations.of(context)!.preferences, shortcut: 'F5'),
+                    _buildMenuItem('update', AppLocalizations.of(context)!.checkForUpdate),
+                    _buildMenuItem('about', AppLocalizations.of(context)!.about),
                     _buildMenuItem('div3', '', isDivider: true),
-                    _buildMenuItem('exit', 'Exit', shortcut: 'Alt+F4'),
+                    _buildMenuItem('exit', AppLocalizations.of(context)!.exit, shortcut: 'Alt+F4'),
                   ],
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
@@ -343,7 +327,6 @@ class _DesktopMainScreenState extends ConsumerState<DesktopMainScreen> with Tick
   }
 
   Widget _buildBottomBar(bool showBottom, bool showRight) {
-    final theme = Theme.of(context);
     return AnimatedPositioned(
       duration: const Duration(milliseconds: 200),
       bottom: showBottom ? 0 : -68,
@@ -447,7 +430,7 @@ class _DesktopMainScreenState extends ConsumerState<DesktopMainScreen> with Tick
                       child: AndroidSeriesDetailsScreen(
                         key: ValueKey(selectedSeries.coreName),
                         series: selectedSeries,
-                        categoryTitle: 'Anime',
+                        categoryTitle: AppLocalizations.of(context)!.categoryAnime,
                         metadata: meta,
                         overrideIds: overrideIds,
                         preloadedMetadata: preloadedMetadata,
@@ -477,10 +460,10 @@ class _DesktopMainScreenState extends ConsumerState<DesktopMainScreen> with Tick
                                   unselectedLabelColor: Colors.grey,
                                   labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
                                   tabs: [
-                                    if (hasUserChannels) const Tab(text: 'My Channels'),
-                                    const Tab(text: 'Anime'),
-                                    const Tab(text: 'Movies'),
-                                    const Tab(text: 'Web Series'),
+                                    if (hasUserChannels) Tab(text: AppLocalizations.of(context)!.myChannels),
+                                    Tab(text: AppLocalizations.of(context)!.categoryAnime),
+                                    Tab(text: AppLocalizations.of(context)!.categoryMovies),
+                                    Tab(text: AppLocalizations.of(context)!.categoryWebSeries),
                                   ],
                                 ),
                               ),
@@ -521,13 +504,7 @@ class _DesktopMainScreenState extends ConsumerState<DesktopMainScreen> with Tick
                       ),
                       Expanded(
                         child: Text(
-                          _currentRightPanelView == 'downloads'
-                              ? 'Downloads'
-                              : (_currentRightPanelView == 'preferences'
-                                  ? 'Settings'
-                                  : (_currentRightPanelView == 'mychannels'
-                                      ? 'My Channels'
-                                      : 'History')),
+                          _currentRightPanelView == 'downloads' ? AppLocalizations.of(context)!.downloads : (_currentRightPanelView == 'preferences' ? AppLocalizations.of(context)!.settings : (_currentRightPanelView == 'mychannels' ? AppLocalizations.of(context)!.myChannels : AppLocalizations.of(context)!.history)),
                           style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                         ),
                       ),
@@ -723,7 +700,7 @@ class _DesktopMainScreenState extends ConsumerState<DesktopMainScreen> with Tick
                               const SizedBox(width: 12),
                               const Icon(Icons.settings, color: Colors.white70, size: 14),
                               const SizedBox(width: 8),
-                              const Text('Control Panel', style: TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.bold)),
+                              Text(AppLocalizations.of(context)!.controlPanel, style: const TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.bold)),
                               const Spacer(),
                               IconButton(
                                 icon: const Icon(Icons.close, size: 14, color: Colors.white54),
@@ -736,16 +713,16 @@ class _DesktopMainScreenState extends ConsumerState<DesktopMainScreen> with Tick
                           ),
                         ),
                         // Tabs
-                        const TabBar(
+                        TabBar(
                           indicatorColor: Colors.orange,
                           labelColor: Colors.white,
                           unselectedLabelColor: Colors.white54,
                           labelStyle: TextStyle(fontSize: 12),
                           tabs: [
-                            Tab(text: 'Audio'),
-                            Tab(text: 'Video'),
-                            Tab(text: 'Subtitle'),
-                            Tab(text: 'Playback'),
+                            Tab(text: AppLocalizations.of(context)!.audio),
+                            Tab(text: AppLocalizations.of(context)!.video),
+                            Tab(text: AppLocalizations.of(context)!.subtitles),
+                            Tab(text: AppLocalizations.of(context)!.playback),
                           ],
                         ),
                         // Tab content
@@ -753,9 +730,9 @@ class _DesktopMainScreenState extends ConsumerState<DesktopMainScreen> with Tick
                           child: TabBarView(
                             children: [
                               _buildTrackPanel(isSubtitle: false),
-                              const Center(child: Text('Video Controls', style: TextStyle(color: Colors.white54))),
+                              Center(child: Text(AppLocalizations.of(context)!.videoControls, style: const TextStyle(color: Colors.white54))),
                               _buildTrackPanel(isSubtitle: true),
-                              const Center(child: Text('Playback Controls', style: TextStyle(color: Colors.white54))),
+                              Center(child: Text(AppLocalizations.of(context)!.playbackControls, style: const TextStyle(color: Colors.white54))),
                             ],
                           ),
                         ),
@@ -776,7 +753,7 @@ class _DesktopMainScreenState extends ConsumerState<DesktopMainScreen> with Tick
     if (player == null) {
       return Center(
         child: Text(
-          'No video currently playing',
+          AppLocalizations.of(context)!.noVideoPlaying,
           style: TextStyle(color: Colors.white54),
         ),
       );
@@ -1060,3 +1037,4 @@ class _DesktopPlaybackControlsState extends State<DesktopPlaybackControls> {
     );
   }
 }
+

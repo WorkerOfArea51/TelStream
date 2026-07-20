@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../l10n/app_localizations.dart';
 import 'package:intl/intl.dart';
 import 'package:tdlib/td_api.dart' as td;
 import '../../services/storage_service.dart';
@@ -69,15 +70,15 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
           borderRadius: BorderRadius.circular(24),
           side: BorderSide(color: theme.colorScheme.onSurface.withValues(alpha: 0.08), width: 1),
         ),
-        title: Text('Clear History', style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontWeight: FontWeight.bold)),
+        title: Text(AppLocalizations.of(context)!.clearHistory, style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontWeight: FontWeight.bold)),
         content: Text(
-          'Are you sure you want to clear your watch history? This cannot be undone.',
+          AppLocalizations.of(context)!.clearHistoryConfirmation,
           style: TextStyle(color: isDark ? Colors.white70 : Colors.black87),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text('Cancel', style: TextStyle(color: isDark ? Colors.white54 : Colors.black54)),
+            child: Text(AppLocalizations.of(context)!.cancel, style: TextStyle(color: isDark ? Colors.white54 : Colors.black54)),
           ),
           TextButton(
             onPressed: () async {
@@ -91,7 +92,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                 );
               }
             },
-            child: const Text('Clear', style: TextStyle(color: Colors.orangeAccent)),
+            child: Text(AppLocalizations.of(context)!.clear, style: const TextStyle(color: Colors.orangeAccent)),
           ),
         ],
       ),
@@ -143,7 +144,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         title: Text(
-          'Watch History',
+          AppLocalizations.of(context)!.watchHistory,
           style: TextStyle(
             color: isDark ? Colors.white : Colors.black87,
             fontWeight: FontWeight.bold,
@@ -172,7 +173,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                 controller: _searchController,
                 style: TextStyle(color: isDark ? Colors.white : Colors.black87),
                 decoration: InputDecoration(
-                  hintText: 'Search history...',
+                  hintText: AppLocalizations.of(context)!.searchHistory,
                   hintStyle: TextStyle(color: isDark ? Colors.white30 : Colors.black38),
                   border: InputBorder.none,
                   icon: Icon(Icons.search, color: settingsAccent),
@@ -197,7 +198,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
           : filteredLogs.isEmpty
               ? Center(
                   child: Text(
-                    'No matching history entries',
+                    AppLocalizations.of(context)!.noMatchingHistoryEntries,
                     style: TextStyle(color: isDark ? Colors.white30 : Colors.black38),
                   ),
                 )
@@ -433,7 +434,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                                                       ref.read(pipControllerProvider.notifier).playVideo(
                                                         context,
                                                         messageId: msgId,
-                                                        videoFileId: fileId!,
+                                                        videoFileId: fileId,
                                                         videoTitle: '$seriesName - ${epFileName.isNotEmpty ? epFileName : episodeTitle}',
                                                         episodeList: targetSeason.episodes,
                                                         currentEpisodeIndex: epIdx,
@@ -471,7 +472,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
           ),
           const SizedBox(height: 16),
           Text(
-            'No watch history found',
+            AppLocalizations.of(context)!.noWatchHistoryFound,
             style: TextStyle(color: isDark ? Colors.white70 : Colors.black54, fontSize: 16),
           ),
         ],
@@ -479,3 +480,4 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
     );
   }
 }
+

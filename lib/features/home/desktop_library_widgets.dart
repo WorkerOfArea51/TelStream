@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../l10n/app_localizations.dart';
 import 'package:tdlib/td_api.dart' as td;
 
 import '../../models/anime_models.dart';
@@ -169,8 +170,7 @@ class _DesktopFeaturedCarouselState extends State<DesktopFeaturedCarousel> {
                                         color: theme.primaryColor,
                                         borderRadius: BorderRadius.circular(6),
                                       ),
-                                      child: const Text(
-                                        'FEATURED',
+                                      child: Text(AppLocalizations.of(context)!.featured,
                                         style: TextStyle(
                                           color: Colors.white,
                                           fontSize: 11,
@@ -262,8 +262,7 @@ class DesktopContinueWatchingShelf extends StatelessWidget {
             children: [
               Icon(Icons.play_circle_outline, color: theme.primaryColor, size: 22),
               const SizedBox(width: 8),
-              const Text(
-                'Continue Watching',
+              Text(AppLocalizations.of(context)!.continueWatching,
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: 18,
@@ -453,3 +452,4 @@ class DesktopContinueWatchingShelf extends StatelessWidget {
     );
   }
 }
+

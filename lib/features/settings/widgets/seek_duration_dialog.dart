@@ -1,4 +1,5 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
+import '../../../l10n/app_localizations.dart';
 class SeekDurationDialog extends StatefulWidget {
   final int current;
   final Color accentColor;
@@ -24,11 +25,11 @@ class SeekDurationDialogState extends State<SeekDurationDialog> {
     final isDark = theme.brightness == Brightness.dark;
     return AlertDialog(
       backgroundColor: theme.cardColor,
-      title: Text('Double tap seek duration', style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
+      title: Text(AppLocalizations.of(context)!.doubleTapSeekDurationDialogTitle, style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text('$_value seconds', style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontSize: 18)),
+          Text(AppLocalizations.of(context)!.nSeconds(_value), style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontSize: 18)),
           Slider(
             value: _value.toDouble(),
             min: 5,
@@ -46,16 +47,17 @@ class SeekDurationDialogState extends State<SeekDurationDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: Text('Cancel', style: TextStyle(color: isDark ? Colors.white54 : Colors.black54)),
+          child: Text(AppLocalizations.of(context)!.cancel, style: TextStyle(color: isDark ? Colors.white54 : Colors.black54)),
         ),
         TextButton(
           onPressed: () => Navigator.pop(context, _value),
-          child: Text('Save', style: TextStyle(color: widget.accentColor)),
+          child: Text(AppLocalizations.of(context)!.save, style: TextStyle(color: widget.accentColor)),
         ),
       ],
     );
   }
 }
+
 
 
 

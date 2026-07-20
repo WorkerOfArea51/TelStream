@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../l10n/app_localizations.dart';
 import '../player/pip_manager.dart';
 import '../../services/storage_service.dart';
 
@@ -77,7 +78,7 @@ class _NetworkStreamScreenState extends ConsumerState<NetworkStreamScreen> {
         backgroundColor: Colors.black,
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.white),
-        title: const Text('Network Stream', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 22)),
+        title: Text(AppLocalizations.of(context)!.networkStreamTitle, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 22)),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -124,11 +125,11 @@ class _NetworkStreamScreenState extends ConsumerState<NetworkStreamScreen> {
                 ),
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
-                    return 'URL cannot be empty';
+                    return AppLocalizations.of(context)!.urlCannotBeEmpty;
                   }
                   final trimmed = value.trim().toLowerCase();
                   if (!trimmed.startsWith('http://') && !trimmed.startsWith('https://')) {
-                    return 'Enter a valid HTTP or HTTPS URL';
+                    return AppLocalizations.of(context)!.enterValidHttpUrl;
                   }
                   return null;
                 },

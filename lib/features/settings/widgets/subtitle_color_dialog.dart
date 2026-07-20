@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../../../l10n/app_localizations.dart';
+
 class SubtitleColorDialog extends StatefulWidget {
   final String current;
   final double currentSize;
@@ -19,16 +21,6 @@ class SubtitleColorDialog extends StatefulWidget {
 class SubtitleColorDialogState extends State<SubtitleColorDialog> {
   late String _selectedHex;
   final _customController = TextEditingController();
-
-  final List<Map<String, String>> _predefinedColors = [
-    {'name': 'White', 'hex': '#FFFFFF'},
-    {'name': 'Yellow', 'hex': '#FFFF00'},
-    {'name': 'Green', 'hex': '#00FF00'},
-    {'name': 'Cyan', 'hex': '#00FFFF'},
-    {'name': 'Red', 'hex': '#FF0000'},
-    {'name': 'Light Blue', 'hex': '#33B5E5'},
-    {'name': 'Amber', 'hex': '#FFBB33'},
-  ];
 
   Color _parseHexColor(String hex) {
     try {
@@ -56,6 +48,17 @@ class SubtitleColorDialogState extends State<SubtitleColorDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
+    final l10n = AppLocalizations.of(context)!;
+    
+    final List<Map<String, String>> predefinedColors = [
+      {'name': l10n.colorWhite, 'hex': '#FFFFFF'},
+      {'name': l10n.colorYellow, 'hex': '#FFFF00'},
+      {'name': l10n.colorGreen, 'hex': '#00FF00'},
+      {'name': l10n.colorCyan, 'hex': '#00FFFF'},
+      {'name': l10n.colorRed, 'hex': '#FF0000'},
+      {'name': l10n.colorLightBlue, 'hex': '#33B5E5'},
+      {'name': l10n.colorAmber, 'hex': '#FFBB33'},
+    ];
     
     String resolvedFontFamily = 'Roboto';
     if (widget.currentFont.toLowerCase().contains('arial')) {
@@ -74,7 +77,7 @@ class SubtitleColorDialogState extends State<SubtitleColorDialog> {
         borderRadius: BorderRadius.circular(16),
         side: BorderSide(color: theme.colorScheme.onSurface.withValues(alpha: 0.08), width: 1),
       ),
-      title: Text('Subtitle Color', style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
+      title: Text(l10n.subtitleColorDialogTitle, style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -88,81 +91,100 @@ class SubtitleColorDialogState extends State<SubtitleColorDialog> {
                 color: Colors.black87,
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Text(
-                'Hello World',
-                style: TextStyle(
-                  fontSize: widget.currentSize,
-                  color: _parseHexColor(_selectedHex),
-                  fontFamily: resolvedFontFamily,
-                  fontWeight: FontWeight.bold,
-                  shadows: const [
-                    Shadow(offset: Offset(-1.5, -1.5), color: Colors.black),
-                    Shadow(offset: Offset(1.5, -1.5), color: Colors.black),
-                    Shadow(offset: Offset(1.5, 1.5), color: Colors.black),
-                    Shadow(offset: Offset(-1.5, 1.5), color: Colors.black),
-                  ],
-                ),
+              child: Stack(
+                children: [
+                  Positioned(
+                    top: 4, left: 4,
+                    child: Text(l10n.preview, style: TextStyle(color: Colors.white54, fontSize: 10)),
+                  ),
+                  Center(
+                    child: Text(
+                      l10n.sampleSubtitleText,
+                      style: TextStyle(
+                        fontSize: widget.currentSize,
+                        color: _parseHexColor(_selectedHex),
+                        fontFamily: resolvedFontFamily,
+                        fontWeight: FontWeight.bold,
+                        shadows: const [
+                          Shadow(offset: Offset(-1.5, -1.5), color: Colors.black),
+                          Shadow(offset: Offset(1.5, -1.5), color: Colors.black),
+                          Shadow(offset: Offset(1.5, 1.5), color: Colors.black),
+                          Shadow(offset: Offset(-1.5, 1.5), color: Colors.black),
+                        ],
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 24),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(l10n.colorPresets, style: TextStyle(color: widget.accentColor, fontSize: 14, fontWeight: FontWeight.bold)),
+            ),
+            const SizedBox(height: 12),
             Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              children: _predefinedColors.map((colorMap) {
-                final hex = colorMap['hex']!;
-                final color = _parseHexColor(hex);
-                final isSelected = _selectedHex == hex;
-                return GestureDetector(
+              spacing: 8,
+              runSpacing: 8,
+              children: predefinedColors.map((colorMap) {
+                final color = _parseHexColor(colorMap['hex']!);
+                final isSelected = _selectedHex == colorMap['hex'];
+                return InkWell(
                   onTap: () {
                     setState(() {
-                      _selectedHex = hex;
-                      _customController.text = hex;
+                      _selectedHex = colorMap['hex']!;
+                      _customController.text = _selectedHex;
                     });
                   },
+                  borderRadius: BorderRadius.circular(24),
                   child: Container(
-                    width: 44,
-                    height: 44,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     decoration: BoxDecoration(
-                      color: color,
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: isSelected ? widget.accentColor : Colors.transparent,
-                        width: 3,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.2),
-                          blurRadius: 4,
-                          offset: const Offset(0, 2),
-                        )
+                      color: isSelected ? widget.accentColor.withValues(alpha: 0.2) : Colors.transparent,
+                      border: Border.all(color: isSelected ? widget.accentColor : theme.colorScheme.onSurface.withValues(alpha: 0.1)),
+                      borderRadius: BorderRadius.circular(24),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 16, height: 16,
+                          decoration: BoxDecoration(
+                            color: color,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.white24, width: 1),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(colorMap['name']!, style: TextStyle(color: isSelected ? widget.accentColor : (isDark ? Colors.white70 : Colors.black87), fontSize: 13)),
                       ],
                     ),
-                    child: isSelected
-                        ? Icon(
-                            Icons.check,
-                            color: color.computeLuminance() > 0.5 ? Colors.black : Colors.white,
-                            size: 20,
-                          )
-                        : null,
                   ),
                 );
               }).toList(),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 24),
             TextField(
               controller: _customController,
-              style: TextStyle(color: isDark ? Colors.white : Colors.black87),
               decoration: InputDecoration(
-                labelText: 'Custom Hex Color',
-                labelStyle: TextStyle(color: isDark ? Colors.white60 : Colors.black54),
-                hintText: '#FFFFFF',
-                hintStyle: TextStyle(color: isDark ? Colors.white24 : Colors.black26),
+                labelText: l10n.customColorHex,
+                labelStyle: TextStyle(color: isDark ? Colors.white54 : Colors.black54),
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: widget.accentColor),
+                ),
+                prefixIcon: Icon(Icons.color_lens, color: widget.accentColor),
               ),
+              style: TextStyle(color: isDark ? Colors.white : Colors.black87),
               onChanged: (val) {
-                if (val.startsWith('#') && (val.length == 7 || val.length == 9)) {
+                if (val.length >= 7) {
                   setState(() {
                     _selectedHex = val.toUpperCase();
+                    if (!_selectedHex.startsWith('#')) {
+                      _selectedHex = '#$_selectedHex';
+                    }
                   });
                 }
               },
@@ -173,17 +195,13 @@ class SubtitleColorDialogState extends State<SubtitleColorDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: Text('Cancel', style: TextStyle(color: isDark ? Colors.white54 : Colors.black54)),
+          child: Text(l10n.cancel, style: TextStyle(color: isDark ? Colors.white54 : Colors.black54)),
         ),
         TextButton(
           onPressed: () => Navigator.pop(context, _selectedHex),
-          child: Text('Save', style: TextStyle(color: widget.accentColor)),
+          child: Text(l10n.save, style: TextStyle(color: widget.accentColor)),
         ),
       ],
     );
   }
 }
-
-
-
-

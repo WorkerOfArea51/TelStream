@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../l10n/app_localizations.dart';
 import 'package:http/http.dart' as http;
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../core/theme/app_theme.dart';
@@ -59,7 +60,10 @@ class AiringCalendarScreen extends ConsumerStatefulWidget {
 class _AiringCalendarScreenState extends ConsumerState<AiringCalendarScreen> with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final List<String> _days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
-  final List<String> _dayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  List<String> _getDayLabels(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    return [l10n.mon, l10n.tue, l10n.wed, l10n.thu, l10n.fri, l10n.sat, l10n.sun];
+  }
   String _searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
   Timer? _searchDebounce;
@@ -114,7 +118,7 @@ class _AiringCalendarScreenState extends ConsumerState<AiringCalendarScreen> wit
                 labelColor: settingsAccent,
                 unselectedLabelColor: isDark ? Colors.white38 : Colors.black38,
                 labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                tabs: _dayLabels.map((label) => Tab(text: label)).toList(),
+                tabs: _getDayLabels(context).map((label) => Tab(text: label)).toList(),
               ),
               // Search Input Row
               Padding(
@@ -140,7 +144,7 @@ class _AiringCalendarScreenState extends ConsumerState<AiringCalendarScreen> wit
                     },
                     style: const TextStyle(fontSize: 13),
                     decoration: InputDecoration(
-                      hintText: 'Search today\'s releases...',
+                      hintText: AppLocalizations.of(context)!.searchTodaysReleases,
                       hintStyle: TextStyle(color: isDark ? Colors.white24 : Colors.black26, fontSize: 13),
                       prefixIcon: const Icon(Icons.search, size: 18),
                       suffixIcon: _searchQuery.isNotEmpty
@@ -211,7 +215,7 @@ class _AiringCalendarTab extends ConsumerWidget {
                 Icon(Icons.calendar_today_outlined, size: 48, color: isDark ? Colors.white24 : Colors.black12),
                 const SizedBox(height: 12),
                 Text(
-                  searchQuery.isNotEmpty ? 'No matches for today\'s releases' : 'No releases scheduled for today',
+                  searchQuery.isNotEmpty ? AppLocalizations.of(context)!.noMatchesForTodaysReleases : AppLocalizations.of(context)!.noReleasesScheduledForToday,
                   style: TextStyle(color: isDark ? Colors.white30 : Colors.black38, fontSize: 14),
                 ),
               ],
@@ -233,7 +237,7 @@ class _AiringCalendarTab extends ConsumerWidget {
           itemCount: filteredItems.length,
           itemBuilder: (context, index) {
             final item = filteredItems[index];
-            final title = item['title'] as String? ?? 'Unknown Title';
+            final title = item['title'] as String? ?? AppLocalizations.of(context)!.unknownTitle;
             final imageUrl = item['images']?.containsKey('jpg') == true
                 ? item['images']['jpg']['large_image_url'] ?? item['images']['jpg']['image_url']
                 : null;
@@ -328,7 +332,7 @@ class _AiringCalendarTab extends ConsumerWidget {
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Text(
-                              '$episodes Ep',
+                              '$episodes ${AppLocalizations.of(context)!.episodesShort}',
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 10,
@@ -423,7 +427,7 @@ class _AiringCalendarTab extends ConsumerWidget {
                 ),
                 onPressed: () => ref.invalidate(airingScheduleProvider(day)),
                 icon: const Icon(Icons.refresh, size: 18),
-                label: const Text('Retry', style: TextStyle(fontWeight: FontWeight.bold)),
+                label: Text(AppLocalizations.of(context)!.retry, style: const TextStyle(fontWeight: FontWeight.bold)),
               ),
             ],
           ),

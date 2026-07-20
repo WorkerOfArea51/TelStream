@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../../core/constants.dart';
 import '../../../core/secrets.dart';
 import '../../../core/widgets/whats_new_dialog.dart';
@@ -129,7 +130,7 @@ class _AboutContent extends StatelessWidget {
 
         // Description
         Text(
-          'TelStream is a premium, open-source streaming client designed for watching Anime, Movies, and Web Series. Built on modern tech stacks, it features seamless media cache control and high-performance video streaming capabilities.',
+          AppLocalizations.of(context)!.aboutDescription,
           textAlign: TextAlign.center,
           style: TextStyle(
             color: textColor.withValues(alpha: 0.75),
@@ -152,7 +153,7 @@ class _AboutContent extends StatelessWidget {
             WhatsNewDialog.show(context);
           },
           icon: const Icon(Icons.history_edu_rounded, size: 18),
-          label: const Text('View Changelog'),
+          label: Text(AppLocalizations.of(context)!.viewChangelog),
         ),
         const SizedBox(height: 28),
 
@@ -178,16 +179,16 @@ class _AboutContent extends StatelessWidget {
               _buildLinkTile(
                 context,
                 icon: Icons.code_rounded,
-                title: 'GitHub Repository',
-                subtitle: 'github.com/WorkerOfArea51/TelStream',
+                title: AppLocalizations.of(context)!.githubRepository,
+                subtitle: AppLocalizations.of(context)!.githubRepositoryUrl,
                 url: 'https://github.com/WorkerOfArea51/TelStream',
               ),
               Divider(color: theme.dividerColor, height: 1, indent: 56),
               _buildLinkTile(
                 context,
                 icon: Icons.bug_report_rounded,
-                title: 'Report Bug / Request Feature',
-                subtitle: 'Submit issues or suggest enhancements',
+                title: AppLocalizations.of(context)!.reportBugRequestFeature,
+                subtitle: AppLocalizations.of(context)!.reportBugDesc,
                 onTap: () {
                   _showReportBugOptions(context);
                 },
@@ -196,8 +197,8 @@ class _AboutContent extends StatelessWidget {
               _buildLinkTile(
                 context,
                 icon: Icons.person_rounded,
-                title: 'Developer Profile',
-                subtitle: 'GitHub @WorkerOfArea51',
+                title: AppLocalizations.of(context)!.developerProfile,
+                subtitle: AppLocalizations.of(context)!.developerProfileName,
                 url: 'https://github.com/WorkerOfArea51',
               ),
             ],
@@ -225,24 +226,24 @@ class _AboutContent extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: Column(
             children: [
-              const _TechRow(
-                name: 'Flutter & Dart',
-                desc: 'Cross-platform UI engine & programming language.',
+              _TechRow(
+                name: AppLocalizations.of(context)!.flutterDart,
+                desc: AppLocalizations.of(context)!.flutterDartDesc,
               ),
               Divider(color: theme.dividerColor, height: 20),
-              const _TechRow(
-                name: 'TDLib (Telegram Database)',
-                desc: 'High-speed native client for MTProto API integration.',
+              _TechRow(
+                name: AppLocalizations.of(context)!.tdlib,
+                desc: AppLocalizations.of(context)!.tdlibDesc,
               ),
               Divider(color: theme.dividerColor, height: 20),
-              const _TechRow(
-                name: 'MediaKit & libmpv',
-                desc: 'Hardware-accelerated video decoding & audio controller.',
+              _TechRow(
+                name: AppLocalizations.of(context)!.mediaKit,
+                desc: AppLocalizations.of(context)!.mediaKitDesc,
               ),
               Divider(color: theme.dividerColor, height: 20),
-              const _TechRow(
-                name: 'Riverpod',
-                desc: 'Reactive state caching & dependency injection framework.',
+              _TechRow(
+                name: AppLocalizations.of(context)!.riverpod,
+                desc: AppLocalizations.of(context)!.riverpodDesc,
               ),
             ],
           ),
@@ -261,7 +262,7 @@ class _AboutContent extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Open Source License',
+                AppLocalizations.of(context)!.openSourceLicense,
                 style: TextStyle(color: textColor, fontSize: 14, fontWeight: FontWeight.w500),
               ),
               TextButton(
@@ -272,7 +273,7 @@ class _AboutContent extends StatelessWidget {
                   backgroundColor: theme.primaryColor.withValues(alpha: 0.1),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                 ),
-                child: const Text('MIT License', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                child: Text(AppLocalizations.of(context)!.mitLicense, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
               ),
             ],
           ),
@@ -358,8 +359,8 @@ class _AboutContent extends StatelessWidget {
                   ),
                   child: const Icon(Icons.code_rounded, color: Colors.white, size: 20),
                 ),
-                title: Text('GitHub Issues', style: TextStyle(color: textColor, fontWeight: FontWeight.bold)),
-                subtitle: Text('Tracked publicly on repository', style: TextStyle(color: subTextColor, fontSize: 11)),
+                title: Text(AppLocalizations.of(context)!.githubIssues, style: TextStyle(color: textColor, fontWeight: FontWeight.bold)),
+                subtitle: Text(AppLocalizations.of(context)!.githubIssuesDesc, style: TextStyle(color: subTextColor, fontSize: 11)),
                 onTap: () {
                   Navigator.pop(context);
                   _launchURL('https://github.com/WorkerOfArea51/TelStream/issues');
@@ -376,8 +377,8 @@ class _AboutContent extends StatelessWidget {
                   ),
                   child: const Icon(Icons.send_rounded, color: Colors.white, size: 20),
                 ),
-                title: Text('Telegram Support Bot', style: TextStyle(color: textColor, fontWeight: FontWeight.bold)),
-                subtitle: Text('Directly report to @Fil3Stor3_bot', style: TextStyle(color: subTextColor, fontSize: 11)),
+                title: Text(AppLocalizations.of(context)!.telegramSupportBot, style: TextStyle(color: textColor, fontWeight: FontWeight.bold)),
+                subtitle: Text(AppLocalizations.of(context)!.telegramSupportBotDesc, style: TextStyle(color: subTextColor, fontSize: 11)),
                 onTap: () {
                   Navigator.pop(context);
                   _launchURL('https://t.me/Fil3Stor3_bot');

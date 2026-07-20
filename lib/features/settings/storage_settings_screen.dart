@@ -186,7 +186,6 @@ class _StorageSettingsScreenState extends ConsumerState<StorageSettingsScreen> {
 
     try {
       final docDir = await getAppDirectory();
-      final customPath = ref.read(storageServiceProvider).getCustomDownloadDirectory();
 
       final int totalBytes = await compute((params) async {
         final docPath = params[0];

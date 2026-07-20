@@ -5,6 +5,8 @@ import '../../services/storage_service.dart';
 import '../settings/settings_provider.dart';
 import '../../core/utils/path_helper.dart';
 
+import '../../l10n/app_localizations.dart';
+
 class DiagnosticsScreen extends ConsumerStatefulWidget {
   const DiagnosticsScreen({super.key});
 
@@ -54,9 +56,9 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Hardware decoder updated to: $mode'),
-          backgroundColor: Colors.orange,
-          duration: const Duration(seconds: 2),
+          content: Text(AppLocalizations.of(context)!.hardwareDecoderUpdated(mode)),
+          backgroundColor: Colors.green,
+          behavior: SnackBarBehavior.floating,
         ),
       );
     }
@@ -65,6 +67,7 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context)!;
     final storage = ref.watch(storageServiceProvider);
     final settings = ref.watch(videoSettingsProvider);
     
@@ -131,7 +134,7 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                             ),
                             onPressed: () => _updateDecoderMode('mediacodec-copy'),
-                            child: Text('Switch to Copy-Back', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                            child: Text(l10n.switchToCopyBack, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                           ),
                         ),
                         const SizedBox(width: 10),
@@ -143,7 +146,7 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                             ),
                             onPressed: () => _updateDecoderMode('no'),
-                            child: Text('Use Software Decoding', style: TextStyle(fontSize: 12)),
+                            child: Text(l10n.useSoftwareDecoding, style: const TextStyle(fontSize: 12)),
                           ),
                         ),
                       ],
@@ -184,7 +187,7 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
             child: Column(
               children: [
                 ListTile(
-                  title: Text('Subtitle Renderer Mode', style: TextStyle(color: textColor)),
+                  title: Text(l10n.subtitleRendererMode, style: TextStyle(color: textColor)),
                   subtitle: Text(
                     settings.subtitleRendererMode == 'flutter' 
                         ? 'Compatible Flutter Text Overlay' 
@@ -195,14 +198,14 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
                 ),
                 Divider(color: divColor, height: 1),
                 ListTile(
-                  title: Text('Hardware Decoding Mode', style: TextStyle(color: textColor)),
+                  title: Text(l10n.hardwareDecodingMode, style: TextStyle(color: textColor)),
                   subtitle: Text(
                     decoderMode == 'mediacodec'
-                        ? 'Zero-Copy Hardware (mediacodec)'
+                        ? l10n.zeroCopy
                         : decoderMode == 'mediacodec-copy'
-                            ? 'Copy-Back Hardware (mediacodec-copy) [Recommended for Subs]'
+                            ? l10n.copyBack
                             : decoderMode == 'no'
-                                ? 'Software Decoding (no)'
+                                ? l10n.softwareDecoding
                                 : 'Auto ($decoderMode)',
                     style: TextStyle(color: subTextColor, fontSize: 12),
                   ),
@@ -224,8 +227,8 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
                     decoderMode == 'mediacodec' ? Icons.radio_button_checked : Icons.radio_button_off,
                     color: decoderMode == 'mediacodec' ? Colors.orange : subTextColor.withValues(alpha: 0.5),
                   ),
-                  title: Text('Zero-Copy (mediacodec)', style: TextStyle(color: textColor)),
-                  subtitle: Text('Highest performance, but may hide subtitles on Android.', style: TextStyle(color: subTextColor, fontSize: 11)),
+                  title: Text(l10n.zeroCopy, style: TextStyle(color: textColor)),
+                  subtitle: Text(l10n.zeroCopyDesc, style: TextStyle(color: subTextColor, fontSize: 11)),
                   onTap: () => _updateDecoderMode('mediacodec'),
                 ),
                 Divider(color: divColor, height: 1),
@@ -234,8 +237,8 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
                     decoderMode == 'mediacodec-copy' ? Icons.radio_button_checked : Icons.radio_button_off,
                     color: decoderMode == 'mediacodec-copy' ? Colors.orange : subTextColor.withValues(alpha: 0.5),
                   ),
-                  title: Text('Copy-Back (mediacodec-copy)', style: TextStyle(color: textColor)),
-                  subtitle: Text('Hardware accelerated video with full native subtitle blending.', style: TextStyle(color: subTextColor, fontSize: 11)),
+                  title: Text(l10n.copyBack, style: TextStyle(color: textColor)),
+                  subtitle: Text(l10n.copyBackDesc, style: TextStyle(color: subTextColor, fontSize: 11)),
                   onTap: () => _updateDecoderMode('mediacodec-copy'),
                 ),
                 Divider(color: divColor, height: 1),
@@ -244,8 +247,8 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
                     decoderMode == 'no' ? Icons.radio_button_checked : Icons.radio_button_off,
                     color: decoderMode == 'no' ? Colors.orange : subTextColor.withValues(alpha: 0.5),
                   ),
-                  title: Text('Software Decoding (no)', style: TextStyle(color: textColor)),
-                  subtitle: Text('Maximum subtitle compatibility. Decodes via CPU.', style: TextStyle(color: subTextColor, fontSize: 11)),
+                  title: Text(l10n.softwareDecoding, style: TextStyle(color: textColor)),
+                  subtitle: Text(l10n.softwareDecodingDesc, style: TextStyle(color: subTextColor, fontSize: 11)),
                   onTap: () => _updateDecoderMode('no'),
                 ),
               ],

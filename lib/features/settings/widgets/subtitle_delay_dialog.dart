@@ -1,4 +1,6 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
+import '../../../l10n/app_localizations.dart';
+
 class SubtitleDelayDialog extends StatefulWidget {
   final double current;
   final Color accentColor;
@@ -22,22 +24,24 @@ class SubtitleDelayDialogState extends State<SubtitleDelayDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
+    final l10n = AppLocalizations.of(context)!;
+    
     return AlertDialog(
       backgroundColor: theme.cardColor,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
         side: BorderSide(color: theme.colorScheme.onSurface.withValues(alpha: 0.08), width: 1),
       ),
-      title: Text('Subtitle Delay Offset', style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
+      title: Text(l10n.subtitleDelayOffsetDialogTitle, style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
             _value == 0.0
-                ? 'No Delay'
+                ? l10n.noDelay
                 : _value > 0.0
-                    ? '+${_value.toStringAsFixed(1)} seconds'
-                    : '${_value.toStringAsFixed(1)} seconds',
+                    ? l10n.delayPositive(_value.toStringAsFixed(1))
+                    : l10n.delayNegative(_value.toStringAsFixed(1)),
             style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontSize: 18),
           ),
           Slider(
@@ -53,7 +57,7 @@ class SubtitleDelayDialogState extends State<SubtitleDelayDialog> {
             },
           ),
           Text(
-            'Positive: Subtitles appear later\nNegative: Subtitles appear earlier',
+            l10n.subtitleDelayDescription,
             style: TextStyle(color: isDark ? Colors.white38 : Colors.black38, fontSize: 11),
             textAlign: TextAlign.center,
           ),
@@ -62,16 +66,13 @@ class SubtitleDelayDialogState extends State<SubtitleDelayDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: Text('Cancel', style: TextStyle(color: isDark ? Colors.white54 : Colors.black54)),
+          child: Text(l10n.cancel, style: TextStyle(color: isDark ? Colors.white54 : Colors.black54)),
         ),
         TextButton(
           onPressed: () => Navigator.pop(context, _value),
-          child: Text('Save', style: TextStyle(color: widget.accentColor)),
+          child: Text(l10n.save, style: TextStyle(color: widget.accentColor)),
         ),
       ],
     );
   }
 }
-
-
-

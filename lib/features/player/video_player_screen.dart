@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../l10n/app_localizations.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:tdlib/td_api.dart' as td;
@@ -379,7 +380,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Unable to open this video: $e'),
+            content: Text(AppLocalizations.of(context)!.unableToOpenVideo(e.toString())),
             backgroundColor: Colors.redAccent,
             duration: const Duration(seconds: 4),
           ),
@@ -501,7 +502,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
           });
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Failed to load network stream: $e'),
+              content: Text(AppLocalizations.of(context)!.failedToLoadNetworkStream(e.toString())),
               backgroundColor: Colors.redAccent,
               duration: const Duration(seconds: 4),
             ),
@@ -760,7 +761,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         if (player.state.playing) {
           player.play();
         }
-      } catch (e, st) {
+      } catch (e) {
         Log.w('Failed to refresh player on resume: $e');
       }
     }
@@ -815,13 +816,13 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
     // Silence, pause, and stop the player immediately to halt all decoding and audio output
     try {
       player.setVolume(0.0);
-    } catch (e) {}
+    } catch (e) { /* ignore */ }
     try {
       player.pause();
-    } catch (e) {}
+    } catch (e) { /* ignore */ }
     try {
       player.stop();
-    } catch (e) {}
+    } catch (e) { /* ignore */ }
 
     // Reset PipController active state first. If this player is the active player,
     // we call close() to clean up the state and set activePlayer to null.
@@ -1058,7 +1059,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
                         children: [
                           const CircularProgressIndicator(color: Colors.blueAccent),
                           const SizedBox(height: 16),
-                          const Text('Buffering stream from Telegram...', style: TextStyle(color: Colors.white70)),
+                          Text(AppLocalizations.of(context)!.bufferingStream, style: const TextStyle(color: Colors.white70)),
                           if (_expectedSize > 0)
                             Text('${(_downloadedPrefixSize / 1024 / 1024).toStringAsFixed(1)} MB / ${(_expectedSize / 1024 / 1024).toStringAsFixed(1)} MB', style: const TextStyle(color: Colors.white54)),
                         ],
@@ -1078,7 +1079,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
             player.setVolume(0.0);
             player.pause();
             player.stop();
-          } catch (e) {}
+          } catch (e) { /* ignore */ }
           _resetOrientationAndUI();
         }
       },
@@ -1139,7 +1140,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
           if (success && mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text('[AniList] Progress synced successfully (Ep $episodeNumber)'),
+                content: Text(AppLocalizations.of(context)!.anilistProgressSynced(episodeNumber.toString())),
                 backgroundColor: Colors.blueAccent,
                 duration: const Duration(seconds: 2),
               ),
@@ -1165,7 +1166,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
           if (success && mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text('[MAL] Progress synced successfully (Ep $episodeNumber)'),
+                content: Text(AppLocalizations.of(context)!.malProgressSynced(episodeNumber.toString())),
                 backgroundColor: Colors.teal,
                 duration: const Duration(seconds: 2),
               ),
@@ -1196,7 +1197,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
           if (success && mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text('[Trakt] Scrobble stop synced successfully (S${seasonNum}E$episodeNumber)'),
+                content: Text(AppLocalizations.of(context)!.traktProgressSynced(seasonNum.toString(), episodeNumber.toString())),
                 backgroundColor: Colors.redAccent,
                 duration: const Duration(seconds: 2),
               ),
@@ -1265,13 +1266,13 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
       
       try {
         await player.setVolume(0.0);
-      } catch (e) {}
+      } catch (e) { /* ignore */ }
       try {
         await player.pause();
-      } catch (e) {}
+      } catch (e) { /* ignore */ }
       try {
         await player.stop();
-      } catch (e) {}
+      } catch (e) { /* ignore */ }
       await player.dispose();
 
       _initialTrackSelectionDone = false;
@@ -1316,7 +1317,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         if (mediaUrl.startsWith('http://127.0.0.1')) {
           try {
             await _proxyService.onReady.timeout(const Duration(seconds: 3));
-          } catch (e) {}
+          } catch (e) { /* ignore */ }
           mediaUrl = _proxyService.getProxyUrl(fileId, fileName: widget.videoTitle);
         }
 

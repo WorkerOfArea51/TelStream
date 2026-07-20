@@ -628,34 +628,3 @@ class _AndroidMoreScreenState extends ConsumerState<AndroidMoreScreen>
   }
 }
 
-class _TechRow extends StatelessWidget {
-  final String name;
-  final String desc;
-
-  const _TechRow({required this.name, required this.desc});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          flex: 4,
-          child: Text(
-            name,
-            style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color, fontSize: 13, fontWeight: FontWeight.bold),
-          ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          flex: 6,
-          child: Text(
-            desc,
-            style: TextStyle(color: Theme.of(context).textTheme.bodySmall?.color, fontSize: 12, height: 1.3),
-          ),
-        ),
-      ],
-    );
-  }
-}
-

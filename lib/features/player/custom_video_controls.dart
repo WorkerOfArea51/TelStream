@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../l10n/app_localizations.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:screen_brightness/screen_brightness.dart';
@@ -302,19 +303,19 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     setState(() {
       if (_abRepeatA == null) {
         _abRepeatA = currentPos;
-        _showSkipToast('A-B Repeat: Point A set');
+        _showSkipToast(AppLocalizations.of(context)!.abRepeatPointASet);
       } else if (_abRepeatB == null) {
         if (currentPos <= _abRepeatA!) {
-          _showSkipToast('Point B must be after Point A');
+          _showSkipToast(AppLocalizations.of(context)!.pointBMustBeAfterPointA);
           return;
         }
         _abRepeatB = currentPos;
-        _showSkipToast('A-B Repeat: Repeating loop');
+        _showSkipToast(AppLocalizations.of(context)!.abRepeatLooping);
         _performSeek(_abRepeatA!);
       } else {
         _abRepeatA = null;
         _abRepeatB = null;
-        _showSkipToast('A-B Repeat: Cleared');
+        _showSkipToast(AppLocalizations.of(context)!.abRepeatCleared);
       }
     });
   }
@@ -326,13 +327,13 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
         _isMuted = false;
         _currentVolume = _preMuteVolume;
         FlutterVolumeController.setVolume(_currentVolume / 100.0);
-        _showSkipToast('Volume restored');
+        _showSkipToast(AppLocalizations.of(context)!.volumeRestored);
       } else {
         _isMuted = true;
         _preMuteVolume = _currentVolume;
         _currentVolume = 0.0;
         FlutterVolumeController.setVolume(0.0);
-        _showSkipToast('Volume muted');
+        _showSkipToast(AppLocalizations.of(context)!.volumeMuted);
       }
     });
   }
@@ -343,15 +344,17 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
           .read(permissionServiceProvider)
           .requestStoragePermission();
       if (!hasPermission) {
-        _showSkipToast('Storage permission denied');
+        if (!mounted) return;
+        _showSkipToast(AppLocalizations.of(context)!.storagePermissionDenied);
         return;
       }
 
       final Uint8List? screenshotBytes = await widget.player.screenshot(
         format: 'image/png',
       );
+      if (!mounted) return;
       if (screenshotBytes == null || screenshotBytes.isEmpty) {
-        _showSkipToast('Failed to capture screenshot');
+        _showSkipToast(AppLocalizations.of(context)!.failedToCaptureScreenshot);
         return;
       }
 
@@ -417,10 +420,12 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
       if (displayPath.startsWith('/storage/emulated/0/')) {
         displayPath = displayPath.replaceFirst('/storage/emulated/0/', '');
       }
-      _showSkipToast('Screenshot saved to $displayPath');
+      if (!mounted) return;
+      _showSkipToast(AppLocalizations.of(context)!.screenshotSavedTo(displayPath));
     } catch (e, stack) {
       Log.e('Failed to take screenshot', e, stack);
-      _showSkipToast('Error saving screenshot: $e');
+      if (!mounted) return;
+      _showSkipToast(AppLocalizations.of(context)!.errorSavingScreenshot(e.toString()));
     }
   }
 
@@ -495,32 +500,32 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     final List<Widget> items = [
       _buildCircularActionButton(
         icon: _isMuted ? Icons.volume_off : Icons.volume_up,
-        label: 'Mute',
+        label: AppLocalizations.of(context)!.mute,
         isActive: _isMuted,
         onTap: _toggleMute,
       ),
       _buildCircularActionButton(
         icon: Icons.screen_rotation,
-        label: 'Rotate',
+        label: AppLocalizations.of(context)!.rotate,
         isActive: !_isFullscreen,
         onTap: _toggleFullscreen,
       ),
       if (_hasChapters)
         _buildCircularActionButton(
           icon: Icons.format_list_bulleted,
-          label: 'Chapters',
+          label: AppLocalizations.of(context)!.chapters,
           isActive: _showChaptersPanel,
           onTap: _openChaptersPanel,
         ),
       _buildCircularActionButton(
         icon: Icons.repeat,
-        label: 'A-B Repeat',
+        label: AppLocalizations.of(context)!.abRepeat,
         isActive: _abRepeatA != null,
         onTap: _toggleAbRepeat,
       ),
       _buildCircularActionButton(
         icon: Icons.equalizer,
-        label: 'Equalizer',
+        label: AppLocalizations.of(context)!.equalizer,
         isActive: ref.watch(videoSettingsProvider).equalizerEnabled,
         onTap: _showEqualizerDialog,
       ),
@@ -528,19 +533,19 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
         icon: _sleepTimerSecondsRemaining != null
             ? Icons.snooze
             : Icons.snooze_outlined,
-        label: 'Sleep Timer',
+        label: AppLocalizations.of(context)!.sleepTimer,
         isActive: _sleepTimerSecondsRemaining != null,
         onTap: _showSleepTimerSelector,
       ),
       _buildCircularActionButton(
         icon: Icons.sync,
-        label: 'A/V Sync',
+        label: AppLocalizations.of(context)!.avSync,
         isActive: _audioDelay != 0.0,
         onTap: _showAudioDelayDialog,
       ),
       _buildCircularActionButton(
         icon: Icons.analytics_outlined,
-        label: 'Stats',
+        label: AppLocalizations.of(context)!.stats,
         isActive: ref.watch(videoSettingsProvider).showStatsForNerds,
         onTap: () {
           final s = ref.read(videoSettingsProvider);

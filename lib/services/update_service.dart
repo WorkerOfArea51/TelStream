@@ -278,7 +278,7 @@ class UpdateService {
     final specificRegex = RegExp(
       r'^[\s\-\*]*'              // optional whitespace, dashes, asterisks (any count)
       r'\**\s*'                  // optional bold markers
-      r'(?:`?)' + escaped + r'(?:`?)'
+      '(?:`?)$escaped(?:`?)'
       r'\s*[:：]\**\s*'
       r'`?([a-fA-F0-9]{64})`?'
       r'\s*$',
@@ -443,6 +443,7 @@ class _UpdateDialogContentState extends State<UpdateDialogContent> {
         }
       } else {
         // Recoverable prompt for missing hash instead of failing
+        if (!mounted) return;
         final shouldProceed = await showDialog<bool>(
           context: context,
           builder: (context) => AlertDialog(

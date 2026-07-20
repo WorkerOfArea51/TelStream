@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../l10n/app_localizations.dart';
 import '../../services/storage_service.dart';
 import '../../services/download_service.dart';
 import '../../core/theme/app_theme.dart';
@@ -83,17 +84,17 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> with SingleTi
           borderRadius: BorderRadius.circular(16),
           side: BorderSide(color: theme.colorScheme.onSurface.withValues(alpha: 0.08), width: 1),
         ),
-        title: const Text('Delete Download'),
-        content: Text('Are you sure you want to delete "$title" from your device? This cannot be undone.'),
+        title: Text(AppLocalizations.of(context)!.deleteDownload),
+        content: Text(AppLocalizations.of(context)!.deleteDownloadConfirmation(title)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: Text('Cancel', style: TextStyle(color: theme.brightness == Brightness.dark ? Colors.white54 : Colors.black54)),
+            child: Text(AppLocalizations.of(context)!.cancel, style: TextStyle(color: theme.brightness == Brightness.dark ? Colors.white54 : Colors.black54)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Delete', style: TextStyle(color: Colors.white)),
+            child: Text(AppLocalizations.of(context)!.delete, style: const TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -121,7 +122,7 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> with SingleTi
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Failed to delete file: $e'),
+              content: Text(AppLocalizations.of(context)!.failedToDeleteFile(e.toString())),
               backgroundColor: Colors.redAccent,
             ),
           );
@@ -181,7 +182,7 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> with SingleTi
         backgroundColor: Colors.transparent,
         elevation: 0,
         title: Text(
-          'Downloads Manager',
+          AppLocalizations.of(context)!.downloadsManager,
           style: TextStyle(
             color: isDark ? Colors.white : Colors.black87,
             fontWeight: FontWeight.bold,
@@ -193,7 +194,7 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> with SingleTi
           if (activeDownloads.any((e) => !e.value.isPaused && !e.value.isCompleted))
             IconButton(
               icon: const Icon(Icons.pause_circle_outline),
-              tooltip: 'Pause All',
+              tooltip: AppLocalizations.of(context)!.pauseAll,
               onPressed: () {
                 ref.read(downloadControllerProvider.notifier).pauseAllDownloads();
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -208,7 +209,7 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> with SingleTi
           if (activeDownloads.any((e) => e.value.isPaused))
             IconButton(
               icon: const Icon(Icons.play_circle_outline),
-              tooltip: 'Resume All',
+              tooltip: AppLocalizations.of(context)!.resumeAll,
               onPressed: () {
                 ref.read(downloadControllerProvider.notifier).resumeAllDownloads();
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -225,9 +226,9 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> with SingleTi
           indicatorColor: settingsAccent,
           labelColor: settingsAccent,
           unselectedLabelColor: isDark ? Colors.white54 : Colors.black54,
-          tabs: const [
-            Tab(text: 'Active / Queue'),
-            Tab(text: 'Downloaded'),
+          tabs: [
+            Tab(text: AppLocalizations.of(context)!.activeQueue),
+            Tab(text: AppLocalizations.of(context)!.downloaded),
           ],
         ),
       ),
@@ -261,7 +262,7 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> with SingleTi
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'Download Scheduler',
+                                AppLocalizations.of(context)!.downloadScheduler,
                                 style: TextStyle(
                                   color: isDark ? Colors.white : Colors.black87,
                                   fontWeight: FontWeight.bold,
@@ -271,7 +272,7 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> with SingleTi
                               ),
                               const SizedBox(height: 2),
                               Text(
-                                'Restrict downloads to off-peak hours',
+                                AppLocalizations.of(context)!.restrictDownloadsToOffPeakHours,
                                 style: TextStyle(
                                   color: isDark ? Colors.white54 : Colors.black54,
                                   fontSize: 11,
@@ -305,7 +306,7 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> with SingleTi
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'Start Time',
+                                  AppLocalizations.of(context)!.startTime,
                                   style: TextStyle(
                                     color: isDark ? Colors.white70 : Colors.black87,
                                     fontSize: 12,
@@ -346,7 +347,7 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> with SingleTi
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'End Time',
+                                  AppLocalizations.of(context)!.endTime,
                                   style: TextStyle(
                                     color: isDark ? Colors.white70 : Colors.black87,
                                     fontSize: 12,
@@ -394,10 +395,10 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> with SingleTi
                   color: theme.cardColor,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                   child: SwitchListTile(
-                    title: const Text('WiFi Only Downloads'),
-                    subtitle: const Text(
-                      'Pause downloads when on cellular data',
-                      style: TextStyle(fontSize: 12),
+                    title: Text(AppLocalizations.of(context)!.wifiOnlyDownloads),
+                    subtitle: Text(
+                      AppLocalizations.of(context)!.pauseDownloadsWhenOnCellularData,
+                      style: const TextStyle(fontSize: 12),
                     ),
                     secondary: Icon(
                       settings.wifiOnlyDownloads ? Icons.wifi : Icons.signal_cellular_alt,
@@ -430,7 +431,7 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> with SingleTi
                             ),
                             const SizedBox(height: 16),
                             Text(
-                              'No active downloads',
+                              AppLocalizations.of(context)!.noActiveDownloads,
                               style: TextStyle(
                                 color: isDark ? Colors.white70 : Colors.black87,
                                 fontSize: 16,
@@ -439,7 +440,7 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> with SingleTi
                             ),
                             const SizedBox(height: 8),
                             Text(
-                              'Queue some episodes to download them offline',
+                              AppLocalizations.of(context)!.queueEpisodesToDownload,
                               style: TextStyle(
                                 color: isDark ? Colors.white30 : Colors.black38,
                                 fontSize: 12,
@@ -528,7 +529,7 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> with SingleTi
                                             const SizedBox(width: 8),
                                             if (task.isPaused)
                                               Text(
-                                                'Paused',
+                                                AppLocalizations.of(context)!.paused,
                                                 style: TextStyle(
                                                   color: theme.disabledColor,
                                                   fontSize: 11,
@@ -537,7 +538,7 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> with SingleTi
                                               )
                                             else if (task.isScheduled)
                                               Text(
-                                                'Scheduled (Off-Peak)',
+                                                AppLocalizations.of(context)!.scheduledOffPeak,
                                                 style: TextStyle(
                                                   color: theme.disabledColor,
                                                   fontSize: 10,
@@ -556,11 +557,11 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> with SingleTi
                                             ],
                                           ],
                                         ),
-                                        if (!task.isPaused && !task.isScheduled && task.etaString.isNotEmpty && task.etaString != 'Calculating...')
+                                        if (!task.isPaused && !task.isScheduled && task.etaString.isNotEmpty && task.etaString != AppLocalizations.of(context)!.calculating)
                                           Padding(
                                             padding: const EdgeInsets.only(top: 2),
                                             child: Text(
-                                              'ETA: ${task.etaString}',
+                                              AppLocalizations.of(context)!.eta(task.etaString),
                                               style: TextStyle(
                                                 color: isDark ? Colors.white54 : Colors.black54,
                                                 fontSize: 10,
@@ -595,7 +596,7 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> with SingleTi
                                             size: 16,
                                           ),
                                           label: Text(
-                                            task.isPaused ? 'Resume' : 'Pause',
+                                            task.isPaused ? AppLocalizations.of(context)!.resume : AppLocalizations.of(context)!.pause,
                                             style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
                                           ),
                                         ),
@@ -654,7 +655,7 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> with SingleTi
                     controller: _searchController,
                     style: TextStyle(color: isDark ? Colors.white : Colors.black87),
                     decoration: InputDecoration(
-                      hintText: 'Search downloaded episodes...',
+                      hintText: AppLocalizations.of(context)!.searchDownloadedEpisodes,
                       hintStyle: TextStyle(color: isDark ? Colors.white30 : Colors.black38),
                       border: InputBorder.none,
                       icon: Icon(Icons.search, color: settingsAccent),
@@ -682,7 +683,7 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> with SingleTi
                       Icon(Icons.storage_rounded, size: 16, color: settingsAccent),
                       const SizedBox(width: 8),
                       Text(
-                        'Total Offline Storage: ',
+                        AppLocalizations.of(context)!.totalOfflineStorage,
                         style: TextStyle(color: isDark ? Colors.white54 : Colors.black54, fontSize: 13),
                       ),
                       Text(
@@ -691,7 +692,7 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> with SingleTi
                       ),
                       const Spacer(),
                       Text(
-                        '${completedDownloads.length} files',
+                        AppLocalizations.of(context)!.filesCount(completedDownloads.length),
                         style: TextStyle(color: settingsAccent, fontSize: 12, fontWeight: FontWeight.bold),
                       ),
                     ],
@@ -706,7 +707,7 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> with SingleTi
                             Icon(Icons.download_done_rounded, size: 72, color: isDark ? Colors.white24 : Colors.black12),
                             const SizedBox(height: 16),
                             Text(
-                              'No downloads found',
+                              AppLocalizations.of(context)!.noDownloadsFound,
                               style: TextStyle(
                                 color: isDark ? Colors.white54 : Colors.black54,
                                 fontSize: 15,
@@ -715,7 +716,7 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> with SingleTi
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              'Episodes you download will appear here offline',
+                              AppLocalizations.of(context)!.episodesYouDownloadWillAppearHere,
                               style: TextStyle(
                                 color: isDark ? Colors.white30 : Colors.black38,
                                 fontSize: 12,
@@ -727,7 +728,7 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> with SingleTi
                     : filteredCompletedList.isEmpty
                         ? Center(
                             child: Text(
-                              'No matching downloads found',
+                              AppLocalizations.of(context)!.noMatchingDownloadsFound,
                               style: TextStyle(color: isDark ? Colors.white30 : Colors.black38),
                             ),
                           )
@@ -812,7 +813,7 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> with SingleTi
                                           messageId: fileId,
                                           videoFileId: fileId,
                                           videoTitle: task.title,
-                                          seriesName: 'Offline Downloads',
+                                          seriesName: AppLocalizations.of(context)!.offlineDownloads,
                                           networkUrl: path,
                                         );
                                       },

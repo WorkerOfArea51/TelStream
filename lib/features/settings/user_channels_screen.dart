@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../l10n/app_localizations.dart';
 import '../../core/constants.dart';
 import '../home/user_channels_provider.dart';
 import '../../services/tdlib_service.dart';
@@ -44,6 +45,7 @@ class _UserChannelsScreenState extends ConsumerState<UserChannelsScreen> {
   }
 
   Future<void> _showAddDialog() async {
+    final l10n = AppLocalizations.of(context)!;
     _titleController.clear();
     _linkController.clear();
     _selectedIcon = 'custom';
@@ -53,7 +55,7 @@ class _UserChannelsScreenState extends ConsumerState<UserChannelsScreen> {
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
           backgroundColor: const Color(0xFF1A1B26),
-          title: const Text('Add Channel', style: TextStyle(color: Colors.white)),
+          title: Text(l10n.addChannel, style: TextStyle(color: Colors.white)),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -84,9 +86,9 @@ class _UserChannelsScreenState extends ConsumerState<UserChannelsScreen> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                const Align(
+                Align(
                   alignment: Alignment.centerLeft,
-                  child: Text('Icon', style: TextStyle(color: Colors.white54, fontSize: 12)),
+                  child: Text(l10n.icon, style: TextStyle(color: Colors.white54, fontSize: 12)),
                 ),
                 const SizedBox(height: 8),
                 Wrap(
@@ -114,7 +116,7 @@ class _UserChannelsScreenState extends ConsumerState<UserChannelsScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel', style: TextStyle(color: Colors.white54)),
+              child: Text(l10n.cancel, style: TextStyle(color: Colors.white54)),
             ),
             FilledButton(
               onPressed: _isAdding
@@ -124,7 +126,7 @@ class _UserChannelsScreenState extends ConsumerState<UserChannelsScreen> {
                       final link = _linkController.text.trim();
                       if (link.isEmpty) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Please provide a link or username')),
+                          SnackBar(content: Text(l10n.pleaseProvideLinkOrUsername)),
                         );
                         return;
                       }
@@ -146,7 +148,7 @@ class _UserChannelsScreenState extends ConsumerState<UserChannelsScreen> {
                       } catch (e) {
                         if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Failed to add channel: $e')),
+                            SnackBar(content: Text('${l10n.failedToAddChannel}: $e')),
                           );
                         }
                       } finally {
@@ -155,7 +157,7 @@ class _UserChannelsScreenState extends ConsumerState<UserChannelsScreen> {
                     },
               child: _isAdding
                   ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                  : const Text('Add'),
+                  : Text(l10n.add),
             ),
           ],
         ),
@@ -164,21 +166,22 @@ class _UserChannelsScreenState extends ConsumerState<UserChannelsScreen> {
   }
 
   Future<void> _removeChannel(UserChannel channel) async {
+    final l10n = AppLocalizations.of(context)!;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF1A1B26),
-        title: const Text('Remove Channel?', style: TextStyle(color: Colors.white)),
-        content: Text('Are you sure you want to remove "${channel.title}"?', style: const TextStyle(color: Colors.white70)),
+        title: Text(l10n.removeChannelQuestion, style: TextStyle(color: Colors.white)),
+        content: Text(l10n.areYouSureYouWantToRemoveChannel(channel.title), style: const TextStyle(color: Colors.white70)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel', style: TextStyle(color: Colors.white54)),
+            child: Text(l10n.cancel, style: TextStyle(color: Colors.white54)),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
             style: FilledButton.styleFrom(backgroundColor: Colors.redAccent),
-            child: const Text('Remove'),
+            child: Text(l10n.remove),
           ),
         ],
       ),
@@ -204,6 +207,7 @@ class _UserChannelsScreenState extends ConsumerState<UserChannelsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final channels = ref.watch(userChannelsProvider);
 
     return Scaffold(
@@ -211,7 +215,7 @@ class _UserChannelsScreenState extends ConsumerState<UserChannelsScreen> {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        title: const Text('My Channels', style: TextStyle(color: Colors.white)),
+        title: Text(l10n.myChannels, style: TextStyle(color: Colors.white)),
         iconTheme: const IconThemeData(color: Colors.white),
       ),
       floatingActionButton: FloatingActionButton(
@@ -226,14 +230,14 @@ class _UserChannelsScreenState extends ConsumerState<UserChannelsScreen> {
                 children: [
                   const Icon(Icons.folder_off_outlined, size: 64, color: Colors.white24),
                   const SizedBox(height: 16),
-                  const Text('No channels added yet', style: TextStyle(color: Colors.white54, fontSize: 16)),
+                  Text(l10n.noChannelsAddedYet, style: TextStyle(color: Colors.white54, fontSize: 16)),
                   const SizedBox(height: 8),
-                  const Text('Tap + to add your first channel', style: TextStyle(color: Colors.white24, fontSize: 13)),
+                  Text(l10n.tapToAddYourFirstChannel, style: TextStyle(color: Colors.white24, fontSize: 13)),
                   const SizedBox(height: 24),
                   FilledButton.icon(
                     onPressed: _showAddDialog,
                     icon: const Icon(Icons.add),
-                    label: const Text('Add Channel'),
+                    label: Text(l10n.addChannel),
                   ),
                 ],
               ),
@@ -273,3 +277,5 @@ class _UserChannelsScreenState extends ConsumerState<UserChannelsScreen> {
     );
   }
 }
+
+

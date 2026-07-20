@@ -8,6 +8,7 @@ import '../../core/widgets/td_thumbnail.dart';
 import '../../core/widgets/aligned_name_text.dart';
 import 'package:tdlib/td_api.dart' as td;
 import '../../core/constants.dart';
+import '../../l10n/app_localizations.dart';
 
 class FavoritesScreen extends ConsumerWidget {
   const FavoritesScreen({super.key});
@@ -36,7 +37,7 @@ class FavoritesScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(
-        title: const Text('My List', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+        title: Text(AppLocalizations.of(context)!.myList, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
         backgroundColor: Colors.transparent,
         elevation: 0,
       ),
@@ -62,7 +63,7 @@ class FavoritesScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 24),
             Text(
-              'No favorites yet.', 
+              AppLocalizations.of(context)!.noFavoritesYet, 
               style: TextStyle(
                 color: isDark ? Colors.white70 : Colors.black87, 
                 fontSize: 20, 
@@ -73,7 +74,7 @@ class FavoritesScreen extends ConsumerWidget {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 40),
               child: Text(
-                'Tap the heart icon on any series to add it here for quick access.', 
+                AppLocalizations.of(context)!.tapHeartToFavorite, 
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: isDark ? Colors.white54 : Colors.black54, 
@@ -102,7 +103,7 @@ class FavoritesScreen extends ConsumerWidget {
         final series = favoriteSeries[index];
         final isMovie = moviesList.any((s) => s.coreName == series.coreName);
         final isWebSeries = webSeriesList.any((s) => s.coreName == series.coreName);
-        final categoryTitle = isMovie ? 'Movies' : (isWebSeries ? 'Web Series' : 'Anime');
+        final categoryTitle = isMovie ? AppLocalizations.of(context)!.categoryMovies : (isWebSeries ? AppLocalizations.of(context)!.categoryWebSeries : AppLocalizations.of(context)!.categoryAnime);
         final totalEpisodes = series.seasons.fold(0, (sum, s) => sum + s.episodes.length);
         final latestPoster = series.seasons.isNotEmpty ? series.seasons.first.posterMessage : null;
         
@@ -183,7 +184,7 @@ class FavoritesScreen extends ConsumerWidget {
                         overflow: TextOverflow.ellipsis,
                       ),
                       Text(
-                        isMovie ? 'Movie' : '$totalEpisodes Episode${totalEpisodes > 1 ? "s" : ""}',
+                        isMovie ? AppLocalizations.of(context)!.movie : AppLocalizations.of(context)!.nEpisodesPlural(totalEpisodes),
                         style: TextStyle(
                           color: isMovie ? Colors.amber : Colors.blue,
                           fontSize: 12,

@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import '../../../l10n/app_localizations.dart';
 
 class AdminOverrideDialog extends StatefulWidget {
   final String title;
@@ -31,18 +32,18 @@ class _AdminOverrideDialogState extends State<AdminOverrideDialog> {
   Widget build(BuildContext context) {
     return AlertDialog(
       backgroundColor: Colors.grey[900],
-      title: Text('Admin Override', style: const TextStyle(color: Colors.white)),
+      title: Text(AppLocalizations.of(context)!.adminOverrideTitle, style: const TextStyle(color: Colors.white)),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Linking: ${widget.title}',
+            AppLocalizations.of(context)!.adminOverrideLinking(widget.title),
             style: const TextStyle(color: Colors.white70, fontSize: 14),
           ),
           const SizedBox(height: 8),
           SelectableText(
-            'Firebase Folder: ${base64Url.encode(utf8.encode(widget.title)).replaceAll("=", "")}',
+            AppLocalizations.of(context)!.firebaseFolder(base64Url.encode(utf8.encode(widget.title)).replaceAll("=", "")),
             style: const TextStyle(color: Colors.orange, fontSize: 12, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 16),
@@ -52,7 +53,7 @@ class _AdminOverrideDialogState extends State<AdminOverrideDialog> {
             minLines: 1,
             maxLines: 5,
             decoration: InputDecoration(
-              hintText: 'Paste IMDB/MAL URLs (comma separated or multiple lines)',
+              hintText: AppLocalizations.of(context)!.pasteUrlsHint,
               hintStyle: const TextStyle(color: Colors.white30),
               filled: true,
               fillColor: Colors.black,
@@ -67,12 +68,12 @@ class _AdminOverrideDialogState extends State<AdminOverrideDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel', style: TextStyle(color: Colors.white54)),
+          child: Text(AppLocalizations.of(context)!.cancel, style: const TextStyle(color: Colors.white54)),
         ),
         ElevatedButton(
           style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
           onPressed: () => Navigator.pop(context, _controller.text.trim()),
-          child: const Text('Save Link', style: TextStyle(color: Colors.white)),
+          child: Text(AppLocalizations.of(context)!.saveLink, style: const TextStyle(color: Colors.white)),
         ),
       ],
     );

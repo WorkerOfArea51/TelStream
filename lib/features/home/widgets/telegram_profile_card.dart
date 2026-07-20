@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../../l10n/app_localizations.dart';
 import 'package:tdlib/td_api.dart' as td;
 import '../../../core/theme/app_theme.dart';
 import '../../../services/storage_service.dart';
@@ -157,11 +158,10 @@ class _TelegramProfileCardState extends ConsumerState<TelegramProfileCard> {
     return streak;
   }
 
-  String _formatScreenTime(int totalSeconds) {
+  String _formatScreenTime(int totalSeconds, BuildContext context) {
     final int hours = totalSeconds ~/ 3600;
     final int minutes = (totalSeconds % 3600) ~/ 60;
-    final hrStr = hours == 1 ? 'hr' : 'hrs';
-    return '$hours $hrStr $minutes min';
+    return '$hours ${AppLocalizations.of(context)!.hoursShort(hours)} $minutes ${AppLocalizations.of(context)!.minutesShort}';
   }
 
   String _getUserUsername(td.User user) {
@@ -271,7 +271,7 @@ class _TelegramProfileCardState extends ConsumerState<TelegramProfileCard> {
                     Text(
                       _currentUser != null
                           ? '${_currentUser!.firstName} ${_currentUser!.lastName}'.trim()
-                          : 'Telegram User',
+                          : AppLocalizations.of(context)!.telegramUser,
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 18,
@@ -286,7 +286,7 @@ class _TelegramProfileCardState extends ConsumerState<TelegramProfileCard> {
                           ? (_getUserUsername(_currentUser!).isNotEmpty
                               ? '@${_getUserUsername(_currentUser!)}'
                               : 'ID: ${_currentUser!.id}')
-                          : 'Not loaded',
+                          : AppLocalizations.of(context)!.notLoaded,
                       style: const TextStyle(
                         color: Colors.white60,
                         fontSize: 13,
@@ -315,8 +315,8 @@ class _TelegramProfileCardState extends ConsumerState<TelegramProfileCard> {
                             : 'tg://user?id=${_currentUser!.id}';
                         _launchURL(url);
                       },
-                      child: const Text(
-                        'View Profile',
+                      child: Text(
+                        AppLocalizations.of(context)!.viewProfile,
                         style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
                       ),
                     ),
@@ -329,11 +329,11 @@ class _TelegramProfileCardState extends ConsumerState<TelegramProfileCard> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              _buildStatColumn(context, 'This Month', _formatScreenTime(_monthlySeconds)),
+              _buildStatColumn(context, AppLocalizations.of(context)!.thisMonth, _formatScreenTime(_monthlySeconds, context)),
               Container(width: 1, height: 32, color: Colors.white10),
-              _buildStatColumn(context, 'Average Daily', _formatScreenTime(_averageDailySeconds)),
+              _buildStatColumn(context, AppLocalizations.of(context)!.averageDaily, _formatScreenTime(_averageDailySeconds, context)),
               Container(width: 1, height: 32, color: Colors.white10),
-              _buildStatColumn(context, 'Watch Streak', '$_watchStreak Days'),
+              _buildStatColumn(context, AppLocalizations.of(context)!.watchStreak, AppLocalizations.of(context)!.nDaysStreak(_watchStreak)),
             ],
           ),
         ],

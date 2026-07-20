@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/constants.dart';
 import 'changelog_parser.dart';
+import '../../l10n/app_localizations.dart';
 
 class WhatsNewDialog extends StatelessWidget {
   final String content;
@@ -18,6 +19,7 @@ class WhatsNewDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context)!;
 
     return AlertDialog(
       backgroundColor: theme.cardColor,
@@ -48,7 +50,7 @@ class WhatsNewDialog extends StatelessWidget {
             
             // Title
             Text(
-              "What's New in TelStream",
+              l10n.whatsNewTitle,
               style: TextStyle(
                 color: theme.colorScheme.onSurface,
                 fontSize: 22,
@@ -89,9 +91,9 @@ class WhatsNewDialog extends StatelessWidget {
                   elevation: 0,
                 ),
                 onPressed: () => Navigator.pop(context),
-                child: const Text(
-                  "Let's Go!",
-                  style: TextStyle(
+                child: Text(
+                  l10n.letsGo,
+                  style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
                   ),

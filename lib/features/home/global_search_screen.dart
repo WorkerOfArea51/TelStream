@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../l10n/app_localizations.dart';
 import 'package:tdlib/td_api.dart' as td;
 import '../../models/anime_models.dart';
 import '../../core/theme/app_theme.dart';
@@ -118,7 +119,7 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
           style: TextStyle(color: isDark ? Colors.white : Colors.black87),
           autofocus: true,
           decoration: InputDecoration(
-            hintText: 'Search Anime, Movies, Web Series...',
+            hintText: AppLocalizations.of(context)!.searchGlobalHint,
             hintStyle: TextStyle(color: isDark ? Colors.white38 : Colors.black38),
             border: InputBorder.none,
             suffixIcon: _query.isNotEmpty
@@ -161,7 +162,7 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
                       Icon(Icons.search_rounded, size: 72, color: isDark ? Colors.white24 : Colors.black12),
                       const SizedBox(height: 16),
                       Text(
-                        'Search library dynamically',
+                        AppLocalizations.of(context)!.searchLibraryDynamically,
                         style: TextStyle(
                           color: isDark ? Colors.white54 : Colors.black54,
                           fontSize: 15,
@@ -170,7 +171,7 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'Type letters to search with fuzzy tolerance',
+                        AppLocalizations.of(context)!.typeLettersToSearch,
                         style: TextStyle(
                           color: isDark ? Colors.white30 : Colors.black38,
                           fontSize: 12,
@@ -186,7 +187,7 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          'Recent Searches',
+                          AppLocalizations.of(context)!.recentSearches,
                           style: TextStyle(
                             color: isDark ? Colors.white70 : Colors.black54,
                             fontWeight: FontWeight.bold,
@@ -199,7 +200,7 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
                           },
                           icon: Icon(Icons.delete_outline, size: 16, color: settingsAccent),
                           label: Text(
-                            'Clear All',
+                            AppLocalizations.of(context)!.clearAll,
                             style: TextStyle(color: settingsAccent, fontSize: 13),
                           ),
                         ),
@@ -236,7 +237,7 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
                       Icon(Icons.search_off_rounded, size: 80, color: theme.colorScheme.primary.withValues(alpha: 0.2)),
                       const SizedBox(height: 24),
                       Text(
-                        'No results found',
+                        AppLocalizations.of(context)!.noResultsFound,
                         style: TextStyle(
                           color: isDark ? Colors.white70 : Colors.black87,
                           fontSize: 20,
@@ -247,7 +248,7 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 40),
                         child: Text(
-                          'We couldn\'t find any series matching "$_query". Try different keywords or check your spelling.',
+                          AppLocalizations.of(context)!.noResultsFoundGlobal(_query),
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             color: isDark ? Colors.white54 : Colors.black54,
@@ -265,11 +266,11 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
                       sliver: SliverList(
                         delegate: SliverChildListDelegate([
                           if (animeResults.isNotEmpty)
-                            _buildCategorySection('Anime', animeResults, 'anime_search'),
+                            _buildCategorySection(AppLocalizations.of(context)!.categoryAnime, animeResults, 'anime_search'),
                           if (moviesResults.isNotEmpty)
-                            _buildCategorySection('Movies', moviesResults, 'movies_search'),
+                            _buildCategorySection(AppLocalizations.of(context)!.categoryMovies, moviesResults, 'movies_search'),
                           if (webSeriesResults.isNotEmpty)
-                            _buildCategorySection('Web Series', webSeriesResults, 'web_series_search'),
+                            _buildCategorySection(AppLocalizations.of(context)!.categoryWebSeries, webSeriesResults, 'web_series_search'),
                         ]),
                       ),
                     ),

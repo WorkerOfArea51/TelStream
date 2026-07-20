@@ -812,10 +812,6 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
   }
 
   Future<void> resumeAllDownloads() async {
-    final tdlib = ref.read(tdlibServiceProvider);
-    final pausedTasks = state.entries
-        .where((e) => e.value.isPaused && !e.value.isCompleted)
-        .toList();
 
     // Mark all as un-paused and QUEUED (not active yet)
     state = state.map((fileId, task) {
@@ -914,7 +910,7 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
           throw Exception("Copied file size ($totalRead bytes) does not match original size ($tempSize bytes)");
         }
         
-        final permFile = await File(partPath).rename(permanentPath);
+        await File(partPath).rename(permanentPath);
         
         try {
           await tempFile.delete();

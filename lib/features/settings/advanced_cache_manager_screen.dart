@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import '../../l10n/app_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tdlib/td_api.dart' as td;
 import '../../services/tdlib_service.dart';
@@ -145,6 +146,8 @@ class _AdvancedCacheManagerScreenState extends ConsumerState<AdvancedCacheManage
   }
 
   Future<void> _clearCacheForSeries(SeriesCacheInfo info) async {
+    if (!mounted) return;
+    final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     final confirmed = await showDialog<bool>(
       context: context,
@@ -155,17 +158,17 @@ class _AdvancedCacheManagerScreenState extends ConsumerState<AdvancedCacheManage
             borderRadius: BorderRadius.circular(16),
             side: BorderSide(color: theme.colorScheme.onSurface.withValues(alpha: 0.08)),
           ),
-          title: const Text('Clear Series Cache'),
+          title: Text(l10n.clearSeriesCache),
           content: Text('Are you sure you want to clear all cached episodes for "${info.seriesName}"? This will free up ${_formatSize(info.totalSize)}.'),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
-              child: Text('Cancel', style: TextStyle(color: theme.brightness == Brightness.dark ? Colors.white54 : Colors.black54)),
+              child: Text(l10n.cancel, style: TextStyle(color: theme.brightness == Brightness.dark ? Colors.white54 : Colors.black54)),
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
               onPressed: () => Navigator.pop(context, true),
-              child: const Text('Clear', style: TextStyle(color: Colors.white)),
+              child: Text(l10n.clear, style: TextStyle(color: Colors.white)),
             ),
           ],
         );
@@ -191,7 +194,7 @@ class _AdvancedCacheManagerScreenState extends ConsumerState<AdvancedCacheManage
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
             content: Text('Cache cleared successfully!'),
             backgroundColor: Colors.green,
           ),
@@ -201,6 +204,8 @@ class _AdvancedCacheManagerScreenState extends ConsumerState<AdvancedCacheManage
   }
 
   Future<void> _clearAllTemporaryCache() async {
+    if (!mounted) return;
+    final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     final confirmed = await showDialog<bool>(
       context: context,
@@ -211,17 +216,17 @@ class _AdvancedCacheManagerScreenState extends ConsumerState<AdvancedCacheManage
             borderRadius: BorderRadius.circular(16),
             side: BorderSide(color: theme.colorScheme.onSurface.withValues(alpha: 0.08)),
           ),
-          title: const Text('Clear All Cache'),
+          title: Text(l10n.clearAllCacheTitle),
           content: Text('Are you sure you want to clear the entire streaming cache? This will delete all cached videos, temp files, and images, freeing up ${_formatSize(_totalCacheSize)}.'),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
-              child: Text('Cancel', style: TextStyle(color: theme.brightness == Brightness.dark ? Colors.white54 : Colors.black54)),
+              child: Text(l10n.cancel, style: TextStyle(color: theme.brightness == Brightness.dark ? Colors.white54 : Colors.black54)),
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
               onPressed: () => Navigator.pop(context, true),
-              child: const Text('Clear All', style: TextStyle(color: Colors.white)),
+              child: Text(l10n.clearAll, style: TextStyle(color: Colors.white)),
             ),
           ],
         );
@@ -235,7 +240,7 @@ class _AdvancedCacheManagerScreenState extends ConsumerState<AdvancedCacheManage
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Clearing entire cache...'), duration: Duration(seconds: 1)),
+          SnackBar(content: Text('Clearing entire cache...'), duration: Duration(seconds: 1)),
         );
       }
 
@@ -244,8 +249,8 @@ class _AdvancedCacheManagerScreenState extends ConsumerState<AdvancedCacheManage
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('All cache cleared successfully!'),
+          SnackBar(
+            content: Text(l10n.allCacheCleared),
             backgroundColor: Colors.green,
           ),
         );
@@ -254,6 +259,8 @@ class _AdvancedCacheManagerScreenState extends ConsumerState<AdvancedCacheManage
   }
 
   Future<void> _pruneFullyWatchedVideos() async {
+    if (!mounted) return;
+    final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     final storage = ref.read(storageServiceProvider);
     final historyLogs = storage.getHistoryLog();
@@ -285,12 +292,12 @@ class _AdvancedCacheManagerScreenState extends ConsumerState<AdvancedCacheManage
               borderRadius: BorderRadius.circular(16),
               side: BorderSide(color: theme.colorScheme.onSurface.withValues(alpha: 0.08)),
             ),
-            title: const Text('Prune Watched Videos'),
-            content: const Text('No fully watched episodes (>90% progress) were found to prune.'),
+            title: Text(l10n.pruneWatchedVideos),
+            content: Text(l10n.noWatchedEpisodesToPrune),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text('OK'),
+                child: Text(l10n.ok),
               ),
             ],
           );
@@ -308,7 +315,7 @@ class _AdvancedCacheManagerScreenState extends ConsumerState<AdvancedCacheManage
             borderRadius: BorderRadius.circular(16),
             side: BorderSide(color: theme.colorScheme.onSurface.withValues(alpha: 0.08)),
           ),
-          title: const Text('Prune Watched Videos'),
+          title: Text(l10n.pruneWatchedVideos),
           content: Text(
             'Are you sure you want to delete local downloads and streaming cache files for the ${watchedLogsToPrune.length} fully watched episodes (>90% progress)?\n\n'
             'This will delete files for:\n'
@@ -317,12 +324,12 @@ class _AdvancedCacheManagerScreenState extends ConsumerState<AdvancedCacheManage
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
-              child: Text('Cancel', style: TextStyle(color: theme.brightness == Brightness.dark ? Colors.white54 : Colors.black54)),
+              child: Text(l10n.cancel, style: TextStyle(color: theme.brightness == Brightness.dark ? Colors.white54 : Colors.black54)),
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(backgroundColor: Colors.orangeAccent),
               onPressed: () => Navigator.pop(context, true),
-              child: const Text('Prune', style: TextStyle(color: Colors.white)),
+              child: Text(l10n.prune, style: TextStyle(color: Colors.white)),
             ),
           ],
         );
@@ -333,7 +340,7 @@ class _AdvancedCacheManagerScreenState extends ConsumerState<AdvancedCacheManage
       if (mounted) {
         setState(() => _isLoading = true);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Pruning watched videos...'), duration: Duration(seconds: 2)),
+          SnackBar(content: Text('Pruning watched videos...'), duration: Duration(seconds: 2)),
         );
       }
 
@@ -369,6 +376,8 @@ class _AdvancedCacheManagerScreenState extends ConsumerState<AdvancedCacheManage
   }
 
   Future<void> _clearMetadataCacheAction() async {
+    if (!mounted) return;
+    final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     final confirmed = await showDialog<bool>(
       context: context,
@@ -379,17 +388,17 @@ class _AdvancedCacheManagerScreenState extends ConsumerState<AdvancedCacheManage
             borderRadius: BorderRadius.circular(16),
             side: BorderSide(color: theme.colorScheme.onSurface.withValues(alpha: 0.08)),
           ),
-          title: const Text('Clear Metadata Cache'),
-          content: const Text('Are you sure you want to clear the cached search IDs and release years? This will force the app to fetch metadata from trackers again next time the catalog is sorted.'),
+          title: Text(l10n.clearMetadataCache),
+          content: Text(l10n.clearMetadataCacheDesc),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
-              child: Text('Cancel', style: TextStyle(color: theme.brightness == Brightness.dark ? Colors.white54 : Colors.black54)),
+              child: Text(l10n.cancel, style: TextStyle(color: theme.brightness == Brightness.dark ? Colors.white54 : Colors.black54)),
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
               onPressed: () => Navigator.pop(context, true),
-              child: const Text('Clear Cache', style: TextStyle(color: Colors.white)),
+              child: Text(l10n.clearCache, style: TextStyle(color: Colors.white)),
             ),
           ],
         );
@@ -399,7 +408,7 @@ class _AdvancedCacheManagerScreenState extends ConsumerState<AdvancedCacheManage
     if (confirmed == true) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Clearing metadata cache...'), duration: Duration(seconds: 1)),
+          SnackBar(content: Text('Clearing metadata cache...'), duration: Duration(seconds: 1)),
         );
       }
 
@@ -407,8 +416,8 @@ class _AdvancedCacheManagerScreenState extends ConsumerState<AdvancedCacheManage
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Metadata cache cleared successfully!'),
+          SnackBar(
+            content: Text(l10n.metadataCacheCleared),
             backgroundColor: Colors.green,
           ),
         );
@@ -417,10 +426,12 @@ class _AdvancedCacheManagerScreenState extends ConsumerState<AdvancedCacheManage
   }
 
   Future<void> _clearSeasonMetadataCache() async {
+    if (!mounted) return;
+    final l10n = AppLocalizations.of(context)!;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Clear Season Metadata?'),
+        title: Text(l10n.clearSeasonMetadataTitle),
         content: const Text(
           'This will delete all cached season metadata (posters, cast, plot). '
           'The app will re-fetch from TMDB next time you open each season. '
@@ -429,11 +440,11 @@ class _AdvancedCacheManagerScreenState extends ConsumerState<AdvancedCacheManage
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            child: Text(l10n.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Clear'),
+            child: Text(l10n.clear),
           ),
         ],
       ),
@@ -445,8 +456,8 @@ class _AdvancedCacheManagerScreenState extends ConsumerState<AdvancedCacheManage
         await storage.clearSeasonMetadataCache();
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Season metadata cache cleared.'),
+            SnackBar(
+              content: Text(l10n.seasonMetadataCleared),
               backgroundColor: Colors.green,
             ),
           );
@@ -465,6 +476,8 @@ class _AdvancedCacheManagerScreenState extends ConsumerState<AdvancedCacheManage
   }
 
   Future<void> _compactDatabaseAction() async {
+    if (!mounted) return;
+    final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     final confirmed = await showDialog<bool>(
       context: context,
@@ -475,7 +488,7 @@ class _AdvancedCacheManagerScreenState extends ConsumerState<AdvancedCacheManage
             borderRadius: BorderRadius.circular(16),
             side: BorderSide(color: theme.colorScheme.onSurface.withValues(alpha: 0.08)),
           ),
-          title: const Text('Compact & Defragment Database'),
+          title: Text(l10n.compactDatabase),
           content: const Text(
             'This will defragment SQLite indexes and optimize TDLib storage to reclaim empty disk space.\n\n'
             'This action is safe and does not delete your login session or watched history.',
@@ -483,12 +496,12 @@ class _AdvancedCacheManagerScreenState extends ConsumerState<AdvancedCacheManage
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
-              child: Text('Cancel', style: TextStyle(color: theme.brightness == Brightness.dark ? Colors.white54 : Colors.black54)),
+              child: Text(l10n.cancel, style: TextStyle(color: theme.brightness == Brightness.dark ? Colors.white54 : Colors.black54)),
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(backgroundColor: theme.primaryColor),
               onPressed: () => Navigator.pop(context, true),
-              child: const Text('Optimize Now', style: TextStyle(color: Colors.white)),
+              child: Text(l10n.optimizeNow, style: TextStyle(color: Colors.white)),
             ),
           ],
         );
@@ -499,7 +512,7 @@ class _AdvancedCacheManagerScreenState extends ConsumerState<AdvancedCacheManage
       if (mounted) {
         setState(() => _isLoading = true);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Optimizing & compacting databases...'), duration: Duration(seconds: 2)),
+          SnackBar(content: Text('Optimizing & compacting databases...'), duration: Duration(seconds: 2)),
         );
       }
 
@@ -513,8 +526,8 @@ class _AdvancedCacheManagerScreenState extends ConsumerState<AdvancedCacheManage
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Database compacted and defragmented successfully!'),
+          SnackBar(
+            content: Text(l10n.databaseCompacted),
             backgroundColor: Colors.green,
           ),
         );
@@ -524,6 +537,7 @@ class _AdvancedCacheManagerScreenState extends ConsumerState<AdvancedCacheManage
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     final customTheme = theme.extension<AppThemeExtension>();
     final settingsBg = customTheme?.settingsBackground ?? theme.scaffoldBackgroundColor;
@@ -680,7 +694,7 @@ class _AdvancedCacheManagerScreenState extends ConsumerState<AdvancedCacheManage
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                     child: ListTile(
                       leading: const Icon(Icons.movie_filter_outlined, color: Colors.orange),
-                      title: const Text('Clear Season Metadata Cache'),
+                      title: Text(l10n.clearSeasonMetadataTitle),
                       subtitle: const Text(
                         'Delete cached season posters, cast, and plot info. '
                         'App will re-fetch from TMDB on next visit.',

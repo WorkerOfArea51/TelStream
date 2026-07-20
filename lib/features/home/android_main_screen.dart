@@ -10,6 +10,7 @@ import 'android_library_view.dart';
 import 'android_more_screen.dart';
 import 'user_channels_provider.dart';
 import 'user_channels_home_screen.dart';
+import '../../l10n/app_localizations.dart';
 
 class AndroidMainScreen extends ConsumerStatefulWidget {
   const AndroidMainScreen({super.key});
@@ -83,45 +84,46 @@ class _AndroidMainScreenState extends ConsumerState<AndroidMainScreen> with Widg
     // Build the list of screens and destinations dynamically
     final screens = <Widget>[];
     final destinations = <NavigationDestination>[];
+    final l10n = AppLocalizations.of(context)!;
 
     if (hasUserChannels) {
       screens.add(UserChannelsHomeScreen(isActive: _currentIndex == 0));
-      destinations.add(const NavigationDestination(
-        icon: Icon(Icons.playlist_play_outlined),
-        selectedIcon: Icon(Icons.playlist_play),
-        label: 'My Channels',
+      destinations.add(NavigationDestination(
+        icon: const Icon(Icons.playlist_play_outlined),
+        selectedIcon: const Icon(Icons.playlist_play),
+        label: l10n.myChannels,
       ));
     }
 
     final animeIndex = screens.length;
     screens.add(AndroidLibraryView(category: Constants.categories[0], isActive: _currentIndex == animeIndex));
-    destinations.add(const NavigationDestination(
-      icon: Icon(Icons.tv_outlined),
-      selectedIcon: Icon(Icons.tv),
-      label: 'Anime',
+    destinations.add(NavigationDestination(
+      icon: const Icon(Icons.tv_outlined),
+      selectedIcon: const Icon(Icons.tv),
+      label: l10n.categoryAnime,
     ));
 
     final moviesIndex = screens.length;
     screens.add(AndroidLibraryView(category: Constants.categories[1], isActive: _currentIndex == moviesIndex));
-    destinations.add(const NavigationDestination(
-      icon: Icon(Icons.movie_outlined),
-      selectedIcon: Icon(Icons.movie),
-      label: 'Movies',
+    destinations.add(NavigationDestination(
+      icon: const Icon(Icons.movie_outlined),
+      selectedIcon: const Icon(Icons.movie),
+      label: l10n.categoryMovies,
     ));
 
     final webSeriesIndex = screens.length;
     screens.add(AndroidLibraryView(category: Constants.categories[2], isActive: _currentIndex == webSeriesIndex));
-    destinations.add(const NavigationDestination(
-      icon: Icon(Icons.video_collection_outlined),
-      selectedIcon: Icon(Icons.video_collection),
-      label: 'Web Series',
+    destinations.add(NavigationDestination(
+      icon: const Icon(Icons.video_collection_outlined),
+      selectedIcon: const Icon(Icons.video_collection),
+      label: l10n.categoryWebSeries,
     ));
 
     screens.add(const AndroidMoreScreen());
-    destinations.add(const NavigationDestination(
-      icon: Icon(Icons.more_horiz_outlined),
-      selectedIcon: Icon(Icons.more_horiz),
-      label: 'More',
+    destinations.add(NavigationDestination(
+      icon: const Icon(Icons.more_horiz_outlined),
+      selectedIcon: const Icon(Icons.more_horiz),
+      label: l10n.more,
     ));
 
     // Clamp _currentIndex to valid range

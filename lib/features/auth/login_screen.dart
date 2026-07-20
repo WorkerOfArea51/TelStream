@@ -185,7 +185,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Widget build(BuildContext context) {
     final authState = ref.watch(authControllerProvider);
     final authController = ref.read(authControllerProvider.notifier);
-    final l10n = AppLocalizations.of(context)!;
 
     final showAppBar = authState.step == AuthStep.waitingForCode || authState.step == AuthStep.waitingForPassword;
 
@@ -215,6 +214,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   Widget _buildForm(AuthState state, AuthController controller) {
+    final l10n = AppLocalizations.of(context)!;
     switch (state.step) {
       case AuthStep.loading:
         return const Center(

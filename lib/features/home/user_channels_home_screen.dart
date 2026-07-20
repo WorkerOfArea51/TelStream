@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../l10n/app_localizations.dart';
 import '../../core/constants.dart';
 import 'user_channels_provider.dart';
 import 'android_library_view.dart';
@@ -27,9 +28,9 @@ class _UserChannelsHomeScreenState extends ConsumerState<UserChannelsHomeScreen>
             children: [
               const Icon(Icons.folder_off_outlined, size: 64, color: Colors.white24),
               const SizedBox(height: 16),
-              const Text('No channels added yet', style: TextStyle(color: Colors.white54, fontSize: 16)),
+              Text(AppLocalizations.of(context)!.noChannelsAddedYet, style: const TextStyle(color: Colors.white54, fontSize: 16)),
               const SizedBox(height: 8),
-              const Text('Go to More → My Channels to add your own channels', 
+              Text(AppLocalizations.of(context)!.goToMoreMyChannels, 
                 style: TextStyle(color: Colors.white24, fontSize: 13),
                 textAlign: TextAlign.center),
             ],
@@ -41,7 +42,7 @@ class _UserChannelsHomeScreenState extends ConsumerState<UserChannelsHomeScreen>
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text('My Channels'),
+        title: Text(AppLocalizations.of(context)!.myChannelsTitle),
         backgroundColor: Colors.transparent,
         elevation: 0,
         automaticallyImplyLeading: false,

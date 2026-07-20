@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../../../l10n/app_localizations.dart';
+
 class SubtitleSizeDialog extends StatefulWidget {
   final double current;
   final String currentColor;
@@ -41,6 +43,7 @@ class SubtitleSizeDialogState extends State<SubtitleSizeDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
+    final l10n = AppLocalizations.of(context)!;
     
     String resolvedFontFamily = 'Roboto';
     if (widget.currentFont.toLowerCase().contains('arial')) {
@@ -59,7 +62,7 @@ class SubtitleSizeDialogState extends State<SubtitleSizeDialog> {
         borderRadius: BorderRadius.circular(16),
         side: BorderSide(color: theme.colorScheme.onSurface.withValues(alpha: 0.08), width: 1),
       ),
-      title: Text('Subtitle Font Size', style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
+      title: Text(l10n.subtitleFontSizeDialogTitle, style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -72,7 +75,7 @@ class SubtitleSizeDialogState extends State<SubtitleSizeDialog> {
               borderRadius: BorderRadius.circular(12),
             ),
             child: Text(
-              'Hello World',
+              l10n.helloWorld,
               style: TextStyle(
                 fontSize: _value,
                 color: _parseHexColor(widget.currentColor),
@@ -88,7 +91,7 @@ class SubtitleSizeDialogState extends State<SubtitleSizeDialog> {
             ),
           ),
           const SizedBox(height: 16),
-          Text('${_value.toInt()} px', style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontSize: 18)),
+          Text(l10n.nPixels(_value.toInt()), style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontSize: 18)),
           Slider(
             value: _value,
             min: 15,
@@ -106,17 +109,13 @@ class SubtitleSizeDialogState extends State<SubtitleSizeDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: Text('Cancel', style: TextStyle(color: isDark ? Colors.white54 : Colors.black54)),
+          child: Text(l10n.cancel, style: TextStyle(color: isDark ? Colors.white54 : Colors.black54)),
         ),
         TextButton(
           onPressed: () => Navigator.pop(context, _value),
-          child: Text('Save', style: TextStyle(color: widget.accentColor)),
+          child: Text(l10n.save, style: TextStyle(color: widget.accentColor)),
         ),
       ],
     );
   }
 }
-
-
-
-

@@ -200,7 +200,7 @@ class _SubtitleDownloaderDialogState extends ConsumerState<SubtitleDownloaderDia
                               res.first.fileName,
                               subtitleId: res.first.id,
                             );
-                            if (path != null && mounted) {
+                            if (path != null && context.mounted) {
                               Navigator.pop(context, path);
                             }
                           } else {

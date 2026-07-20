@@ -10,6 +10,7 @@ import '../../core/widgets/wavy_progress_indicators.dart';
 import '../../core/widgets/td_thumbnail.dart';
 import '../../core/theme/app_theme.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../l10n/app_localizations.dart';
 import 'home_controller.dart';
 import '../../services/storage_service.dart';
 import '../../services/download_service.dart';
@@ -149,7 +150,7 @@ class _AndroidEpisodeListScreenState extends ConsumerState<AndroidEpisodeListScr
 
     if (fileIds.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No downloadable episodes found.')),
+        SnackBar(content: Text(AppLocalizations.of(context)!.noDownloadableEpisodes)),
       );
       return;
     }
@@ -157,17 +158,17 @@ class _AndroidEpisodeListScreenState extends ConsumerState<AndroidEpisodeListScr
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Download All?'),
+        title: Text(AppLocalizations.of(context)!.downloadAll(fileIds.length.toString())),
         content: Text('This will download ${fileIds.length} episodes. '
             'Up to 3 will download simultaneously, the rest will be queued.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            child: Text(AppLocalizations.of(context)!.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Download All'),
+            child: Text(AppLocalizations.of(context)!.downloadAllButton),
           ),
         ],
       ),
@@ -179,7 +180,7 @@ class _AndroidEpisodeListScreenState extends ConsumerState<AndroidEpisodeListScr
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Started batch download for ${fileIds.length} episodes'),
+            content: Text(AppLocalizations.of(context)!.startedBatchDownload(fileIds.length.toString())),
             backgroundColor: Theme.of(context).primaryColor,
           ),
         );
@@ -188,7 +189,7 @@ class _AndroidEpisodeListScreenState extends ConsumerState<AndroidEpisodeListScr
   }
 
   Future<void> _loadEpisodesDynamically() async {
-    if (!mounted) return;
+    if (!context.mounted) return;
     setState(() {
       _isLoadingEpisodes = true;
       _errorMessage = null;
@@ -330,6 +331,7 @@ class _AndroidEpisodeListScreenState extends ConsumerState<AndroidEpisodeListScr
     final me = await tdlibService.sendAsync(const td.GetMe());
     
     if (me is td.User && me.id == Constants.adminUserId) {
+      if (!context.mounted) return;
         
       final overrideKey = '${widget.series.coreName}_$seasonName';
       final existingIds = FirebaseMetadataService.getOverride(overrideKey) ?? '';
@@ -352,6 +354,7 @@ class _AndroidEpisodeListScreenState extends ConsumerState<AndroidEpisodeListScr
         }
         
         if (ids.isNotEmpty) {
+          if (!context.mounted) return;
           showDialog(
             context: context,
             barrierDismissible: false,
@@ -430,9 +433,7 @@ class _AndroidEpisodeListScreenState extends ConsumerState<AndroidEpisodeListScr
     );
   }
 
-  Widget _buildResumePlayButton(BuildContext context, Color accentColor) {
-    return const SizedBox.shrink();
-  }
+
 
   @override
   Widget build(BuildContext context) {

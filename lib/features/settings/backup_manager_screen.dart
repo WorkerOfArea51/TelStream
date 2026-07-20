@@ -11,6 +11,8 @@ import '../settings/settings_provider.dart';
 import '../../services/sync_service.dart';
 import '../../core/utils/path_helper.dart';
 
+import '../../l10n/app_localizations.dart';
+
 class BackupManagerScreen extends ConsumerStatefulWidget {
   const BackupManagerScreen({super.key});
 
@@ -98,15 +100,10 @@ class _BackupManagerScreenState extends ConsumerState<BackupManagerScreen> {
       final storage = ref.read(storageServiceProvider);
       storage.getVideoSettings(); 
       
-      // Let's get the entire underlying data map from storage_service.dart
-      // Wait, we need to expose a way to get or we can just access it.
-      // Let's check how storage data is stored.
-      // In StorageService, there is _data. Let's add a raw export method to StorageService.
       final backupJson = storage.exportBackupData();
       
       String? selectedDirectory = await FilePicker.platform.getDirectoryPath();
       if (selectedDirectory == null) {
-        // Fallback to Application Documents directory if canceled
         final appDir = await getAppDirectory();
         selectedDirectory = appDir.path;
       }
@@ -183,7 +180,6 @@ class _BackupManagerScreenState extends ConsumerState<BackupManagerScreen> {
         decryptedJson = contents; // Fallback for old plaintext backups
       }
 
-      // Validate contents
       final Map<String, dynamic> parsed = json.decode(decryptedJson);
       if (!parsed.containsKey('history') && !parsed.containsKey('video_settings')) {
         throw Exception('Invalid backup file structure.');
@@ -192,7 +188,6 @@ class _BackupManagerScreenState extends ConsumerState<BackupManagerScreen> {
       final storage = ref.read(storageServiceProvider);
       await storage.importBackupData(parsed);
 
-      // Invalidate providers to force UI updates
       ref.invalidate(videoSettingsProvider);
       ref.invalidate(favoritesProvider);
       ref.invalidate(recentNetworkStreamsProvider);
@@ -220,6 +215,7 @@ class _BackupManagerScreenState extends ConsumerState<BackupManagerScreen> {
     final theme = Theme.of(context);
     final settings = ref.watch(videoSettingsProvider);
     final notifier = ref.read(videoSettingsProvider.notifier);
+    final l10n = AppLocalizations.of(context)!;
 
     String syncModeText = 'Disabled';
     if (settings.progressSyncMode == 'pinned') {
@@ -231,9 +227,9 @@ class _BackupManagerScreenState extends ConsumerState<BackupManagerScreen> {
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
-        title: const Text(
-          'Backup & Restore',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        title: Text(
+          l10n.backupManagerTitle,
+          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -274,8 +270,8 @@ class _BackupManagerScreenState extends ConsumerState<BackupManagerScreen> {
                     children: [
                       ListTile(
                         leading: const Icon(Icons.download_rounded, color: Colors.orange, size: 30),
-                        title: const Text('Export Backup', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                        subtitle: const Text('Save configuration and history to an encrypted file', style: TextStyle(color: Colors.white54, fontSize: 12)),
+                        title: Text(l10n.exportBackup, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                        subtitle: Text(l10n.exportBackupSubtitle, style: const TextStyle(color: Colors.white54, fontSize: 12)),
                         trailing: _isExporting 
                             ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.orange))
                             : const Icon(Icons.arrow_forward_ios, color: Colors.white24, size: 16),
@@ -284,8 +280,8 @@ class _BackupManagerScreenState extends ConsumerState<BackupManagerScreen> {
                       const Divider(color: Colors.white10),
                       ListTile(
                         leading: const Icon(Icons.upload_rounded, color: Colors.greenAccent, size: 30),
-                        title: const Text('Restore Backup', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                        subtitle: const Text('Load settings and history from a backup file', style: TextStyle(color: Colors.white54, fontSize: 12)),
+                        title: Text(l10n.restoreBackup, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                        subtitle: Text(l10n.restoreBackupSubtitle, style: const TextStyle(color: Colors.white54, fontSize: 12)),
                         trailing: _isImporting 
                             ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.greenAccent))
                             : const Icon(Icons.arrow_forward_ios, color: Colors.white24, size: 16),
@@ -312,7 +308,7 @@ class _BackupManagerScreenState extends ConsumerState<BackupManagerScreen> {
                     children: [
                       ListTile(
                         leading: const Icon(Icons.cloud_sync, color: Colors.blueAccent, size: 30),
-                        title: const Text('Cloud Progress Sync', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                        title: Text(l10n.cloudProgressSync, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                         subtitle: Text(syncModeText, style: const TextStyle(color: Colors.white54, fontSize: 12)),
                         trailing: DropdownButton<String>(
                           value: settings.progressSyncMode,
@@ -320,10 +316,10 @@ class _BackupManagerScreenState extends ConsumerState<BackupManagerScreen> {
                           underline: const SizedBox(),
                           style: const TextStyle(color: Colors.white),
                           icon: const Icon(Icons.arrow_drop_down, color: Colors.white70),
-                          items: const [
-                            DropdownMenuItem(value: 'disabled', child: Text('Disabled')),
-                            DropdownMenuItem(value: 'pinned', child: Text('Pinned Message (Clean)')),
-                            DropdownMenuItem(value: 'sequential', child: Text('Sequential Logs')),
+                          items: [
+                            DropdownMenuItem(value: 'disabled', child: Text(l10n.disabled)),
+                            DropdownMenuItem(value: 'pinned', child: Text(l10n.pinnedMessage)),
+                            DropdownMenuItem(value: 'sequential', child: Text(l10n.sequentialLogs)),
                           ],
                           onChanged: _isExporting || _isImporting || _isSyncing
                               ? null
@@ -331,7 +327,6 @@ class _BackupManagerScreenState extends ConsumerState<BackupManagerScreen> {
                                   if (val != null) {
                                     notifier.updateSettings(settings.copyWith(progressSyncMode: val));
                                     if (val != 'disabled') {
-                                      // Trigger initial sync to upload or merge
                                       _triggerManualSync();
                                     }
                                   }
@@ -342,8 +337,8 @@ class _BackupManagerScreenState extends ConsumerState<BackupManagerScreen> {
                         const Divider(color: Colors.white10),
                         ListTile(
                           leading: const Icon(Icons.sync, color: Colors.orangeAccent, size: 30),
-                          title: const Text('Sync Progress Now', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                          subtitle: const Text('Immediately upload local progress to Telegram', style: TextStyle(color: Colors.white54, fontSize: 12)),
+                          title: Text(l10n.syncProgressNow, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                          subtitle: Text(l10n.syncProgressNowSubtitle, style: const TextStyle(color: Colors.white54, fontSize: 12)),
                           trailing: _isSyncing
                               ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.orangeAccent))
                               : const Icon(Icons.arrow_forward_ios, color: Colors.white24, size: 16),
