@@ -768,4 +768,113 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get systemDefault => 'System Default';
+
+  @override
+  String get phoneNumber => 'Phone number';
+
+  @override
+  String get enterCode => 'Enter code';
+
+  @override
+  String get smsSent =>
+      'We have sent an SMS with an activation code to your phone number.';
+
+  @override
+  String get code => 'Code';
+
+  @override
+  String get enterActivationCode => 'Enter activation code';
+
+  @override
+  String get twoFAPassword => '2FA Password';
+
+  @override
+  String get twoFADesc =>
+      'Your account is protected by a two-step verification password.';
+
+  @override
+  String get password => 'Password';
+
+  @override
+  String get searchCountry => 'Search Country';
+
+  @override
+  String get storagePermissionRequired =>
+      'Storage permission is required to choose a custom downloads folder on this version of Android.';
+
+  @override
+  String get downloadFolderUpdated => 'Download folder updated to:';
+
+  @override
+  String get failedToSelectDirectory => 'Failed to select directory:';
+
+  @override
+  String get advancedCacheManager => 'Advanced Cache Manager';
+
+  @override
+  String get advancedCacheManagerSubtitle =>
+      'View detailed storage cache breakdown and clear cache per series.';
+
+  @override
+  String get cacheSizeLimit => 'Cache Size Limit';
+
+  @override
+  String get unlimited => 'Unlimited';
+
+  @override
+  String get cacheAutoDeleteTTL => 'Cache Auto-Delete TTL';
+
+  @override
+  String get never => 'Never';
+
+  @override
+  String get downloadFolder => 'Download Folder';
+
+  @override
+  String get chooseCustomFolder => 'Choose Custom Folder';
+
+  @override
+  String get clearCache => 'Clear Cache';
+
+  @override
+  String get cacheSize => 'Cache Size';
+
+  @override
+  String get downloadsDirectory => 'Downloads Directory';
+
+  @override
+  String get deviceStorage => 'Device Storage';
+
+  @override
+  String get total => 'Total:';
+
+  @override
+  String get cache => 'Cache';
+
+  @override
+  String get freeSpace => 'Free Space';
+
+  @override
+  String get splashSubtitle => 'Fast. Secure. Powerful.';
+
+  @override
+  String get trackerSaved => 'Tracker settings saved successfully!';
+
+  @override
+  String get trackerAccountsTitle => 'Tracker Accounts';
+
+  @override
+  String get anilist => 'AniList';
+
+  @override
+  String get mal => 'MyAnimeList (MAL)';
+
+  @override
+  String get trakt => 'Trakt.tv';
+
+  @override
+  String get saveAccounts => 'Save Accounts';
+
+  @override
+  String get getToken => 'Get Token';
 }

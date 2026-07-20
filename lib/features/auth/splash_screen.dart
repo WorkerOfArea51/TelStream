@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../l10n/app_localizations.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -159,7 +160,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Fast. Secure. Powerful.',
+                    AppLocalizations.of(context)!.splashSubtitle,
                     style: TextStyle(
                       color: Theme.of(context).textTheme.bodyMedium?.color?.withValues(alpha: 0.45),
                       fontSize: 12,

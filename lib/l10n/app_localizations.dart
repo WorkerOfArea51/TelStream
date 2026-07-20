@@ -1567,6 +1567,216 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'System Default'**
   String get systemDefault;
+
+  /// No description provided for @phoneNumber.
+  ///
+  /// In en, this message translates to:
+  /// **'Phone number'**
+  String get phoneNumber;
+
+  /// No description provided for @enterCode.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter code'**
+  String get enterCode;
+
+  /// No description provided for @smsSent.
+  ///
+  /// In en, this message translates to:
+  /// **'We have sent an SMS with an activation code to your phone number.'**
+  String get smsSent;
+
+  /// No description provided for @code.
+  ///
+  /// In en, this message translates to:
+  /// **'Code'**
+  String get code;
+
+  /// No description provided for @enterActivationCode.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter activation code'**
+  String get enterActivationCode;
+
+  /// No description provided for @twoFAPassword.
+  ///
+  /// In en, this message translates to:
+  /// **'2FA Password'**
+  String get twoFAPassword;
+
+  /// No description provided for @twoFADesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Your account is protected by a two-step verification password.'**
+  String get twoFADesc;
+
+  /// No description provided for @password.
+  ///
+  /// In en, this message translates to:
+  /// **'Password'**
+  String get password;
+
+  /// No description provided for @searchCountry.
+  ///
+  /// In en, this message translates to:
+  /// **'Search Country'**
+  String get searchCountry;
+
+  /// No description provided for @storagePermissionRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Storage permission is required to choose a custom downloads folder on this version of Android.'**
+  String get storagePermissionRequired;
+
+  /// No description provided for @downloadFolderUpdated.
+  ///
+  /// In en, this message translates to:
+  /// **'Download folder updated to:'**
+  String get downloadFolderUpdated;
+
+  /// No description provided for @failedToSelectDirectory.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to select directory:'**
+  String get failedToSelectDirectory;
+
+  /// No description provided for @advancedCacheManager.
+  ///
+  /// In en, this message translates to:
+  /// **'Advanced Cache Manager'**
+  String get advancedCacheManager;
+
+  /// No description provided for @advancedCacheManagerSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'View detailed storage cache breakdown and clear cache per series.'**
+  String get advancedCacheManagerSubtitle;
+
+  /// No description provided for @cacheSizeLimit.
+  ///
+  /// In en, this message translates to:
+  /// **'Cache Size Limit'**
+  String get cacheSizeLimit;
+
+  /// No description provided for @unlimited.
+  ///
+  /// In en, this message translates to:
+  /// **'Unlimited'**
+  String get unlimited;
+
+  /// No description provided for @cacheAutoDeleteTTL.
+  ///
+  /// In en, this message translates to:
+  /// **'Cache Auto-Delete TTL'**
+  String get cacheAutoDeleteTTL;
+
+  /// No description provided for @never.
+  ///
+  /// In en, this message translates to:
+  /// **'Never'**
+  String get never;
+
+  /// No description provided for @downloadFolder.
+  ///
+  /// In en, this message translates to:
+  /// **'Download Folder'**
+  String get downloadFolder;
+
+  /// No description provided for @chooseCustomFolder.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose Custom Folder'**
+  String get chooseCustomFolder;
+
+  /// No description provided for @clearCache.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear Cache'**
+  String get clearCache;
+
+  /// No description provided for @cacheSize.
+  ///
+  /// In en, this message translates to:
+  /// **'Cache Size'**
+  String get cacheSize;
+
+  /// No description provided for @downloadsDirectory.
+  ///
+  /// In en, this message translates to:
+  /// **'Downloads Directory'**
+  String get downloadsDirectory;
+
+  /// No description provided for @deviceStorage.
+  ///
+  /// In en, this message translates to:
+  /// **'Device Storage'**
+  String get deviceStorage;
+
+  /// No description provided for @total.
+  ///
+  /// In en, this message translates to:
+  /// **'Total:'**
+  String get total;
+
+  /// No description provided for @cache.
+  ///
+  /// In en, this message translates to:
+  /// **'Cache'**
+  String get cache;
+
+  /// No description provided for @freeSpace.
+  ///
+  /// In en, this message translates to:
+  /// **'Free Space'**
+  String get freeSpace;
+
+  /// No description provided for @splashSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Fast. Secure. Powerful.'**
+  String get splashSubtitle;
+
+  /// No description provided for @trackerSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Tracker settings saved successfully!'**
+  String get trackerSaved;
+
+  /// No description provided for @trackerAccountsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Tracker Accounts'**
+  String get trackerAccountsTitle;
+
+  /// No description provided for @anilist.
+  ///
+  /// In en, this message translates to:
+  /// **'AniList'**
+  String get anilist;
+
+  /// No description provided for @mal.
+  ///
+  /// In en, this message translates to:
+  /// **'MyAnimeList (MAL)'**
+  String get mal;
+
+  /// No description provided for @trakt.
+  ///
+  /// In en, this message translates to:
+  /// **'Trakt.tv'**
+  String get trakt;
+
+  /// No description provided for @saveAccounts.
+  ///
+  /// In en, this message translates to:
+  /// **'Save Accounts'**
+  String get saveAccounts;
+
+  /// No description provided for @getToken.
+  ///
+  /// In en, this message translates to:
+  /// **'Get Token'**
+  String get getToken;
 }
 
 class _AppLocalizationsDelegate

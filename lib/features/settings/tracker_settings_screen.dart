@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../services/storage_service.dart';
 import '../../core/theme/app_theme.dart';
+import '../../l10n/app_localizations.dart';
 
 class TrackerSettingsScreen extends ConsumerStatefulWidget {
   const TrackerSettingsScreen({super.key});
@@ -47,9 +48,10 @@ class _TrackerSettingsScreenState extends ConsumerState<TrackerSettingsScreen> {
     await storage.setTraktToken(_traktController.text.trim());
 
     if (mounted) {
+      final l10n = AppLocalizations.of(context)!;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Tracker settings saved successfully!'),
+        SnackBar(
+          content: Text(l10n.trackerSaved),
           backgroundColor: Colors.green,
         ),
       );
@@ -64,12 +66,13 @@ class _TrackerSettingsScreenState extends ConsumerState<TrackerSettingsScreen> {
     final settingsBg = customTheme?.settingsBackground ?? theme.scaffoldBackgroundColor;
     final settingsAccent = customTheme?.settingsAccent ?? theme.primaryColor;
     final isDark = theme.brightness == Brightness.dark;
+    final l10n = AppLocalizations.of(context)!;
 
     return Scaffold(
       backgroundColor: settingsBg,
       appBar: AppBar(
         title: Text(
-          'Tracker Accounts',
+          l10n.trackerAccountsTitle,
           style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontWeight: FontWeight.bold),
         ),
         backgroundColor: Colors.transparent,
@@ -111,7 +114,7 @@ class _TrackerSettingsScreenState extends ConsumerState<TrackerSettingsScreen> {
 
           // AniList Section
           _buildTrackerSection(
-            title: 'AniList',
+            title: l10n.anilist,
             icon: Icons.favorite_border,
             controller: _anilistController,
             hintText: 'Paste AniList Access Token',
@@ -120,13 +123,14 @@ class _TrackerSettingsScreenState extends ConsumerState<TrackerSettingsScreen> {
             accentColor: Colors.blueAccent,
             isDark: isDark,
             theme: theme,
+            getTokenText: l10n.getToken,
           ),
 
           const SizedBox(height: 24),
 
           // MAL Section
           _buildTrackerSection(
-            title: 'MyAnimeList (MAL)',
+            title: l10n.mal,
             icon: Icons.star_outline,
             controller: _malController,
             hintText: 'Paste MyAnimeList Access Token',
@@ -135,13 +139,14 @@ class _TrackerSettingsScreenState extends ConsumerState<TrackerSettingsScreen> {
             accentColor: Colors.tealAccent,
             isDark: isDark,
             theme: theme,
+            getTokenText: l10n.getToken,
           ),
 
           const SizedBox(height: 24),
 
           // Trakt.tv Section
           _buildTrackerSection(
-            title: 'Trakt.tv',
+            title: l10n.trakt,
             icon: Icons.movie_outlined,
             controller: _traktController,
             hintText: 'Paste Trakt.tv Access Token',
@@ -150,6 +155,7 @@ class _TrackerSettingsScreenState extends ConsumerState<TrackerSettingsScreen> {
             accentColor: Colors.redAccent,
             isDark: isDark,
             theme: theme,
+            getTokenText: l10n.getToken,
           ),
 
           const SizedBox(height: 40),
@@ -167,7 +173,7 @@ class _TrackerSettingsScreenState extends ConsumerState<TrackerSettingsScreen> {
                 ),
               ),
               icon: const Icon(Icons.save_rounded),
-              label: const Text('Save Accounts', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+              label: Text(l10n.saveAccounts, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
               onPressed: _savePreferences,
             ),
           ),
@@ -186,6 +192,7 @@ class _TrackerSettingsScreenState extends ConsumerState<TrackerSettingsScreen> {
     required Color accentColor,
     required bool isDark,
     required ThemeData theme,
+    required String getTokenText,
     bool obscureText = true,
   }) {
     return Container(
@@ -210,7 +217,7 @@ class _TrackerSettingsScreenState extends ConsumerState<TrackerSettingsScreen> {
               TextButton.icon(
                 onPressed: () => _launchUrlHelper(helperUrl),
                 icon: const Icon(Icons.open_in_new, size: 14),
-                label: const Text('Get Token', style: TextStyle(fontSize: 12)),
+                label: Text(getTokenText, style: const TextStyle(fontSize: 12)),
                 style: TextButton.styleFrom(foregroundColor: accentColor),
               ),
             ],

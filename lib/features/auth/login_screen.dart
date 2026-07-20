@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:country_picker/country_picker.dart' as cp;
+import '../../l10n/app_localizations.dart';
 import 'auth_controller.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -114,6 +115,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   void _openCountryPicker(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     cp.showCountryPicker(
       context: context,
       showPhoneCode: false,
@@ -157,7 +159,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           topRight: Radius.circular(24),
         ),
         inputDecoration: InputDecoration(
-          hintText: 'Search Country',
+          hintText: l10n.searchCountry,
           hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.5)),
           prefixIcon: const Icon(Icons.search, color: Colors.blueAccent),
           filled: true,
@@ -183,6 +185,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Widget build(BuildContext context) {
     final authState = ref.watch(authControllerProvider);
     final authController = ref.read(authControllerProvider.notifier);
+    final l10n = AppLocalizations.of(context)!;
 
     final showAppBar = authState.step == AuthStep.waitingForCode || authState.step == AuthStep.waitingForPassword;
 
@@ -315,7 +318,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   }
                 },
                 decoration: InputDecoration(
-                  labelText: 'Phone number',
+                  labelText: l10n.phoneNumber,
                   labelStyle: TextStyle(color: Colors.white.withValues(alpha: 0.6)),
                   floatingLabelBehavior: FloatingLabelBehavior.always,
                   filled: true,
@@ -366,18 +369,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               const SizedBox(height: 20),
               const Icon(Icons.sms_rounded, size: 80, color: Colors.blueAccent),
               const SizedBox(height: 16),
-              const Text(
-                'Enter code',
-                style: TextStyle(
+              Text(
+                l10n.enterCode,
+                style: const TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
                   color: Colors.white,
                 ),
               ),
               const SizedBox(height: 12),
-              const Text(
-                'We have sent an SMS with an activation code to your phone number.',
-                style: TextStyle(
+              Text(
+                l10n.smsSent,
+                style: const TextStyle(
                   fontSize: 14,
                   color: Colors.white70,
                 ),
@@ -406,10 +409,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   }
                 },
                 decoration: InputDecoration(
-                  labelText: 'Code',
+                  labelText: l10n.code,
                   labelStyle: TextStyle(color: Colors.white.withValues(alpha: 0.6)),
                   floatingLabelBehavior: FloatingLabelBehavior.always,
-                  hintText: 'Enter activation code',
+                  hintText: l10n.enterActivationCode,
                   hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.4)),
                   filled: true,
                   fillColor: Colors.white.withValues(alpha: 0.04),
@@ -459,18 +462,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               const SizedBox(height: 20),
               const Icon(Icons.lock_rounded, size: 80, color: Colors.blueAccent),
               const SizedBox(height: 16),
-              const Text(
-                '2FA Password',
-                style: TextStyle(
+              Text(
+                l10n.twoFAPassword,
+                style: const TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
                   color: Colors.white,
                 ),
               ),
               const SizedBox(height: 12),
-              const Text(
-                'Your account is protected by a two-step verification password.',
-                style: TextStyle(
+              Text(
+                l10n.twoFADesc,
+                style: const TextStyle(
                   fontSize: 14,
                   color: Colors.white70,
                 ),
@@ -500,7 +503,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   }
                 },
                 decoration: InputDecoration(
-                  labelText: 'Password',
+                  labelText: l10n.password,
                   labelStyle: TextStyle(color: Colors.white.withValues(alpha: 0.6)),
                   floatingLabelBehavior: FloatingLabelBehavior.always,
                   hintText: 'Enter 2FA password',

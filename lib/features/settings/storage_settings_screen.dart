@@ -15,6 +15,7 @@ import '../../core/logger.dart';
 import '../../core/widgets/expressive_container.dart';
 import '../../core/utils/path_helper.dart';
 import 'advanced_cache_manager_screen.dart';
+import '../../l10n/app_localizations.dart';
 
 int? _cachedWindowsTotalStorage;
 int? _cachedWindowsFreeStorage;
@@ -134,14 +135,15 @@ class _StorageSettingsScreenState extends ConsumerState<StorageSettingsScreen> {
     final permissionGranted = await ref.read(permissionServiceProvider).requestStoragePermission();
 
     if (!permissionGranted) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Storage permission is required to choose a custom downloads folder on this version of Android.'),
-            backgroundColor: Colors.redAccent,
-          ),
-        );
-      }
+        if (mounted) {
+          final l10n = AppLocalizations.of(context)!;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(l10n.storagePermissionRequired),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
       return;
     }
 
@@ -156,9 +158,10 @@ class _StorageSettingsScreenState extends ConsumerState<StorageSettingsScreen> {
         await _calculateCacheSize();
         await _loadStorageSpace();
         if (mounted) {
+          final l10n = AppLocalizations.of(context)!;
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Download folder updated to: $selectedDirectory'),
+              content: Text('${l10n.downloadFolderUpdated} $selectedDirectory'),
               backgroundColor: Colors.green,
             ),
           );
@@ -167,9 +170,10 @@ class _StorageSettingsScreenState extends ConsumerState<StorageSettingsScreen> {
     } catch (e, stackTrace) {
       Log.e('Failed to select directory', e, stackTrace);
       if (mounted) {
+        final l10n = AppLocalizations.of(context)!;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to select directory: $e'),
+            content: Text('${l10n.failedToSelectDirectory} $e'),
             backgroundColor: Colors.redAccent,
           ),
         );
@@ -267,12 +271,12 @@ class _StorageSettingsScreenState extends ConsumerState<StorageSettingsScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
-                'Device Storage',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+              Text(
+                AppLocalizations.of(context)!.deviceStorage,
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
               ),
               Text(
-                'Total: $_totalStorageStr',
+                '${AppLocalizations.of(context)!.total} $_totalStorageStr',
                 style: TextStyle(color: isDark ? Colors.white54 : Colors.black54, fontSize: 12),
               ),
             ],
@@ -312,9 +316,9 @@ class _StorageSettingsScreenState extends ConsumerState<StorageSettingsScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              _buildLegendItem('Cache', _cacheSizeStr, settingsAccent),
-              _buildLegendItem('Downloads', _downloadsSizeStr, Colors.green),
-              _buildLegendItem('Free Space', _freeStorageStr, Colors.blueAccent),
+              _buildLegendItem(AppLocalizations.of(context)!.cache, _cacheSizeStr, settingsAccent),
+              _buildLegendItem(AppLocalizations.of(context)!.downloads, _downloadsSizeStr, Colors.green),
+              _buildLegendItem(AppLocalizations.of(context)!.freeSpace, _freeStorageStr, Colors.blueAccent),
             ],
           ),
         ],
@@ -350,11 +354,12 @@ class _StorageSettingsScreenState extends ConsumerState<StorageSettingsScreen> {
     final settingsAccent = customTheme?.settingsAccent ?? theme.primaryColor;
     final isDark = theme.brightness == Brightness.dark;
     final settings = ref.watch(videoSettingsProvider);
+    final l10n = AppLocalizations.of(context)!;
 
     return Scaffold(
       backgroundColor: settingsBg,
       appBar: AppBar(
-        title: Text('Storage Management', style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black87)),
+        title: Text(l10n.storageManagement, style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black87)),
         backgroundColor: Colors.transparent,
         elevation: 0,
         iconTheme: IconThemeData(color: isDark ? Colors.white : Colors.black87),
@@ -380,8 +385,8 @@ class _StorageSettingsScreenState extends ConsumerState<StorageSettingsScreen> {
                     M3AnimatedMenuTile(
                       icon: Icons.cleaning_services,
                       iconColor: Colors.redAccent,
-                      title: 'Advanced Cache Manager',
-                      subtitle: 'View detailed storage cache breakdown and clear cache per series.',
+                      title: l10n.advancedCacheManager,
+                      subtitle: l10n.advancedCacheManagerSubtitle,
                       onTap: () {
                         Navigator.push(
                           context,
@@ -398,17 +403,17 @@ class _StorageSettingsScreenState extends ConsumerState<StorageSettingsScreen> {
                         isSelected: true,
                         child: const Icon(Icons.disc_full_rounded, color: Colors.white, size: 20),
                       ),
-                      title: const Text('Cache Size Limit'),
+                      title: Text(l10n.cacheSizeLimit),
                       trailing: DropdownButton<int>(
                         value: settings.cacheLimitMb,
                         dropdownColor: theme.cardColor,
                         underline: const SizedBox(),
                         icon: Icon(Icons.arrow_drop_down, color: isDark ? Colors.white70 : Colors.black54),
-                        items: const [
-                          DropdownMenuItem(value: 1024, child: Text('1 GB')),
-                          DropdownMenuItem(value: 2048, child: Text('2 GB')),
-                          DropdownMenuItem(value: 5120, child: Text('5 GB')),
-                          DropdownMenuItem(value: -1, child: Text('Unlimited')),
+                        items: [
+                          const DropdownMenuItem(value: 1024, child: Text('1 GB')),
+                          const DropdownMenuItem(value: 2048, child: Text('2 GB')),
+                          const DropdownMenuItem(value: 5120, child: Text('5 GB')),
+                          DropdownMenuItem(value: -1, child: Text(l10n.unlimited)),
                         ],
                         onChanged: (int? value) {
                           if (value != null) {
@@ -428,17 +433,17 @@ class _StorageSettingsScreenState extends ConsumerState<StorageSettingsScreen> {
                         isSelected: true,
                         child: const Icon(Icons.hourglass_empty_rounded, color: Colors.white, size: 20),
                       ),
-                      title: const Text('Cache Auto-Delete TTL'),
+                      title: Text(l10n.cacheAutoDeleteTTL),
                       trailing: DropdownButton<int>(
                         value: settings.cacheTtlDays,
                         dropdownColor: theme.cardColor,
                         underline: const SizedBox(),
                         icon: Icon(Icons.arrow_drop_down, color: isDark ? Colors.white70 : Colors.black54),
-                        items: const [
-                          DropdownMenuItem(value: 3, child: Text('3 Days')),
-                          DropdownMenuItem(value: 7, child: Text('7 Days')),
-                          DropdownMenuItem(value: 14, child: Text('14 Days')),
-                          DropdownMenuItem(value: -1, child: Text('Never')),
+                        items: [
+                          const DropdownMenuItem(value: 3, child: Text('3 Days')),
+                          const DropdownMenuItem(value: 7, child: Text('7 Days')),
+                          const DropdownMenuItem(value: 14, child: Text('14 Days')),
+                          DropdownMenuItem(value: -1, child: Text(l10n.never)),
                         ],
                         onChanged: (int? value) {
                           if (value != null) {
@@ -458,10 +463,12 @@ class _StorageSettingsScreenState extends ConsumerState<StorageSettingsScreen> {
                         isSelected: true,
                         child: const Icon(Icons.folder_rounded, color: Colors.white, size: 20),
                       ),
-                      title: const Text('Download Folder'),
+                      title: Text(l10n.downloadFolder),
                       subtitle: Text(_downloadPath, style: TextStyle(color: isDark ? Colors.white54 : Colors.black54, fontSize: 11)),
-                      trailing: Icon(Icons.folder_open, color: isDark ? Colors.white70 : Colors.black54, size: 20),
-                      onTap: _selectDownloadDirectory,
+                      trailing: FilledButton.tonal(
+                        onPressed: _selectDownloadDirectory,
+                        child: Text(l10n.chooseCustomFolder),
+                      ),
                     ),
                   ],
                 ),
