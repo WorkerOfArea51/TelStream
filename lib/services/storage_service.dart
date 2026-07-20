@@ -692,6 +692,15 @@ class StorageService {
     await _save();
   }
 
+  String? getLocale() {
+    return _data['app_locale'] as String?;
+  }
+
+  Future<void> setLocale(String localeCode) async {
+    _data['app_locale'] = localeCode;
+    await _save();
+  }
+
   // --- Version Control / Changelog ---
 
   String getLastSeenVersion() {

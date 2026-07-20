@@ -10,6 +10,7 @@ import 'tracker_settings_screen.dart';
 import 'diagnostics_screen.dart';
 import 'backup_manager_screen.dart';
 import 'storage_settings_screen.dart';
+import 'language_settings_screen.dart';
 import '../../core/widgets/expressive_container.dart';
 import '../../core/widgets/whats_new_dialog.dart';
 import '../../services/storage_service.dart';
@@ -128,6 +129,23 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     subtitle: 'Gestures, audio, subtitles, and player UI',
                     onTap: () => Navigator.push(context,
                       MaterialPageRoute(builder: (_) => const VideoSettingsScreen())),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 28),
+
+              // === GENERAL ===
+              _buildSectionHeader('General', settingsAccent),
+              _buildSectionCard(
+                theme: theme,
+                children: [
+                  M3AnimatedMenuTile(
+                    icon: Icons.language,
+                    title: 'Language',
+                    subtitle: 'Choose app language',
+                    onTap: () => Navigator.push(context,
+                      MaterialPageRoute(builder: (_) => const LanguageSettingsScreen())),
                   ),
                 ],
               ),

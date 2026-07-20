@@ -10,6 +10,9 @@ import 'core/logger.dart';
 import 'core/constants.dart';
 import 'package:flutter/services.dart';
 import 'package:window_manager/window_manager.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'l10n/app_localizations.dart';
+import 'features/settings/locale_provider.dart';
 import 'features/auth/login_screen.dart';
 import 'features/home/main_screen.dart';
 import 'features/auth/auth_controller.dart';
@@ -150,6 +153,7 @@ class TelStreamApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final themeState = ref.watch(appThemeProvider);
+    final locale = ref.watch(localeProvider);
 
     return MaterialApp(
       title: 'TelStream',
@@ -157,6 +161,14 @@ class TelStreamApp extends ConsumerWidget {
       theme: themeState.lightTheme,
       darkTheme: themeState.darkTheme,
       themeMode: themeState.themeMode,
+      locale: locale,
+      localizationsDelegates: const [
+        AppLocalizations.delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: AppLocalizations.supportedLocales,
       home: const AuthWrapper(),
     );
   }
