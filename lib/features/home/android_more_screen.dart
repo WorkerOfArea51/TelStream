@@ -402,9 +402,9 @@ class _AndroidMoreScreenState extends ConsumerState<AndroidMoreScreen>
                                         : 'tg://user?id=${_currentUser!.id}';
                                     _launchURL(url);
                                   },
-                                  child: const Text(
+                                  child: Text(
                                     l10n.viewProfile,
-                                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
                                   ),
                                 ),
                               ],
@@ -428,9 +428,9 @@ class _AndroidMoreScreenState extends ConsumerState<AndroidMoreScreen>
                 ),
 
                 // Settings & Features Heading
-                const Text(
+                Text(
                   l10n.settingsAndFeatures,
-                  style: TextStyle(
+                  style: const TextStyle(
                     color: Colors.white,
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
