@@ -325,13 +325,15 @@ class TdlibService {
         const td.FileTypeVoiceNote(),
       ];
 
-      // 1. Run TDLib's OptimizeStorage first
+      // 1. Run TDLib's OptimizeStorage first (only to clean up internal DB/garbage)
+      // We pass size:0 and ttl:0 so TDLib doesn't delete our excluded offline files or active cache.
+      // The actual user limits (limitMb, ttlDays) are enforced perfectly by our manual pruner below.
       try {
         await sendAsync(td.OptimizeStorage(
-          size: limitMb != null ? (limitMb * 1024 * 1024).round() : 0,
-          ttl: ttlDays != null ? ttlDays * 24 * 3600 : 0,
+          size: 0,
+          ttl: 0,
           count: 0,
-          immunityDelay: 0,
+          immunityDelay: 86400, // 24 hours immunity to protect active watch history
           fileTypes: optimizeTypes,
           chatIds: [],
           excludeChatIds: [],
@@ -407,6 +409,11 @@ class TdlibService {
         double currentSize = totalSize;
         for (final entry in fileStats) {
           if (currentSize <= limitBytes) break;
+          
+          // 24 hours immunity to protect active watch history
+          final ageInSeconds = now.difference(entry.value).inSeconds;
+          if (ageInSeconds < 86400) continue; 
+          
           try {
             final size = await entry.key.length();
             await entry.key.delete();
