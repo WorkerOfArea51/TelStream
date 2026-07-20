@@ -17,6 +17,7 @@ import 'downloads_screen.dart';
 import 'global_search_screen.dart';
 import 'airing_calendar_screen.dart';
 import '../settings/user_channels_screen.dart';
+import '../../l10n/app_localizations.dart';
 
 class AndroidMoreScreen extends ConsumerStatefulWidget {
   const AndroidMoreScreen({super.key});
@@ -183,8 +184,8 @@ class _AndroidMoreScreenState extends ConsumerState<AndroidMoreScreen>
   String _formatScreenTime(int totalSeconds) {
     final int hours = totalSeconds ~/ 3600;
     final int minutes = (totalSeconds % 3600) ~/ 60;
-    final hrStr = hours == 1 ? 'hr' : 'hrs';
-    return '$hours $hrStr $minutes min';
+    final l10n = AppLocalizations.of(context)!;
+    return '$hours ${l10n.hoursShort(hours)} $minutes ${l10n.minutesShort}';
   }
 
   String _getUserUsername(td.User user) {
@@ -241,6 +242,7 @@ class _AndroidMoreScreenState extends ConsumerState<AndroidMoreScreen>
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final isDownloadedOnly = ref.watch(downloadedOnlyProvider);
     final isIncognitoMode = ref.watch(incognitoModeProvider);
     final theme = Theme.of(context);
@@ -401,7 +403,7 @@ class _AndroidMoreScreenState extends ConsumerState<AndroidMoreScreen>
                                     _launchURL(url);
                                   },
                                   child: const Text(
-                                    'View Profile',
+                                    l10n.viewProfile,
                                     style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
                                   ),
                                 ),
@@ -414,11 +416,11 @@ class _AndroidMoreScreenState extends ConsumerState<AndroidMoreScreen>
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                         children: [
-                          _buildStatColumn('This Month', _formatScreenTime(_monthlySeconds)),
+                          _buildStatColumn(l10n.thisMonth, _formatScreenTime(_monthlySeconds)),
                           Container(width: 1, height: 32, color: Colors.white10),
-                          _buildStatColumn('Average Daily', _formatScreenTime(_averageDailySeconds)),
+                          _buildStatColumn(l10n.averageDaily, _formatScreenTime(_averageDailySeconds)),
                           Container(width: 1, height: 32, color: Colors.white10),
-                          _buildStatColumn('Watch Streak', '$_watchStreak Days'),
+                          _buildStatColumn(l10n.watchStreak, '$_watchStreak Days'),
                         ],
                       ),
                     ],
@@ -427,7 +429,7 @@ class _AndroidMoreScreenState extends ConsumerState<AndroidMoreScreen>
 
                 // Settings & Features Heading
                 const Text(
-                  'Settings & Features',
+                  l10n.settingsAndFeatures,
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 18,
@@ -439,8 +441,8 @@ class _AndroidMoreScreenState extends ConsumerState<AndroidMoreScreen>
                 // Individual Squircle Bars
                 _buildIndividualBar(
                   child: _buildSwitchTile(
-                    title: 'Downloaded only',
-                    subtitle: 'Filters libraries to only show watched/local episodes',
+                    title: l10n.downloadedOnly,
+                    subtitle: l10n.downloadedOnlySubtitle,
                     value: isDownloadedOnly,
                     onChanged: (val) {
                       ref.read(downloadedOnlyProvider.notifier).toggle(val);
@@ -449,8 +451,8 @@ class _AndroidMoreScreenState extends ConsumerState<AndroidMoreScreen>
                 ),
                 _buildIndividualBar(
                   child: _buildSwitchTile(
-                    title: 'Incognito mode',
-                    subtitle: 'Pauses watch history and progress logging',
+                    title: l10n.incognitoMode,
+                    subtitle: l10n.incognitoModeSubtitle,
                     value: isIncognitoMode,
                     onChanged: (val) {
                       ref.read(incognitoModeProvider.notifier).toggle(val);
@@ -460,8 +462,8 @@ class _AndroidMoreScreenState extends ConsumerState<AndroidMoreScreen>
                 _buildIndividualBar(
                   child: M3AnimatedMenuTile(
                     icon: Icons.playlist_add_rounded,
-                    title: 'My Channels',
-                    subtitle: 'Add your own Telegram channels',
+                    title: l10n.myChannelsTitle,
+                    subtitle: l10n.myChannelsSubtitle,
                     onTap: () {
                       Navigator.push(
                         context,
@@ -473,8 +475,8 @@ class _AndroidMoreScreenState extends ConsumerState<AndroidMoreScreen>
                 _buildIndividualBar(
                   child: M3AnimatedMenuTile(
                     icon: Icons.history,
-                    title: 'History',
-                    subtitle: 'View your watched videos history',
+                    title: l10n.history,
+                    subtitle: l10n.historySubtitle,
                     onTap: () {
                       Navigator.push(
                         context,
@@ -486,8 +488,8 @@ class _AndroidMoreScreenState extends ConsumerState<AndroidMoreScreen>
                 _buildIndividualBar(
                   child: M3AnimatedMenuTile(
                     icon: Icons.download_done_rounded,
-                    title: 'Downloads',
-                    subtitle: 'Manage local offline files',
+                    title: l10n.downloads,
+                    subtitle: l10n.downloadsSubtitle,
                     onTap: () {
                       Navigator.push(
                         context,
@@ -499,8 +501,8 @@ class _AndroidMoreScreenState extends ConsumerState<AndroidMoreScreen>
                 _buildIndividualBar(
                   child: M3AnimatedMenuTile(
                     icon: Icons.link,
-                    title: 'Network stream',
-                    subtitle: 'Play online video URLs',
+                    title: l10n.networkStream,
+                    subtitle: l10n.networkStreamSubtitle,
                     onTap: () {
                       Navigator.push(
                         context,
@@ -512,8 +514,8 @@ class _AndroidMoreScreenState extends ConsumerState<AndroidMoreScreen>
                 _buildIndividualBar(
                   child: M3AnimatedMenuTile(
                     icon: Icons.search_rounded,
-                    title: 'Global Search',
-                    subtitle: 'Search across all providers',
+                    title: l10n.globalSearch,
+                    subtitle: l10n.globalSearchSubtitle,
                     onTap: () {
                       Navigator.push(
                         context,
@@ -525,8 +527,8 @@ class _AndroidMoreScreenState extends ConsumerState<AndroidMoreScreen>
                 _buildIndividualBar(
                   child: M3AnimatedMenuTile(
                     icon: Icons.calendar_month_rounded,
-                    title: 'Airing Calendar',
-                    subtitle: 'Weekly schedule of new anime/series',
+                    title: l10n.airingCalendar,
+                    subtitle: l10n.airingCalendarSubtitle,
                     onTap: () {
                       Navigator.push(
                         context,
@@ -538,8 +540,8 @@ class _AndroidMoreScreenState extends ConsumerState<AndroidMoreScreen>
                 _buildIndividualBar(
                   child: M3AnimatedMenuTile(
                     icon: Icons.settings,
-                    title: 'Settings',
-                    subtitle: 'General preferences, player, cache, styling',
+                    title: l10n.settings,
+                    subtitle: l10n.settingsSubtitle,
                     onTap: () {
                       Navigator.push(
                         context,
@@ -551,8 +553,8 @@ class _AndroidMoreScreenState extends ConsumerState<AndroidMoreScreen>
                 _buildIndividualBar(
                   child: M3AnimatedMenuTile(
                     icon: Icons.system_update_alt_rounded,
-                    title: 'Check for update',
-                    subtitle: 'Check for application updates',
+                    title: l10n.checkForUpdate,
+                    subtitle: l10n.checkForUpdateSubtitle,
                     onTap: () {
                       _manuallyCheckForUpdate(context);
                     },
@@ -561,8 +563,8 @@ class _AndroidMoreScreenState extends ConsumerState<AndroidMoreScreen>
                 _buildIndividualBar(
                   child: M3AnimatedMenuTile(
                     icon: Icons.info_outline,
-                    title: 'About',
-                    subtitle: 'Version details, libraries, contact info',
+                    title: l10n.about,
+                    subtitle: l10n.aboutSubtitle,
                     onTap: () {
                       CustomAboutDialog.show(context);
                     },
