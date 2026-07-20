@@ -11,6 +11,7 @@ import 'diagnostics_screen.dart';
 import 'backup_manager_screen.dart';
 import 'storage_settings_screen.dart';
 import 'language_settings_screen.dart';
+import '../../l10n/app_localizations.dart';
 import '../../core/widgets/expressive_container.dart';
 import '../../core/widgets/whats_new_dialog.dart';
 import '../../services/storage_service.dart';
@@ -80,11 +81,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     
     final themeState = ref.watch(appThemeProvider);
     final storage = ref.read(storageServiceProvider);
+    final l10n = AppLocalizations.of(context)!;
 
     return Scaffold(
       backgroundColor: settingsBg,
       appBar: AppBar(
-        title: Text('Settings', style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black87)),
+        title: Text(l10n.settings, style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black87)),
         backgroundColor: Colors.transparent,
         elevation: 0,
         iconTheme: IconThemeData(color: isDark ? Colors.white : Colors.black87),
@@ -102,14 +104,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ],
 
               // === STORAGE ===
-              _buildSectionHeader('Storage', settingsAccent),
+              _buildSectionHeader(l10n.sectionStorage, settingsAccent),
               _buildSectionCard(
                 theme: theme,
                 children: [
                   M3AnimatedMenuTile(
                     icon: Icons.storage_rounded,
-                    title: 'Storage Management',
-                    subtitle: 'Device storage, cache limits, download folder',
+                    title: l10n.storageManagement,
+                    subtitle: l10n.storageSubtitle,
                     onTap: () => Navigator.push(context,
                       MaterialPageRoute(builder: (_) => const StorageSettingsScreen())),
                   ),
@@ -119,14 +121,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               const SizedBox(height: 28),
 
               // === PLAYBACK ===
-              _buildSectionHeader('Playback', settingsAccent),
+              _buildSectionHeader(l10n.sectionPlayback, settingsAccent),
               _buildSectionCard(
                 theme: theme,
                 children: [
                   M3AnimatedMenuTile(
                     icon: Icons.video_settings,
-                    title: 'Video Player Preferences',
-                    subtitle: 'Gestures, audio, subtitles, and player UI',
+                    title: l10n.videoPlayerPreferences,
+                    subtitle: l10n.videoPlayerSubtitle,
                     onTap: () => Navigator.push(context,
                       MaterialPageRoute(builder: (_) => const VideoSettingsScreen())),
                   ),
@@ -136,14 +138,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               const SizedBox(height: 28),
 
               // === GENERAL ===
-              _buildSectionHeader('General', settingsAccent),
+              _buildSectionHeader(l10n.sectionGeneral, settingsAccent),
               _buildSectionCard(
                 theme: theme,
                 children: [
                   M3AnimatedMenuTile(
                     icon: Icons.language,
-                    title: 'Language',
-                    subtitle: 'Choose app language',
+                    title: l10n.language,
+                    subtitle: l10n.chooseLanguage,
                     onTap: () => Navigator.push(context,
                       MaterialPageRoute(builder: (_) => const LanguageSettingsScreen())),
                   ),
@@ -153,7 +155,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               const SizedBox(height: 28),
 
               // === APPEARANCE ===
-              _buildSectionHeader('Appearance', settingsAccent),
+              _buildSectionHeader(l10n.sectionAppearance, settingsAccent),
               _buildSectionCard(
                 theme: theme,
                 children: [
@@ -174,7 +176,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         size: 20,
                       ),
                     ),
-                    title: const Text('Theme Mode'),
+                    title: Text(l10n.themeMode),
                     subtitle: Text(
                       storage.getThemeMode().toUpperCase(),
                       style: TextStyle(color: isDark ? Colors.white54 : Colors.black45, fontSize: 12),
@@ -187,10 +189,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       dropdownColor: theme.cardColor,
                       underline: const SizedBox(),
                       icon: Icon(Icons.arrow_drop_down, color: isDark ? Colors.white70 : Colors.black54),
-                      items: const [
-                        DropdownMenuItem(value: 'system', child: Text('System')),
-                        DropdownMenuItem(value: 'light', child: Text('Light')),
-                        DropdownMenuItem(value: 'dark', child: Text('Dark')),
+                      items: [
+                        DropdownMenuItem(value: 'system', child: Text(l10n.system)),
+                        DropdownMenuItem(value: 'light', child: Text(l10n.light)),
+                        DropdownMenuItem(value: 'dark', child: Text(l10n.dark)),
                       ],
                       onChanged: (String? value) {
                         if (value != null) {
@@ -209,7 +211,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       isSelected: true,
                       child: const Icon(Icons.palette_rounded, color: Colors.white, size: 20),
                     ),
-                    title: const Text('Color Theme'),
+                    title: Text(l10n.colorTheme),
                     subtitle: Text(
                       themeState.activePreset.name,
                       style: TextStyle(color: isDark ? Colors.white54 : Colors.black45, fontSize: 12),
@@ -246,14 +248,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               const SizedBox(height: 28),
 
               // === TRACKERS ===
-              _buildSectionHeader('Trackers & Integrations', settingsAccent),
+              _buildSectionHeader(l10n.sectionIntegrations, settingsAccent),
               _buildSectionCard(
                 theme: theme,
                 children: [
                   M3AnimatedMenuTile(
                     icon: Icons.sync_alt,
-                    title: 'Tracker Accounts',
-                    subtitle: 'MyAnimeList, AniList, and Trakt.tv syncing preferences.',
+                    title: l10n.trackerAccounts,
+                    subtitle: l10n.trackerSubtitle,
                     onTap: () => Navigator.push(context,
                       MaterialPageRoute(builder: (_) => const TrackerSettingsScreen())),
                   ),
@@ -263,22 +265,22 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               const SizedBox(height: 28),
 
               // === DIAGNOSTICS ===
-              _buildSectionHeader('Diagnostics & Backups', settingsAccent),
+              _buildSectionHeader(l10n.sectionAdvanced, settingsAccent),
               _buildSectionCard(
                 theme: theme,
                 children: [
                   M3AnimatedMenuTile(
                     icon: Icons.build_circle_rounded,
-                    title: 'Troubleshooting & Diagnostics',
-                    subtitle: 'Diagnose hardware decoding and subtitle rendering issues.',
+                    title: l10n.troubleshootingDiagnostics,
+                    subtitle: l10n.troubleshootingSubtitle,
                     onTap: () => Navigator.push(context,
                       MaterialPageRoute(builder: (_) => const DiagnosticsScreen())),
                   ),
                   Divider(color: theme.dividerColor, height: 1, indent: 56, endIndent: 16),
                   M3AnimatedMenuTile(
                     icon: Icons.settings_backup_restore_rounded,
-                    title: 'Backup & Restore',
-                    subtitle: 'Export or import settings and watch history.',
+                    title: l10n.backupRestore,
+                    subtitle: l10n.backupSubtitle,
                     onTap: () => Navigator.push(context,
                       MaterialPageRoute(builder: (_) => const BackupManagerScreen())),
                   ),
@@ -288,14 +290,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               const SizedBox(height: 28),
 
               // === ABOUT ===
-              _buildSectionHeader('About', settingsAccent),
+              _buildSectionHeader(l10n.sectionAccount, settingsAccent), // Or another string
               _buildSectionCard(
                 theme: theme,
                 children: [
                   M3AnimatedMenuTile(
                     icon: Icons.history_edu_rounded,
-                    title: "What's New / Changelog",
-                    subtitle: "View release notes for this version",
+                    title: l10n.whatsNewChangelog,
+                    subtitle: l10n.whatsNewSubtitle,
                     onTap: () => WhatsNewDialog.show(context),
                   ),
                 ],
@@ -310,7 +312,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   M3AnimatedMenuTile(
                     icon: Icons.logout,
                     iconColor: Colors.redAccent,
-                    title: 'Logout from TelStream',
+                    title: l10n.logoutFromTelStream,
                     trailing: const SizedBox.shrink(),
                     onTap: _logout,
                   ),

@@ -6,14 +6,24 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/intl.dart' as intl;
 
 import 'app_localizations_ar.dart';
+import 'app_localizations_bn.dart';
 import 'app_localizations_de.dart';
 import 'app_localizations_en.dart';
 import 'app_localizations_es.dart';
+import 'app_localizations_fa.dart';
 import 'app_localizations_fr.dart';
 import 'app_localizations_hi.dart';
+import 'app_localizations_id.dart';
+import 'app_localizations_it.dart';
 import 'app_localizations_ja.dart';
+import 'app_localizations_ko.dart';
+import 'app_localizations_pl.dart';
 import 'app_localizations_pt.dart';
 import 'app_localizations_ru.dart';
+import 'app_localizations_th.dart';
+import 'app_localizations_tr.dart';
+import 'app_localizations_uk.dart';
+import 'app_localizations_vi.dart';
 import 'app_localizations_zh.dart';
 
 // ignore_for_file: type=lint
@@ -103,14 +113,24 @@ abstract class AppLocalizations {
   /// A list of this localizations delegate's supported locales.
   static const List<Locale> supportedLocales = <Locale>[
     Locale('ar'),
+    Locale('bn'),
     Locale('de'),
     Locale('en'),
     Locale('es'),
+    Locale('fa'),
     Locale('fr'),
     Locale('hi'),
+    Locale('id'),
+    Locale('it'),
     Locale('ja'),
+    Locale('ko'),
+    Locale('pl'),
     Locale('pt'),
     Locale('ru'),
+    Locale('th'),
+    Locale('tr'),
+    Locale('uk'),
+    Locale('vi'),
     Locale('zh'),
   ];
 
@@ -1457,6 +1477,96 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'No key available.'**
   String get noKeyAvailable;
+
+  /// No description provided for @storageSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Device storage, cache limits, download folder'**
+  String get storageSubtitle;
+
+  /// No description provided for @chooseLanguage.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose app language'**
+  String get chooseLanguage;
+
+  /// No description provided for @trackerSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'MyAnimeList, AniList, and Trakt.tv syncing preferences.'**
+  String get trackerSubtitle;
+
+  /// No description provided for @troubleshootingDiagnostics.
+  ///
+  /// In en, this message translates to:
+  /// **'Troubleshooting & Diagnostics'**
+  String get troubleshootingDiagnostics;
+
+  /// No description provided for @backupSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Export or import settings and watch history.'**
+  String get backupSubtitle;
+
+  /// No description provided for @whatsNewChangelog.
+  ///
+  /// In en, this message translates to:
+  /// **'What\'s New / Changelog'**
+  String get whatsNewChangelog;
+
+  /// No description provided for @logoutFromTelStream.
+  ///
+  /// In en, this message translates to:
+  /// **'Logout from TelStream'**
+  String get logoutFromTelStream;
+
+  /// No description provided for @sectionStorage.
+  ///
+  /// In en, this message translates to:
+  /// **'Storage'**
+  String get sectionStorage;
+
+  /// No description provided for @sectionPlayback.
+  ///
+  /// In en, this message translates to:
+  /// **'Playback'**
+  String get sectionPlayback;
+
+  /// No description provided for @sectionGeneral.
+  ///
+  /// In en, this message translates to:
+  /// **'General'**
+  String get sectionGeneral;
+
+  /// No description provided for @sectionAppearance.
+  ///
+  /// In en, this message translates to:
+  /// **'Appearance'**
+  String get sectionAppearance;
+
+  /// No description provided for @sectionIntegrations.
+  ///
+  /// In en, this message translates to:
+  /// **'Integrations'**
+  String get sectionIntegrations;
+
+  /// No description provided for @sectionAdvanced.
+  ///
+  /// In en, this message translates to:
+  /// **'Advanced'**
+  String get sectionAdvanced;
+
+  /// No description provided for @sectionAccount.
+  ///
+  /// In en, this message translates to:
+  /// **'Account'**
+  String get sectionAccount;
+
+  /// No description provided for @systemDefault.
+  ///
+  /// In en, this message translates to:
+  /// **'System Default'**
+  String get systemDefault;
 }
 
 class _AppLocalizationsDelegate
@@ -1471,14 +1581,24 @@ class _AppLocalizationsDelegate
   @override
   bool isSupported(Locale locale) => <String>[
     'ar',
+    'bn',
     'de',
     'en',
     'es',
+    'fa',
     'fr',
     'hi',
+    'id',
+    'it',
     'ja',
+    'ko',
+    'pl',
     'pt',
     'ru',
+    'th',
+    'tr',
+    'uk',
+    'vi',
     'zh',
   ].contains(locale.languageCode);
 
@@ -1491,22 +1611,42 @@ AppLocalizations lookupAppLocalizations(Locale locale) {
   switch (locale.languageCode) {
     case 'ar':
       return AppLocalizationsAr();
+    case 'bn':
+      return AppLocalizationsBn();
     case 'de':
       return AppLocalizationsDe();
     case 'en':
       return AppLocalizationsEn();
     case 'es':
       return AppLocalizationsEs();
+    case 'fa':
+      return AppLocalizationsFa();
     case 'fr':
       return AppLocalizationsFr();
     case 'hi':
       return AppLocalizationsHi();
+    case 'id':
+      return AppLocalizationsId();
+    case 'it':
+      return AppLocalizationsIt();
     case 'ja':
       return AppLocalizationsJa();
+    case 'ko':
+      return AppLocalizationsKo();
+    case 'pl':
+      return AppLocalizationsPl();
     case 'pt':
       return AppLocalizationsPt();
     case 'ru':
       return AppLocalizationsRu();
+    case 'th':
+      return AppLocalizationsTh();
+    case 'tr':
+      return AppLocalizationsTr();
+    case 'uk':
+      return AppLocalizationsUk();
+    case 'vi':
+      return AppLocalizationsVi();
     case 'zh':
       return AppLocalizationsZh();
   }

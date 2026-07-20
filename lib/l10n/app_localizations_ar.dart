@@ -722,4 +722,50 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get noKeyAvailable => 'No key available.';
+
+  @override
+  String get storageSubtitle => 'Device storage, cache limits, download folder';
+
+  @override
+  String get chooseLanguage => 'Choose app language';
+
+  @override
+  String get trackerSubtitle =>
+      'MyAnimeList, AniList, and Trakt.tv syncing preferences.';
+
+  @override
+  String get troubleshootingDiagnostics => 'Troubleshooting & Diagnostics';
+
+  @override
+  String get backupSubtitle => 'Export or import settings and watch history.';
+
+  @override
+  String get whatsNewChangelog => 'What\'s New / Changelog';
+
+  @override
+  String get logoutFromTelStream => 'Logout from TelStream';
+
+  @override
+  String get sectionStorage => 'Storage';
+
+  @override
+  String get sectionPlayback => 'Playback';
+
+  @override
+  String get sectionGeneral => 'General';
+
+  @override
+  String get sectionAppearance => 'Appearance';
+
+  @override
+  String get sectionIntegrations => 'Integrations';
+
+  @override
+  String get sectionAdvanced => 'Advanced';
+
+  @override
+  String get sectionAccount => 'Account';
+
+  @override
+  String get systemDefault => 'System Default';
 }

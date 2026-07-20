@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../l10n/app_localizations.dart';
 import 'locale_provider.dart';
 
 class LanguageSettingsScreen extends ConsumerWidget {
@@ -10,9 +11,10 @@ class LanguageSettingsScreen extends ConsumerWidget {
     final theme = Theme.of(context);
     final currentLocale = ref.watch(localeProvider);
     final currentLocaleCode = currentLocale?.languageCode ?? 'system';
+    final l10n = AppLocalizations.of(context)!;
 
     final languages = [
-      {'code': 'system', 'native': 'System Default', 'en': 'System Default'},
+      {'code': 'system', 'native': l10n.systemDefault, 'en': l10n.systemDefault},
       {'code': 'en', 'native': 'English', 'en': 'English'},
       {'code': 'ru', 'native': 'Русский', 'en': 'Russian'},
       {'code': 'es', 'native': 'Español', 'en': 'Spanish'},
@@ -21,13 +23,23 @@ class LanguageSettingsScreen extends ConsumerWidget {
       {'code': 'ja', 'native': '日本語', 'en': 'Japanese'},
       {'code': 'zh', 'native': '简体中文', 'en': 'Chinese Simplified'},
       {'code': 'hi', 'native': 'हिन्दी', 'en': 'Hindi'},
+      {'code': 'bn', 'native': 'বাংলা', 'en': 'Bengali'},
       {'code': 'ar', 'native': 'العربية', 'en': 'Arabic'},
+      {'code': 'fa', 'native': 'فارسی', 'en': 'Persian'},
       {'code': 'pt', 'native': 'Português', 'en': 'Portuguese'},
+      {'code': 'it', 'native': 'Italiano', 'en': 'Italian'},
+      {'code': 'ko', 'native': '한국어', 'en': 'Korean'},
+      {'code': 'tr', 'native': 'Türkçe', 'en': 'Turkish'},
+      {'code': 'id', 'native': 'Bahasa Indonesia', 'en': 'Indonesian'},
+      {'code': 'vi', 'native': 'Tiếng Việt', 'en': 'Vietnamese'},
+      {'code': 'th', 'native': 'ไทย', 'en': 'Thai'},
+      {'code': 'pl', 'native': 'Polski', 'en': 'Polish'},
+      {'code': 'uk', 'native': 'Українська', 'en': 'Ukrainian'},
     ];
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Language'),
+        title: Text(l10n.language),
         elevation: 0,
         backgroundColor: Colors.transparent,
       ),
