@@ -134,13 +134,23 @@ class _AndroidEpisodeListScreenState extends ConsumerState<AndroidEpisodeListScr
     );
     if (idx != -1) {
       Future.delayed(const Duration(milliseconds: 400), () {
-        if (!mounted || !_scrollController.hasClients) return;
-        final targetOffset = 280.0 + (idx * 104.0);
-        _scrollController.animateTo(
-          targetOffset.clamp(0.0, _scrollController.position.maxScrollExtent),
-          duration: const Duration(milliseconds: 600),
-          curve: Curves.easeInOut,
-        );
+        if (!mounted) return;
+        
+        final scrollCtrl = widget.isEmbedded 
+            ? PrimaryScrollController.of(context) 
+            : _scrollController;
+            
+        if (scrollCtrl.hasClients) {
+          final targetOffset = widget.isEmbedded 
+              ? 500.0 + (idx * 104.0) 
+              : 280.0 + (idx * 104.0);
+              
+          scrollCtrl.animateTo(
+            targetOffset.clamp(0.0, scrollCtrl.position.maxScrollExtent),
+            duration: const Duration(milliseconds: 600),
+            curve: Curves.easeInOut,
+          );
+        }
       });
     }
   }
