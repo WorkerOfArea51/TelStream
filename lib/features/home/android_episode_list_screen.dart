@@ -133,7 +133,7 @@ class _AndroidEpisodeListScreenState extends ConsumerState<AndroidEpisodeListScr
       (ep) => ep.id == widget.highlightMessageId,
     );
     if (idx != -1) {
-      Future.delayed(const Duration(milliseconds: 400), () {
+      Future.delayed(const Duration(milliseconds: 600), () {
         if (!mounted) return;
         
         final scrollCtrl = widget.isEmbedded 
@@ -146,7 +146,7 @@ class _AndroidEpisodeListScreenState extends ConsumerState<AndroidEpisodeListScr
               : 280.0 + (idx * 104.0);
               
           scrollCtrl.animateTo(
-            targetOffset.clamp(0.0, scrollCtrl.position.maxScrollExtent),
+            targetOffset,
             duration: const Duration(milliseconds: 600),
             curve: Curves.easeInOut,
           );
