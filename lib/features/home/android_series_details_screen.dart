@@ -543,8 +543,8 @@ class _AndroidSeriesDetailsScreenState extends ConsumerState<AndroidSeriesDetail
         double highestSeasonScore = -1.0;
         for (int i = 0; i < matchedSeries.seasons.length; i++) {
           final season = matchedSeries.seasons[i];
-          final scoreFull = _calculateSimilarity(season.fullTitle, rec.title);
-          final scoreName = _calculateSimilarity(season.seasonName, rec.title);
+          final scoreFull = calculateSimilarity(season.fullTitle, rec.title);
+          final scoreName = calculateSimilarity(season.seasonName, rec.title);
           final bestScore = scoreFull > scoreName ? scoreFull : scoreName;
           
           if (bestScore > highestSeasonScore) {

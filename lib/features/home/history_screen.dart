@@ -424,7 +424,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                                                         child: AndroidSeriesDetailsScreen(
                                                           series: matchedSeries!,
                                                           categoryTitle: '', // History screen doesn't strictly have a category
-                                                          initialSeasonIndex: matchedSeries!.seasons.indexOf(targetSeason),
+                                                          initialSeasonIndex: matchedSeries.seasons.indexOf(targetSeason),
                                                           highlightMessageId: msgId != 0 ? msgId : null,
                                                         ),
                                                       ),
