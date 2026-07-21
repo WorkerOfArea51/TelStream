@@ -428,12 +428,14 @@ class _DesktopMainScreenState extends ConsumerState<DesktopMainScreen> with Tick
                     
                     return Expanded(
                       child: AndroidSeriesDetailsScreen(
-                        key: ValueKey(selectedSeries.coreName),
+                        key: ValueKey('${selectedSeries.coreName}_${ref.watch(desktopSelectedSeasonIndexProvider)}_${ref.watch(desktopHighlightMessageIdProvider)}'),
                         series: selectedSeries,
                         categoryTitle: AppLocalizations.of(context)!.categoryAnime,
                         metadata: meta,
                         overrideIds: overrideIds,
                         preloadedMetadata: preloadedMetadata,
+                        initialSeasonIndex: ref.watch(desktopSelectedSeasonIndexProvider),
+                        highlightMessageId: ref.watch(desktopHighlightMessageIdProvider),
                         onBack: () {
                           ref.read(desktopSelectedSeriesProvider.notifier).state = null;
                           ref.read(desktopSelectedEpisodeProvider.notifier).state = null;

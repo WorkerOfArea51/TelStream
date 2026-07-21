@@ -123,10 +123,8 @@ class FavoritesScreen extends ConsumerWidget {
             Navigator.push(
               context,
               PremiumPageRoute(
-                child: AndroidEpisodeListScreen(
-                  season: series.seasons.first,
+                child: AndroidSeriesDetailsScreen(
                   series: series,
-                  heroTag: 'hero_poster_fav_${series.coreName}',
                   categoryTitle: categoryTitle,
                 ),
               ),

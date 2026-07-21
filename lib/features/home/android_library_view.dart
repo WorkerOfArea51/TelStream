@@ -1246,17 +1246,17 @@ class ContinueWatchingShelf extends StatelessWidget {
                       }
 
                       if (Platform.isWindows) {
+                        ref.read(desktopSelectedSeasonIndexProvider.notifier).state = matchedSeries.seasons.indexOf(selectedSeason);
+                        ref.read(desktopHighlightMessageIdProvider.notifier).state = msgId;
                         ref.read(desktopSelectedSeriesProvider.notifier).state = matchedSeries;
                       } else {
                         Navigator.push(
                           context,
                           PremiumPageRoute(
-                            child: AndroidEpisodeListScreen(
-                              season: selectedSeason,
+                            child: AndroidSeriesDetailsScreen(
                               series: matchedSeries,
-                              heroTag:
-                                  'hero_continue_watching_${categoryTitle}_${matchedSeries.coreName}',
                               categoryTitle: categoryTitle,
+                              initialSeasonIndex: matchedSeries.seasons.indexOf(selectedSeason),
                               highlightMessageId: msgId,
                             ),
                           ),

@@ -21,6 +21,7 @@ class AndroidSeriesDetailsScreen extends ConsumerStatefulWidget {
   final List<SeriesMetadata>? preloadedMetadata;
   final VoidCallback? onBack;
   final int initialSeasonIndex;
+  final int? highlightMessageId;
 
   const AndroidSeriesDetailsScreen({
     super.key,
@@ -31,6 +32,7 @@ class AndroidSeriesDetailsScreen extends ConsumerStatefulWidget {
     this.preloadedMetadata,
     this.onBack,
     this.initialSeasonIndex = 0,
+    this.highlightMessageId,
   });
 
   @override
@@ -660,6 +662,7 @@ class _AndroidSeriesDetailsScreenState extends ConsumerState<AndroidSeriesDetail
         isEmbedded: false,
         onSeasonChanged: _onSeasonChanged,
         onBack: widget.onBack,
+        highlightMessageId: widget.highlightMessageId,
       );
     }
 
@@ -818,6 +821,7 @@ class _AndroidSeriesDetailsScreenState extends ConsumerState<AndroidSeriesDetail
                 categoryTitle: widget.categoryTitle,
                 isEmbedded: true,
                 onSeasonChanged: _onSeasonChanged,
+                highlightMessageId: widget.highlightMessageId,
               ),
             _buildMoreDetailsTab(meta),
             _buildMoreLikeThisTab(meta),

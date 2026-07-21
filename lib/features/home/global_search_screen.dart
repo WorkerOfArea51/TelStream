@@ -342,16 +342,17 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
                   ref.read(searchHistoryProvider('global').notifier).addQuery(clean);
                 }
                 if (Platform.isWindows) {
+                  ref.read(desktopSelectedSeasonIndexProvider.notifier).state = series.seasons.indexOf(season);
+                  ref.read(desktopHighlightMessageIdProvider.notifier).state = null;
                   ref.read(desktopSelectedSeriesProvider.notifier).state = series;
                 } else {
                   Navigator.push(
                     context,
                     PremiumPageRoute(
-                      child: AndroidEpisodeListScreen(
+                      child: AndroidSeriesDetailsScreen(
                         series: series,
-                        season: season,
-                        heroTag: heroTag,
                         categoryTitle: title,
+                        initialSeasonIndex: series.seasons.indexOf(season),
                       ),
                     ),
                   );

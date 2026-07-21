@@ -414,15 +414,17 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                                                   final msgId = episodeMsg?.id ?? (log['messageId'] as int?) ?? 0;
                                                   final targetSeason = matchedSeason ?? matchedSeries!.seasons.first;
                                                   if (Platform.isWindows) {
+                                                    ref.read(desktopSelectedSeasonIndexProvider.notifier).state = matchedSeries.seasons.indexOf(targetSeason);
+                                                    ref.read(desktopHighlightMessageIdProvider.notifier).state = msgId != 0 ? msgId : null;
                                                     ref.read(desktopSelectedSeriesProvider.notifier).state = matchedSeries;
                                                   } else {
                                                     Navigator.push(
                                                       context,
                                                       PremiumPageRoute(
-                                                        child: AndroidEpisodeListScreen(
-                                                          season: targetSeason,
-                                                          series: matchedSeries!,
-                                                          heroTag: 'hero_history_${matchedSeries.coreName}',
+                                                        child: AndroidSeriesDetailsScreen(
+                                                          series: matchedSeries,
+                                                          categoryTitle: '', // History screen doesn't strictly have a category
+                                                          initialSeasonIndex: matchedSeries.seasons.indexOf(targetSeason),
                                                           highlightMessageId: msgId != 0 ? msgId : null,
                                                         ),
                                                       ),
