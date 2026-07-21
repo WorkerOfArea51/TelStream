@@ -441,7 +441,7 @@ class _AndroidSeriesDetailsScreenState extends ConsumerState<AndroidSeriesDetail
     final targetIdStr = rec.id.toString();
 
     // Tokenizer helper
-    List<String> _tokenizeAndClean(String input) {
+    List<String> tokenizeAndClean(String input) {
       var s = input.toLowerCase();
       // Remove generic noise words
       final noiseWords = ['season', 'part', 'cour', 'tv', 'movie', 'special', 'ova', 'ona', 'the'];
@@ -454,9 +454,9 @@ class _AndroidSeriesDetailsScreenState extends ConsumerState<AndroidSeriesDetail
     }
 
     // Similarity helper
-    double _calculateSimilarity(String a, String b) {
-      final tokensA = _tokenizeAndClean(a).toSet();
-      final tokensB = _tokenizeAndClean(b).toSet();
+    double calculateSimilarity(String a, String b) {
+      final tokensA = tokenizeAndClean(a).toSet();
+      final tokensB = tokenizeAndClean(b).toSet();
       if (tokensA.isEmpty || tokensB.isEmpty) return 0.0;
       
       final intersection = tokensA.intersection(tokensB).length;
@@ -464,8 +464,6 @@ class _AndroidSeriesDetailsScreenState extends ConsumerState<AndroidSeriesDetail
       return intersection / minLength; // Subset match score
     }
 
-    final targetTokens = _tokenizeAndClean(rec.title);
-    final targetFetchedTokens = fetchedMeta != null ? _tokenizeAndClean(fetchedMeta.title) : null;
     int? matchedSeasonIndex;
 
     // 1. Deep ID Match (Highest Priority)
@@ -495,8 +493,8 @@ class _AndroidSeriesDetailsScreenState extends ConsumerState<AndroidSeriesDetail
       double highestSeriesScore = 0.0;
 
       for (final s in allSeries) {
-        final scoreMain = _calculateSimilarity(s.coreName, rec.title);
-        final scoreFetched = fetchedMeta != null ? _calculateSimilarity(s.coreName, fetchedMeta.title) : 0.0;
+        final scoreMain = calculateSimilarity(s.coreName, rec.title);
+        final scoreFetched = fetchedMeta != null ? calculateSimilarity(s.coreName, fetchedMeta.title) : 0.0;
         final bestScore = scoreMain > scoreFetched ? scoreMain : scoreFetched;
 
         if (bestScore > highestSeriesScore && bestScore >= 0.7) { // Requires 70% subset match

@@ -10,7 +10,7 @@ import '../../core/constants.dart';
 import '../../services/storage_service.dart';
 import 'home_controller.dart';
 import 'dart:io';
-import 'android_episode_list_screen.dart';
+import 'android_series_details_screen.dart';
 import 'desktop_state.dart';
 
 class GlobalSearchScreen extends ConsumerStatefulWidget {

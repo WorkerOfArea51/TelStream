@@ -13,7 +13,7 @@ import '../../models/anime_models.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/constants.dart';
 import 'dart:io';
-import 'android_episode_list_screen.dart';
+import 'android_series_details_screen.dart';
 import 'desktop_state.dart';
 
 class HistoryScreen extends ConsumerStatefulWidget {
@@ -414,7 +414,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                                                   final msgId = episodeMsg?.id ?? (log['messageId'] as int?) ?? 0;
                                                   final targetSeason = matchedSeason ?? matchedSeries!.seasons.first;
                                                   if (Platform.isWindows) {
-                                                    ref.read(desktopSelectedSeasonIndexProvider.notifier).state = matchedSeries.seasons.indexOf(targetSeason);
+                                                    ref.read(desktopSelectedSeasonIndexProvider.notifier).state = matchedSeries!.seasons.indexOf(targetSeason);
                                                     ref.read(desktopHighlightMessageIdProvider.notifier).state = msgId != 0 ? msgId : null;
                                                     ref.read(desktopSelectedSeriesProvider.notifier).state = matchedSeries;
                                                   } else {
@@ -422,9 +422,9 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                                                       context,
                                                       PremiumPageRoute(
                                                         child: AndroidSeriesDetailsScreen(
-                                                          series: matchedSeries,
+                                                          series: matchedSeries!,
                                                           categoryTitle: '', // History screen doesn't strictly have a category
-                                                          initialSeasonIndex: matchedSeries.seasons.indexOf(targetSeason),
+                                                          initialSeasonIndex: matchedSeries!.seasons.indexOf(targetSeason),
                                                           highlightMessageId: msgId != 0 ? msgId : null,
                                                         ),
                                                       ),

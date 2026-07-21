@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../services/storage_service.dart';
 import '../../models/anime_models.dart';
 import '../home/home_controller.dart';
-import '../home/android_episode_list_screen.dart';
+import '../home/android_series_details_screen.dart';
 import '../../core/widgets/td_thumbnail.dart';
 import '../../core/widgets/aligned_name_text.dart';
 import 'package:tdlib/td_api.dart' as td;
