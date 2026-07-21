@@ -436,58 +436,82 @@ class _AndroidSeriesDetailsScreenState extends ConsumerState<AndroidSeriesDetail
     final allSeries = seriesState.value ?? [];
     AnimeSeries? matchedSeries;
 
-    String cleanString(String input) {
-      var s = input.replaceAll('_', ' ').replaceAll('-', ' ');
-      s = s.replaceAll(RegExp(r'\b(?:19|20)\d{2}\b'), '');
-      s = s.replaceAll(RegExp(r'[^a-zA-Z0-9\s]'), '');
-      s = s.replaceAll(RegExp(r'\s+'), ' ');
-      return s.trim().toLowerCase();
-    }
-
-    final targetClean = cleanString(rec.title);
-    final targetFetchedClean = fetchedMeta != null ? cleanString(fetchedMeta.title) : null;
     final targetIdStr = rec.id.toString();
 
-    // 1. Try to match by explicit Override ID first
+    // Tokenizer helper
+    List<String> _tokenizeAndClean(String input) {
+      var s = input.toLowerCase();
+      // Remove generic noise words
+      final noiseWords = ['season', 'part', 'cour', 'tv', 'movie', 'special', 'ova', 'ona', 'the'];
+      s = s.replaceAll(RegExp(r'\b(?:19|20)\d{2}\b'), ''); // Remove years
+      s = s.replaceAll(RegExp(r'[^a-z0-9\s]'), ' '); // Remove punctuation
+      s = s.replaceAll(RegExp(r'\s+'), ' '); // Collapse spaces
+      
+      final tokens = s.trim().split(' ');
+      return tokens.where((t) => t.isNotEmpty && !noiseWords.contains(t)).toList();
+    }
+
+    // Similarity helper
+    double _calculateSimilarity(String a, String b) {
+      final tokensA = _tokenizeAndClean(a).toSet();
+      final tokensB = _tokenizeAndClean(b).toSet();
+      if (tokensA.isEmpty || tokensB.isEmpty) return 0.0;
+      
+      final intersection = tokensA.intersection(tokensB).length;
+      final minLength = tokensA.length < tokensB.length ? tokensA.length : tokensB.length;
+      return intersection / minLength; // Subset match score
+    }
+
+    final targetTokens = _tokenizeAndClean(rec.title);
+    final targetFetchedTokens = fetchedMeta != null ? _tokenizeAndClean(fetchedMeta.title) : null;
+    int? matchedSeasonIndex;
+
+    // 1. Deep ID Match (Highest Priority)
     for (final s in allSeries) {
-      final overrideIdStr = FirebaseMetadataService.getOverride(s.coreName);
-      if (overrideIdStr != null && overrideIdStr.isNotEmpty) {
-        final overrideIds = overrideIdStr.split(',');
-        if (overrideIds.contains(targetIdStr)) {
+      // Check core ID
+      final coreOverride = FirebaseMetadataService.getOverride(s.coreName);
+      if (coreOverride != null && coreOverride.split(',').contains(targetIdStr)) {
+        matchedSeries = s;
+        break;
+      }
+      // Check season-specific IDs
+      for (int i = 0; i < s.seasons.length; i++) {
+        final seasonKey = '${s.coreName}_${s.seasons[i].seasonName}';
+        final seasonOverride = FirebaseMetadataService.getOverride(seasonKey);
+        if (seasonOverride != null && seasonOverride.split(',').contains(targetIdStr)) {
           matchedSeries = s;
+          matchedSeasonIndex = i;
           break;
         }
       }
+      if (matchedSeries != null) break;
     }
 
-    // 2. Fallback to Exact Title Match
+    // 2. Token-Based Fuzzy Match
     if (matchedSeries == null) {
-      for (final s in allSeries) {
-        final sClean = cleanString(s.coreName);
-        if (sClean == targetClean || (targetFetchedClean != null && sClean == targetFetchedClean)) {
-          matchedSeries = s;
-          break;
-        }
-      }
-    }
+      AnimeSeries? bestSeriesMatch;
+      double highestSeriesScore = 0.0;
 
-    // 3. Smart Substring Fallback Match
-    if (matchedSeries == null) {
       for (final s in allSeries) {
-        final sClean = cleanString(s.coreName);
-        // Ensure library item name is at least 3 chars to prevent false positives like matching "a"
-        if (sClean.length > 2 && (targetClean.contains(sClean) || (targetFetchedClean != null && targetFetchedClean.contains(sClean)))) {
-          matchedSeries = s;
-          break; // Use the first decent match
+        final scoreMain = _calculateSimilarity(s.coreName, rec.title);
+        final scoreFetched = fetchedMeta != null ? _calculateSimilarity(s.coreName, fetchedMeta.title) : 0.0;
+        final bestScore = scoreMain > scoreFetched ? scoreMain : scoreFetched;
+
+        if (bestScore > highestSeriesScore && bestScore >= 0.7) { // Requires 70% subset match
+          highestSeriesScore = bestScore;
+          bestSeriesMatch = s;
         }
       }
+      matchedSeries = bestSeriesMatch;
     }
 
     if (matchedSeries != null) {
       // It's uploaded! Fetch override if exists, then navigate
       final overrideId = FirebaseMetadataService.getOverride(
-        matchedSeries.coreName,
-      );
+        matchedSeasonIndex != null 
+            ? '${matchedSeries.coreName}_${matchedSeries.seasons[matchedSeasonIndex].seasonName}' 
+            : matchedSeries.coreName,
+      ) ?? FirebaseMetadataService.getOverride(matchedSeries.coreName);
 
       List<String>? overrideIds;
       SeriesMetadata? newMeta;
@@ -513,23 +537,19 @@ class _AndroidSeriesDetailsScreenState extends ConsumerState<AndroidSeriesDetail
       }
 
       // Smart initial season selection based on recommendation title
-      int initialSeasonIndex = 0;
-      for (int i = 0; i < matchedSeries.seasons.length; i++) {
-        final season = matchedSeries.seasons[i];
-        final cleanSeasonTitle = cleanString(season.fullTitle);
-        final cleanSeasonName = cleanString(season.seasonName);
-        if (cleanSeasonTitle == targetClean || cleanSeasonName == targetClean) {
-          initialSeasonIndex = i;
-          break;
-        }
-      }
-      if (initialSeasonIndex == 0) {
+      int initialSeasonIndex = matchedSeasonIndex ?? 0;
+      
+      if (matchedSeasonIndex == null) {
+        double highestSeasonScore = -1.0;
         for (int i = 0; i < matchedSeries.seasons.length; i++) {
           final season = matchedSeries.seasons[i];
-          final cleanSeasonTitle = cleanString(season.fullTitle);
-          if (cleanSeasonTitle.contains(targetClean) || targetClean.contains(cleanSeasonTitle)) {
+          final scoreFull = _calculateSimilarity(season.fullTitle, rec.title);
+          final scoreName = _calculateSimilarity(season.seasonName, rec.title);
+          final bestScore = scoreFull > scoreName ? scoreFull : scoreName;
+          
+          if (bestScore > highestSeasonScore) {
+            highestSeasonScore = bestScore;
             initialSeasonIndex = i;
-            break;
           }
         }
       }

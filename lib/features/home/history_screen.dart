@@ -411,6 +411,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                                                 icon: Icon(Icons.play_circle_fill_rounded, color: settingsAccent, size: 28),
                                                 tooltip: 'Play Episode',
                                                 onPressed: () {
+                                                  final msgId = episodeMsg?.id ?? (log['messageId'] as int?) ?? 0;
                                                   final targetSeason = matchedSeason ?? matchedSeries!.seasons.first;
                                                   if (Platform.isWindows) {
                                                     ref.read(desktopSelectedSeriesProvider.notifier).state = matchedSeries;
@@ -422,12 +423,12 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                                                           season: targetSeason,
                                                           series: matchedSeries!,
                                                           heroTag: 'hero_history_${matchedSeries.coreName}',
+                                                          highlightMessageId: msgId != 0 ? msgId : null,
                                                         ),
                                                       ),
                                                     );
                                                   }
                                                   
-                                                  final msgId = episodeMsg?.id ?? (log['messageId'] as int?) ?? 0;
                                                   final epIdx = episodeListIndex ?? (log['episodeIndex'] as int?) ?? 0;
                                                   Future.delayed(const Duration(milliseconds: 50), () {
                                                     if (context.mounted && fileId != null) {

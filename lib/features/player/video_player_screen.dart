@@ -769,8 +769,8 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
 
   @override
   void dispose() {
-    if (!widget.isPip) {
-      WakelockPlus.disable();
+    if (!widget.isPip && _pipController.activePlayer == null) {
+      try { WakelockPlus.disable(); } catch (_) {}
     }
     _cancelPreloadOfNextEpisode();
     WidgetsBinding.instance.removeObserver(this);
@@ -837,11 +837,15 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
       }
     } catch (_) {}
 
-    try {
-      player.dispose();
-    } catch (e, st) {
-      Log.e('Failed to dispose Player', e, st);
-    }
+    final p = player;
+    Future.microtask(() async {
+      try {
+        await p.stop();
+        await p.dispose();
+      } catch (e, st) {
+        Log.e('Failed to dispose Player async', e, st);
+      }
+    });
 
     try {
       final fileId = _resolvedVideoFileId ?? widget.videoFileId;
@@ -1552,11 +1556,14 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
 
     _subscriptions.add(player.stream.playing.listen((playing) {
       if (playing) {
-        if (!widget.isPip) WakelockPlus.enable();
+        if (!widget.isPip) {
+          try { WakelockPlus.enable(); } catch (_) {}
+        }
       } else {
-        Future.delayed(const Duration(seconds: 30), () {
+        // When paused, wait 60 seconds before disabling Wakelock
+        Future.delayed(const Duration(seconds: 60), () {
           if (mounted && !player.state.playing && !widget.isPip) {
-            WakelockPlus.disable();
+            try { WakelockPlus.disable(); } catch (_) {}
           }
         });
       }

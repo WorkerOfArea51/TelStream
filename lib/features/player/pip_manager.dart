@@ -111,18 +111,14 @@ class PipController extends Notifier<PipVideoState?> {
     if (activePlayer != null && activePlayer != player) {
       final oldPlayer = activePlayer;
       ref.read(activePlayerProvider.notifier).setPlayer(null);
-      try {
-        oldPlayer.setVolume(0.0);
-      } catch (_) {}
-      try {
-        oldPlayer.pause();
-      } catch (_) {}
-      try {
-        oldPlayer.stop();
-      } catch (_) {}
-      try {
-        oldPlayer.dispose();
-      } catch (_) {}
+      Future.microtask(() async {
+        try {
+          oldPlayer.setVolume(0.0);
+          oldPlayer.pause();
+          await oldPlayer.stop();
+          await oldPlayer.dispose();
+        } catch (_) {}
+      });
     }
     ref.read(activePlayerProvider.notifier).setPlayer(player);
   }
@@ -245,9 +241,10 @@ class PipController extends Notifier<PipVideoState?> {
     final wasPip = currentState.isPip;
     final oldActivePlayer = ref.read(activePlayerProvider);
     if (oldActivePlayer != null && !Platform.isWindows) {
-      Future.microtask(() {
-        ref.read(activePlayerProvider.notifier).setPlayer(null);
-      });
+      try {
+        oldActivePlayer.setVolume(0.0);
+        oldActivePlayer.pause();
+      } catch (_) {}
     }
 
     state = currentState.copyWith(

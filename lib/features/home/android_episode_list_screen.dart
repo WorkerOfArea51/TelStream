@@ -68,10 +68,25 @@ class _AndroidEpisodeListScreenState extends ConsumerState<AndroidEpisodeListScr
     _seasonKeys = List.generate(widget.series.seasons.length, (index) => GlobalKey());
 
     if (widget.highlightMessageId != null) {
+      bool found = false;
       for (final season in widget.series.seasons) {
         if (season.episodes.any((ep) => ep.id == widget.highlightMessageId)) {
           _selectedSeason = season;
+          found = true;
           break;
+        }
+      }
+      if (!found) {
+        AnimeSeason? bestMatch;
+        for (final season in widget.series.seasons) {
+          if (season.posterMessage.id < widget.highlightMessageId!) {
+            if (bestMatch == null || season.posterMessage.id > bestMatch.posterMessage.id) {
+              bestMatch = season;
+            }
+          }
+        }
+        if (bestMatch != null) {
+          _selectedSeason = bestMatch;
         }
       }
     }
@@ -79,7 +94,9 @@ class _AndroidEpisodeListScreenState extends ConsumerState<AndroidEpisodeListScr
     if (_selectedSeason.episodes.isEmpty) {
       _loadEpisodesDynamically();
     } else {
-      _scrollToHighlightedEpisode();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _scrollToHighlightedEpisode();
+      });
     }
     
     WidgetsBinding.instance.addPostFrameCallback((_) {
