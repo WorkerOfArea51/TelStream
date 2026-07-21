@@ -333,7 +333,7 @@ class TdlibService {
           size: 0,
           ttl: 0,
           count: 0,
-          immunityDelay: 86400, // 24 hours immunity to protect active watch history
+          immunityDelay: 259200, // 3 days immunity to protect active watch history
           fileTypes: optimizeTypes,
           chatIds: [],
           excludeChatIds: [],
@@ -410,9 +410,9 @@ class TdlibService {
         for (final entry in fileStats) {
           if (currentSize <= limitBytes) break;
           
-          // 24 hours immunity to protect active watch history
+          // 3 days immunity to protect active watch history
           final ageInSeconds = now.difference(entry.value).inSeconds;
-          if (ageInSeconds < 86400) continue; 
+          if (ageInSeconds < 259200) continue; 
           
           try {
             final size = await entry.key.length();
