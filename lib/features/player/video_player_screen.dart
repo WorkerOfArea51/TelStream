@@ -191,9 +191,6 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
 
   void _setLandscapeOrientationAndUI() {
     try {
-      try {
-        WakelockPlus.enable();
-      } catch (_) {}
       if (!Platform.isWindows && !Platform.isMacOS && !Platform.isLinux) {
         SystemChrome.setPreferredOrientations([
           DeviceOrientation.landscapeLeft,
@@ -201,6 +198,15 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         ]);
         SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
       }
+      
+      // Call Wakelock after SystemChrome, as SystemChrome can clear window flags on Android
+      Future.delayed(const Duration(milliseconds: 300), () {
+        if (mounted) {
+          try {
+            WakelockPlus.enable();
+          } catch (_) {}
+        }
+      });
     } catch (e) {
       // ignore
     }
@@ -769,9 +775,6 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
 
   @override
   void dispose() {
-    if (!widget.isPip && _pipController.activePlayer == null) {
-      try { WakelockPlus.disable(); } catch (_) {}
-    }
     _cancelPreloadOfNextEpisode();
     WidgetsBinding.instance.removeObserver(this);
     // Redundant pause/stop removed to prevent race conditions during player disposal
@@ -831,11 +834,18 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
       _pipController.clearActivePlayer(player);
     }
 
-    try {
-      if (_pipController.activePlayer == null) {
-        _resetOrientationAndUI();
-      }
-    } catch (_) {}
+    // Wait a brief moment to see if another player took over (e.g. Next Episode).
+    // If not, we are truly exiting the player and should reset UI and Wakelock.
+    Future.delayed(const Duration(milliseconds: 150), () {
+      try {
+        if (_pipController.activePlayer == null) {
+          _resetOrientationAndUI();
+          if (!widget.isPip) {
+            try { WakelockPlus.disable(); } catch (_) {}
+          }
+        }
+      } catch (_) {}
+    });
 
     final p = player;
     Future.microtask(() async {
