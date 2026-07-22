@@ -1405,7 +1405,15 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         
         nativePlayer.setProperty('audio-pitch-correction', 'yes');
         nativePlayer.setProperty('audio-buffer', '0.2'); // 0.2s audio buffer
-        nativePlayer.setProperty('framedrop', 'vo'); // Allow dropping late video frames to maintain perfect A/V sync (fixes micro-stutter)
+        
+        // Ultimate smoothness: Sync video to the display refresh rate (e.g., 60Hz/120Hz)
+        nativePlayer.setProperty('video-sync', 'display-resample');
+        
+        // Enable motion interpolation to eliminate 3:2 pulldown judder and micro-stutters entirely
+        nativePlayer.setProperty('interpolation', 'yes');
+        nativePlayer.setProperty('tscale', 'oversample'); 
+        
+        nativePlayer.setProperty('framedrop', 'vo'); // Still keep VO drop as a safety net for extreme CPU spikes
         nativePlayer.setProperty('sub-fix-timing', 'yes');
         nativePlayer.setProperty('stream-buffer-size', '16777216'); // 16 MB stream buffer (faster download pipeline)
         
