@@ -821,6 +821,14 @@ class _DesktopMainScreenState extends ConsumerState<DesktopMainScreen> with Tick
             storage.setPreferredAudioTrack(track.language ?? 'und');
           }
         }
+        
+        // Force buffer flush to prevent MPV stall on HTTP streams
+        Future.delayed(const Duration(milliseconds: 500), () {
+          if (mounted && player.state.playing) {
+            player.seek(player.state.position);
+            player.play();
+          }
+        });
       },
       onPickLocalSubtitle: () {},
       onOpenSubtitleDownloader: () {},
