@@ -2907,6 +2907,15 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
         setState(() => _showSeekIndicator = false);
       }
     });
+
+    // Force a buffer flush to prevent MPV from stalling when changing HTTP streams.
+    // Seeking to the exact current position forces libavformat to re-init the stream and immediately resume.
+    Future.delayed(const Duration(milliseconds: 500), () {
+      if (mounted && widget.player.state.playing) {
+        widget.player.seek(widget.player.state.position);
+        widget.player.play();
+      }
+    });
   }
 
   @override
