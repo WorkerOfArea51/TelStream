@@ -49,6 +49,7 @@ class _CachedVideoWidgetState extends State<CachedVideoWidget> {
                 controls: NoVideoControls,
                 fit: BoxFit.fill,
                 subtitleViewConfiguration: widget.subtitleConfig,
+                wakelock: false, // Let WakelockPlus handle it
               ),
             ),
           )
@@ -58,6 +59,7 @@ class _CachedVideoWidgetState extends State<CachedVideoWidget> {
             controls: NoVideoControls,
             fit: widget.fit,
             subtitleViewConfiguration: widget.subtitleConfig,
+            wakelock: false, // Let WakelockPlus handle it
           );
   }
 

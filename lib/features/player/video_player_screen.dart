@@ -1030,7 +1030,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
             child: Center(
               child: _isPlaying 
                  ? (isDesktop 
-                     ? Video(controller: controller, controls: NoVideoControls)
+                     ? Video(controller: controller, controls: NoVideoControls, wakelock: false)
                      : CustomVideoControls(
                          player: player,
                          controller: controller,
@@ -1405,17 +1405,17 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         
         nativePlayer.setProperty('audio-pitch-correction', 'yes');
         nativePlayer.setProperty('audio-buffer', '0.2'); // 0.2s audio buffer
-        nativePlayer.setProperty('framedrop', 'no'); // Disable framedrop to prevent skips and micro-stuttering
+        nativePlayer.setProperty('framedrop', 'vo'); // Allow dropping late video frames to maintain perfect A/V sync (fixes micro-stutter)
         nativePlayer.setProperty('sub-fix-timing', 'yes');
         nativePlayer.setProperty('stream-buffer-size', '16777216'); // 16 MB stream buffer (faster download pipeline)
         
-        // Fix glitching on all decoders by optimizing decoder loops
-        nativePlayer.setProperty('vd-lavc-fast', 'no'); // Disable fast decoding hacks to prevent pixelation/glitching
-        nativePlayer.setProperty('vd-lavc-skiploopfilter', 'none'); // Do not skip loop filter to keep lines sharp and clean in anime
-        nativePlayer.setProperty('vd-lavc-check-hw-profile', 'no'); // Skip HW profile validation to prevent decoder load failures
-        nativePlayer.setProperty('vd-lavc-threads', '0'); // Auto threads for multi-threaded decoding
-        nativePlayer.setProperty('vd-lavc-show-all', 'no'); // Discard corrupted/smeared frames instead of displaying them
-        nativePlayer.setProperty('vd-lavc-er', 'careful'); // Enable high error resilience to conceal stream packet drops
+        // Remove heavy software decoding constraints so mobile CPUs can keep up if HW decoding fails
+        nativePlayer.setProperty('vd-lavc-fast', 'yes'); 
+        nativePlayer.setProperty('vd-lavc-skiploopfilter', 'default');
+        nativePlayer.setProperty('vd-lavc-check-hw-profile', 'no');
+        nativePlayer.setProperty('vd-lavc-threads', '0');
+        nativePlayer.setProperty('vd-lavc-show-all', 'no');
+        nativePlayer.setProperty('vd-lavc-er', 'careful');
         if (!Platform.isAndroid && !Platform.isIOS) {
           nativePlayer.setProperty('hwdec-extra-frames', '64'); // Allocate larger buffer pool on PC GPUs to prevent frame drops
         }
