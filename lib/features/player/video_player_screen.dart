@@ -200,10 +200,11 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
       }
       
       // Call Wakelock after SystemChrome, as SystemChrome can clear window flags on Android
-      Future.delayed(const Duration(milliseconds: 300), () {
+      Future.delayed(const Duration(milliseconds: 300), () async {
         if (mounted) {
           try {
-            WakelockPlus.enable();
+            await WakelockPlus.disable(); // Force clear internal state
+            await WakelockPlus.enable();
           } catch (_) {}
         }
       });
@@ -1572,10 +1573,14 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
 
   void _setupPlayerListeners() {
 
-    _subscriptions.add(player.stream.playing.listen((playing) {
+    _subscriptions.add(player.stream.playing.listen((playing) async {
       if (playing) {
         if (!widget.isPip) {
-          try { WakelockPlus.enable(); } catch (_) {}
+          try {
+            // Force reset WakelockPlus internal boolean cache by disabling first
+            await WakelockPlus.disable();
+            await WakelockPlus.enable();
+          } catch (_) {}
         }
       } else {
         // When paused, wait 60 seconds before disabling Wakelock
