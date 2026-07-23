@@ -26,6 +26,7 @@ import '../../services/download_service.dart';
 import 'widgets/equalizer_dialog.dart';
 import 'widgets/speed_selector_panel.dart';
 import 'widgets/track_selector_panel.dart';
+import 'widgets/chapters_panel.dart';
 import 'widgets/aspect_ratio_panel.dart';
 import 'widgets/more_options_panel.dart';
 import 'widgets/subtitle_downloader_dialog.dart';
@@ -88,6 +89,7 @@ class CustomVideoControls extends ConsumerStatefulWidget {
 class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
   final GlobalKey<SpeedSelectorPanelState> _speedPanelKey = GlobalKey();
   final GlobalKey<TrackSelectorPanelState> _trackPanelKey = GlobalKey();
+  final GlobalKey<ChaptersPanelState> _chaptersPanelKey = GlobalKey();
 
   bool _showControls = true;
   Timer? _hideTimer;
@@ -174,7 +176,6 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
   // Chapter variables
   List<VideoChapter> _chapters = [];
   bool _hasChapters = false;
-  bool _showChaptersPanel = false;
   StreamSubscription? _playlistSubscription;
   int _chaptersLoadAttempts = 0;
   Timer? _chaptersRetryTimer;
@@ -230,23 +231,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     }
   }
 
-  bool _isChapterIntro(VideoChapter ch, double start, double end) {
-    final titleLower = ch.title.toLowerCase().trim();
-    return titleLower.contains('intro') ||
-        titleLower.contains('opening') ||
-        titleLower.contains('theme') ||
-        titleLower.contains('title sequence') ||
-        titleLower.contains('main title') ||
-        titleLower.contains('title screen') ||
-        titleLower.contains('opening credits') ||
-        titleLower == 'op' ||
-        titleLower.startsWith('op ') ||
-        titleLower.endsWith(' op') ||
-        titleLower.contains('op 1') ||
-        titleLower.contains('op 2') ||
-        titleLower.contains('op1') ||
-        titleLower.contains('op2');
-  }
+  
 
   bool _isChapterOutro(
     VideoChapter ch,
@@ -456,8 +441,12 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
         _buildCircularActionButton(
           icon: Icons.format_list_bulleted,
           label: AppLocalizations.of(context)!.chapters,
-          isActive: _showChaptersPanel,
-          onTap: _openChaptersPanel,
+          isActive: (_chaptersPanelKey.currentState?.isVisible ?? false),
+          onTap: () {
+                    _hideTimer?.cancel();
+                    setState(() => _showControls = false);
+                    _chaptersPanelKey.currentState?.show();
+                  },
         ),
       _buildCircularActionButton(
         icon: Icons.repeat,
@@ -725,7 +714,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
             } catch (_) {}
           }
 
-          final proxy = ref.read(streamingProxyServiceProvider);
+          final proxy = ref.read(streamingProxyServiceProvider).requireValue;
           int? activeFileId;
           final playingUrl =
               widget.player.state.playlist.index >= 0 &&
@@ -1200,13 +1189,12 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     if ((_trackPanelKey.currentState?.isVisible ?? false) ||
         _showRatioPanel ||
         (_speedPanelKey.currentState?.isVisible ?? false) ||
-        _showChaptersPanel ||
+        (_chaptersPanelKey.currentState?.isVisible ?? false) ||
         _showMoreOptionsPanel) {
       setState(() {
         
         _showRatioPanel = false;
         _speedPanelKey.currentState?.hide();
-        _showChaptersPanel = false;
         _showMoreOptionsPanel = false;
         _showControls = true;
       });
@@ -1668,287 +1656,10 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     }
   }
 
-  int _getActiveChapterIndex(Duration currentPos) {
-    if (_chapters.isEmpty) return -1;
-    for (int i = 0; i < _chapters.length; i++) {
-      final start = _chapters[i].position;
-      final end = (i + 1 < _chapters.length)
-          ? _chapters[i + 1].position
-          : widget.player.state.duration;
-      if (currentPos >= start && currentPos < end) {
-        return i;
-      }
-    }
-    return 0;
-  }
 
-  void _openChaptersPanel() {
-    setState(() {
-      _showChaptersPanel = true;
-      _showControls = false;
-    });
-  }
+  
 
-  Widget _buildCustomChaptersPanel() {
-    final theme = Theme.of(context);
-    final customTheme = theme.extension<AppThemeExtension>();
-    final settingsAccent = customTheme?.settingsAccent ?? theme.primaryColor;
-
-    return StreamBuilder<Duration>(
-      stream: widget.player.stream.position,
-      initialData: widget.player.state.position,
-      builder: (context, snapshot) {
-        final currentPos = snapshot.data ?? widget.player.state.position;
-        final activeIndex = _getActiveChapterIndex(currentPos);
-
-        final isLandscape =
-            MediaQuery.of(context).orientation == Orientation.landscape;
-
-        return ClipRRect(
-          borderRadius: isLandscape
-              ? const BorderRadius.horizontal(left: Radius.circular(30))
-              : const BorderRadius.vertical(top: Radius.circular(24)),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 20.0, sigmaY: 20.0),
-            child: Container(
-              height: isLandscape ? double.infinity : 340,
-              decoration: BoxDecoration(
-                color: const Color(
-                  0x990A0F1D,
-                ), // Slate 950 with 60% opacity for premium glassmorphism
-                borderRadius: isLandscape
-                    ? const BorderRadius.horizontal(left: Radius.circular(30))
-                    : const BorderRadius.vertical(top: Radius.circular(24)),
-                border: Border.all(color: Colors.white10),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.5),
-                    blurRadius: 25,
-                    spreadRadius: 5,
-                  ),
-                ],
-              ),
-              child: SafeArea(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const SizedBox(height: 12),
-                    Center(
-                      child: Container(
-                        width: 45,
-                        height: 4,
-                        decoration: BoxDecoration(
-                          color: Colors.white30,
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 8,
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(Icons.list, color: settingsAccent, size: 24),
-                          const SizedBox(width: 12),
-                          const Text(
-                            'Chapters',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 18,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 0.5,
-                            ),
-                          ),
-                          const Spacer(),
-                          IconButton(
-                            icon: const Icon(
-                              Icons.close,
-                              color: Colors.white60,
-                            ),
-                            onPressed: () =>
-                                setState(() => _showChaptersPanel = false),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 20),
-                      child: Divider(color: Colors.white12, height: 1),
-                    ),
-                    const SizedBox(height: 8),
-                    Expanded(
-                      child: _chapters.isEmpty
-                          ? const Center(
-                              child: Text(
-                                'No chapters available',
-                                style: TextStyle(
-                                  color: Colors.white38,
-                                  fontSize: 15,
-                                ),
-                              ),
-                            )
-                          : ListView.builder(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 20,
-                                vertical: 8,
-                              ),
-                              itemCount: _chapters.length,
-                              itemBuilder: (context, index) {
-                                final chapter = _chapters[index];
-                                final isSelected = index == activeIndex;
-
-                                final start = chapter.position.inSeconds
-                                    .toDouble();
-                                final totalDuration = widget
-                                    .player
-                                    .state
-                                    .duration
-                                    .inSeconds
-                                    .toDouble();
-                                final end = (index + 1 < _chapters.length)
-                                    ? _chapters[index + 1].position.inSeconds
-                                          .toDouble()
-                                    : (totalDuration > 0
-                                          ? totalDuration
-                                          : start + 90.0);
-
-                                String displayTitle = chapter.title;
-                                if (_isChapterIntro(chapter, start, end)) {
-                                  displayTitle = 'Intro';
-                                } else if (_isChapterOutro(
-                                  chapter,
-                                  start,
-                                  end,
-                                  totalDuration,
-                                )) {
-                                  displayTitle = 'Credits';
-                                }
-
-                                return Padding(
-                                  padding: const EdgeInsets.only(bottom: 8),
-                                  child: InkWell(
-                                    onTap: () {
-                                      final safeTarget = _clampSeekTarget(
-                                        chapter.position,
-                                        showMessage: false,
-                                      );
-                                      _performSeek(safeTarget);
-                                      setState(() {
-                                        _showChaptersPanel = false;
-                                        _showSeekIndicator = true;
-                                        _seekDirection =
-                                            'Chapter: $displayTitle';
-                                      });
-                                      Future.delayed(
-                                        const Duration(milliseconds: 1000),
-                                        () {
-                                          if (mounted) {
-                                            setState(
-                                              () => _showSeekIndicator = false,
-                                            );
-                                          }
-                                        },
-                                      );
-                                    },
-                                    borderRadius: BorderRadius.circular(12),
-                                    child: AnimatedContainer(
-                                      duration: const Duration(
-                                        milliseconds: 150,
-                                      ),
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 16,
-                                        vertical: 12,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: isSelected
-                                            ? settingsAccent.withValues(
-                                                alpha: 0.12,
-                                              )
-                                            : Colors.white.withValues(
-                                                alpha: 0.04,
-                                              ),
-                                        borderRadius: BorderRadius.circular(12),
-                                        border: Border.all(
-                                          color: isSelected
-                                              ? settingsAccent.withValues(
-                                                  alpha: 0.4,
-                                                )
-                                              : Colors.white.withValues(
-                                                  alpha: 0.05,
-                                                ),
-                                          width: 1,
-                                        ),
-                                      ),
-                                      child: Row(
-                                        children: [
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 8,
-                                              vertical: 4,
-                                            ),
-                                            decoration: BoxDecoration(
-                                              color: isSelected
-                                                  ? settingsAccent.withValues(
-                                                      alpha: 0.2,
-                                                    )
-                                                  : Colors.white10,
-                                              borderRadius:
-                                                  BorderRadius.circular(8),
-                                            ),
-                                            child: Text(
-                                              _formatDuration(chapter.position),
-                                              style: TextStyle(
-                                                color: isSelected
-                                                    ? settingsAccent
-                                                    : Colors.white70,
-                                                fontSize: 12,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                          ),
-                                          const SizedBox(width: 16),
-                                          Expanded(
-                                            child: Text(
-                                              displayTitle,
-                                              style: TextStyle(
-                                                color: isSelected
-                                                    ? settingsAccent
-                                                    : Colors.white,
-                                                fontWeight: isSelected
-                                                    ? FontWeight.bold
-                                                    : FontWeight.normal,
-                                                fontSize: 15,
-                                              ),
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                          ),
-                                          if (isSelected)
-                                            Icon(
-                                              Icons.play_circle_filled,
-                                              color: settingsAccent,
-                                              size: 20,
-                                            ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
+  
 
   Duration _clampSeekTarget(
     Duration targetPosition, {
@@ -3717,21 +3428,27 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
             ),
           ),
 
-          // Custom Chapters Panel Background Cover
-          if (_showChaptersPanel)
-            GestureDetector(
-              onTap: () => setState(() => _showChaptersPanel = false),
-              child: Container(color: Colors.black26),
-            ),
-          AnimatedPositioned(
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeInOut,
-            left: isPortrait ? 0 : null,
-            right: isPortrait ? 0 : (_showChaptersPanel ? 0 : -400),
-            top: isPortrait ? null : 0,
-            bottom: isPortrait ? (_showChaptersPanel ? 0 : -800) : 0,
-            width: isPortrait ? null : 380,
-            child: _buildCustomChaptersPanel(),
+                    ChaptersPanel(
+            key: _chaptersPanelKey,
+            player: widget.player,
+            chapters: _chapters,
+            onVisibilityChanged: () {
+              if (!mounted) return;
+              setState(() {
+                _showControls = !(_chaptersPanelKey.currentState?.isVisible ?? false);
+              });
+            },
+            onChapterSelected: (position, displayTitle) {
+              final safeTarget = _clampSeekTarget(position, showMessage: false);
+              _performSeek(safeTarget);
+              setState(() {
+                _showSeekIndicator = true;
+                _seekDirection = 'Chapter: $displayTitle';
+              });
+              Future.delayed(const Duration(milliseconds: 1000), () {
+                if (mounted) setState(() => _showSeekIndicator = false);
+              });
+            },
           ),
 
           // Custom Speed Selector Panel Background Cover

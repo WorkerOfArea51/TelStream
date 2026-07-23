@@ -109,7 +109,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
     _tdlibService = ref.read(tdlibServiceProvider);
     _pipController = ref.read(pipControllerProvider.notifier);
     _settings = ref.read(videoSettingsProvider);
-    _proxyService = ref.read(streamingProxyServiceProvider);
+    _proxyService = ref.read(streamingProxyServiceProvider).requireValue;
     _historyLog = ref.read(historyLogProvider.notifier);
     _downloadController = ref.read(downloadControllerProvider.notifier);
     

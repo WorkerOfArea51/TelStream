@@ -8,17 +8,30 @@ import 'package:tdlib/td_api.dart' as td;
 import 'tdlib_service.dart';
 import '../core/logger.dart';
 
-final streamingProxyServiceProvider = Provider<StreamingProxyService>((ref) {
-  final tdlibService = ref.watch(tdlibServiceProvider);
-  final proxy = StreamingProxyService(tdlibService);
-  proxy.start().catchError((e, st) {
-    Log.e('Failed to start StreamingProxyService', e, st);
-  });
-  ref.onDispose(() {
-    proxy.stop();
-  });
-  return proxy;
-});
+class StreamingProxyNotifier extends AsyncNotifier<StreamingProxyService> {
+  @override
+  Future<StreamingProxyService> build() async {
+    final tdlibService = ref.watch(tdlibServiceProvider);
+    final proxy = StreamingProxyService(tdlibService);
+    
+    ref.onDispose(() {
+      proxy.stop();
+    });
+
+    try {
+      await proxy.start();
+    } catch (e, st) {
+      Log.e('Failed to start StreamingProxyService', e, st);
+      rethrow;
+    }
+    
+    return proxy;
+  }
+}
+
+final streamingProxyServiceProvider = AsyncNotifierProvider<StreamingProxyNotifier, StreamingProxyService>(
+  StreamingProxyNotifier.new,
+);
 
 class StreamingProxyService {
   final TdlibService _tdlibService;

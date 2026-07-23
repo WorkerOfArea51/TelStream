@@ -87,7 +87,7 @@ void main() async {
       ]);
       
       // Pre-warm the streaming proxy provider to start the HTTP server early
-      container.read(streamingProxyServiceProvider);
+      await container.read(streamingProxyServiceProvider.future);
       
     } catch (e, stack) {
       startupError = e;
