@@ -83,3 +83,5 @@ implementation_plan.md
 
 # Android build artifacts
 android/build/
+
+test.py
