@@ -117,7 +117,7 @@ jobs:
           $libsDir = "windows\runner\libs"
           New-Item -ItemType Directory -Force -Path $libsDir
 
-          $baseUrl = "https://github.com/WorkerOfArea51/TelStream-Database/releases/download/native-libs-win"
+          $baseUrl = "https://raw.githubusercontent.com/WorkerOfArea51/TelStream/native-libs-win/windows/runner/libs"
 
           $dlls = @("tdjson.dll", "libcrypto-1_1-x64.dll", "libssl-1_1-x64.dll", "msvcp140.dll", "zlib1.dll")
 
