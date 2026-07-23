@@ -1,9 +1,9 @@
 ---
-name: "🐛 Bug Report"
-about: "Create a report to help us improve TelStream"
-title: "[BUG] "
-labels: ["bug"]
-assignees: ""
+name: Bug report
+about: Create a report to help us improve TelStream
+title: '[BUG] '
+labels: bug
+assignees: ''
 ---
 
 **Describe the bug**
@@ -19,13 +19,12 @@ Steps to reproduce the behavior:
 **Expected behavior**
 A clear and concise description of what you expected to happen.
 
-**Screenshots/Screen Recordings**
-If applicable, add screenshots or video recordings to help explain your problem.
+**Screenshots**
+If applicable, add screenshots to help explain your problem.
 
-**Device Information (please complete the following information):**
-- Device: [e.g. Pixel 6, Samsung S21]
-- OS Version: [e.g. Android 12]
-- TelStream Version: [e.g. v2.0.2]
+**Desktop (please complete the following information):**
+ - OS: [e.g. Windows 11, macOS 14]
+ - Version [e.g. v2.10.4]
 
 **Additional context**
-Add any other context about the problem here (e.g. internet connection type, specific Telegram channel/video).
+Add any other context about the problem here.
