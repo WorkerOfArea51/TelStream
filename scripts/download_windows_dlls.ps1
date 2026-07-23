@@ -1,4 +1,4 @@
-# PowerShell script to download TDLib Windows DLLs
+
 # PowerShell script to download TDLib Windows DLLs for local development
 # CI uses inline PowerShell — this script is for LOCAL SETUP only
 

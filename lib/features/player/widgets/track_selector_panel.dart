@@ -142,13 +142,13 @@ class TrackSelectorPanelState extends ConsumerState<TrackSelectorPanel> {
               }
             }
 
-            final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
+            final isPortrait = MediaQuery.of(context).orientation == Orientation.portrait;
 
             Widget panelContent = Container(
-              height: isLandscape ? double.infinity : (isSubtitle ? 520.0 : 340.0),
+              height: isPortrait ? double.infinity : (isSubtitle ? 520.0 : 340.0),
               decoration: widget.hideHeader ? const BoxDecoration(color: Colors.transparent) : BoxDecoration(
                 color: const Color(0xEB0A0F1D), // Slate 950 with 92% opacity - clean translucency (no blur)
-                borderRadius: isLandscape
+                borderRadius: isPortrait
                     ? const BorderRadius.horizontal(left: Radius.circular(30))
                     : const BorderRadius.vertical(top: Radius.circular(24)),
                 border: Border.all(color: Colors.white10),
@@ -744,11 +744,11 @@ class TrackSelectorPanelState extends ConsumerState<TrackSelectorPanel> {
                 AnimatedPositioned(
                   duration: const Duration(milliseconds: 300),
                   curve: Curves.easeInOut,
-                  left: isLandscape ? 0 : null,
-                  right: isLandscape ? 0 : (isVisible ? 0 : -380),
-                  top: isLandscape ? null : 0,
-                  bottom: isLandscape ? (isVisible ? 0 : -800) : 0,
-                  width: isLandscape ? null : 380,
+                  left: isPortrait ? 0 : null,
+                  right: isPortrait ? 0 : (isVisible ? 0 : -380),
+                  top: isPortrait ? null : 0,
+                  bottom: isPortrait ? (isVisible ? 0 : -800) : 0,
+                  width: isPortrait ? null : 380,
                   child: panelContent,
                 ),
               ],

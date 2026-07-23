@@ -224,9 +224,9 @@ class AspectRatioPanel extends ConsumerWidget {
                       children: [
                         _buildScreenRatioButton('fit', 'Fit (Auto)', Icons.aspect_ratio_rounded, settingsAccent),
                         const SizedBox(width: 12),
-                        _buildScreenRatioButton('fill', 'Stretch', Icons.settings_overscan_rounded, settingsAccent),
+                        _buildScreenRatioButton('stretch', 'Stretch', Icons.settings_overscan_rounded, settingsAccent),
                         const SizedBox(width: 12),
-                        _buildScreenRatioButton('cover', 'Crop (Zoom)', Icons.crop_free_rounded, settingsAccent),
+                        _buildScreenRatioButton('fill', 'Crop (Zoom)', Icons.crop_free_rounded, settingsAccent),
                       ],
                     ),
                     const SizedBox(height: 24),
@@ -247,7 +247,10 @@ class AspectRatioPanel extends ConsumerWidget {
                       children: [
                         _buildPillRatioButton('16:9', settingsAccent),
                         _buildPillRatioButton('4:3', settingsAccent),
+                        _buildPillRatioButton('18:9', settingsAccent),
                         _buildPillRatioButton('21:9', settingsAccent),
+                        _buildPillRatioButton('1.85:1', settingsAccent),
+                        _buildPillRatioButton('2.35:1', settingsAccent),
                       ],
                     ),
                     const SizedBox(height: 24),
