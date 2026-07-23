@@ -17,7 +17,6 @@
   </a>
   <img src="https://img.shields.io/badge/platform-Android-34d399?logo=android" alt="Android" />
   <img src="https://img.shields.io/badge/platform-Windows-0078D4?logo=windows" alt="Windows" />
-  <img src="https://img.shields.io/badge/platform-Linux-FCC624?logo=linux" alt="Linux" />
   <img src="https://img.shields.io/badge/framework-Flutter-02569B?logo=flutter" alt="Built with Flutter" />
 </p>
 
@@ -27,7 +26,7 @@
 
 **TelStream** is a lightweight, high-performance Flutter-based Telegram client designed specifically to stream Telegram videos seamlessly. Leveraging the official **Telegram Database Library (TDLib)** and the hardware-accelerated **MediaKit** engine, TelStream delivers instantaneous video playback without requiring full video downloads.
 
-Available on **Android**, **Windows**, and **Linux** — stream your Telegram channels on mobile and desktop.
+Available on **Android** and **Windows** — stream your Telegram channels on mobile and desktop.
 
 ---
 
@@ -46,7 +45,7 @@ Available on **Android**, **Windows**, and **Linux** — stream your Telegram ch
 *   ⏸️ **Pause All / Resume All**: Bulk control all downloads from the Downloads screen.
 *   💬 **Auto-Download Subtitles**: One-tap auto-download of the first subtitle match with 16 languages supported.
 *   📝 **User-Added Channels**: Add your own Telegram channels/groups via More → My Channels.
-*   🖥️ **Desktop Support**: Full native desktop experience on Windows and Linux with custom window management, keyboard shortcuts, and mouse-driven controls.
+*   🖥️ **Desktop Support**: Full native desktop experience on Windows with custom window management, keyboard shortcuts, and mouse-driven controls.
 
 ---
 
@@ -65,20 +64,13 @@ We offer optimized **split-ABI** builds to keep application sizes minimal:
 Download the Windows executable from the **[GitHub Releases Page](https://github.com/WorkerOfArea51/TelStream/releases)**:
 *   **`TelStream-windows-x64.zip`**: Extract and run `TelStream.exe`. No installer required — portable application.
 
-### Linux
-
-Download the Linux build from the **[GitHub Releases Page](https://github.com/WorkerOfArea51/TelStream/releases)**:
-*   **`TelStream-linux-x64.tar.gz`**: Extract and run the bundled executable.
-
----
-
 ## 🛠️ CI/CD Pipeline
 
 TelStream uses a fully automated **GitHub Actions** pipeline configuration:
 *   **Continuous Integration**: Every push to the `main` branch automatically triggers a new workflow run.
 *   **Dependency Injection**: Automatically pulls secure API credentials and bundles native shared libraries (`libtdjson.so` for Android, `tdjson.dll` for Windows) for all target architectures.
 *   **Optimized Compiles**: Uses Gradle caching and limits Flutter compile targets to maximize pipeline speed.
-*   **Auto-Release**: Publishes compiled APKs, Windows executables, and Linux binaries directly to GitHub Releases.
+*   **Auto-Release**: Publishes compiled APKs, and Windows executables directly to GitHub Releases.
 
 ---
 
@@ -90,7 +82,6 @@ If you wish to build or run the project locally, follow these steps:
 *   [Flutter SDK](https://docs.flutter.dev/get-started/install) (matching version in `pubspec.yaml`)
 *   Android SDK / Command Line Tools (for Android builds)
 *   Visual Studio with C++ Desktop Development tools (for Windows builds)
-*   GTK3 development libraries (for Linux builds)
 
 ### 2. Native Library Configuration
 
@@ -103,9 +94,6 @@ TDLib requires native binary files to run. The workflow download is automated on
 **Windows:**
 1. Download `tdjson.dll` and supporting libraries (OpenSSL, zlib) from [TDLib Releases](https://github.com/tdlib/td/releases) or the project's native library storage.
 2. Place all `.dll` files into: `windows/runner/libs/`.
-
-**Linux:**
-1. Ensure `libtdjson.so` is available in your system library path or bundled alongside the executable.
 
 ### 3. API Secrets
 Create a local file `lib/core/secrets.dart` (which is git-ignored) to specify your Telegram API credentials:
@@ -131,7 +119,6 @@ flutter run
 # Build for specific platforms
 flutter build apk --split-per-abi   # Android
 flutter build windows               # Windows
-flutter build linux                 # Linux
 ```
 
 ---
@@ -152,3 +139,4 @@ Contributions are welcome! Please feel free to submit a Pull Request. For major 
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 All TDLib components are subject to the [official TDLib License](https://github.com/tdlib/td/blob/master/LICENSE).
+
