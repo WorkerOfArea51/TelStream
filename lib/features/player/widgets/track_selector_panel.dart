@@ -1,67 +1,64 @@
 import '../../../core/utils/subtitle_color_utils.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../settings/settings_provider.dart';
 import 'package:media_kit/media_kit.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/expressive_container.dart';
 
-class TrackSelectorPanel extends StatefulWidget {
+class TrackSelectorPanel extends ConsumerStatefulWidget {
   final Player player;
-  final bool isSubtitle;
   final Map<String, String> trackCodecs;
-  final String currentRendererMode;
-  final ValueChanged<String> onRendererModeChanged;
-  final String currentDecoderMode;
-  final ValueChanged<String> onDecoderModeChanged;
-  final double currentSubtitleDelay;
-  final ValueChanged<double> onSubtitleDelayChanged;
   final double currentAudioDelay;
   final ValueChanged<double> onAudioDelayChanged;
   final ValueChanged<dynamic> onTrackSelected;
   final VoidCallback onPickLocalSubtitle;
   final VoidCallback onOpenSubtitleDownloader;
-  final VoidCallback onClose;
+  final VoidCallback onVisibilityChanged;
   final bool hideHeader;
-
-  // Subtitle styling parameters
-  final double currentFontSize;
-  final ValueChanged<double> onFontSizeChanged;
-  final String currentFontColor;
-  final ValueChanged<String> onFontColorChanged;
-  final String currentFontFamily;
-  final ValueChanged<String> onFontFamilyChanged;
+  final bool isEmbedded;
+  final bool initialIsSubtitle;
 
   const TrackSelectorPanel({
     super.key,
     required this.player,
-    required this.isSubtitle,
     required this.trackCodecs,
-    required this.currentRendererMode,
-    required this.onRendererModeChanged,
-    required this.currentDecoderMode,
-    required this.onDecoderModeChanged,
-    required this.currentSubtitleDelay,
-    required this.onSubtitleDelayChanged,
     required this.currentAudioDelay,
     required this.onAudioDelayChanged,
     required this.onTrackSelected,
     required this.onPickLocalSubtitle,
     required this.onOpenSubtitleDownloader,
-    required this.onClose,
+    required this.onVisibilityChanged,
     this.hideHeader = false,
-    required this.currentFontSize,
-    required this.onFontSizeChanged,
-    required this.currentFontColor,
-    required this.onFontColorChanged,
-    required this.currentFontFamily,
-    required this.onFontFamilyChanged,
+    this.isEmbedded = false,
+    this.initialIsSubtitle = true,
   });
 
   @override
-  State<TrackSelectorPanel> createState() => _TrackSelectorPanelState();
+  ConsumerState<TrackSelectorPanel> createState() => TrackSelectorPanelState();
 }
 
-class _TrackSelectorPanelState extends State<TrackSelectorPanel> {
+class TrackSelectorPanelState extends ConsumerState<TrackSelectorPanel> {
   int _activeTab = 0; // 0: Tracks, 1: Style
+  bool isVisible = false;
+  late bool isSubtitle = widget.initialIsSubtitle;
+
+  void show(bool subtitleMode) {
+    if (!isVisible || isSubtitle != subtitleMode) {
+      setState(() {
+        isSubtitle = subtitleMode;
+        isVisible = true;
+      });
+      widget.onVisibilityChanged();
+    }
+  }
+
+  void hide() {
+    if (isVisible) {
+      setState(() => isVisible = false);
+      widget.onVisibilityChanged();
+    }
+  }
 
 
 
@@ -76,11 +73,12 @@ class _TrackSelectorPanelState extends State<TrackSelectorPanel> {
   }
 
   Widget _buildPresetCard(String sampleText, String colorHex, Color activeColor) {
-    final isSelected = widget.currentFontColor.toUpperCase() == colorHex.toUpperCase();
+    final settings = ref.watch(videoSettingsProvider);
+    final isSelected = settings.subtitleColor.toUpperCase() == colorHex.toUpperCase();
     final colorVal = SubtitleColorUtils.parseColor(colorHex);
 
     return GestureDetector(
-      onTap: () => widget.onFontColorChanged(colorHex),
+      onTap: () => ref.read(videoSettingsProvider.notifier).updateSettings(settings.copyWith(subtitleColor: colorHex)),
       child: Container(
         width: 68,
         height: 48,
@@ -107,6 +105,7 @@ class _TrackSelectorPanelState extends State<TrackSelectorPanel> {
 
   @override
   Widget build(BuildContext context) {
+    final settings = ref.watch(videoSettingsProvider);
     final theme = Theme.of(context);
     final customTheme = theme.extension<AppThemeExtension>();
     final settingsAccent = customTheme?.settingsAccent ?? theme.primaryColor;
@@ -122,15 +121,15 @@ class _TrackSelectorPanelState extends State<TrackSelectorPanel> {
             final tracksObj = tracksSnapshot.data;
             final currentTrackObj = trackSnapshot.data;
 
-            final List<dynamic> rawTracks = widget.isSubtitle
+            final List<dynamic> rawTracks = isSubtitle
                 ? (tracksObj?.subtitle ?? [])
                 : (tracksObj?.audio ?? []);
-            final currentTrack = widget.isSubtitle
+            final currentTrack = isSubtitle
                 ? currentTrackObj?.subtitle
                 : currentTrackObj?.audio;
 
             final List<dynamic> options = [];
-            if (widget.isSubtitle) {
+            if (isSubtitle) {
               options.add(SubtitleTrack.no());
               options.add(SubtitleTrack.auto());
             } else {
@@ -145,8 +144,8 @@ class _TrackSelectorPanelState extends State<TrackSelectorPanel> {
 
             final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
 
-            return Container(
-              height: isLandscape ? double.infinity : (widget.isSubtitle ? 520.0 : 340.0),
+            Widget panelContent = Container(
+              height: isLandscape ? double.infinity : (isSubtitle ? 520.0 : 340.0),
               decoration: widget.hideHeader ? const BoxDecoration(color: Colors.transparent) : BoxDecoration(
                 color: const Color(0xEB0A0F1D), // Slate 950 with 92% opacity - clean translucency (no blur)
                 borderRadius: isLandscape
@@ -175,11 +174,11 @@ class _TrackSelectorPanelState extends State<TrackSelectorPanel> {
                         children: [
                           IconButton(
                             icon: const Icon(Icons.arrow_back, color: Colors.white),
-                            onPressed: widget.onClose,
+                            onPressed: hide,
                           ),
                           const SizedBox(width: 8),
                           Text(
-                            widget.isSubtitle ? 'Subtitles' : 'Audio Tracks',
+                            isSubtitle ? 'Subtitles' : 'Audio Tracks',
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 18,
@@ -192,7 +191,7 @@ class _TrackSelectorPanelState extends State<TrackSelectorPanel> {
                     ),
 
                     // Dual tab switcher (Tracks vs Style)
-                    if (widget.isSubtitle) ...[
+                    if (isSubtitle) ...[
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
                         child: Row(
@@ -209,7 +208,7 @@ class _TrackSelectorPanelState extends State<TrackSelectorPanel> {
                     const Divider(color: Colors.white10, height: 1),
 
                     // Subtitle Style Tab Main Screen
-                    if (widget.isSubtitle && _activeTab == 1)
+                    if (isSubtitle && _activeTab == 1)
                       Expanded(
                         child: ListView(
                           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
@@ -234,7 +233,7 @@ class _TrackSelectorPanelState extends State<TrackSelectorPanel> {
                             const SizedBox(height: 12),
 
                             // Helper text or custom styles depending on active Mode
-                            if (widget.currentRendererMode == 'native') ...[
+                            if (settings.subtitleRendererMode == 'native') ...[
                               Text(
                                 'To set more subtitle options, like color, please change subtitle rendering',
                                 style: TextStyle(
@@ -258,8 +257,8 @@ class _TrackSelectorPanelState extends State<TrackSelectorPanel> {
                                 child: Text(
                                   'Sample Subtitle',
                                   style: TextStyle(
-                                    color: SubtitleColorUtils.parseColor(widget.currentFontColor),
-                                    fontSize: (widget.currentFontSize * 0.45).clamp(12.0, 24.0),
+                                    color: SubtitleColorUtils.parseColor(settings.subtitleColor),
+                                    fontSize: (settings.subtitleFontSize * 0.45).clamp(12.0, 24.0),
                                     fontWeight: FontWeight.bold,
                                     shadows: const [
                                       Shadow(offset: Offset(-1.5, -1.5), color: Colors.black, blurRadius: 1.0),
@@ -303,13 +302,13 @@ class _TrackSelectorPanelState extends State<TrackSelectorPanel> {
                                   itemBuilder: (context, idx) {
                                     final colorInfo = SubtitleColorUtils.colors[idx];
                                     final colorHex = colorInfo['hex']!;
-                                    final isSelected = widget.currentFontColor.toUpperCase() == colorHex.toUpperCase();
+                                    final isSelected = settings.subtitleColor.toUpperCase() == colorHex.toUpperCase();
                                     final colorVal = SubtitleColorUtils.parseColor(colorHex);
 
                                     return Padding(
                                       padding: const EdgeInsets.only(right: 10),
                                       child: GestureDetector(
-                                        onTap: () => widget.onFontColorChanged(colorHex),
+                                        onTap: () => ref.read(videoSettingsProvider.notifier).updateSettings(settings.copyWith(subtitleColor: colorHex)),
                                         child: Container(
                                           width: 32,
                                           height: 32,
@@ -345,7 +344,7 @@ class _TrackSelectorPanelState extends State<TrackSelectorPanel> {
                                     style: TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold),
                                   ),
                                   Text(
-                                    '${widget.currentFontSize.round()}px',
+                                    '${settings.subtitleFontSize.round()}px',
                                     style: TextStyle(color: settingsAccent, fontSize: 12, fontWeight: FontWeight.bold),
                                   ),
                                 ],
@@ -357,13 +356,13 @@ class _TrackSelectorPanelState extends State<TrackSelectorPanel> {
                                   overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
                                 ),
                                 child: Slider(
-                                  value: widget.currentFontSize,
+                                  value: settings.subtitleFontSize,
                                   min: 16.0,
                                   max: 72.0,
                                   divisions: 56,
                                   activeColor: settingsAccent,
                                   inactiveColor: Colors.white24,
-                                  onChanged: widget.onFontSizeChanged,
+                                  onChanged: (s) => ref.read(videoSettingsProvider.notifier).updateSettings(settings.copyWith(subtitleFontSize: s)),
                                 ),
                               ),
                               const SizedBox(height: 12),
@@ -387,7 +386,7 @@ class _TrackSelectorPanelState extends State<TrackSelectorPanel> {
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
                                     Text(
-                                      '${widget.currentSubtitleDelay > 0 ? '+' : ''}${widget.currentSubtitleDelay.toStringAsFixed(1)}s',
+                                      '${settings.subtitleDelay > 0 ? '+' : ''}${settings.subtitleDelay.toStringAsFixed(1)}s',
                                       style: TextStyle(
                                         color: settingsAccent,
                                         fontSize: 14,
@@ -401,7 +400,7 @@ class _TrackSelectorPanelState extends State<TrackSelectorPanel> {
                                         minimumSize: Size.zero,
                                         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                                       ),
-                                      onPressed: () => widget.onSubtitleDelayChanged(0.0),
+                                      onPressed: () => ref.read(videoSettingsProvider.notifier).updateSettings(settings.copyWith(subtitleDelay: 0.0)),
                                       child: Text(
                                         'Reset',
                                         style: TextStyle(
@@ -423,13 +422,13 @@ class _TrackSelectorPanelState extends State<TrackSelectorPanel> {
                                 overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
                               ),
                               child: Slider(
-                                value: widget.currentSubtitleDelay.clamp(-5.0, 5.0),
+                                value: settings.subtitleDelay.clamp(-5.0, 5.0),
                                 min: -5.0,
                                 max: 5.0,
                                 divisions: 100,
                                 activeColor: settingsAccent,
                                 inactiveColor: Colors.white24,
-                                onChanged: widget.onSubtitleDelayChanged,
+                                onChanged: (d) => ref.read(videoSettingsProvider.notifier).updateSettings(settings.copyWith(subtitleDelay: d)),
                               ),
                             ),
                           ],
@@ -501,7 +500,7 @@ class _TrackSelectorPanelState extends State<TrackSelectorPanel> {
                                           final lang = _getLanguageName(rawLang);
                                           final tTitle = track.title ?? 'Track ${track.id}';
 
-                                          final typeKey = widget.isSubtitle ? 'sub' : 'audio';
+                                          final typeKey = isSubtitle ? 'sub' : 'audio';
                                           final codec = widget.trackCodecs['$typeKey/${track.id}'];
                                           String formatSuffix = '';
                                           if (codec != null && codec.isNotEmpty) {
@@ -601,7 +600,7 @@ class _TrackSelectorPanelState extends State<TrackSelectorPanel> {
                             ),
 
                             // Online download and folder selector placed below current subs (inside Tracks tab)
-                            if (widget.isSubtitle) ...[
+                            if (isSubtitle) ...[
                               const Divider(color: Colors.white10, height: 1),
                               Padding(
                                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
@@ -652,7 +651,7 @@ class _TrackSelectorPanelState extends State<TrackSelectorPanel> {
                             ],
 
                             // Audio Delay Sync (Placed below the audio tracks inside Tracks tab)
-                            if (!widget.isSubtitle) ...[
+                            if (!isSubtitle) ...[
                               const Divider(color: Colors.white10, height: 1),
                               Padding(
                                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
@@ -730,11 +729,35 @@ class _TrackSelectorPanelState extends State<TrackSelectorPanel> {
                 ),
               ),
             );
-          },
-        );
-      },
-    );
-  }
+            
+            if (widget.isEmbedded) {
+              return panelContent;
+            }
+            
+            return Stack(
+              children: [
+                if (isVisible && !widget.hideHeader)
+                  GestureDetector(
+                    onTap: hide,
+                    child: Container(color: Colors.black26),
+                  ),
+                AnimatedPositioned(
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeInOut,
+                  left: isLandscape ? 0 : null,
+                  right: isLandscape ? 0 : (isVisible ? 0 : -380),
+                  top: isLandscape ? null : 0,
+                  bottom: isLandscape ? (isVisible ? 0 : -800) : 0,
+                  width: isLandscape ? null : 380,
+                  child: panelContent,
+                ),
+              ],
+            );
+    },
+  );
+},
+);
+}
 
   Widget _buildTabButton(int index, String label, Color settingsAccent) {
     final isSelected = _activeTab == index;
@@ -772,11 +795,12 @@ class _TrackSelectorPanelState extends State<TrackSelectorPanel> {
   }
 
   Widget _buildRendererModeButton(String modeId, String label, Color settingsAccent) {
-    final isSelected = widget.currentRendererMode == modeId;
+    final settings = ref.watch(videoSettingsProvider);
+    final isSelected = settings.subtitleRendererMode == modeId;
     return Expanded(
       child: InkWell(
         onTap: () {
-          widget.onRendererModeChanged(modeId);
+          ref.read(videoSettingsProvider.notifier).updateSettings(settings.copyWith(subtitleRendererMode: modeId));
         },
         borderRadius: BorderRadius.circular(10),
         child: AnimatedContainer(

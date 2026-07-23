@@ -26,12 +26,13 @@ import '../../services/download_service.dart';
 import 'widgets/equalizer_dialog.dart';
 import 'widgets/speed_selector_panel.dart';
 import 'widgets/track_selector_panel.dart';
+import 'widgets/aspect_ratio_panel.dart';
+import 'widgets/more_options_panel.dart';
 import 'widgets/subtitle_downloader_dialog.dart';
 import 'widgets/audio_sync_dialog.dart';
 import 'widgets/player_playback_bar.dart';
 import 'widgets/flashing_chevrons.dart';
 import 'widgets/player_header_bar.dart';
-import 'widgets/aspect_ratio_panel.dart';
 
 class _PlayPauseIntent extends Intent { const _PlayPauseIntent(); }
 class _SeekBackwardIntent extends Intent { const _SeekBackwardIntent(); }
@@ -85,20 +86,22 @@ class CustomVideoControls extends ConsumerStatefulWidget {
 }
 
 class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
+  final GlobalKey<SpeedSelectorPanelState> _speedPanelKey = GlobalKey();
+  final GlobalKey<TrackSelectorPanelState> _trackPanelKey = GlobalKey();
+
   bool _showControls = true;
   Timer? _hideTimer;
 
   bool _isLocked = false;
   bool _isFullscreen = true;
-  double _currentSpeed = 1.0;
   BoxFit _fit = BoxFit.contain;
   String _currentAspectRatioString = 'fit';
   double? _customAspectRatio;
   bool _rememberRatio = false;
   bool _tapToSwitchRatio = false;
   bool _showRatioPanel = false;
-  bool _showSpeedPanel = false;
   bool _showMoreOptionsPanel = false;
+  double _preLongPressSpeed = 1.0;
 
   StreamSubscription<bool>? _bufferingSubscription;
   bool _isBuffering = false;
@@ -107,10 +110,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
   StreamSubscription? _tracksListSubscription;
   double? _dragBottomMargin;
   double? _dragHorizontalOffset;
-
-  bool _showTrackSelectorPanel = false;
   String _trackSelectorTitle = '';
-  bool _trackSelectorIsSubtitle = false;
   Map<String, String> _trackCodecs = {};
 
   // Gestures
@@ -128,7 +128,6 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
   bool _nightModeActive = false;
   bool _showSpeedIndicator = false;
   double _audioDelay = 0.0;
-  double _subtitleDelay = 0.0;
   Timer? _statsTimer;
   Map<String, String> _nerdStats = {};
   final Map<int, int> _lastDownloadedBytes = {};
@@ -430,73 +429,6 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     }
   }
 
-  Widget _buildCircularActionButton({
-    required IconData icon,
-    required String label,
-    required bool isActive,
-    required VoidCallback onTap,
-  }) {
-    final theme = Theme.of(context);
-    final customTheme = theme.extension<AppThemeExtension>();
-    final accentColor = customTheme?.settingsAccent ?? theme.primaryColor;
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: onTap,
-              customBorder: const CircleBorder(),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 180),
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: isActive
-                      ? accentColor.withValues(alpha: 0.18)
-                      : Colors.black.withValues(alpha: 0.4),
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: isActive ? accentColor : Colors.white12,
-                    width: isActive ? 1.5 : 1.0,
-                  ),
-                  boxShadow: isActive
-                      ? [
-                          BoxShadow(
-                            color: accentColor.withValues(alpha: 0.25),
-                            blurRadius: 6,
-                            spreadRadius: 0.5,
-                          ),
-                        ]
-                      : null,
-                ),
-                child: Icon(
-                  icon,
-                  color: isActive
-                      ? accentColor
-                      : Colors.white.withValues(alpha: 0.9),
-                  size: 20,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            label,
-            style: TextStyle(
-              color: isActive ? accentColor : Colors.white70,
-              fontSize: 10,
-              fontWeight: isActive ? FontWeight.bold : FontWeight.w500,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildQuickActionRow() {
     final List<Widget> items = [
       _buildCircularActionButton(
@@ -504,6 +436,15 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
         label: AppLocalizations.of(context)!.mute,
         isActive: _isMuted,
         onTap: _toggleMute,
+      ),
+      _buildCircularActionButton(
+        icon: Icons.speed_rounded,
+        label: 'Speed',
+        isActive: false,
+        onTap: () {
+          setState(() => _showMoreOptionsPanel = false);
+          _speedPanelKey.currentState?.show();
+        },
       ),
       _buildCircularActionButton(
         icon: Icons.screen_rotation,
@@ -639,42 +580,72 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     );
   }
 
-  // Widget _buildCheckboxToggle({
-  //   required String label,
-  //   required bool value,
-  //   required ValueChanged<bool?> onChanged,
-  //   required Color settingsAccent,
-  // }) {
-  //   return GestureDetector(
-  //     onTap: () => onChanged(!value),
-  //     child: Row(
-  //       mainAxisSize: MainAxisSize.min,
-  //       children: [
-  //         SizedBox(
-  //           width: 20,
-  //           height: 20,
-  //           child: Checkbox(
-  //             value: value,
-  //             onChanged: onChanged,
-  //             activeColor: settingsAccent,
-  //             checkColor: settingsAccent.computeLuminance() > 0.5 ? Colors.black : Colors.white,
-  //             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-  //             side: const BorderSide(color: Colors.white30, width: 1.5),
-  //           ),
-  //         ),
-  //         const SizedBox(width: 8),
-  //         Text(
-  //           label,
-  //           style: const TextStyle(
-  //             color: Colors.white70,
-  //             fontSize: 12,
-  //             fontWeight: FontWeight.bold,
-  //           ),
-  //         ),
-  //       ],
-  //     ),
-  //   );
-  // }
+  Widget _buildCircularActionButton({
+    required IconData icon,
+    required String label,
+    required bool isActive,
+    required VoidCallback onTap,
+  }) {
+    final theme = Theme.of(context);
+    final customTheme = theme.extension<AppThemeExtension>();
+    final accentColor = customTheme?.settingsAccent ?? theme.primaryColor;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: onTap,
+              customBorder: const CircleBorder(),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: isActive
+                      ? accentColor.withValues(alpha: 0.18)
+                      : Colors.black.withValues(alpha: 0.4),
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: isActive ? accentColor : Colors.white12,
+                    width: isActive ? 1.5 : 1.0,
+                  ),
+                  boxShadow: isActive
+                      ? [
+                          BoxShadow(
+                            color: accentColor.withValues(alpha: 0.25),
+                            blurRadius: 6,
+                            spreadRadius: 0.5,
+                          ),
+                        ]
+                      : null,
+                ),
+                child: Icon(
+                  icon,
+                  color: isActive
+                      ? accentColor
+                      : Colors.white.withValues(alpha: 0.9),
+                  size: 20,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            label,
+            style: TextStyle(
+              color: isActive ? accentColor : Colors.white70,
+              fontSize: 10,
+              fontWeight: isActive ? FontWeight.bold : FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   String _formatDuration(Duration d) {
     final min = d.inMinutes;
@@ -829,13 +800,12 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     _outroThresholdSeconds = ref.read(storageServiceProvider).getVideoSettings()['outro_threshold_seconds'] as int? ?? 45;
     final settings = ref.read(videoSettingsProvider);
     _nightModeActive = settings.dynamicRangeCompression;
-    _subtitleDelay = settings.subtitleDelay;
     if (settings.rememberSpeed) {
-      _currentSpeed = ref.read(storageServiceProvider).getPlaybackSpeed();
-      if (_currentSpeed != 1.0) {
+      final savedSpeed = ref.read(storageServiceProvider).getPlaybackSpeed();
+      if (savedSpeed != 1.0) {
         Future.delayed(const Duration(milliseconds: 200), () {
           try {
-            widget.player.setRate(_currentSpeed);
+            widget.player.setRate(savedSpeed);
           } catch (_) {}
         });
       }
@@ -894,7 +864,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
         widget.player,
         widget.player.state.track.subtitle,
       );
-      if (_showTrackSelectorPanel) {
+      if (_trackPanelKey.currentState?.isVisible ?? false) {
         _loadTrackCodecs();
       }
     });
@@ -934,7 +904,6 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
       _volumeSubscription?.cancel();
 
       _currentVolume = widget.player.state.volume;
-      _subtitleDelay = ref.read(videoSettingsProvider).subtitleDelay;
 
       _bufferingSubscription = widget.player.stream.buffering.listen((
         buffering,
@@ -973,7 +942,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
           widget.player,
           widget.player.state.track.subtitle,
         );
-        if (_showTrackSelectorPanel) {
+        if (_trackPanelKey.currentState?.isVisible ?? false) {
           _loadTrackCodecs();
         }
       });
@@ -1228,15 +1197,15 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
 
   void _toggleControls() {
     if (!mounted) return;
-    if (_showTrackSelectorPanel ||
+    if ((_trackPanelKey.currentState?.isVisible ?? false) ||
         _showRatioPanel ||
-        _showSpeedPanel ||
+        (_speedPanelKey.currentState?.isVisible ?? false) ||
         _showChaptersPanel ||
         _showMoreOptionsPanel) {
       setState(() {
-        _showTrackSelectorPanel = false;
+        
         _showRatioPanel = false;
-        _showSpeedPanel = false;
+        _speedPanelKey.currentState?.hide();
         _showChaptersPanel = false;
         _showMoreOptionsPanel = false;
         _showControls = true;
@@ -1277,7 +1246,8 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     if (!mounted) return;
     _hideTimer?.cancel();
     setState(() {
-      _showSpeedPanel = true;
+      _showMoreOptionsPanel = false;
+      _speedPanelKey.currentState?.show();
       _showControls = false;
     });
   }
@@ -2234,11 +2204,13 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
       _saveBrightnessDebounced(_currentBrightness);
     } else if (actionType == 'Speed') {
       setState(() {
-        _currentSpeed -= deltaY * 0.005 * sensitivityMultiplier;
-        _currentSpeed = _currentSpeed.clamp(0.25, 4.0);
-        _currentSpeed = double.parse(_currentSpeed.toStringAsFixed(2));
-        widget.player.setRate(_currentSpeed);
-        _showSpeedIndicator = true;
+        double newSpeed = widget.player.state.rate - (deltaY * 0.005 * sensitivityMultiplier);
+        newSpeed = newSpeed.clamp(0.25, 4.0);
+        newSpeed = double.parse(newSpeed.toStringAsFixed(2));
+        widget.player.setRate(newSpeed);
+        setState(() {
+          _showSpeedIndicator = true;
+        });
       });
     }
   }
@@ -2460,17 +2432,18 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
 
   void _showTrackSelector({required String title, required bool isSubtitle}) {
     _loadTrackCodecs();
+    _trackPanelKey.currentState?.show(isSubtitle);
     setState(() {
-      _showTrackSelectorPanel = true;
       _trackSelectorTitle = title;
-      _trackSelectorIsSubtitle = isSubtitle;
       _showControls = false;
     });
   }
 
   void _handleTrackSelection(dynamic track) {
     final storage = ref.read(storageServiceProvider);
-    if (_trackSelectorIsSubtitle) {
+    final isSub = _trackPanelKey.currentState?.isSubtitle ?? true;
+    
+    if (isSub) {
       widget.player.setSubtitleTrack(track);
       final settings = ref.read(videoSettingsProvider);
       final isNativeSub = settings.subtitleRendererMode == 'native';
@@ -2557,7 +2530,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
       });
     }
     setState(() {
-      _showTrackSelectorPanel = false;
+      
       _showSeekIndicator = true;
       _seekDirection =
           '$_trackSelectorTitle: ${track.id == 'auto'
@@ -2665,6 +2638,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
         if (settings.longPressVibration) {
           HapticFeedback.heavyImpact();
         }
+        _preLongPressSpeed = widget.player.state.rate;
         widget.player.setRate(speed);
         setState(() {
           _showSeekIndicator = true;
@@ -2673,7 +2647,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
       },
       onLongPressEnd: (details) {
         if (!settings.dynamicSpeedOverlay) return;
-        widget.player.setRate(_currentSpeed);
+        widget.player.setRate(_preLongPressSpeed);
         setState(() {
           _showSeekIndicator = false;
         });
@@ -3001,13 +2975,19 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                   children: [
                     const Icon(Icons.speed, color: Colors.white, size: 28),
                     const SizedBox(height: 8),
-                    Text(
-                      '${_currentSpeed.toStringAsFixed(2)}x',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                      ),
+                    StreamBuilder<double>(
+                      stream: widget.player.stream.rate,
+                      builder: (context, snapshot) {
+                        final speed = snapshot.data ?? widget.player.state.rate;
+                        return Text(
+                          '${speed.toStringAsFixed(2)}x',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        );
+                      },
                     ),
                   ],
                 ),
@@ -3091,9 +3071,9 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
 
           if (_showControls &&
               !_isLocked &&
-              !_showTrackSelectorPanel &&
+              !(_trackPanelKey.currentState?.isVisible ?? false) &&
               !_showRatioPanel &&
-              !_showSpeedPanel &&
+              !(_speedPanelKey.currentState?.isVisible ?? false) &&
               !_showMoreOptionsPanel) ...[
             // Top Bar & Quick Actions
             Positioned(
@@ -3260,7 +3240,9 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                                           );
                                           _performSeek(safeTarget);
                                         },
-                                        borderRadius: BorderRadius.circular(20),
+                                        borderRadius: BorderRadius.circular(
+                                          20,
+                                        ),
                                         child: Container(
                                           height: 32,
                                           padding: const EdgeInsets.symmetric(
@@ -3305,13 +3287,19 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                                     const SizedBox(width: 8),
                                     TextButton(
                                       onPressed: _showSpeedSelectorDialog,
-                                      child: Text(
-                                        'Speed (${_currentSpeed}x)',
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w600,
-                                        ),
+                                      child: StreamBuilder<double>(
+                                        stream: widget.player.stream.rate,
+                                        builder: (context, snapshot) {
+                                          final speed = snapshot.data ?? widget.player.state.rate;
+                                          return Text(
+                                            'Speed (${speed.toStringAsFixed(2)}x)',
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          );
+                                        },
                                       ),
                                     ),
                                     IconButton(
@@ -3473,13 +3461,19 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                                       const SizedBox(width: 12),
                                       TextButton(
                                         onPressed: _showSpeedSelectorDialog,
-                                        child: Text(
-                                          'Speed (${_currentSpeed}x)',
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 13,
-                                            fontWeight: FontWeight.w600,
-                                          ),
+                                        child: StreamBuilder<double>(
+                                          stream: widget.player.stream.rate,
+                                          builder: (context, snapshot) {
+                                            final speed = snapshot.data ?? widget.player.state.rate;
+                                            return Text(
+                                              'Speed (${speed.toStringAsFixed(2)}x)',
+                                              style: const TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            );
+                                          },
                                         ),
                                       ),
                                       IconButton(
@@ -3667,108 +3661,21 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
               ),
             ),
 
-          // Custom Track Selector Modal Panel Background Blur
-          if (_showTrackSelectorPanel)
-            GestureDetector(
-              onTap: () => setState(() => _showTrackSelectorPanel = false),
-              child: Container(color: Colors.black26),
-            ),
-          AnimatedPositioned(
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeInOut,
-            left: isPortrait ? 0 : null,
-            right: isPortrait ? 0 : (_showTrackSelectorPanel ? 0 : -400),
-            top: isPortrait ? null : 0,
-            bottom: isPortrait ? (_showTrackSelectorPanel ? 0 : -800) : 0,
-            width: isPortrait ? null : 380,
-            child: TrackSelectorPanel(
-              player: widget.player,
-              isSubtitle: _trackSelectorIsSubtitle,
-              trackCodecs: _trackCodecs,
-              currentRendererMode: settings.subtitleRendererMode,
-              onRendererModeChanged: (newMode) {
-                ref
-                    .read(videoSettingsProvider.notifier)
-                    .updateSettings(
-                      settings.copyWith(subtitleRendererMode: newMode),
-                    );
-                setState(() {});
-              },
-              currentDecoderMode: ref
-                  .read(storageServiceProvider)
-                  .getHardwareDecoderMode(),
-              onDecoderModeChanged: (newDecoderMode) async {
-                await ref
-                    .read(storageServiceProvider)
-                    .setHardwareDecoderMode(newDecoderMode);
-                try {
-                  if (widget.player.platform is NativePlayer) {
-                    final nativePlayer = widget.player.platform as NativePlayer;
-                    if (newDecoderMode != 'no') {
-                      if (Platform.isAndroid) {
-                        nativePlayer.setProperty('hwdec', newDecoderMode);
-                      } else {
-                        nativePlayer.setProperty('hwdec', 'auto');
-                      }
-                    } else {
-                      nativePlayer.setProperty('hwdec', 'no');
-                    }
-                  }
-                } catch (_) {}
-                setState(() {});
-              },
-              currentSubtitleDelay: _subtitleDelay,
-              onSubtitleDelayChanged: (val) {
-                final roundedVal = double.parse(val.toStringAsFixed(1));
-                if (widget.player.platform is NativePlayer) {
-                  try {
-                    (widget.player.platform as NativePlayer).setProperty(
-                      'sub-delay',
-                      roundedVal.toString(),
-                    );
-                  } catch (_) {}
-                }
-                ref.read(storageServiceProvider).setSubtitleDelay(roundedVal);
-                final s = ref.read(videoSettingsProvider);
-                ref
-                    .read(videoSettingsProvider.notifier)
-                    .updateSettings(s.copyWith(subtitleDelay: roundedVal));
-                setState(() {
-                  _subtitleDelay = roundedVal;
-                });
-              },
-              currentAudioDelay: _audioDelay,
-              onAudioDelayChanged: (val) {
-                setState(() {
-                  _audioDelay = val;
-                });
-              },
-              onTrackSelected: _handleTrackSelection,
-              onPickLocalSubtitle: _pickLocalSubtitleFile,
-              onOpenSubtitleDownloader: _showSubtitleDownloaderDialog,
-              onClose: () => setState(() => _showTrackSelectorPanel = false),
-              currentFontSize: settings.subtitleFontSize,
-              onFontSizeChanged: (val) {
-                ref.read(storageServiceProvider).setSubtitleFontSize(val);
-                ref
-                    .read(videoSettingsProvider.notifier)
-                    .updateSettings(settings.copyWith(subtitleFontSize: val));
-              },
-              currentFontColor: settings.subtitleColor,
-              onFontColorChanged: (val) {
-                ref.read(storageServiceProvider).setSubtitleColor(val);
-                ref
-                    .read(videoSettingsProvider.notifier)
-                    .updateSettings(settings.copyWith(subtitleColor: val));
-              },
-              currentFontFamily: settings.subtitleFont,
-              onFontFamilyChanged: (val) {
-                ref.read(storageServiceProvider).setSubtitleFont(val);
-                ref
-                    .read(videoSettingsProvider.notifier)
-                    .updateSettings(settings.copyWith(subtitleFont: val));
-              },
-            ),
+          // Custom Track Selector Panel
+          TrackSelectorPanel(
+            key: _trackPanelKey,
+            player: widget.player,
+            trackCodecs: _trackCodecs,
+            currentAudioDelay: _audioDelay,
+            onAudioDelayChanged: (val) {
+              if (mounted) {
+                setState(() => _audioDelay = val);
+              }
+            },
+            onTrackSelected: _handleTrackSelection,
+            onPickLocalSubtitle: _pickLocalSubtitleFile,
+            onOpenSubtitleDownloader: _showSubtitleDownloaderDialog,
+            onVisibilityChanged: () => setState(() {}),
           ),
 
           // Custom Aspect Ratio Panel Background Cover
@@ -3828,33 +3735,14 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
           ),
 
           // Custom Speed Selector Panel Background Cover
-          if (_showSpeedPanel)
-            GestureDetector(
-              onTap: () => setState(() => _showSpeedPanel = false),
-              child: Container(color: Colors.black26),
-            ),
-          AnimatedPositioned(
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeInOut,
-            left: isPortrait ? 0 : null,
-            right: isPortrait ? 0 : (_showSpeedPanel ? 0 : -400),
-            top: isPortrait ? null : 0,
-            bottom: isPortrait ? (_showSpeedPanel ? 0 : -800) : 0,
-            width: isPortrait ? null : 380,
-            child: SpeedSelectorPanel(
-              player: widget.player,
-              currentSpeed: _currentSpeed,
-              onSpeedChanged: (newSpeed) {
-                setState(() {
-                  _currentSpeed = newSpeed;
-                });
-                final settings = ref.read(videoSettingsProvider);
-                if (settings.rememberSpeed) {
-                  ref.read(storageServiceProvider).setPlaybackSpeed(newSpeed);
-                }
-              },
-              onClose: () => setState(() => _showSpeedPanel = false),
-            ),
+          SpeedSelectorPanel(
+            key: _speedPanelKey,
+            player: widget.player,
+            onVisibilityChanged: () {
+              setState(() {
+                _showControls = !(_speedPanelKey.currentState?.isVisible ?? false);
+              });
+            },
           ),
 
           // Custom More Options Panel Background Cover
@@ -3871,7 +3759,12 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
             top: isPortrait ? null : 0,
             bottom: isPortrait ? (_showMoreOptionsPanel ? 0 : -800) : 0,
             width: isPortrait ? null : 380,
-            child: _buildMoreOptionsPanel(),
+            child: MoreOptionsPanel(
+              player: widget.player,
+              quickActionRow: _buildQuickActionRow(),
+              onClose: () => setState(() => _showMoreOptionsPanel = false),
+              onShowToast: _showSkipToast,
+            ),
           ),
         ],
       ),
@@ -3929,236 +3822,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     );
   }
 
-  Widget _buildMoreOptionsPanel() {
-    final double screenHeight = MediaQuery.of(context).size.height;
-    final isLandscape =
-        MediaQuery.of(context).orientation == Orientation.landscape;
-    final theme = Theme.of(context);
-    final customTheme = theme.extension<AppThemeExtension>();
-    final settingsAccent = customTheme?.settingsAccent ?? theme.primaryColor;
-
-    // Resolve current Repeat Mode Index
-    final PlaylistMode mode = widget.player.state.playlistMode;
-    final bool shuffle = widget.player.state.shuffle;
-    final bool autoplayNext = ref
-        .watch(videoSettingsProvider)
-        .autoplayNextVideo;
-
-    int activeIdx = 0;
-    String modeLabel = 'Order';
-    if (shuffle) {
-      activeIdx = 2;
-      modeLabel = 'Shuffle';
-    } else if (mode == PlaylistMode.single) {
-      activeIdx = 1;
-      modeLabel = 'Repeat One';
-    } else if (mode == PlaylistMode.loop) {
-      activeIdx = 3;
-      modeLabel = 'Repeat All';
-    } else if (!autoplayNext) {
-      activeIdx = 4;
-      modeLabel = 'Single Play';
-    } else {
-      activeIdx = 0;
-      modeLabel = 'Order';
-    }
-
-    return Container(
-      constraints: BoxConstraints(
-        maxHeight: isLandscape ? double.infinity : screenHeight * 0.85,
-      ),
-      height: isLandscape ? double.infinity : null,
-      decoration: BoxDecoration(
-        color: const Color(
-          0xEB0A0F1D,
-        ), // Slate 950 with 92% opacity - clean translucency (no blur)
-        borderRadius: isLandscape
-            ? const BorderRadius.horizontal(left: Radius.circular(30))
-            : const BorderRadius.vertical(top: Radius.circular(24)),
-        border: Border.all(color: Colors.white10, width: 0.5),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.5),
-            blurRadius: 25,
-            spreadRadius: 5,
-          ),
-        ],
-      ),
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-      child: SafeArea(
-        child: Column(
-          mainAxisSize: isLandscape ? MainAxisSize.max : MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.arrow_back, color: Colors.white),
-                  onPressed: () =>
-                      setState(() => _showMoreOptionsPanel = false),
-                ),
-                const SizedBox(width: 8),
-                const Text(
-                  'Play option',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-              ],
-            ),
-            const Divider(color: Colors.white10, height: 1),
-            const SizedBox(height: 16),
-            Flexible(
-              child: SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildQuickActionRow(),
-                    const SizedBox(height: 16),
-                    // Repeat Mode Selector
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          'Repeat Mode',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 15,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        Text(
-                          modeLabel,
-                          style: TextStyle(
-                            color: settingsAccent,
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Container(
-                      height: 48,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.05),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.white10),
-                      ),
-                      child: Row(
-                        children: List.generate(5, (index) {
-                          IconData ic;
-                          switch (index) {
-                            case 0:
-                              ic = Icons.swap_calls_outlined; // Sequence/Order
-                              break;
-                            case 1:
-                              ic = Icons.repeat_one_rounded; // Repeat One
-                              break;
-                            case 2:
-                              ic = Icons.shuffle_rounded; // Shuffle
-                              break;
-                            case 3:
-                              ic = Icons.repeat_rounded; // Repeat All
-                              break;
-                            case 4:
-                              ic = Icons.play_disabled_rounded; // Single Play
-                              break;
-                            default:
-                              ic = Icons.trending_flat_rounded;
-                          }
-                          final isSelected = activeIdx == index;
-                          return Expanded(
-                            child: GestureDetector(
-                              onTap: () => _setRepeatMode(index),
-                              behavior: HitTestBehavior.opaque,
-                              child: AnimatedContainer(
-                                duration: const Duration(milliseconds: 200),
-                                curve: Curves.easeInOut,
-                                margin: const EdgeInsets.all(4),
-                                decoration: BoxDecoration(
-                                  color: isSelected
-                                      ? settingsAccent
-                                      : Colors.transparent,
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Center(
-                                  child: Icon(
-                                    ic,
-                                    color: isSelected
-                                        ? Colors.black
-                                        : Colors.white70,
-                                    size: 20,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          );
-                        }),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _setRepeatMode(int index) {
-    final settings = ref.read(videoSettingsProvider);
-    setState(() {
-      switch (index) {
-        case 0: // Order
-          widget.player.setPlaylistMode(PlaylistMode.none);
-          widget.player.setShuffle(false);
-          ref
-              .read(videoSettingsProvider.notifier)
-              .updateSettings(settings.copyWith(autoplayNextVideo: true));
-          _showSkipToast('Repeat Mode: Order');
-          break;
-        case 1: // Repeat One
-          widget.player.setPlaylistMode(PlaylistMode.single);
-          widget.player.setShuffle(false);
-          ref
-              .read(videoSettingsProvider.notifier)
-              .updateSettings(settings.copyWith(autoplayNextVideo: true));
-          _showSkipToast('Repeat Mode: Repeat One');
-          break;
-        case 2: // Shuffle
-          widget.player.setPlaylistMode(PlaylistMode.none);
-          widget.player.setShuffle(true);
-          ref
-              .read(videoSettingsProvider.notifier)
-              .updateSettings(settings.copyWith(autoplayNextVideo: true));
-          _showSkipToast('Repeat Mode: Shuffle');
-          break;
-        case 3: // Repeat All
-          widget.player.setPlaylistMode(PlaylistMode.loop);
-          widget.player.setShuffle(false);
-          ref
-              .read(videoSettingsProvider.notifier)
-              .updateSettings(settings.copyWith(autoplayNextVideo: true));
-          _showSkipToast('Repeat Mode: Repeat All');
-          break;
-        case 4: // Single Play (Stop after current)
-          widget.player.setPlaylistMode(PlaylistMode.none);
-          widget.player.setShuffle(false);
-          ref
-              .read(videoSettingsProvider.notifier)
-              .updateSettings(settings.copyWith(autoplayNextVideo: false));
-          _showSkipToast('Repeat Mode: Single Play');
-          break;
-      }
-    });
-  }
-
-  Future<void> _pickLocalSubtitleFile() async {
+    Future<void> _pickLocalSubtitleFile() async {
     try {
       final result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
@@ -4180,7 +3844,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
 
         if (mounted) {
           setState(() {
-            _showTrackSelectorPanel = false;
+            
           });
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(

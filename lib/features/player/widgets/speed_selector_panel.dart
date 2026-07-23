@@ -8,30 +8,44 @@ import '../../../services/storage_service.dart';
 
 class SpeedSelectorPanel extends ConsumerStatefulWidget {
   final Player player;
-  final double currentSpeed;
-  final ValueChanged<double> onSpeedChanged;
-  final VoidCallback onClose;
+  final VoidCallback onVisibilityChanged;
 
   const SpeedSelectorPanel({
     super.key,
     required this.player,
-    required this.currentSpeed,
-    required this.onSpeedChanged,
-    required this.onClose,
+    required this.onVisibilityChanged,
   });
 
   @override
-  ConsumerState<SpeedSelectorPanel> createState() => _SpeedSelectorPanelState();
+  ConsumerState<SpeedSelectorPanel> createState() => SpeedSelectorPanelState();
 }
 
-class _SpeedSelectorPanelState extends ConsumerState<SpeedSelectorPanel> {
+class SpeedSelectorPanelState extends ConsumerState<SpeedSelectorPanel> {
   String _currentScreen = 'main'; // 'main', 'advanced', 'long_press'
+  bool isVisible = false;
   late double _speed;
+
+  void show() {
+    if (!isVisible) {
+      setState(() {
+        _speed = widget.player.state.rate;
+        isVisible = true;
+      });
+      widget.onVisibilityChanged();
+    }
+  }
+
+  void hide() {
+    if (isVisible) {
+      setState(() => isVisible = false);
+      widget.onVisibilityChanged();
+    }
+  }
 
   @override
   void initState() {
     super.initState();
-    _speed = widget.currentSpeed;
+    _speed = widget.player.state.rate;
   }
 
   void _updateSpeed(double rate) {
@@ -40,7 +54,6 @@ class _SpeedSelectorPanelState extends ConsumerState<SpeedSelectorPanel> {
       _speed = roundedVal;
     });
     widget.player.setRate(roundedVal);
-    widget.onSpeedChanged(roundedVal);
   }
 
   @override
@@ -49,24 +62,43 @@ class _SpeedSelectorPanelState extends ConsumerState<SpeedSelectorPanel> {
     final customTheme = theme.extension<AppThemeExtension>();
     final settingsAccent = customTheme?.settingsAccent ?? theme.primaryColor;
     final settings = ref.watch(videoSettingsProvider);
-    final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
+    final isPortrait = MediaQuery.of(context).orientation == Orientation.portrait;
+    final screenHeight = MediaQuery.of(context).size.height;
 
-    return Container(
-      height: isLandscape ? double.infinity : 400.0,
-      decoration: BoxDecoration(
-        color: const Color(0xEB0A0F1D), // Slate 950 with 92% opacity - clean translucency (no blur)
-        borderRadius: isLandscape
-            ? const BorderRadius.horizontal(left: Radius.circular(30))
-            : const BorderRadius.vertical(top: Radius.circular(24)),
-        border: Border.all(color: Colors.white10),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.5),
-            blurRadius: 25,
-            spreadRadius: 5,
+    return Stack(
+      children: [
+        if (isVisible)
+          GestureDetector(
+            onTap: hide,
+            child: Container(color: Colors.black26),
           ),
-        ],
-      ),
+        AnimatedPositioned(
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
+          left: isPortrait ? 0 : null,
+          right: isPortrait ? 0 : (isVisible ? 0 : -380),
+          top: isPortrait ? null : 0,
+          bottom: isPortrait ? (isVisible ? 0 : -800) : 0,
+          width: isPortrait ? null : 380,
+          child: Container(
+            constraints: BoxConstraints(
+              maxHeight: isPortrait ? screenHeight * 0.85 : double.infinity,
+            ),
+            height: isPortrait ? null : double.infinity,
+            decoration: BoxDecoration(
+              color: const Color(0xEB0A0F1D), // Slate 950 with 92% opacity - clean translucency (no blur)
+              borderRadius: isPortrait
+                  ? const BorderRadius.vertical(top: Radius.circular(24))
+                  : const BorderRadius.horizontal(left: Radius.circular(30)),
+              border: Border.all(color: Colors.white10),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.5),
+                  blurRadius: 25,
+                  spreadRadius: 5,
+                ),
+              ],
+            ),
       child: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -120,7 +152,7 @@ class _SpeedSelectorPanelState extends ConsumerState<SpeedSelectorPanel> {
                   const Spacer(),
                   IconButton(
                     icon: const Icon(Icons.close, color: Colors.white60),
-                    onPressed: widget.onClose,
+                    onPressed: hide,
                   ),
                 ],
               ),
@@ -372,6 +404,9 @@ class _SpeedSelectorPanelState extends ConsumerState<SpeedSelectorPanel> {
           ],
         ),
       ),
+    ),
+  ),
+],
     );
   }
 

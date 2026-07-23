@@ -766,89 +766,31 @@ class _DesktopMainScreenState extends ConsumerState<DesktopMainScreen> with Tick
 
     return TrackSelectorPanel(
       player: player,
-      isSubtitle: isSubtitle,
       trackCodecs: const {},
-      currentRendererMode: settings.subtitleRendererMode,
-      onRendererModeChanged: (newMode) {
-        ref.read(videoSettingsProvider.notifier).updateSettings(
-          settings.copyWith(subtitleRendererMode: newMode),
-        );
-      },
-      currentDecoderMode: storage.getHardwareDecoderMode(),
-      onDecoderModeChanged: (newDecoderMode) async {
-        await storage.setHardwareDecoderMode(newDecoderMode);
-        try {
-          if (player.platform is NativePlayer) {
-            final nativePlayer = player.platform as NativePlayer;
-            if (newDecoderMode != 'no') {
-              // On PC, if they selected auto, use auto-copy or d3d11va-copy to prevent glitching,
-              // but allow them to use their selected newDecoderMode directly.
-              String pcMode = newDecoderMode;
-              if (pcMode == 'auto') pcMode = 'no'; // default to software on PC for maximum stability
-              nativePlayer.setProperty('hwdec', Platform.isAndroid ? newDecoderMode : pcMode);
-            } else {
-              nativePlayer.setProperty('hwdec', 'no');
-            }
-          }
-        } catch (_) {}
-        setState(() {});
-      },
-      currentSubtitleDelay: settings.subtitleDelay,
-      onSubtitleDelayChanged: (val) {
-        final roundedVal = double.parse(val.toStringAsFixed(1));
-        if (player.platform is NativePlayer) {
-          try {
-            (player.platform as NativePlayer).setProperty('sub-delay', roundedVal.toString());
-          } catch (_) {}
-        }
-        storage.setSubtitleDelay(roundedVal);
-        ref.read(videoSettingsProvider.notifier).updateSettings(settings.copyWith(subtitleDelay: roundedVal));
-      },
-      currentAudioDelay: 0.0, // Used inside AudioSyncDialog normally
+      currentAudioDelay: 0.0,
       onAudioDelayChanged: (val) {},
       onTrackSelected: (track) {
         if (isSubtitle) {
           player.setSubtitleTrack(track as SubtitleTrack);
-          if (track.id != 'no' && track.id != 'auto') {
-            storage.setPreferredSubtitleTrackForAudioLanguage(
-              player.state.track.audio.language ?? 'und', 
-              track.language ?? 'und',
-            );
+          final isNativeSub = settings.subtitleRendererMode == 'native';
+          if (player.platform is NativePlayer) {
+            try {
+              (player.platform as NativePlayer).setProperty(
+                'sub-visibility',
+                (track.id == 'no' || !isNativeSub) ? 'no' : 'yes',
+              );
+            } catch (_) {}
           }
         } else {
           player.setAudioTrack(track as AudioTrack);
-          if (track.id != 'no' && track.id != 'auto') {
-            storage.setPreferredAudioTrack(track.language ?? 'und');
-          }
         }
-        
-        // Force buffer flush to prevent MPV stall on HTTP streams
-        Future.delayed(const Duration(milliseconds: 500), () {
-          if (mounted && player.state.playing) {
-            player.seek(player.state.position);
-            player.play();
-          }
-        });
       },
       onPickLocalSubtitle: () {},
       onOpenSubtitleDownloader: () {},
-      onClose: () {},
-      currentFontSize: settings.subtitleFontSize,
+      onVisibilityChanged: () {},
       hideHeader: true,
-      onFontSizeChanged: (val) {
-        storage.setSubtitleFontSize(val);
-        ref.read(videoSettingsProvider.notifier).updateSettings(settings.copyWith(subtitleFontSize: val));
-      },
-      currentFontColor: settings.subtitleColor,
-      onFontColorChanged: (val) {
-        storage.setSubtitleColor(val);
-        ref.read(videoSettingsProvider.notifier).updateSettings(settings.copyWith(subtitleColor: val));
-      },
-      currentFontFamily: settings.subtitleFont,
-      onFontFamilyChanged: (val) {
-        storage.setSubtitleFont(val);
-        ref.read(videoSettingsProvider.notifier).updateSettings(settings.copyWith(subtitleFont: val));
-      },
+      isEmbedded: true,
+      initialIsSubtitle: isSubtitle,
     );
   }
 }
