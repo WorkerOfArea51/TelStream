@@ -31,6 +31,7 @@ import 'widgets/audio_sync_dialog.dart';
 import 'widgets/player_playback_bar.dart';
 import 'widgets/flashing_chevrons.dart';
 import 'widgets/player_header_bar.dart';
+import 'widgets/aspect_ratio_panel.dart';
 
 class _PlayPauseIntent extends Intent { const _PlayPauseIntent(); }
 class _SeekBackwardIntent extends Intent { const _SeekBackwardIntent(); }
@@ -2433,343 +2434,6 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     _startHideTimer();
   }
 
-  Widget _buildScreenRatioButton(
-    String ratioId,
-    IconData icon,
-    String label,
-    Color settingsAccent,
-  ) {
-    final isSelected = _currentAspectRatioString == ratioId;
-    return GestureDetector(
-      onTap: () => _applyAspectRatioString(ratioId),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 50,
-            height: 50,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: isSelected
-                  ? settingsAccent
-                  : Colors.white.withValues(alpha: 0.08),
-              border: Border.all(
-                color: isSelected ? settingsAccent : Colors.transparent,
-                width: 2,
-              ),
-            ),
-            child: Icon(icon, color: Colors.white, size: 24),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            label,
-            style: TextStyle(
-              color: isSelected ? settingsAccent : Colors.white70,
-              fontSize: 11,
-              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPillRatioButton(String ratioId, Color settingsAccent) {
-    final isSelected = _currentAspectRatioString == ratioId;
-    return GestureDetector(
-      onTap: () => _applyAspectRatioString(ratioId),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(20),
-          color: isSelected
-              ? settingsAccent
-              : Colors.white.withValues(alpha: 0.08),
-          border: Border.all(
-            color: isSelected ? settingsAccent : Colors.white24,
-            width: 1,
-          ),
-        ),
-        child: Text(
-          ratioId,
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 13,
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSwitchRow({
-    required String title,
-    required String subtitle,
-    required bool value,
-    required ValueChanged<bool> onChanged,
-    required Color settingsAccent,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4.0),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 15,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  subtitle,
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.45),
-                    fontSize: 12,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Switch.adaptive(
-            value: value,
-            activeTrackColor: settingsAccent,
-            onChanged: onChanged,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildRatioPanel() {
-    final double screenHeight = MediaQuery.of(context).size.height;
-    final isLandscape =
-        MediaQuery.of(context).orientation == Orientation.landscape;
-    final theme = Theme.of(context);
-    final customTheme = theme.extension<AppThemeExtension>();
-    final settingsAccent = customTheme?.settingsAccent ?? theme.primaryColor;
-
-    return Container(
-      constraints: BoxConstraints(
-        maxHeight: isLandscape ? double.infinity : screenHeight * 0.85,
-      ),
-      height: isLandscape ? double.infinity : null,
-      decoration: BoxDecoration(
-        color: const Color(
-          0xEB0A0F1D,
-        ), // Slate 950 with 92% opacity - clean translucency (no blur)
-        borderRadius: isLandscape
-            ? const BorderRadius.horizontal(left: Radius.circular(30))
-            : const BorderRadius.vertical(top: Radius.circular(24)),
-        border: Border.all(color: Colors.white10, width: 0.5),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.5),
-            blurRadius: 25,
-            spreadRadius: 5,
-          ),
-        ],
-      ),
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-      child: SafeArea(
-        child: Column(
-          mainAxisSize: isLandscape ? MainAxisSize.max : MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.arrow_back, color: Colors.white),
-                  onPressed: _closeAspectRatioPanel,
-                ),
-                const SizedBox(width: 8),
-                const Text(
-                  'Ratio',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-              ],
-            ),
-            const Divider(color: Colors.white10, height: 1),
-            const SizedBox(height: 12),
-            Flexible(
-              child: SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Screen',
-                      style: TextStyle(
-                        color: Colors.white54,
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [
-                        _buildScreenRatioButton(
-                          'fit',
-                          Icons.crop_free_rounded,
-                          'Fit',
-                          settingsAccent,
-                        ),
-                        _buildScreenRatioButton(
-                          'fill',
-                          Icons.zoom_out_map_rounded,
-                          'Fill',
-                          settingsAccent,
-                        ),
-                        _buildScreenRatioButton(
-                          'original',
-                          Icons.crop_square_rounded,
-                          'Original',
-                          settingsAccent,
-                        ),
-                        _buildScreenRatioButton(
-                          'stretch',
-                          Icons.aspect_ratio_rounded,
-                          'Stretch',
-                          settingsAccent,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 20),
-
-                    const Text(
-                      'Standard',
-                      style: TextStyle(
-                        color: Colors.white54,
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children:
-                            [
-                                  _buildPillRatioButton('16:9', settingsAccent),
-                                  _buildPillRatioButton('4:3', settingsAccent),
-                                  _buildPillRatioButton('18:9', settingsAccent),
-                                  _buildPillRatioButton(
-                                    '19.5:9',
-                                    settingsAccent,
-                                  ),
-                                  _buildPillRatioButton('20:9', settingsAccent),
-                                  _buildPillRatioButton('21:9', settingsAccent),
-                                ]
-                                .map(
-                                  (w) => Padding(
-                                    padding: const EdgeInsets.only(right: 8.0),
-                                    child: w,
-                                  ),
-                                )
-                                .toList(),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-
-                    const Text(
-                      'Cinema',
-                      style: TextStyle(
-                        color: Colors.white54,
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children:
-                            [
-                                  _buildPillRatioButton(
-                                    '1.85:1',
-                                    settingsAccent,
-                                  ),
-                                  _buildPillRatioButton(
-                                    '2.21:1',
-                                    settingsAccent,
-                                  ),
-                                  _buildPillRatioButton(
-                                    '2.35:1',
-                                    settingsAccent,
-                                  ),
-                                  _buildPillRatioButton(
-                                    '2.39:1',
-                                    settingsAccent,
-                                  ),
-                                ]
-                                .map(
-                                  (w) => Padding(
-                                    padding: const EdgeInsets.only(right: 8.0),
-                                    child: w,
-                                  ),
-                                )
-                                .toList(),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    const Divider(color: Colors.white10, height: 1),
-                    const SizedBox(height: 12),
-
-                    _buildSwitchRow(
-                      title: 'Remember ratio',
-                      subtitle: 'Remember ratio for all videos.',
-                      value: _rememberRatio,
-                      onChanged: (val) {
-                        setState(() {
-                          _rememberRatio = val;
-                        });
-                        ref
-                            .read(storageServiceProvider)
-                            .setRememberAspectRatio(val);
-                        if (val) {
-                          ref
-                              .read(storageServiceProvider)
-                              .setSavedAspectRatio(_currentAspectRatioString);
-                        }
-                      },
-                      settingsAccent: settingsAccent,
-                    ),
-                    const SizedBox(height: 8),
-                    _buildSwitchRow(
-                      title: 'Tap ratios to switch directly',
-                      subtitle: 'Tap to switch, long press for the full menu.',
-                      value: _tapToSwitchRatio,
-                      onChanged: (val) {
-                        setState(() {
-                          _tapToSwitchRatio = val;
-                        });
-                        ref
-                            .read(storageServiceProvider)
-                            .setTapToSwitchAspectRatio(val);
-                      },
-                      settingsAccent: settingsAccent,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Future<void> _loadTrackCodecs() async {
     try {
       if (widget.player.platform is NativePlayer) {
@@ -4121,7 +3785,29 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
             top: isPortrait ? null : 0,
             bottom: isPortrait ? (_showRatioPanel ? 0 : -800) : 0,
             width: isPortrait ? null : 380,
-            child: _buildRatioPanel(),
+            child: AspectRatioPanel(
+              onClose: _closeAspectRatioPanel,
+              currentFit: _fit,
+              customAspectRatio: _customAspectRatio,
+              onSelectRatio: _applyAspectRatioString,
+              rememberRatio: _rememberRatio,
+              onToggleRememberRatio: (val) {
+                setState(() {
+                  _rememberRatio = val;
+                });
+                ref.read(storageServiceProvider).setRememberAspectRatio(val);
+                if (val) {
+                  ref.read(storageServiceProvider).setSavedAspectRatio(_currentAspectRatioString);
+                }
+              },
+              tapToSwitchRatio: _tapToSwitchRatio,
+              onToggleTapToSwitch: (val) {
+                setState(() {
+                  _tapToSwitchRatio = val;
+                });
+                ref.read(storageServiceProvider).setTapToSwitchAspectRatio(val);
+              },
+            ),
           ),
 
           // Custom Chapters Panel Background Cover

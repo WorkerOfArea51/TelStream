@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:isolate';
 import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -52,8 +53,6 @@ Future<List<AnimeSeries>> parseMessagesWithYield(List<td.Message> raw, bool isMo
         episodeMessages.add(msg);
       }
     }
-    // Yield every 50 messages to prevent UI lag
-    if (count % 50 == 0) await Future.delayed(const Duration(milliseconds: 1));
   }
 
   // 2. Pre-process poster details & initialize series map/list
@@ -1177,14 +1176,16 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
 
   @visibleForTesting
   Future<List<AnimeSeries>> parseMessagesForTesting(List<td.Message> raw) async {
-    return await parseMessagesWithYield(raw, category.isMovie);
+    final isMovie = category.isMovie;
+    return await Isolate.run(() => parseMessagesWithYield(raw, isMovie));
   }
 
   @visibleForTesting
   Future<List<AnimeSeries>> applySearchAndSortForTesting(List<AnimeSeries> series) => _applySearchAndSort(series);
 
   Future<List<AnimeSeries>> _parseMessages(List<td.Message> raw) async {
-    return await parseMessagesWithYield(raw, category.isMovie);
+    final isMovie = category.isMovie;
+    return await Isolate.run(() => parseMessagesWithYield(raw, isMovie));
   }
 
   static String getMessageFileName(td.Message msg) {

@@ -11,7 +11,9 @@ import '../core/logger.dart';
 final streamingProxyServiceProvider = Provider<StreamingProxyService>((ref) {
   final tdlibService = ref.watch(tdlibServiceProvider);
   final proxy = StreamingProxyService(tdlibService);
-  proxy.start();
+  proxy.start().catchError((e, st) {
+    Log.e('Failed to start StreamingProxyService', e, st);
+  });
   ref.onDispose(() {
     proxy.stop();
   });
@@ -30,7 +32,7 @@ class StreamingProxyService {
       : 128 * 1024;
 
   final _stateLock = Lock();
-  final String _authToken = base64Url.encode(
+  static final String _authToken = base64Url.encode(
     List<int>.generate(32, (i) => Random.secure().nextInt(256)),
   );
   int _nextReqId = 0;

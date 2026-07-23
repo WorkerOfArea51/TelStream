@@ -1,4 +1,12 @@
-### ✨ What's New in v2.10.4
+### ✨ What's New in v2.10.5
+
+#### 🚀 Performance & Stability (Major Refactor)
+* **Eliminated UI Jank**: Offloaded CPU-heavy message parsing to background isolates, providing buttery smooth scrolling on home feeds.
+* **Stream Stability**: Fixed a bug where active video streams would abruptly disconnect during UI rebuilds.
+* **Native Dependency Automation**: Windows users now have automated native binary extraction, making local development and deployment significantly easier.
+* **Repo Bloat Removed**: Reduced the repository size by over 100MB by stripping unnecessary localization metadata and untracking raw native binaries.
+* **Storage Safety**: Added strict initialization assertions to the Storage Service to gracefully handle unexpected cache reads and prevent crashes.
+* **Video Controls Refactor**: Massively improved maintainability by deconstructing the monolithic video player UI into modular widgets (like `AspectRatioPanel`).
 
 #### 🎉 New Features
 * **User-Added Channels**: Add your own Telegram channels/groups! Go to More → My Channels to add public or private channels. Supports @username, t.me/+invite, and t.me/c/ID links.

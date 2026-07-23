@@ -38,7 +38,7 @@ class StorageService {
   void _checkInit() {
     if (!_isInitialized) {
       Log.e('CRITICAL: StorageService accessed before init() completed!');
-      // throw StateError('StorageService not initialized'); // Too risky to throw right now without knowing app init flow, but logging it as critical.
+      assert(_isInitialized, 'StorageService accessed before init() completed!');
     }
   }
 
