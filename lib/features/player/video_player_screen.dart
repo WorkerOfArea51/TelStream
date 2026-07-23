@@ -71,7 +71,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
   bool _nextEpisodePreloaded = false;
   Timer? _preloadCooldownTimer;
   bool _hasUpdatedTracker = false;
-
+  bool _userPaused = false;
   late final StorageService _storageService;
   late final TdlibService _tdlibService;
   late final PipController _pipController;
@@ -89,6 +89,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
       final isConnected = results.any((r) => r != ConnectivityResult.none);
       if (!isConnected && _wasNetworkConnected) {
         Log.w('Network disconnected — pausing playback');
+        _userPaused = !player.state.playing;
         try { player.pause(); } catch (_) {}
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -100,7 +101,9 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         }
       } else if (isConnected && !_wasNetworkConnected) {
         Log.i('Network reconnected — resuming playback');
-        try { player.play(); } catch (_) {}
+        if (!_userPaused) {
+          try { player.play(); } catch (_) {}
+        }
       }
       _wasNetworkConnected = isConnected;
     });
@@ -838,6 +841,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
     // Wait a brief moment to see if another player took over (e.g. Next Episode).
     // If not, we are truly exiting the player and should reset UI and Wakelock.
     Future.delayed(const Duration(milliseconds: 150), () {
+      if (!mounted) return;
       try {
         if (_pipController.activePlayer == null) {
           _resetOrientationAndUI();

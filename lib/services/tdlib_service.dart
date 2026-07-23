@@ -712,8 +712,11 @@ class TdlibService {
     if (_nativeSend != null && _clientId != null) {
       final jsonStr = jsonEncode(request);
       final ptr = jsonStr.toNativeUtf8();
-      _nativeSend!(_clientId!, ptr);
-      malloc.free(ptr);
+      try {
+        _nativeSend!(_clientId!, ptr);
+      } finally {
+        malloc.free(ptr);
+      }
     } else {
       timeoutTimer.cancel();
       completer.completeError(Exception("Native td_send not available, cannot send raw json"));
