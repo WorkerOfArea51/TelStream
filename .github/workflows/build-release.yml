@@ -112,9 +112,23 @@ jobs:
           echo "class Secrets { static const int apiId = ${{ secrets.TELEGRAM_API_ID }}; static const String apiHash = '${{ secrets.TELEGRAM_API_HASH }}'; static const String buildTag = 'Build #${{ github.run_number }}'; static const int animeChannelId = ${{ secrets.ANIME_CHANNEL_ID || -1002633457020 }}; static const String animeInviteLink = '${{ secrets.ANIME_INVITE_LINK || 'https://t.me/+AkdK7gDbYWRmZTc1' }}'; static const int movieChannelId = ${{ secrets.MOVIE_CHANNEL_ID || -1004421932120 }}; static const String movieInviteLink = '${{ secrets.MOVIE_INVITE_LINK || 'https://t.me/+dx2YihneVQczNTM1' }}'; static const int webSeriesChannelId = ${{ secrets.WEBSERIES_CHANNEL_ID || -1004440703680 }}; static const String webSeriesInviteLink = '${{ secrets.WEBSERIES_INVITE_LINK || 'https://t.me/+FiQ7kG8Ofh5jMDU1' }}'; static const String tmdbApiKey = '${{ secrets.TMDB_API_KEY || 'YOUR_TMDB_API_KEY' }}'; static const String traktApiKey = '${{ secrets.TRAKT_API_KEY || '05553e1be851c22a76f7df2b8a7c29be60cb5038ecbe6e80b2a7587dfb38ea47' }}'; static const String malClientId = '${{ secrets.MAL_CLIENT_ID || '829f046ef3294326127b407137f62c0a' }}'; static const int adminUserId = ${{ secrets.ADMIN_USER_ID || 123456789 }}; static const String updatePublicKey = '${{ secrets.UPDATE_PUBLIC_KEY || 'ed25519-public-key-hex-goes-here' }}'; }" > lib/core/secrets.dart
 
       - name: Fetch TDLib Windows DLLs
+        shell: pwsh
         run: |
-          git fetch origin native-libs-win
-          git checkout origin/native-libs-win -- windows/runner/libs/
+          $libsDir = "windows\runner\libs"
+          New-Item -ItemType Directory -Force -Path $libsDir
+
+          $baseUrl = "https://github.com/WorkerOfArea51/TelStream-Database/releases/download/native-libs-win"
+
+          $dlls = @("tdjson.dll", "libcrypto-1_1-x64.dll", "libssl-1_1-x64.dll", "msvcp140.dll", "zlib1.dll")
+
+          foreach ($dll in $dlls) {
+            Write-Host "Downloading $dll..."
+            Invoke-WebRequest -Uri "$baseUrl/$dll" -OutFile (Join-Path $libsDir $dll)
+          }
+
+          Get-ChildItem $libsDir -Filter *.dll | ForEach-Object {
+            Write-Host "  $($_.Name) - $([math]::Round($_.Length / 1MB, 2))MB"
+          }
 
       - name: Build Windows Application
         run: flutter build windows --release --dart-define=FIREBASE_DB_URL=${{ secrets.FIREBASE_DB_URL }}
