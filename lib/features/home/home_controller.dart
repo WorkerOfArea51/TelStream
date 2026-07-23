@@ -23,15 +23,13 @@ class ParseMessagesArgs {
   ParseMessagesArgs(this.raw, this.isMovie);
 }
 
-Future<List<AnimeSeries>> parseMessagesWithYield(List<td.Message> raw, bool isMovie) async {
+List<AnimeSeries> parseMessagesBackground(List<td.Message> raw, bool isMovie) {
   
   // 1. Separate poster messages and episode messages
   final List<td.Message> posterMessages = [];
   final List<td.Message> episodeMessages = [];
 
-  int count = 0;
   for (final msg in raw) {
-    count++;
     if (msg.content is td.MessagePhoto) {
       final photo = msg.content as td.MessagePhoto;
       if (photo.caption.text.isNotEmpty) {
@@ -120,11 +118,9 @@ Future<List<AnimeSeries>> parseMessagesWithYield(List<td.Message> raw, bool isMo
       'episodesList': <td.Message>[],
     });
     
-    if (posterDetails.length % 100 == 0) await Future.delayed(Duration.zero);
   }
 
   // 3. Match each episode message to its preceding poster message (pure sequential chronological)
-  int epCount = 0;
   for (final ep in episodeMessages) {
     Map<String, dynamic>? selectedPoster;
     int maxPrecedingId = -1;
@@ -166,10 +162,7 @@ Future<List<AnimeSeries>> parseMessagesWithYield(List<td.Message> raw, bool isMo
         seriesList.add(seriesMap[epKey]!);
       }
     }
-    
-    // Yield to keep UI smooth
-    epCount++;
-    if (epCount % 50 == 0) await Future.delayed(const Duration(milliseconds: 1));
+    // Yield to keep UI smooth (Removed fake concurrency)
   }
 
   // 4. Assemble seasons and populate the series list
@@ -1177,7 +1170,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
   @visibleForTesting
   Future<List<AnimeSeries>> parseMessagesForTesting(List<td.Message> raw) async {
     final isMovie = category.isMovie;
-    return await Isolate.run(() => parseMessagesWithYield(raw, isMovie));
+    return await Isolate.run(() => parseMessagesBackground(raw, isMovie));
   }
 
   @visibleForTesting
@@ -1185,7 +1178,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
 
   Future<List<AnimeSeries>> _parseMessages(List<td.Message> raw) async {
     final isMovie = category.isMovie;
-    return await Isolate.run(() => parseMessagesWithYield(raw, isMovie));
+    return await Isolate.run(() => parseMessagesBackground(raw, isMovie));
   }
 
   static String getMessageFileName(td.Message msg) {
