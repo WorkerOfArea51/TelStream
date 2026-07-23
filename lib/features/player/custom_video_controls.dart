@@ -3,7 +3,6 @@ import 'widgets/cached_video_widget.dart';
 import 'dart:async';
 import 'dart:io';
 import 'dart:ui';
-import 'package:telstream/features/player/widgets/speed_panel.dart';
 import 'package:telstream/features/player/widgets/subtitle_overlay.dart';
 import 'package:flutter/material.dart';
 

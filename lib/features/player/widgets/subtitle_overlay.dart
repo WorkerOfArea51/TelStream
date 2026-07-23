@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:media_kit/media_kit.dart';
-import 'package:telstream/providers/video_settings_provider.dart';
+import 'package:telstream/features/settings/settings_provider.dart';
 
 class SubtitleOverlay extends ConsumerStatefulWidget {
   final Player player;
@@ -30,6 +30,17 @@ class _SubtitleOverlayState extends ConsumerState<SubtitleOverlay> {
       final cleanHex = subColorStr.replaceAll('#', '');
       subColor = Color(int.parse('FF$cleanHex', radix: 16));
     } catch (_) {}
+
+    String resolvedFontFamily = 'Roboto';
+    if (subFont.toLowerCase().contains('arial')) {
+      resolvedFontFamily = 'Arial';
+    } else if (subFont.toLowerCase().contains('dejavu')) {
+      resolvedFontFamily = 'DejaVuSans';
+    } else if (subFont.toLowerCase().contains('sans-serif')) {
+      resolvedFontFamily = 'sans-serif';
+    } else if (subFont.toLowerCase().contains('roboto')) {
+      resolvedFontFamily = 'Roboto';
+    }
 
     return StreamBuilder<List<String>>(
       stream: widget.player.stream.subtitle,
@@ -94,40 +105,51 @@ class _SubtitleOverlayState extends ConsumerState<SubtitleOverlay> {
                 });
               },
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: settings.subtitleBackgroundOpacity),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(
-                    cleanText,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: subColor,
-                      fontSize: subSize,
-                      fontWeight: FontWeight.w600,
-                      fontFamily: subFont,
-                      height: 1.3,
-                      shadows: [
-                        if (settings.subtitleBackgroundOpacity < 0.5) ...[
-                          const Shadow(
-                            offset: Offset(1.0, 1.0),
-                            blurRadius: 3.0,
-                            color: Colors.black,
-                          ),
-                          const Shadow(
-                            offset: Offset(-1.0, -1.0),
-                            blurRadius: 3.0,
-                            color: Colors.black,
-                          ),
-                        ]
-                      ],
-                    ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
+                child: Text(
+                  cleanText,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: subSize,
+                    color: subColor,
+                    fontFamily: resolvedFontFamily,
+                    fontWeight: FontWeight.bold,
+                    height: 1.2,
+                    shadows: const [
+                      Shadow(
+                        offset: Offset(-1.5, -1.5),
+                        color: Colors.black,
+                        blurRadius: 2.0,
+                      ),
+                      Shadow(
+                        offset: Offset(1.5, -1.5),
+                        color: Colors.black,
+                        blurRadius: 2.0,
+                      ),
+                      Shadow(
+                        offset: Offset(1.5, 1.5),
+                        color: Colors.black,
+                        blurRadius: 2.0,
+                      ),
+                      Shadow(
+                        offset: Offset(-1.5, 1.5),
+                        color: Colors.black,
+                        blurRadius: 2.0,
+                      ),
+                      Shadow(
+                        offset: Offset(-1.5, 0.0),
+                        color: Colors.black,
+                        blurRadius: 2.0,
+                      ),
+                      Shadow(
+                        offset: Offset(1.5, 0.0),
+                        color: Colors.black,
+                        blurRadius: 2.0,
+                      ),
+                    ],
                   ),
                 ),
               ),
