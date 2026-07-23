@@ -702,13 +702,10 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
       final cachePath = '${directory.path}/catalog_cache_${category.channelId}.json';
       final file = File(cachePath);
       
-      final List<Map<String, dynamic>> jsonList = [];
-      for (int i = 0; i < _allSeries.length; i++) {
-        if (i > 0 && i % 100 == 0) await Future.delayed(const Duration(milliseconds: 1));
-        jsonList.add(_allSeries[i].toJson());
-      }
-      
-      final content = await compute(jsonEncode, jsonList);
+      final content = await Isolate.run(() {
+        final List<Map<String, dynamic>> jsonList = _allSeries.map((s) => s.toJson()).toList();
+        return jsonEncode(jsonList);
+      });
       await file.writeAsString(content);
       Log.i('Saved catalog cache for category ${category.title} to $cachePath');
     } catch (e, stack) {
