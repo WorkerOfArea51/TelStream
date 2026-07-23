@@ -70,3 +70,16 @@ keystore_base64.txt
 # Generated icons
 /android/app/src/main/res/mipmap-*/
 
+
+# Scratch/temp files
+eq_temp.txt
+*.temp.txt
+*.tmp
+job_log.txt
+gh_run.json
+.github_run.json
+non_bool_fields.txt
+implementation_plan.md
+
+# Android build artifacts
+android/build/
