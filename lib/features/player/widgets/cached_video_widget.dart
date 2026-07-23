@@ -39,28 +39,25 @@ class _CachedVideoWidgetState extends State<CachedVideoWidget> {
   }
 
   void _buildCachedWidget() {
-    _cachedWidget = widget.customAspectRatio != null
-        ? Center(
-            child: AspectRatio(
-              aspectRatio: widget.customAspectRatio!,
-              child: Video(
-                key: ValueKey(widget.controller),
-                controller: widget.controller,
-                controls: NoVideoControls,
-                fit: BoxFit.fill,
-                subtitleViewConfiguration: widget.subtitleConfig,
-                wakelock: false, // Let WakelockPlus handle it
-              ),
-            ),
-          )
-        : Video(
-            key: ValueKey(widget.controller),
-            controller: widget.controller,
-            controls: NoVideoControls,
-            fit: widget.fit,
-            subtitleViewConfiguration: widget.subtitleConfig,
-            wakelock: false, // Let WakelockPlus handle it
-          );
+    final videoWidth = widget.controller.player.state.width;
+    final videoHeight = widget.controller.player.state.height;
+    final fallbackRatio = (videoWidth != null && videoHeight != null && videoHeight > 0) 
+        ? videoWidth / videoHeight 
+        : 16.0 / 9.0;
+
+    _cachedWidget = Center(
+      child: AspectRatio(
+        aspectRatio: widget.customAspectRatio ?? fallbackRatio,
+        child: Video(
+          key: ValueKey(widget.controller),
+          controller: widget.controller,
+          controls: NoVideoControls,
+          fit: widget.customAspectRatio != null ? BoxFit.fill : widget.fit,
+          subtitleViewConfiguration: widget.subtitleConfig,
+          wakelock: false, // Let WakelockPlus handle it
+        ),
+      ),
+    );
   }
 
   @override

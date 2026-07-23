@@ -49,6 +49,7 @@ class StreamingProxyService {
     List<int>.generate(32, (i) => Random.secure().nextInt(256)),
   );
   int _nextReqId = 0;
+  InternetAddress _boundAddress = InternetAddress.loopbackIPv4;
 
   Future<void> get onReady => _startCompleter!.future;
 
@@ -127,8 +128,10 @@ class StreamingProxyService {
     try {
       try {
         _server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+        _boundAddress = InternetAddress.loopbackIPv4;
       } catch (e) {
         _server = await HttpServer.bind(InternetAddress.loopbackIPv6, 0);
+        _boundAddress = InternetAddress.loopbackIPv6;
       }
       _server!.autoCompress = false;
       _server!.idleTimeout = const Duration(seconds: 30);
@@ -169,7 +172,8 @@ class StreamingProxyService {
     final q = fileName != null && fileName.isNotEmpty
         ? 'fileId=$fileId&name=${Uri.encodeComponent(fileName)}'
         : 'fileId=$fileId';
-    return 'http://127.0.0.1:$_port/stream?$q';
+    final host = _boundAddress == InternetAddress.loopbackIPv6 ? '[::1]' : '127.0.0.1';
+    return 'http://$host:$_port/stream?$q';
   }
 
   Map<String, String> getAuthHeaders() => {

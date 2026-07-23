@@ -21,12 +21,10 @@ import '../settings/settings_provider.dart';
 import '../player/pip_manager.dart';
 import '../player/video_player_screen.dart';
 import '../player/widgets/track_selector_panel.dart';
-import '../../services/storage_service.dart';
 import 'package:media_kit/media_kit.dart';
 import 'airing_calendar_screen.dart';
 import '../../services/update_service.dart';
 import 'widgets/custom_about_dialog.dart';
-import 'dart:io';
 import '../../l10n/app_localizations.dart';
 
 class DesktopMainScreen extends ConsumerStatefulWidget {
@@ -762,8 +760,7 @@ class _DesktopMainScreenState extends ConsumerState<DesktopMainScreen> with Tick
     }
 
     final settings = ref.watch(videoSettingsProvider);
-    final storage = ref.read(storageServiceProvider);
-
+    
     return TrackSelectorPanel(
       player: player,
       trackCodecs: const {},

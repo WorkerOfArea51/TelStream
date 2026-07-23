@@ -961,7 +961,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
       }
     });
 
-    final isDesktop = Platform.isWindows;
+    final isDesktop = Platform.isWindows || Platform.isLinux || Platform.isMacOS;
 
     Widget scaffold = Scaffold(
         backgroundColor: Colors.black,
@@ -1030,7 +1030,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
             },
             child: Center(
               child: _isPlaying 
-                 ? (isDesktop 
+                 ? (widget.isPip 
                      ? Video(controller: controller, controls: NoVideoControls, wakelock: false)
                      : CustomVideoControls(
                          player: player,

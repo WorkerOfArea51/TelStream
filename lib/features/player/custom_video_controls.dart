@@ -4,6 +4,7 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:ui';
 import 'package:telstream/features/player/widgets/subtitle_overlay.dart';
+import 'package:telstream/features/player/widgets/video_layer.dart';
 import 'package:flutter/material.dart';
 
 import 'package:flutter/services.dart';
@@ -97,9 +98,9 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
 
   bool _isLocked = false;
   bool _isFullscreen = true;
-  BoxFit _fit = BoxFit.contain;
+  final _fitNotifier = ValueNotifier<BoxFit>(BoxFit.contain);
   String _currentAspectRatioString = 'fit';
-  double? _customAspectRatio;
+  final _customAspectRatioNotifier = ValueNotifier<double?>(null);
   bool _rememberRatio = false;
   bool _tapToSwitchRatio = false;
   bool _showRatioPanel = false;
@@ -180,9 +181,9 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
   Timer? _chaptersRetryTimer;
 
   // Pinch to zoom
-  double _scale = 1.0;
+  final _scaleNotifier = ValueNotifier<double>(1.0);
   double _baseScale = 1.0;
-  Offset _panOffset = Offset.zero;
+  final _panNotifier = ValueNotifier<Offset>(Offset.zero);
   Offset _basePanOffset = Offset.zero;
 
   // Swipe to seek variables
@@ -1708,8 +1709,8 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     _isVerticalDrag = false;
     _isHorizontalDrag = false;
 
-    _baseScale = _scale;
-    _basePanOffset = _panOffset;
+    _baseScale = _scaleNotifier.value;
+    _basePanOffset = _panNotifier.value;
 
     _swipeStartPosition = widget.player.state.position;
     _swipeTargetPosition = _swipeStartPosition;
@@ -1732,8 +1733,8 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
       if (pinchToZoom) {
         _isScaleGesture = true;
         setState(() {
-          _scale = (_baseScale * details.scale).clamp(1.0, 4.0);
-          if (_scale == 1.0) _panOffset = Offset.zero;
+          _scaleNotifier.value = (_baseScale * details.scale).clamp(1.0, 4.0);
+          if (_scaleNotifier.value == 1.0) _panNotifier.value = Offset.zero;
         });
       }
       return;
@@ -1793,7 +1794,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
         _seekDirection =
             'Swipe: ${_formatDuration(_swipeTargetPosition)} ($sign${diff}s)';
       });
-    } else if (_isVerticalDrag && _scale <= 1.0) {
+    } else if (_isVerticalDrag && _scaleNotifier.value <= 1.0) {
       final double deltaY = details.focalPointDelta.dy;
       final settings = ref.read(videoSettingsProvider);
       final isLeft = _dragStartFocalPoint!.dx <= screenWidth / 2;
@@ -1808,9 +1809,9 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
       } else if (action == 'Speed') {
         _performVerticalSwipeAction('Speed', deltaY);
       }
-    } else if (_scale > 1.0) {
+    } else if (_scaleNotifier.value > 1.0) {
       setState(() {
-        _panOffset =
+        _panNotifier.value =
             _basePanOffset + (details.focalPoint - _dragStartFocalPoint!);
       });
     }
@@ -2042,10 +2043,10 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     if (mounted) {
       setState(() {
         _currentAspectRatioString = ratioString;
-        _customAspectRatio = customRatio;
-        _fit = boxFit;
-        _scale = 1.0;
-        _panOffset = Offset.zero;
+        _customAspectRatioNotifier.value = customRatio;
+        _fitNotifier.value = boxFit;
+        _scaleNotifier.value = 1.0;
+        _panNotifier.value = Offset.zero;
       });
     }
 
@@ -2342,22 +2343,16 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
         fit: StackFit.expand,
         children: [
           // Video Layer with Pinch to Zoom
-          if (_isBuffering || widget.customBuffering)
-            const Center(
-              child: CircularProgressIndicator(color: Colors.orange),
+            VideoLayer(
+              controller: widget.controller,
+              fitNotifier: _fitNotifier,
+              customAspectRatioNotifier: _customAspectRatioNotifier,
+              scaleNotifier: _scaleNotifier,
+              panNotifier: _panNotifier,
+              subtitleConfig: subtitleConfig,
+              isBuffering: _isBuffering,
+              customBuffering: widget.customBuffering,
             ),
-          Transform.translate(
-            offset: _panOffset,
-            child: Transform.scale(
-              scale: _scale,
-              child: CachedVideoWidget(
-                controller: widget.controller,
-                fit: _fit,
-                customAspectRatio: _customAspectRatio,
-                subtitleConfig: subtitleConfig,
-              ),
-            ),
-          ),
 
           // Simulated Brightness
           if (!_isPhysicalBrightnessSupported && _currentBrightness < 1.0)
@@ -3244,8 +3239,8 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
             width: isPortrait ? null : 380,
             child: AspectRatioPanel(
               onClose: _closeAspectRatioPanel,
-              currentFit: _fit,
-              customAspectRatio: _customAspectRatio,
+              currentFit: _fitNotifier.value,
+              customAspectRatio: _customAspectRatioNotifier.value,
               onSelectRatio: _applyAspectRatioString,
               rememberRatio: _rememberRatio,
               onToggleRememberRatio: (val) {

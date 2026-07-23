@@ -88,7 +88,7 @@ class AspectRatioPanel extends ConsumerWidget {
       child: GestureDetector(
         onTap: () => onSelectRatio(ratioId),
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
+          duration: const Duration(milliseconds: 50),
           padding: const EdgeInsets.symmetric(vertical: 16),
           decoration: BoxDecoration(
             color: active
@@ -128,7 +128,7 @@ class AspectRatioPanel extends ConsumerWidget {
     return GestureDetector(
       onTap: () => onSelectRatio(ratioId),
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
+        duration: const Duration(milliseconds: 50),
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
         decoration: BoxDecoration(
           color: active
