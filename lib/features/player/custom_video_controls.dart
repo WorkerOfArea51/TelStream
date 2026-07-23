@@ -727,7 +727,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                     .medias[widget.player.state.playlist.index]
                     .uri
               : '';
-          if (playingUrl.startsWith('http://127.0.0.1:')) {
+          if (StreamingProxyService.isProxyUrl(playingUrl)) {
             final uri = Uri.tryParse(playingUrl);
             if (uri != null) {
               final idStr = uri.queryParameters['fileId'];
@@ -2041,12 +2041,12 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     }
 
     if (mounted) {
+      _customAspectRatioNotifier.value = customRatio;
+      _fitNotifier.value = boxFit;
+      _scaleNotifier.value = 1.0;
+      _panNotifier.value = Offset.zero;
       setState(() {
         _currentAspectRatioString = ratioString;
-        _customAspectRatioNotifier.value = customRatio;
-        _fitNotifier.value = boxFit;
-        _scaleNotifier.value = 1.0;
-        _panNotifier.value = Offset.zero;
       });
     }
 
