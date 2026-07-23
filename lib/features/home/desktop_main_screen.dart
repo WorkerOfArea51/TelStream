@@ -620,6 +620,7 @@ class _DesktopMainScreenState extends ConsumerState<DesktopMainScreen> with Tick
             right: showRight ? 350 : 0,
             child: pipState != null
                 ? VideoPlayerScreen(
+                    key: ValueKey(pipState.networkUrl ?? pipState.messageId.toString()),
                     messageId: pipState.messageId,
                     videoFileId: pipState.videoFileId,
                     videoTitle: pipState.videoTitle,

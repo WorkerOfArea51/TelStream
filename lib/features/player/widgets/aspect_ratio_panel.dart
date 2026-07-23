@@ -27,8 +27,8 @@ class AspectRatioPanel extends ConsumerWidget {
 
   bool _isRatioActive(String ratioId) {
     if (ratioId == 'fit' && currentFit == BoxFit.contain && customAspectRatio == null) return true;
-    if (ratioId == 'fill' && currentFit == BoxFit.fill && customAspectRatio == null) return true;
-    if (ratioId == 'cover' && currentFit == BoxFit.cover && customAspectRatio == null) return true;
+    if (ratioId == 'fill' && currentFit == BoxFit.cover && customAspectRatio == null) return true;
+    if (ratioId == 'stretch' && currentFit == BoxFit.fill && customAspectRatio == null) return true;
     if (ratioId == '16:9' && currentFit == BoxFit.contain && customAspectRatio == 16 / 9) return true;
     if (ratioId == '4:3' && currentFit == BoxFit.contain && customAspectRatio == 4 / 3) return true;
     if (ratioId == '21:9' && currentFit == BoxFit.contain && customAspectRatio == 21 / 9) return true;
@@ -88,7 +88,7 @@ class AspectRatioPanel extends ConsumerWidget {
       child: GestureDetector(
         onTap: () => onSelectRatio(ratioId),
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 50),
+          duration: Duration.zero,
           padding: const EdgeInsets.symmetric(vertical: 16),
           decoration: BoxDecoration(
             color: active
@@ -128,7 +128,7 @@ class AspectRatioPanel extends ConsumerWidget {
     return GestureDetector(
       onTap: () => onSelectRatio(ratioId),
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 50),
+        duration: Duration.zero,
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
         decoration: BoxDecoration(
           color: active

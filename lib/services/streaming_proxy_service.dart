@@ -51,6 +51,10 @@ class StreamingProxyService {
   int _nextReqId = 0;
   InternetAddress _boundAddress = InternetAddress.loopbackIPv4;
 
+  static bool isProxyUrl(String url) {
+    return url.startsWith('http://127.0.0.1:') || url.startsWith('http://[::1]:');
+  }
+
   Future<void> get onReady => _startCompleter!.future;
 
   // Track active download offset state per fileId

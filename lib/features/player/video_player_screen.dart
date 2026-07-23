@@ -282,7 +282,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
     _isPlaying = true;
 
     String finalPath = localPath;
-    if (localPath.startsWith('http://127.0.0.1')) {
+    if (StreamingProxyService.isProxyUrl(localPath)) {
       try {
         await _proxyService.onReady.timeout(const Duration(seconds: 3));
       } catch (e) {
@@ -300,7 +300,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
     // after the player reports the duration.
     final shouldPlayImmediately = savedPos <= 0;
 
-    final proxyHeaders = finalPath.startsWith('http://127.0.0.1') ? _proxyService.getAuthHeaders() : null;
+    final proxyHeaders = StreamingProxyService.isProxyUrl(finalPath) ? _proxyService.getAuthHeaders() : null;
     player.open(Media(finalPath, httpHeaders: proxyHeaders), play: shouldPlayImmediately)
         .timeout(const Duration(seconds: 30))
         .then((_) {
@@ -1329,14 +1329,14 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
             ? localPath
             : _proxyService.getProxyUrl(fileId, fileName: widget.videoTitle);
             
-        if (mediaUrl.startsWith('http://127.0.0.1')) {
+        if (StreamingProxyService.isProxyUrl(mediaUrl)) {
           try {
             await _proxyService.onReady.timeout(const Duration(seconds: 3));
           } catch (e) { /* ignore */ }
           mediaUrl = _proxyService.getProxyUrl(fileId, fileName: widget.videoTitle);
         }
 
-        final proxyHeaders = mediaUrl.startsWith('http://127.0.0.1') ? _proxyService.getAuthHeaders() : null;
+        final proxyHeaders = StreamingProxyService.isProxyUrl(mediaUrl) ? _proxyService.getAuthHeaders() : null;
         player.open(Media(mediaUrl, httpHeaders: proxyHeaders), play: isPlayingState)
             .timeout(const Duration(seconds: 30))
             .then((_) {
