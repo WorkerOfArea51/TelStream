@@ -232,10 +232,10 @@ class _TrackerMatchDialogState extends ConsumerState<TrackerMatchDialog> with Si
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final theme = Theme.of(context);
     final customTheme = theme.extension<AppThemeExtension>();
     final settingsAccent = customTheme?.settingsAccent ?? theme.primaryColor;
-    final isDark = theme.brightness == Brightness.dark;
 
     return Container(
       height: MediaQuery.of(context).size.height * 0.75,

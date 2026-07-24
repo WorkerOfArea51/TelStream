@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import '../../core/utils/responsive_utils.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../l10n/app_localizations.dart';
 import 'package:tdlib/td_api.dart' as td;
@@ -272,8 +273,8 @@ class _DesktopLibraryViewState extends ConsumerState<DesktopLibraryView> {
                     SliverPadding(
                       padding: const EdgeInsets.only(left: 20, right: 20, top: 16, bottom: 80),
                       sliver: SliverGrid(
-                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 3,
+                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: responsiveCrossAxisCount(context, itemWidth: 150),
                           childAspectRatio: 0.70,
                           crossAxisSpacing: 16,
                           mainAxisSpacing: 16,

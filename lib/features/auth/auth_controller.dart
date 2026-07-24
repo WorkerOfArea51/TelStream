@@ -68,8 +68,8 @@ class AuthController extends Notifier<AuthState> {
     final excludedPaths = storage.getDownloadedFiles().values.toList();
     final settings = ref.read(videoSettingsProvider);
     
-    final double? limitMb = settings.cacheLimitMb == -1 ? null : settings.cacheLimitMb.toDouble();
-    final int? ttlDays = settings.cacheTtlDays == -1 ? null : settings.cacheTtlDays;
+    final double? limitMb = settings.cache.cacheLimitMb == -1 ? null : settings.cache.cacheLimitMb.toDouble();
+    final int? ttlDays = settings.cache.cacheTtlDays == -1 ? null : settings.cache.cacheTtlDays;
 
     ref.read(tdlibServiceProvider).init(
       Constants.apiId, 

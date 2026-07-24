@@ -22,9 +22,9 @@ class _SubtitleOverlayState extends ConsumerState<SubtitleOverlay> {
   @override
   Widget build(BuildContext context) {
     final settings = ref.watch(videoSettingsProvider);
-    final subSize = settings.subtitleFontSize;
-    final subFont = settings.subtitleFont;
-    final subColorStr = settings.subtitleColor;
+    final subSize = settings.subtitles.subtitleFontSize;
+    final subFont = settings.subtitles.subtitleFont;
+    final subColorStr = settings.subtitles.subtitleColor;
     Color subColor = Colors.white;
     try {
       final cleanHex = subColorStr.replaceAll('#', '');
@@ -60,9 +60,9 @@ class _SubtitleOverlayState extends ConsumerState<SubtitleOverlay> {
         }
 
         final activeBottomMargin =
-            _dragBottomMargin ?? settings.subtitleBottomMargin;
+            _dragBottomMargin ?? settings.subtitles.subtitleBottomMargin;
         final activeHorizontalOffset =
-            _dragHorizontalOffset ?? settings.subtitleHorizontalOffset;
+            _dragHorizontalOffset ?? settings.subtitles.subtitleHorizontalOffset;
         final screenHeight = MediaQuery.of(context).size.height;
         final screenWidth = MediaQuery.of(context).size.width;
 
@@ -75,8 +75,8 @@ class _SubtitleOverlayState extends ConsumerState<SubtitleOverlay> {
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
               onPanStart: (_) {
-                _dragBottomMargin = settings.subtitleBottomMargin;
-                _dragHorizontalOffset = settings.subtitleHorizontalOffset;
+                _dragBottomMargin = settings.subtitles.subtitleBottomMargin;
+                _dragHorizontalOffset = settings.subtitles.subtitleHorizontalOffset;
               },
               onPanUpdate: (details) {
                 setState(() {
@@ -94,8 +94,10 @@ class _SubtitleOverlayState extends ConsumerState<SubtitleOverlay> {
                 if (_dragBottomMargin != null && _dragHorizontalOffset != null) {
                   ref.read(videoSettingsProvider.notifier).updateSettings(
                         settings.copyWith(
-                          subtitleBottomMargin: _dragBottomMargin,
-                          subtitleHorizontalOffset: _dragHorizontalOffset,
+                          subtitles: settings.subtitles.copyWith(
+                            subtitleBottomMargin: _dragBottomMargin ?? settings.subtitles.subtitleBottomMargin,
+                            subtitleHorizontalOffset: _dragHorizontalOffset ?? settings.subtitles.subtitleHorizontalOffset,
+                          ),
                         ),
                       );
                 }

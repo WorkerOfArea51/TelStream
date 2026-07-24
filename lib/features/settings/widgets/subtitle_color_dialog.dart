@@ -46,9 +46,9 @@ class SubtitleColorDialogState extends State<SubtitleColorDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
     final l10n = AppLocalizations.of(context)!;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final theme = Theme.of(context);
     
     final List<Map<String, String>> predefinedColors = [
       {'name': l10n.colorWhite, 'hex': '#FFFFFF'},
@@ -77,7 +77,7 @@ class SubtitleColorDialogState extends State<SubtitleColorDialog> {
         borderRadius: BorderRadius.circular(16),
         side: BorderSide(color: theme.colorScheme.onSurface.withValues(alpha: 0.08), width: 1),
       ),
-      title: Text(l10n.subtitleColorDialogTitle, style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
+      title: Text(l10n.subtitleColorDialogTitle, style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -169,7 +169,7 @@ class SubtitleColorDialogState extends State<SubtitleColorDialog> {
               controller: _customController,
               decoration: InputDecoration(
                 labelText: l10n.customColorHex,
-                labelStyle: TextStyle(color: isDark ? Colors.white54 : Colors.black54),
+                labelStyle: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
@@ -177,7 +177,7 @@ class SubtitleColorDialogState extends State<SubtitleColorDialog> {
                 ),
                 prefixIcon: Icon(Icons.color_lens, color: widget.accentColor),
               ),
-              style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+              style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
               onChanged: (val) {
                 if (val.length >= 7) {
                   setState(() {
@@ -195,7 +195,7 @@ class SubtitleColorDialogState extends State<SubtitleColorDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: Text(l10n.cancel, style: TextStyle(color: isDark ? Colors.white54 : Colors.black54)),
+          child: Text(l10n.cancel, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
         ),
         TextButton(
           onPressed: () => Navigator.pop(context, _selectedHex),

@@ -1,4 +1,6 @@
 import 'dart:convert';
+import 'package:telstream/services/storage/settings_store.dart';
+import '../core/utils/lru_cache.dart';
 import 'package:http/http.dart' as http;
 import '../core/constants.dart';
 import '../core/logger.dart';
@@ -201,17 +203,39 @@ class SeriesMetadata {
 }
 
 class MetadataService {
+  static SettingsStore? _settingsStore;
+  static void init(SettingsStore store) {
+    _settingsStore = store;
+  }
+
   static const String _tmdbBaseUrl = 'https://api.themoviedb.org/3';
   static const String _jikanBaseUrl = 'https://api.jikan.moe/v4';
   
-  static final Map<String, SeriesMetadata> _cache = {};
+  static final LruCache<String, SeriesMetadata> _cache = LruCache<String, SeriesMetadata>(
+    maxSize: 100,
+    ttl: const Duration(minutes: 30),
+  );
 
   Future<SeriesMetadata?> fetchTmdbByImdbId(String imdbId) async {
-    if (_cache.containsKey(imdbId)) return _cache[imdbId];
+    final cached = _cache.get(imdbId);
+    if (cached != null) return cached;
     
     if (Constants.tmdbApiKey == 'YOUR_TMDB_API_KEY' || Constants.tmdbApiKey.isEmpty) {
       Log.e('TMDB API Key is missing. Cannot fetch metadata.');
       return null;
+    }
+    if (_settingsStore != null) {
+      final diskCached = _settingsStore!.getSeriesMetadataCache(imdbId);
+      if (diskCached != null) {
+        try {
+          final meta = SeriesMetadata.fromJson(diskCached);
+          _cache.set(imdbId, meta);
+          Log.i('Returning TMDB metadata from disk cache for ');
+          return meta;
+        } catch(e) {
+          Log.e('Failed to parse TMDB metadata from disk cache', e);
+        }
+      }
     }
 
     try {
@@ -221,7 +245,7 @@ class MetadataService {
 
       // Step 1: Find TMDB ID from IMDB ID
       final findUrl = Uri.parse('$_tmdbBaseUrl/find/$imdbId?external_source=imdb_id$queryParam');
-      final findRes = await http.get(findUrl, headers: authHeaders);
+      final findRes = await http.get(findUrl, headers: authHeaders).timeout(const Duration(seconds: 10));
       if (findRes.statusCode != 200) {
         Log.e('TMDB Find API failed with status ${findRes.statusCode}');
         return null;
@@ -244,7 +268,7 @@ class MetadataService {
       // Step 2: Fetch full details including videos and credits
       final type = isMovie ? 'movie' : 'tv';
       final detailsUrl = Uri.parse('$_tmdbBaseUrl/$type/$tmdbId?append_to_response=videos,credits,content_ratings,release_dates,recommendations$queryParam');
-      final detailsRes = await http.get(detailsUrl, headers: authHeaders);
+      final detailsRes = await http.get(detailsUrl, headers: authHeaders).timeout(const Duration(seconds: 10));
       if (detailsRes.statusCode != 200) {
         Log.e('TMDB Details API failed with status ${detailsRes.statusCode}');
         return null;
@@ -393,7 +417,7 @@ class MetadataService {
         imdbId: imdbId,
         recommendations: recs,
       );
-      _cache[imdbId] = metadata;
+      _cache.set(imdbId, metadata);
       return metadata;
     } catch (e) {
       Log.e('Failed to fetch TMDB details', e);
@@ -406,7 +430,8 @@ class MetadataService {
   /// /tv/{tmdb_id}/season/{seasonNumber} for season-specific data.
   Future<SeriesMetadata?> fetchTmdbSeasonByImdbId(String imdbId, int seasonNumber) async {
     final cacheKey = '${imdbId}_season_$seasonNumber';
-    if (_cache.containsKey(cacheKey)) return _cache[cacheKey];
+    final cached = _cache.get(cacheKey);
+    if (cached != null) return cached;
     
     if (Constants.tmdbApiKey == 'YOUR_TMDB_API_KEY' || Constants.tmdbApiKey.isEmpty) {
       Log.e('TMDB API Key is missing. Cannot fetch season metadata.');
@@ -422,7 +447,7 @@ class MetadataService {
 
       // Step 1: Find TMDB ID from IMDB ID
       final findUrl = Uri.parse('$_tmdbBaseUrl/find/$imdbId?external_source=imdb_id$queryParam');
-      final findRes = await http.get(findUrl, headers: authHeaders);
+      final findRes = await http.get(findUrl, headers: authHeaders).timeout(const Duration(seconds: 10));
       if (findRes.statusCode != 200) {
         Log.e('TMDB Find API failed with status ${findRes.statusCode}');
         return null;
@@ -439,7 +464,7 @@ class MetadataService {
 
       // Step 2: Fetch season-specific details
       final seasonUrl = Uri.parse('$_tmdbBaseUrl/tv/$tmdbId/season/$seasonNumber?append_to_response=credits,images,videos$queryParam');
-      final seasonRes = await http.get(seasonUrl, headers: authHeaders);
+      final seasonRes = await http.get(seasonUrl, headers: authHeaders).timeout(const Duration(seconds: 10));
       if (seasonRes.statusCode != 200) {
         Log.e('TMDB Season API failed with status ${seasonRes.statusCode}');
         // Fallback to show-level metadata
@@ -450,7 +475,7 @@ class MetadataService {
 
       // Also fetch show-level data for fallback fields (genres, content rating)
       final showUrl = Uri.parse('$_tmdbBaseUrl/tv/$tmdbId?append_to_response=content_ratings,recommendations,credits,videos$queryParam');
-      final showRes = await http.get(showUrl, headers: authHeaders);
+      final showRes = await http.get(showUrl, headers: authHeaders).timeout(const Duration(seconds: 10));
       Map<String, dynamic>? showData;
       if (showRes.statusCode == 200) {
         showData = jsonDecode(showRes.body);
@@ -603,7 +628,7 @@ class MetadataService {
         airedDates: airedDates,
       );
 
-      _cache[cacheKey] = metadata;
+      _cache.set(cacheKey, metadata);
       return metadata;
     } catch (e, stackTrace) {
       Log.e('Error fetching TMDB season metadata for $imdbId season $seasonNumber', e, stackTrace);
@@ -613,13 +638,14 @@ class MetadataService {
   }
 
   Future<SeriesMetadata?> fetchJikanByMalId(String malId) async {
-    if (_cache.containsKey(malId)) return _cache[malId];
+    final cached = _cache.get(malId);
+    if (cached != null) return cached;
     
     try {
       final url = Uri.parse('$_jikanBaseUrl/anime/$malId/full');
       http.Response? res;
       for (int attempt = 0; attempt < 3; attempt++) {
-        res = await http.get(url);
+        res = await http.get(url).timeout(const Duration(seconds: 10));
         if (res.statusCode == 429 || res.statusCode >= 500) {
           if (attempt < 2) {
             await Future.delayed(Duration(milliseconds: 1000 * (attempt + 1)));
@@ -671,7 +697,7 @@ class MetadataService {
         final recUrl = Uri.parse('$_jikanBaseUrl/anime/$malId/recommendations');
         http.Response? recRes;
         for (int attempt = 0; attempt < 3; attempt++) {
-          recRes = await http.get(recUrl);
+          recRes = await http.get(recUrl).timeout(const Duration(seconds: 10));
           if (recRes.statusCode == 429 || recRes.statusCode >= 500) {
             if (attempt < 2) {
               await Future.delayed(Duration(milliseconds: 1000 * (attempt + 1)));
@@ -716,7 +742,7 @@ class MetadataService {
         final castUrl = Uri.parse('$_jikanBaseUrl/anime/$malId/characters');
         http.Response? castRes;
         for (int attempt = 0; attempt < 3; attempt++) {
-          castRes = await http.get(castUrl);
+          castRes = await http.get(castUrl).timeout(const Duration(seconds: 10));
           if (castRes.statusCode == 429 || castRes.statusCode >= 500) {
             if (attempt < 2) {
               await Future.delayed(Duration(milliseconds: 1000 * (attempt + 1)));
@@ -804,7 +830,7 @@ class MetadataService {
         malId: malId,
         recommendations: recs,
       );
-      _cache[malId] = metadata;
+      _cache.set(malId, metadata);
       return metadata;
     } catch (e) {
       Log.e('Failed to fetch Jikan details', e);

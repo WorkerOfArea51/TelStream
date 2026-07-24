@@ -402,17 +402,17 @@ class _DesktopMainScreenState extends ConsumerState<DesktopMainScreen> with Tick
                 Builder(
                   builder: (context) {
                     final currentSeason = selectedSeries.seasons.isNotEmpty ? selectedSeries.seasons[0].seasonName : '';
-                    String? overrideId = FirebaseMetadataService.getOverride('${selectedSeries.coreName}_$currentSeason');
+                    String? overrideId = ref.read(firebaseMetadataProvider.notifier).getOverride('${selectedSeries.coreName}_$currentSeason');
                     List<SeriesMetadata>? preloadedMetadata;
 
                     if (overrideId == null || overrideId.isEmpty) {
-                      overrideId = FirebaseMetadataService.getOverride(selectedSeries.coreName);
-                      preloadedMetadata = FirebaseMetadataService.getPreloadedMetadata(selectedSeries.coreName);
+                      overrideId = ref.read(firebaseMetadataProvider.notifier).getOverride(selectedSeries.coreName);
+                      preloadedMetadata = ref.read(firebaseMetadataProvider.notifier).getPreloadedMetadata(selectedSeries.coreName);
                     }
                     
                     // Also check for season-specific preloaded metadata
                     if (preloadedMetadata == null || preloadedMetadata.isEmpty) {
-                      preloadedMetadata = FirebaseMetadataService.getPreloadedMetadata('${selectedSeries.coreName}_$currentSeason');
+                      preloadedMetadata = ref.read(firebaseMetadataProvider.notifier).getPreloadedMetadata('${selectedSeries.coreName}_$currentSeason');
                     }
                     
                     SeriesMetadata? meta;
@@ -770,7 +770,7 @@ class _DesktopMainScreenState extends ConsumerState<DesktopMainScreen> with Tick
       onTrackSelected: (track) {
         if (isSubtitle) {
           player.setSubtitleTrack(track as SubtitleTrack);
-          final isNativeSub = settings.subtitleRendererMode == 'native';
+          final isNativeSub = settings.subtitles.subtitleRendererMode == 'native';
           if (player.platform is NativePlayer) {
             try {
               (player.platform as NativePlayer).setProperty(

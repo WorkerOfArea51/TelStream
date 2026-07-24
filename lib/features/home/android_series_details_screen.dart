@@ -112,10 +112,10 @@ class _AndroidSeriesDetailsScreenState extends ConsumerState<AndroidSeriesDetail
   Future<void> _checkAndFetchMetadata() async {
     final currentSeason = widget.series.seasons.isNotEmpty ? widget.series.seasons[0].seasonName : '';
     final seasonSpecificKey = '${widget.series.coreName}_$currentSeason';
-    String? overrideStr = FirebaseMetadataService.getOverride(seasonSpecificKey);
+    String? overrideStr = ref.read(firebaseMetadataProvider.notifier).getOverride(seasonSpecificKey);
     
     if (overrideStr == null || overrideStr.isEmpty) {
-      overrideStr = FirebaseMetadataService.getOverride(widget.series.coreName);
+      overrideStr = ref.read(firebaseMetadataProvider.notifier).getOverride(widget.series.coreName);
     }
     
     if (overrideStr != null && overrideStr.isNotEmpty) {
@@ -135,11 +135,11 @@ class _AndroidSeriesDetailsScreenState extends ConsumerState<AndroidSeriesDetail
       
       // 1. Check if Firebase has preloaded manual metadata for this season or series
       List<SeriesMetadata>? preloadedMeta;
-      final specificOverrideStr = FirebaseMetadataService.getOverride(seasonSpecificKey);
+      final specificOverrideStr = ref.read(firebaseMetadataProvider.notifier).getOverride(seasonSpecificKey);
       if (specificOverrideStr != null && specificOverrideStr.isNotEmpty) {
-        preloadedMeta = FirebaseMetadataService.getPreloadedMetadata(seasonSpecificKey);
+        preloadedMeta = ref.read(firebaseMetadataProvider.notifier).getPreloadedMetadata(seasonSpecificKey);
       } else {
-        preloadedMeta = FirebaseMetadataService.getPreloadedMetadata(widget.series.coreName);
+        preloadedMeta = ref.read(firebaseMetadataProvider.notifier).getPreloadedMetadata(widget.series.coreName);
       }
 
       if (preloadedMeta != null && preloadedMeta.isNotEmpty) {
@@ -226,7 +226,7 @@ class _AndroidSeriesDetailsScreenState extends ConsumerState<AndroidSeriesDetail
   Future<void> _onSeasonChanged(int newIndex) async {
     final newSeasonName = widget.series.seasons.length > newIndex ? widget.series.seasons[newIndex].seasonName : '';
     final seasonSpecificKey = '${widget.series.coreName}_$newSeasonName';
-    final seasonOverrideStr = FirebaseMetadataService.getOverride(seasonSpecificKey);
+    final seasonOverrideStr = ref.read(firebaseMetadataProvider.notifier).getOverride(seasonSpecificKey);
     
     if ((_overrideIds == null || _overrideIds!.isEmpty) && (seasonOverrideStr == null || seasonOverrideStr.isEmpty)) {
       return;
@@ -260,7 +260,7 @@ class _AndroidSeriesDetailsScreenState extends ConsumerState<AndroidSeriesDetail
 
     // 1. Check if Firebase has preloaded manual metadata for this season
     if (seasonOverrideStr != null && seasonOverrideStr.isNotEmpty) {
-      final preloadedMeta = FirebaseMetadataService.getPreloadedMetadata(seasonSpecificKey);
+      final preloadedMeta = ref.read(firebaseMetadataProvider.notifier).getPreloadedMetadata(seasonSpecificKey);
       if (preloadedMeta != null && preloadedMeta.isNotEmpty) {
         if (mounted) {
           setState(() {
@@ -274,7 +274,7 @@ class _AndroidSeriesDetailsScreenState extends ConsumerState<AndroidSeriesDetail
       }
     } else {
       // If no season override, check if we have a series-level preloaded data matching this index
-      final seriesPreloaded = FirebaseMetadataService.getPreloadedMetadata(widget.series.coreName);
+      final seriesPreloaded = ref.read(firebaseMetadataProvider.notifier).getPreloadedMetadata(widget.series.coreName);
       if (seriesPreloaded != null && newIndex < seriesPreloaded.length) {
         if (mounted) {
           setState(() {
@@ -469,7 +469,7 @@ class _AndroidSeriesDetailsScreenState extends ConsumerState<AndroidSeriesDetail
     // 1. Deep ID Match (Highest Priority)
     for (final s in allSeries) {
       // Check core ID
-      final coreOverride = FirebaseMetadataService.getOverride(s.coreName);
+      final coreOverride = ref.read(firebaseMetadataProvider.notifier).getOverride(s.coreName);
       if (coreOverride != null && coreOverride.split(',').contains(targetIdStr)) {
         matchedSeries = s;
         break;
@@ -477,7 +477,7 @@ class _AndroidSeriesDetailsScreenState extends ConsumerState<AndroidSeriesDetail
       // Check season-specific IDs
       for (int i = 0; i < s.seasons.length; i++) {
         final seasonKey = '${s.coreName}_${s.seasons[i].seasonName}';
-        final seasonOverride = FirebaseMetadataService.getOverride(seasonKey);
+        final seasonOverride = ref.read(firebaseMetadataProvider.notifier).getOverride(seasonKey);
         if (seasonOverride != null && seasonOverride.split(',').contains(targetIdStr)) {
           matchedSeries = s;
           matchedSeasonIndex = i;
@@ -507,11 +507,9 @@ class _AndroidSeriesDetailsScreenState extends ConsumerState<AndroidSeriesDetail
 
     if (matchedSeries != null) {
       // It's uploaded! Fetch override if exists, then navigate
-      final overrideId = FirebaseMetadataService.getOverride(
-        matchedSeasonIndex != null 
+      final overrideId = ref.read(firebaseMetadataProvider.notifier).getOverride(matchedSeasonIndex != null
             ? '${matchedSeries.coreName}_${matchedSeries.seasons[matchedSeasonIndex].seasonName}' 
-            : matchedSeries.coreName,
-      ) ?? FirebaseMetadataService.getOverride(matchedSeries.coreName);
+            : matchedSeries.coreName) ?? ref.read(firebaseMetadataProvider.notifier).getOverride(matchedSeries.coreName);
 
       List<String>? overrideIds;
       SeriesMetadata? newMeta;

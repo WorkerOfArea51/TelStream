@@ -292,10 +292,10 @@ class SpeedSelectorPanelState extends ConsumerState<SpeedSelectorPanel> {
                     _buildSwitchTile(
                       title: 'Long press to speed up',
                       subtitle: 'Speed up playback on holding the screen.',
-                      value: settings.dynamicSpeedOverlay,
+                      value: settings.layout.dynamicSpeedOverlay,
                       onChanged: (val) {
                         ref.read(videoSettingsProvider.notifier).updateSettings(
-                          settings.copyWith(dynamicSpeedOverlay: val),
+                          settings.copyWith(layout: settings.layout.copyWith(dynamicSpeedOverlay: val)),
                         );
                       },
                       settingsAccent: settingsAccent,
@@ -324,7 +324,7 @@ class SpeedSelectorPanelState extends ConsumerState<SpeedSelectorPanel> {
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  '${settings.longPressSpeed.toStringAsFixed(1)}x',
+                                  '${settings.gestures.longPressSpeed.toStringAsFixed(1)}x',
                                   style: TextStyle(color: Colors.white.withValues(alpha: 0.45), fontSize: 12),
                                 ),
                               ],
@@ -340,10 +340,10 @@ class SpeedSelectorPanelState extends ConsumerState<SpeedSelectorPanel> {
                     _buildSwitchTile(
                       title: 'Long press vibration',
                       subtitle: 'Vibrate on triggering long-press speed up.',
-                      value: settings.longPressVibration,
+                      value: settings.gestures.longPressVibration,
                       onChanged: (val) {
                         ref.read(videoSettingsProvider.notifier).updateSettings(
-                          settings.copyWith(longPressVibration: val),
+                          settings.copyWith(gestures: settings.gestures.copyWith(longPressVibration: val)),
                         );
                       },
                       settingsAccent: settingsAccent,
@@ -356,13 +356,13 @@ class SpeedSelectorPanelState extends ConsumerState<SpeedSelectorPanel> {
                 child: ListView(
                   padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
                   children: [1.5, 2.0, 3.0, 4.0].map((rate) {
-                    final isSelected = settings.longPressSpeed == rate;
+                    final isSelected = settings.gestures.longPressSpeed == rate;
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 12),
                       child: InkWell(
                         onTap: () {
                           ref.read(videoSettingsProvider.notifier).updateSettings(
-                            settings.copyWith(longPressSpeed: rate),
+                            settings.copyWith(gestures: settings.gestures.copyWith(longPressSpeed: rate)),
                           );
                           setState(() {
                             _currentScreen = 'advanced';

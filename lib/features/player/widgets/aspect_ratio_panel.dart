@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_theme.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:media_kit_video/media_kit_video.dart'; // For BoxFit
 
 class AspectRatioPanel extends ConsumerWidget {
   final VoidCallback onClose;

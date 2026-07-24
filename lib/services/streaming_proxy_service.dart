@@ -191,7 +191,14 @@ class StreamingProxyService {
     _updatesSub = null;
     await _server?.close(force: true);
     _server = null;
-    _fileStates.clear();
+
+    for (final completers in _abortCompleters.values) {
+      for (final c in completers) {
+        if (!c.isCompleted) c.complete();
+      }
+    }
+    _abortCompleters.clear();
+_fileStates.clear();
     _activeDownloadOffsets.clear();
     _downloadedSizeAtOffsets.clear();
     _activeRequestOffsets.clear();
@@ -482,6 +489,8 @@ class StreamingProxyService {
 
           bool clientDisconnected = false;
           request.response.done.then((_) {
+            clientDisconnected = true;
+          }).catchError((_) {
             clientDisconnected = true;
           });
 

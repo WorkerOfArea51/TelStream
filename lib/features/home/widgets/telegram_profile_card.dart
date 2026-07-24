@@ -211,8 +211,8 @@ class _TelegramProfileCardState extends ConsumerState<TelegramProfileCard> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
     final settingsAccent = theme.extension<AppThemeExtension>()?.settingsAccent ?? theme.primaryColor;
 
     return Container(

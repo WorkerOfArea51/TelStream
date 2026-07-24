@@ -73,23 +73,23 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final theme = Theme.of(context);
     final customTheme = theme.extension<AppThemeExtension>();
     final settingsBg = customTheme?.settingsBackground ?? theme.scaffoldBackgroundColor;
     final settingsAccent = customTheme?.settingsAccent ?? theme.primaryColor;
-    final isDark = theme.brightness == Brightness.dark;
     
     final themeState = ref.watch(appThemeProvider);
     final storage = ref.read(storageServiceProvider);
-    final l10n = AppLocalizations.of(context)!;
 
     return Scaffold(
       backgroundColor: settingsBg,
       appBar: AppBar(
-        title: Text(l10n.settings, style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black87)),
+        title: Text(l10n.settings, style: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface)),
         backgroundColor: Colors.transparent,
         elevation: 0,
-        iconTheme: IconThemeData(color: isDark ? Colors.white : Colors.black87),
+        iconTheme: IconThemeData(color: Theme.of(context).colorScheme.onSurface),
       ),
       body: Center(
         child: ConstrainedBox(

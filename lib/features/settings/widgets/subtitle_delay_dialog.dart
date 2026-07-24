@@ -22,9 +22,9 @@ class SubtitleDelayDialogState extends State<SubtitleDelayDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
     final l10n = AppLocalizations.of(context)!;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final theme = Theme.of(context);
     
     return AlertDialog(
       backgroundColor: theme.cardColor,
@@ -32,7 +32,7 @@ class SubtitleDelayDialogState extends State<SubtitleDelayDialog> {
         borderRadius: BorderRadius.circular(16),
         side: BorderSide(color: theme.colorScheme.onSurface.withValues(alpha: 0.08), width: 1),
       ),
-      title: Text(l10n.subtitleDelayOffsetDialogTitle, style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
+      title: Text(l10n.subtitleDelayOffsetDialogTitle, style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -42,7 +42,7 @@ class SubtitleDelayDialogState extends State<SubtitleDelayDialog> {
                 : _value > 0.0
                     ? l10n.delayPositive(_value.toStringAsFixed(1))
                     : l10n.delayNegative(_value.toStringAsFixed(1)),
-            style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontSize: 18),
+            style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 18),
           ),
           Slider(
             value: _value,
@@ -66,7 +66,7 @@ class SubtitleDelayDialogState extends State<SubtitleDelayDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: Text(l10n.cancel, style: TextStyle(color: isDark ? Colors.white54 : Colors.black54)),
+          child: Text(l10n.cancel, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
         ),
         TextButton(
           onPressed: () => Navigator.pop(context, _value),

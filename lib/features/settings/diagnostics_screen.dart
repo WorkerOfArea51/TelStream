@@ -66,8 +66,8 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
     final storage = ref.watch(storageServiceProvider);
     final settings = ref.watch(videoSettingsProvider);
     
@@ -76,7 +76,7 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
       final divColor = theme.dividerColor;
       final isAndroid = Platform.isAndroid;
     final decoderMode = storage.getHardwareDecoderMode();
-    final isNativeBlending = settings.subtitleRendererMode == 'native';
+    final isNativeBlending = settings.subtitles.subtitleRendererMode == 'native';
     
     // Check for the critical zero-copy subtitle rendering conflict
     final hasConflict = isAndroid && isNativeBlending && decoderMode == 'mediacodec';
@@ -189,7 +189,7 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
                 ListTile(
                   title: Text(l10n.subtitleRendererMode, style: TextStyle(color: textColor)),
                   subtitle: Text(
-                    settings.subtitleRendererMode == 'flutter' 
+                    settings.subtitles.subtitleRendererMode == 'flutter'
                         ? 'Compatible Flutter Text Overlay' 
                         : 'Stylized Native Blending',
                     style: TextStyle(color: subTextColor, fontSize: 12),

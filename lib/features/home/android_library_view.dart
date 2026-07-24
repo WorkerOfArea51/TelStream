@@ -830,7 +830,7 @@ class _LibraryGridItemState extends ConsumerState<_LibraryGridItem> {
   }
 }
 
-class FeaturedCarousel extends StatefulWidget {
+class FeaturedCarousel extends ConsumerStatefulWidget {
   final List<AnimeSeries> seriesList;
   final String categoryTitle;
   final bool isActive;
@@ -843,10 +843,10 @@ class FeaturedCarousel extends StatefulWidget {
   });
 
   @override
-  State<FeaturedCarousel> createState() => _FeaturedCarouselState();
+  ConsumerState<FeaturedCarousel> createState() => _FeaturedCarouselState();
 }
 
-class _FeaturedCarouselState extends State<FeaturedCarousel> {
+class _FeaturedCarouselState extends ConsumerState<FeaturedCarousel> {
   late final PageController _pageController;
   int _currentPage = 0;
   Timer? _timer;
@@ -945,7 +945,7 @@ class _FeaturedCarouselState extends State<FeaturedCarousel> {
                 child: GestureDetector(
                   onTap: () async {
                     if (series.seasons.isEmpty) return;
-                    final overrideId = FirebaseMetadataService.getOverride(
+                    final overrideId = ref.read(firebaseMetadataProvider.notifier).getOverride(
                       series.coreName,
                     );
                     if (overrideId != null && overrideId.isNotEmpty) {
@@ -1756,8 +1756,8 @@ class LibraryItemActionHandler {
       ref.read(desktopSelectedSeriesProvider.notifier).state = series;
       return;
     }
-    final overrideId = FirebaseMetadataService.getOverride(series.coreName);
-    final preloadedMetadata = FirebaseMetadataService.getPreloadedMetadata(series.coreName);
+    final overrideId = ref.read(firebaseMetadataProvider.notifier).getOverride(series.coreName);
+    final preloadedMetadata = ref.read(firebaseMetadataProvider.notifier).getPreloadedMetadata(series.coreName);
     
     if (overrideId != null && overrideId.isNotEmpty) {
       final overrideIds = overrideId.split(',');
@@ -1819,7 +1819,7 @@ class LibraryItemActionHandler {
     final me = await tdlibService.sendAsync(const td.GetMe());
     if (me is td.User && me.id == Constants.adminUserId) {
       if (!context.mounted) return;
-      final existingIds = FirebaseMetadataService.getOverride(series.coreName);
+      final existingIds = ref.read(firebaseMetadataProvider.notifier).getOverride(series.coreName);
       final result = await showDialog<String>(
         context: context,
         builder: (c) => AdminOverrideDialog(
@@ -1880,7 +1880,7 @@ class LibraryItemActionHandler {
 
           if (context.mounted) Navigator.pop(context);
 
-          await FirebaseMetadataService.saveOverride(
+          await ref.read(firebaseMetadataProvider.notifier).saveOverride(
             categoryTitle,
             series.coreName,
             ids.join(','),

@@ -5,45 +5,49 @@ void main() {
   group('Subtitle Customization Settings Tests', () {
     test('VideoSettings default values are set correctly', () {
       const settings = VideoSettings();
-      expect(settings.subtitleFontSize, 20.0);
-      expect(settings.subtitleColor, '#FFFFFF');
-      expect(settings.subtitleDelay, 0.0);
-      expect(settings.subtitleFont, 'Roboto');
+      expect(settings.subtitles.subtitleFontSize, 20.0);
+      expect(settings.subtitles.subtitleColor, '#FFFFFF');
+      expect(settings.subtitles.subtitleDelay, 0.0);
+      expect(settings.subtitles.subtitleFont, 'Roboto');
     });
 
     test('VideoSettings.copyWith updates specific properties', () {
       const settings = VideoSettings();
       final updated = settings.copyWith(
-        subtitleFontSize: 50.0,
-        subtitleColor: '#FFFF00',
-        subtitleDelay: 1.5,
-        subtitleFont: 'Arial',
+        subtitles: settings.subtitles.copyWith(
+          subtitleFontSize: 50.0,
+          subtitleColor: '#FFFF00',
+          subtitleDelay: 1.5,
+          subtitleFont: 'Arial',
+        ),
       );
 
-      expect(updated.subtitleFontSize, 50.0);
-      expect(updated.subtitleColor, '#FFFF00');
-      expect(updated.subtitleDelay, 1.5);
-      expect(updated.subtitleFont, 'Arial');
+      expect(updated.subtitles.subtitleFontSize, 50.0);
+      expect(updated.subtitles.subtitleColor, '#FFFF00');
+      expect(updated.subtitles.subtitleDelay, 1.5);
+      expect(updated.subtitles.subtitleFont, 'Arial');
 
       // Unchanged properties remain the same
-      expect(updated.seekbarStyle, settings.seekbarStyle);
+      expect(updated.layout.seekbarStyle, settings.layout.seekbarStyle);
     });
 
-    test('VideoSettings toJson and fromJson match', () {
+    test('VideoSettings toFlatJson and fromFlatJson match', () {
       final original = const VideoSettings().copyWith(
-        subtitleFontSize: 60.0,
-        subtitleColor: '#FF0000',
-        subtitleDelay: -2.0,
-        subtitleFont: 'DejaVuSans',
+        subtitles: const SubtitleSettings().copyWith(
+          subtitleFontSize: 60.0,
+          subtitleColor: '#FF0000',
+          subtitleDelay: -2.0,
+          subtitleFont: 'DejaVuSans',
+        ),
       );
 
-      final json = original.toJson();
-      final fromJson = VideoSettings.fromJson(json);
+      final json = original.toFlatJson();
+      final fromJson = VideoSettings.fromFlatJson(json, 'auto');
 
-      expect(fromJson.subtitleFontSize, original.subtitleFontSize);
-      expect(fromJson.subtitleColor, original.subtitleColor);
-      expect(fromJson.subtitleDelay, original.subtitleDelay);
-      expect(fromJson.subtitleFont, original.subtitleFont);
+      expect(fromJson.subtitles.subtitleFontSize, original.subtitles.subtitleFontSize);
+      expect(fromJson.subtitles.subtitleColor, original.subtitles.subtitleColor);
+      expect(fromJson.subtitles.subtitleDelay, original.subtitles.subtitleDelay);
+      expect(fromJson.subtitles.subtitleFont, original.subtitles.subtitleFont);
     });
   });
 }

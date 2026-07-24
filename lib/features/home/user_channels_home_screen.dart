@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/utils/responsive_utils.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../l10n/app_localizations.dart';
 import '../../core/constants.dart';
@@ -49,8 +50,8 @@ class _UserChannelsHomeScreenState extends ConsumerState<UserChannelsHomeScreen>
       ),
       body: GridView.builder(
         padding: const EdgeInsets.all(16),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: responsiveCrossAxisCount(context, itemWidth: 150),
           crossAxisSpacing: 12,
           mainAxisSpacing: 12,
           childAspectRatio: 1.1,

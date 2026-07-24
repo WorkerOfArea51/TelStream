@@ -1,5 +1,5 @@
 import 'widgets/squiggly_play_button.dart';
-import 'widgets/cached_video_widget.dart';
+
 import 'dart:async';
 import 'dart:io';
 import 'dart:ui';
@@ -23,8 +23,8 @@ import '../../core/logger.dart';
 import '../../services/streaming_proxy_service.dart';
 import 'package:path_provider/path_provider.dart';
 import '../../services/permission_service.dart';
-import 'pip_manager.dart';
-import '../../services/download_service.dart';
+
+
 import 'widgets/equalizer_dialog.dart';
 import 'widgets/speed_selector_panel.dart';
 import 'widgets/track_selector_panel.dart';
@@ -34,6 +34,13 @@ import 'widgets/more_options_panel.dart';
 import 'widgets/subtitle_downloader_dialog.dart';
 import 'widgets/audio_sync_dialog.dart';
 import 'widgets/player_playback_bar.dart';
+
+import 'widgets/queue_dialog.dart';
+import 'widgets/nerd_stats_overlay.dart';
+import 'widgets/osd_indicator.dart';
+import 'widgets/auto_next_overlay.dart';
+
+
 import 'widgets/flashing_chevrons.dart';
 import 'widgets/player_header_bar.dart';
 
@@ -457,7 +464,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
       _buildCircularActionButton(
         icon: Icons.equalizer,
         label: AppLocalizations.of(context)!.equalizer,
-        isActive: ref.watch(videoSettingsProvider).equalizerEnabled,
+        isActive: ref.watch(videoSettingsProvider).audio.equalizerEnabled,
         onTap: _showEqualizerDialog,
       ),
       _buildCircularActionButton(
@@ -477,13 +484,13 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
       _buildCircularActionButton(
         icon: Icons.analytics_outlined,
         label: AppLocalizations.of(context)!.stats,
-        isActive: ref.watch(videoSettingsProvider).showStatsForNerds,
+        isActive: ref.watch(videoSettingsProvider).layout.showStatsForNerds,
         onTap: () {
           final s = ref.read(videoSettingsProvider);
           ref
               .read(videoSettingsProvider.notifier)
               .updateSettings(
-                s.copyWith(showStatsForNerds: !s.showStatsForNerds),
+                s.copyWith(layout: s.layout.copyWith(showStatsForNerds: !s.layout.showStatsForNerds)),
               );
         },
       ),
@@ -651,7 +658,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     _statsTimer?.cancel();
     _statsTimer = Timer.periodic(const Duration(seconds: 1), (timer) async {
       final settings = ref.read(videoSettingsProvider);
-      if (!settings.showStatsForNerds || !mounted) {
+      if (!settings.layout.showStatsForNerds || !mounted) {
         _statsTimer?.cancel();
         return;
       }
@@ -788,7 +795,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     super.initState();
     _outroThresholdSeconds = ref.read(storageServiceProvider).getVideoSettings()['outro_threshold_seconds'] as int? ?? 45;
     final settings = ref.read(videoSettingsProvider);
-    _nightModeActive = settings.dynamicRangeCompression;
+    _nightModeActive = settings.audio.dynamicRangeCompression;
     if (settings.rememberSpeed) {
       final savedSpeed = ref.read(storageServiceProvider).getPlaybackSpeed();
       if (savedSpeed != 1.0) {
@@ -1773,9 +1780,9 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
           details.focalPoint.dx - _dragStartFocalPoint!.dx;
       final settings = ref.read(videoSettingsProvider);
       double sensitivityMultiplier = 1.0;
-      if (settings.gestureSensitivity == 'Low') {
+      if (settings.gestures.gestureSensitivity == 'Low') {
         sensitivityMultiplier = 0.5;
-      } else if (settings.gestureSensitivity == 'High') {
+      } else if (settings.gestures.gestureSensitivity == 'High') {
         sensitivityMultiplier = 1.5;
       }
       final secondsOffset =
@@ -1799,8 +1806,8 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
       final settings = ref.read(videoSettingsProvider);
       final isLeft = _dragStartFocalPoint!.dx <= screenWidth / 2;
       final action = isLeft
-          ? settings.leftSwipeGesture
-          : settings.rightSwipeGesture;
+          ? settings.gestures.leftSwipeGesture
+          : settings.gestures.rightSwipeGesture;
 
       if (action == 'Volume' && volGestures) {
         _performVerticalSwipeAction('Volume', deltaY);
@@ -1862,9 +1869,9 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
   void _performVerticalSwipeAction(String actionType, double deltaY) {
     final settings = ref.read(videoSettingsProvider);
     double sensitivityMultiplier = 1.0;
-    if (settings.gestureSensitivity == 'Low') {
+    if (settings.gestures.gestureSensitivity == 'Low') {
       sensitivityMultiplier = 0.5;
-    } else if (settings.gestureSensitivity == 'High') {
+    } else if (settings.gestures.gestureSensitivity == 'High') {
       sensitivityMultiplier = 1.5;
     }
 
@@ -1939,8 +1946,8 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
         }
 
         final settings = ref.read(videoSettingsProvider);
-        if (settings.equalizerEnabled) {
-          final bands = settings.equalizerBands;
+        if (settings.audio.equalizerEnabled) {
+          final bands = settings.audio.equalizerBands;
           filters.add('equalizer=f=100:width_type=o:w=2.0:g=${bands[0]}');
           filters.add('equalizer=f=300:width_type=o:w=2.0:g=${bands[1]}');
           filters.add('equalizer=f=1000:width_type=o:w=2.0:g=${bands[2]}');
@@ -1956,11 +1963,15 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
           Log.i('Cleared all audio filters');
         }
 
-        if (settings.dynamicRangeCompression != _nightModeActive) {
+        if (settings.audio.dynamicRangeCompression != _nightModeActive) {
           ref
               .read(videoSettingsProvider.notifier)
               .updateSettings(
-                settings.copyWith(dynamicRangeCompression: _nightModeActive),
+                settings.copyWith(
+                  audio: settings.audio.copyWith(
+                    dynamicRangeCompression: !settings.audio.dynamicRangeCompression,
+                  ),
+                ),
               );
         }
       }
@@ -2157,7 +2168,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     if (isSub) {
       widget.player.setSubtitleTrack(track);
       final settings = ref.read(videoSettingsProvider);
-      final isNativeSub = settings.subtitleRendererMode == 'native';
+      final isNativeSub = settings.subtitles.subtitleRendererMode == 'native';
       _applySubtitleProperty(
         'sub-visibility',
         (track.id == 'no' || !isNativeSub) ? 'no' : 'yes',
@@ -2272,7 +2283,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     final isPortrait =
         MediaQuery.of(context).orientation == Orientation.portrait;
     final settings = ref.watch(videoSettingsProvider);
-    if (settings.showStatsForNerds &&
+    if (settings.layout.showStatsForNerds &&
         (_statsTimer == null || !_statsTimer!.isActive)) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) _startStatsTimer();
@@ -2308,21 +2319,21 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
       onScaleUpdate: (details) => _handleScaleUpdate(
         details,
         screenWidth,
-        settings.pinchToZoom,
-        settings.volumeGestures,
-        settings.brightnessGestures,
-        settings.horizontalSwipeToSeek,
+        settings.gestures.pinchToZoom,
+        settings.gestures.volumeGestures,
+        settings.gestures.brightnessGestures,
+        settings.gestures.horizontalSwipeToSeek,
       ),
       onScaleEnd: _handleScaleEnd,
       onDoubleTapDown: (details) => _handleDoubleTap(
         details,
         screenWidth,
-        settings.doubleTapSeekDuration,
+        settings.gestures.doubleTapSeekDuration,
       ),
       onLongPressStart: (details) {
-        if (_isLocked || !settings.dynamicSpeedOverlay) return;
-        final speed = settings.longPressSpeed;
-        if (settings.longPressVibration) {
+        if (_isLocked || !settings.layout.dynamicSpeedOverlay) return;
+        final speed = settings.gestures.longPressSpeed;
+        if (settings.gestures.longPressVibration) {
           HapticFeedback.heavyImpact();
         }
         _preLongPressSpeed = widget.player.state.rate;
@@ -2333,7 +2344,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
         });
       },
       onLongPressEnd: (details) {
-        if (!settings.dynamicSpeedOverlay) return;
+        if (!settings.layout.dynamicSpeedOverlay) return;
         widget.player.setRate(_preLongPressSpeed);
         setState(() {
           _showSeekIndicator = false;
@@ -2491,15 +2502,15 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
             Positioned(
               top: 100,
               left: 40,
-              child: _buildOSD(Icons.light_mode, _currentBrightness),
+              child: OSDIndicator(icon: Icons.light_mode, value: _currentBrightness),
             ),
           if (_showVolumeIndicator && !_isLocked)
             Positioned(
               top: 100,
               right: 40,
-              child: _buildOSD(
-                _currentVolume == 0 ? Icons.volume_off : Icons.volume_up,
-                _currentVolume > 100
+              child: OSDIndicator(
+                icon: _currentVolume == 0 ? Icons.volume_off : Icons.volume_up,
+                value: _currentVolume > 100
                     ? (_currentVolume - 100) / 100
                     : _currentVolume / 100,
                 isBoosted: _currentVolume > 100,
@@ -2688,7 +2699,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                     expectedSize: widget.expectedSize,
                     activeDownloadOffset: widget.activeDownloadOffset,
                     activeDownloadedSize: widget.activeDownloadedSize,
-                    seekbarStyle: settings.seekbarStyle,
+                    seekbarStyle: settings.layout.seekbarStyle,
                     settingsAccent: settingsAccent,
                     isPositionDownloaded: _isPositionDownloaded,
                     throttledSeek: _throttledSeek,
@@ -3042,75 +3053,19 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
           ],
 
           // Auto Play Next Countdown Overlay
-          if (_showAutoNextCountdown || _autoNextSlideIn)
-            AnimatedPositioned(
-              duration: const Duration(milliseconds: 500),
-              curve: Curves.easeInOutCubic,
-              bottom: _showControls ? 130 : 30,
-              right: _autoNextSlideIn ? 30 : -350,
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(16),
-                child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                  child: Container(
-                    padding: const EdgeInsets.all(16),
-                    width: 320,
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.7),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: Colors.white10),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          'Next episode starts in $_autoNextSecondsRemaining seconds...',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          children: [
-                            TextButton(
-                              onPressed: _onCancelAutoNext,
-                              child: const Text(
-                                'Cancel',
-                                style: TextStyle(color: Colors.white70),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            ElevatedButton(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: settingsAccent,
-                                foregroundColor:
-                                    settingsAccent.computeLuminance() > 0.5
-                                    ? Colors.black
-                                    : Colors.white,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                              ),
-                              onPressed: () {
-                                _cancelAutoNextCountdown();
-                                if (widget.onNextEpisode != null) {
-                                  widget.onNextEpisode!();
-                                }
-                              },
-                              child: const Text('Play Now'),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
+          AutoNextOverlay(
+            showAutoNextCountdown: _showAutoNextCountdown,
+            autoNextSlideIn: _autoNextSlideIn,
+            autoNextSecondsRemaining: _autoNextSecondsRemaining,
+            showControls: _showControls,
+            onCancelAutoNext: _onCancelAutoNext,
+            onPlayNow: () {
+              _cancelAutoNextCountdown();
+              if (widget.onNextEpisode != null) {
+                widget.onNextEpisode!();
+              }
+            },
+          ),
 
           // Toast Message for Auto Skip / Actions
           if (_toastShowing)
@@ -3148,62 +3103,11 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
             ),
 
           // Stats for Nerds Overlay
-          if (settings.showStatsForNerds && _nerdStats.isNotEmpty)
+          if (settings.layout.showStatsForNerds && _nerdStats.isNotEmpty)
             Positioned(
               top: 185,
               left: 16,
-              child: IgnorePointer(
-                child: Container(
-                  padding: const EdgeInsets.all(12),
-                  width: 250,
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.75),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.white12),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Text(
-                        'Stats for Nerds',
-                        style: TextStyle(
-                          color: Colors.orange,
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const Divider(color: Colors.white12, height: 8),
-                      ..._nerdStats.entries.map((entry) {
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 3.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                entry.key,
-                                style: const TextStyle(
-                                  color: Colors.white54,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                              Text(
-                                entry.value,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 11,
-                                  fontFamily: 'monospace',
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                      }),
-                    ],
-                  ),
-                ),
-              ),
+              child: NerdStatsOverlay(nerdStats: _nerdStats),
             ),
 
           // Custom Track Selector Panel
@@ -3325,54 +3229,6 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     );
   }
 
-  Widget _buildOSD(IconData icon, double value, {bool isBoosted = false}) {
-    final theme = Theme.of(context);
-    final customTheme = theme.extension<AppThemeExtension>();
-    final settingsAccent = customTheme?.settingsAccent ?? theme.primaryColor;
-    final displayValue = value.clamp(0.0, 1.0);
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.black54,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        children: [
-          Icon(icon, color: isBoosted ? Colors.amber : Colors.white, size: 28),
-          const SizedBox(height: 8),
-          Container(
-            width: 4,
-            height: 100,
-            decoration: BoxDecoration(
-              color: Colors.white24,
-              borderRadius: BorderRadius.circular(2),
-            ),
-            alignment: Alignment.bottomCenter,
-            child: Container(
-              width: 4,
-              height: 100 * displayValue,
-              decoration: BoxDecoration(
-                color: isBoosted ? Colors.amber : settingsAccent,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-          ),
-          if (isBoosted) ...[
-            const SizedBox(height: 4),
-            const Text(
-              'BOOST',
-              style: TextStyle(
-                color: Colors.amber,
-                fontSize: 8,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
     Future<void> _pickLocalSubtitleFile() async {
     try {
       final result = await FilePicker.platform.pickFiles(
@@ -3429,10 +3285,6 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
 
   void _showQueueManagerSheet() {
     _hideTimer?.cancel();
-    final theme = Theme.of(context);
-    final customTheme = theme.extension<AppThemeExtension>();
-    final settingsAccent = customTheme?.settingsAccent ?? theme.primaryColor;
-
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.black.withValues(alpha: 0.95),
@@ -3441,338 +3293,13 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
       ),
       isScrollControlled: true,
       builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setModalState) {
-            final pipState = ref.watch(pipControllerProvider);
-            if (pipState == null) {
-              return const SizedBox(
-                height: 100,
-                child: Center(
-                  child: Text(
-                    'No active queue',
-                    style: TextStyle(color: Colors.white70),
-                  ),
-                ),
-              );
-            }
-
-            final queue = pipState.queue;
-            final currentIndex = pipState.currentIndex;
-
-            return Container(
-              height: MediaQuery.of(context).size.height * 0.7,
-              padding: const EdgeInsets.only(
-                top: 16,
-                left: 16,
-                right: 16,
-                bottom: 8,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.playlist_play_rounded,
-                            color: settingsAccent,
-                            size: 28,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            'Play Queue (${queue.length})',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                      Row(
-                        children: [
-                          TextButton.icon(
-                            onPressed: () => _showAddFromDownloadsDialog(
-                              context,
-                              setModalState,
-                            ),
-                            icon: const Icon(
-                              Icons.add_rounded,
-                              size: 18,
-                              color: Colors.blueAccent,
-                            ),
-                            label: const Text(
-                              'Add Downloads',
-                              style: TextStyle(
-                                color: Colors.blueAccent,
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                          IconButton(
-                            icon: const Icon(
-                              Icons.close,
-                              color: Colors.white60,
-                            ),
-                            onPressed: () {
-                              Navigator.pop(context);
-                              _startHideTimer();
-                            },
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                  const Divider(color: Colors.white24, height: 16),
-                  Expanded(
-                    child: queue.isEmpty
-                        ? const Center(
-                            child: Text(
-                              'Queue is empty',
-                              style: TextStyle(color: Colors.white30),
-                            ),
-                          )
-                        : ReorderableListView.builder(
-                            itemCount: queue.length,
-                            onReorderItem: (oldIndex, newIndex) {
-                              // onReorderItem provides the adjusted newIndex (as if the item is already removed).
-                              // Since pipControllerProvider.reorderQueue expects the raw onReorder index, we adjust it back.
-                              final rawNewIndex = oldIndex < newIndex
-                                  ? newIndex + 1
-                                  : newIndex;
-                              ref
-                                  .read(pipControllerProvider.notifier)
-                                  .reorderQueue(oldIndex, rawNewIndex);
-                              setModalState(() {});
-                            },
-                            itemBuilder: (context, index) {
-                              final item = queue[index];
-                              final isCurrent = index == currentIndex;
-
-                              return ListTile(
-                                key: ValueKey('${item.videoFileId}_$index'),
-                                contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 4,
-                                ),
-                                leading: Icon(
-                                  isCurrent
-                                      ? Icons.play_arrow_rounded
-                                      : Icons.drag_handle_rounded,
-                                  color: isCurrent
-                                      ? settingsAccent
-                                      : Colors.white38,
-                                ),
-                                title: Text(
-                                  item.videoTitle,
-                                  style: TextStyle(
-                                    color: isCurrent
-                                        ? settingsAccent
-                                        : Colors.white,
-                                    fontWeight: isCurrent
-                                        ? FontWeight.bold
-                                        : FontWeight.normal,
-                                    fontSize: 13,
-                                  ),
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                subtitle: item.seriesName.isNotEmpty
-                                    ? Text(
-                                        item.seriesName,
-                                        style: TextStyle(
-                                          color: isCurrent
-                                              ? settingsAccent.withValues(
-                                                  alpha: 0.7,
-                                                )
-                                              : Colors.white54,
-                                          fontSize: 11,
-                                        ),
-                                      )
-                                    : null,
-                                trailing: isCurrent
-                                    ? Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 8,
-                                          vertical: 2,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: settingsAccent.withValues(
-                                            alpha: 0.12,
-                                          ),
-                                          borderRadius: BorderRadius.circular(
-                                            12,
-                                          ),
-                                        ),
-                                        child: Text(
-                                          'Playing',
-                                          style: TextStyle(
-                                            color: settingsAccent,
-                                            fontSize: 10,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                      )
-                                    : IconButton(
-                                        icon: const Icon(
-                                          Icons.delete_outline_rounded,
-                                          color: Colors.redAccent,
-                                          size: 20,
-                                        ),
-                                        onPressed: () {
-                                          ref
-                                              .read(
-                                                pipControllerProvider.notifier,
-                                              )
-                                              .removeFromQueue(index);
-                                          setModalState(() {});
-                                        },
-                                      ),
-                                onTap: isCurrent
-                                    ? null
-                                    : () {
-                                        Navigator.pop(context);
-                                        ref
-                                            .read(
-                                              pipControllerProvider.notifier,
-                                            )
-                                            .playQueueIndex(context, index);
-                                      },
-                              );
-                            },
-                          ),
-                  ),
-                ],
-              ),
-            );
-          },
+        return QueueDialogSheet(
+          onStartHideTimer: _startHideTimer,
         );
       },
     ).then((_) {
       _startHideTimer();
     });
-  }
-
-  void _showAddFromDownloadsDialog(
-    BuildContext context,
-    StateSetter setModalState,
-  ) {
-    final theme = Theme.of(context);
-    final customTheme = theme.extension<AppThemeExtension>();
-    final settingsAccent = customTheme?.settingsAccent ?? theme.primaryColor;
-
-    final downloadTasks = ref.read(downloadControllerProvider);
-    final completedDownloads = downloadTasks.entries
-        .where(
-          (entry) => entry.value.isCompleted && entry.value.localPath != null,
-        )
-        .toList();
-
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.black.withValues(alpha: 0.95),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      isScrollControlled: true,
-      builder: (context) {
-        return Container(
-          height: MediaQuery.of(context).size.height * 0.6,
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'Add Completed Downloads',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close, color: Colors.white60),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                ],
-              ),
-              const Divider(color: Colors.white24, height: 16),
-              Expanded(
-                child: completedDownloads.isEmpty
-                    ? const Center(
-                        child: Text(
-                          'No completed downloads available',
-                          style: TextStyle(color: Colors.white30, fontSize: 13),
-                        ),
-                      )
-                    : ListView.builder(
-                        itemCount: completedDownloads.length,
-                        itemBuilder: (context, index) {
-                          final entry = completedDownloads[index];
-                          final task = entry.value;
-
-                          return ListTile(
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
-                            ),
-                            leading: Icon(
-                              Icons.download_done_rounded,
-                              color: settingsAccent,
-                            ),
-                            title: Text(
-                              task.title,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 13,
-                                fontWeight: FontWeight.bold,
-                              ),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            trailing: const Icon(
-                              Icons.add_rounded,
-                              color: Colors.blueAccent,
-                            ),
-                            onTap: () {
-                              ref
-                                  .read(pipControllerProvider.notifier)
-                                  .addToQueue(
-                                    PlayQueueItem(
-                                      messageId: task.fileId,
-                                      videoFileId: task.fileId,
-                                      videoTitle: task.title,
-                                      seriesName: 'Offline Library',
-                                      networkUrl: task.localPath,
-                                    ),
-                                  );
-                              Navigator.pop(context);
-                              setModalState(() {});
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                    'Added to Queue: ${task.title}',
-                                  ),
-                                  backgroundColor: settingsAccent,
-                                  duration: const Duration(seconds: 2),
-                                ),
-                              );
-                            },
-                          );
-                        },
-                      ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
   }
 
   void _showEqualizerDialog() {
@@ -3823,7 +3350,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
         }
 
         final settings = ref.read(videoSettingsProvider);
-        final targetLibass = settings.subtitleRendererMode == 'native';
+        final targetLibass = settings.subtitles.subtitleRendererMode == 'native';
         final useNativeBlending = targetLibass;
 
         if (useNativeBlending) {
@@ -3849,7 +3376,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
 
           // Show SnackBar warning if on Android and using direct hardware decoding with a graphical/ASS track
           // ONLY if not in Flutter overlay mode (which handles rendering anyway)
-          final isTargetAssOrPgs = settings.subtitleRendererMode == 'native';
+          final isTargetAssOrPgs = settings.subtitles.subtitleRendererMode == 'native';
           if (Platform.isAndroid && mounted && isTargetAssOrPgs) {
             try {
               final countStr = await nativePlayer.getProperty(

@@ -289,9 +289,7 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
               savingFileIds.remove(fileId);
               Log.e('Failed to save downloaded file $fileId', e, st);
             });
-            _lastDownloadedSizes.remove(fileId);
-            _lastUpdateTimes.remove(fileId);
-            _lastStateUpdateTimes.remove(fileId);
+            _cleanupTaskMemory(fileId);
           } else {
             // Speed and ETA calculation
             final now = DateTime.now().millisecondsSinceEpoch;
@@ -860,10 +858,7 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
 
   Future<void> _saveFilePermanently(int fileId, String tempPath, String title) async {
     try {
-      _pausedBySchedulerFileIds.remove(fileId);
-      _isPwmPaused.remove(fileId);
-      _startDownloadedSize.remove(fileId);
-      _lastPwmUpdateSizes.remove(fileId);
+      _cleanupTaskMemory(fileId);
       
       final downloadsDir = await _getEffectiveDownloadsDirectory();
       if (!await downloadsDir.exists()) {
@@ -1200,6 +1195,17 @@ class DownloadController extends Notifier<Map<int, DownloadTask>> {
       
       state = {...state};
     }
+  }
+
+  void _cleanupTaskMemory(int fileId) {
+    _lastDownloadedSizes.remove(fileId);
+    _lastUpdateTimes.remove(fileId);
+    _lastStateUpdateTimes.remove(fileId);
+    _lastNotificationTimes.remove(fileId);
+    _startDownloadedSize.remove(fileId);
+    _lastPwmUpdateSizes.remove(fileId);
+    _pausedBySchedulerFileIds.remove(fileId);
+    _isPwmPaused.remove(fileId);
   }
 }
 

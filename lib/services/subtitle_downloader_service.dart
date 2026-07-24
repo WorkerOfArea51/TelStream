@@ -32,7 +32,7 @@ class SubtitleDownloaderService {
 
   Future<List<SubtitleMatch>> searchSubtitles(String query, {String lang = 'eng'}) async {
     final settings = _ref.read(videoSettingsProvider);
-    final provider = settings.preferredSubtitleProvider;
+    final provider = settings.subtitles.preferredSubtitleProvider;
     final storage = _ref.read(storageServiceProvider);
 
     // Clean the query for better matching
@@ -197,7 +197,7 @@ class SubtitleDownloaderService {
     try {
       final settings = _ref.read(videoSettingsProvider);
       final storage = _ref.read(storageServiceProvider);
-      final provider = settings.preferredSubtitleProvider;
+      final provider = settings.subtitles.preferredSubtitleProvider;
       
       List<int> bytes;
 

@@ -22,14 +22,13 @@ class SeekDurationDialogState extends State<SeekDurationDialog> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
     return AlertDialog(
       backgroundColor: theme.cardColor,
-      title: Text(AppLocalizations.of(context)!.doubleTapSeekDurationDialogTitle, style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
+      title: Text(AppLocalizations.of(context)!.doubleTapSeekDurationDialogTitle, style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(AppLocalizations.of(context)!.nSeconds(_value), style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontSize: 18)),
+          Text(AppLocalizations.of(context)!.nSeconds(_value), style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 18)),
           Slider(
             value: _value.toDouble(),
             min: 5,
@@ -47,7 +46,7 @@ class SeekDurationDialogState extends State<SeekDurationDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: Text(AppLocalizations.of(context)!.cancel, style: TextStyle(color: isDark ? Colors.white54 : Colors.black54)),
+          child: Text(AppLocalizations.of(context)!.cancel, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
         ),
         TextButton(
           onPressed: () => Navigator.pop(context, _value),

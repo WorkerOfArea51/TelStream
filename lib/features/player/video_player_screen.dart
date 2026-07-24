@@ -20,6 +20,7 @@ import '../../core/logger.dart';
 import '../../core/constants.dart';
 import '../../services/streaming_proxy_service.dart';
 import '../../services/tracker_service.dart';
+import 'utils/player_filter_service.dart';
 
 class VideoPlayerScreen extends ConsumerStatefulWidget {
   final int messageId;
@@ -77,8 +78,8 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
   late final PipController _pipController;
   late VideoSettings _settings;
   late final StreamingProxyService _proxyService;
-  late final dynamic _historyLog;
-  late final dynamic _downloadController;
+  late final HistoryLogNotifier _historyLog;
+  late final DownloadController _downloadController;
 
   @override
   void initState() {
@@ -940,25 +941,35 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
     ref.listen<VideoSettings>(videoSettingsProvider, (previous, next) {
       bool needAudioFilterUpdate = false;
       bool needSubUpdate = false;
-      if (previous?.subtitleRendererMode != next.subtitleRendererMode) {
+
+      if (previous?.streamingProfile != next.streamingProfile) {
+        _settings = next;
+        _applyStreamingProfile();
+      }
+
+      if (previous?.hardwareDecoderMode != next.hardwareDecoderMode) {
         _settings = next;
         _recreatePlayer();
       }
-      if (previous?.dynamicRangeCompression != next.dynamicRangeCompression ||
-          previous?.equalizerEnabled != next.equalizerEnabled ||
-          previous?.equalizerBands != next.equalizerBands) {
+      if (previous?.subtitles.subtitleRendererMode != next.subtitles.subtitleRendererMode) {
+        _settings = next;
+        _recreatePlayer();
+      }
+      if (previous?.audio.dynamicRangeCompression != next.audio.dynamicRangeCompression ||
+          previous?.audio.equalizerEnabled != next.audio.equalizerEnabled ||
+          previous?.audio.equalizerBands != next.audio.equalizerBands) {
         _settings = next;
         needAudioFilterUpdate = true;
       }
-      if (previous?.subtitleFontSize != next.subtitleFontSize ||
-          previous?.subtitleColor != next.subtitleColor ||
-          previous?.subtitleDelay != next.subtitleDelay ||
-          previous?.subtitleFont != next.subtitleFont) {
+      if (previous?.subtitles.subtitleFontSize != next.subtitles.subtitleFontSize ||
+          previous?.subtitles.subtitleColor != next.subtitles.subtitleColor ||
+          previous?.subtitles.subtitleDelay != next.subtitles.subtitleDelay ||
+          previous?.subtitles.subtitleFont != next.subtitles.subtitleFont) {
         _settings = next;
         needSubUpdate = true;
       }
       if (needAudioFilterUpdate) {
-        _updateAudioFilters();
+        PlayerFilterService.updateAudioFilters(player, _settings);
       }
       if (needSubUpdate) {
         _updateSubtitleProperties();
@@ -982,11 +993,11 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
                 }
                 return KeyEventResult.handled;
               } else if (key == LogicalKeyboardKey.arrowRight || key == LogicalKeyboardKey.keyL) {
-                final seekTarget = player.state.position + Duration(seconds: _settings.doubleTapSeekDuration);
+                final seekTarget = player.state.position + Duration(seconds: _settings.gestures.doubleTapSeekDuration);
                 _handleCustomSeek(seekTarget);
                 return KeyEventResult.handled;
               } else if (key == LogicalKeyboardKey.arrowLeft || key == LogicalKeyboardKey.keyJ) {
-                final seekTarget = player.state.position - Duration(seconds: _settings.doubleTapSeekDuration);
+                final seekTarget = player.state.position - Duration(seconds: _settings.gestures.doubleTapSeekDuration);
                 _handleCustomSeek(seekTarget);
                 return KeyEventResult.handled;
               } else if (key == LogicalKeyboardKey.arrowUp) {
@@ -1229,39 +1240,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
     }
   }
 
-  Future<void> _updateBlendSubtitlesForTrack(Player player, SubtitleTrack track) async {
-    try {
-      if (player.platform is NativePlayer) {
-        final nativePlayer = player.platform as NativePlayer;
-        String targetId = track.id;
-        if (targetId == 'auto') {
-          final sid = await nativePlayer.getProperty('sid');
-          if (sid == 'no' || sid == 'auto') {
-            nativePlayer.setProperty('blend-subtitles', 'no');
-            return;
-          }
-          targetId = sid;
-        } else if (targetId == 'no') {
-          nativePlayer.setProperty('blend-subtitles', 'no');
-          return;
-        }
 
-        final settings = ref.read(videoSettingsProvider);
-        final targetLibass = settings.subtitleRendererMode == 'native';
-        final useNativeBlending = targetLibass;
-        
-        if (useNativeBlending) {
-          nativePlayer.setProperty('blend-subtitles', 'yes');
-          Log.i('Native blending subtitle enabled. Set blend-subtitles to yes.');
-        } else {
-          nativePlayer.setProperty('blend-subtitles', 'no');
-          Log.i('Native blending subtitle disabled. Set blend-subtitles to no.');
-        }
-      }
-    } catch (e) {
-      Log.e('Failed to check and update blend-subtitles for track', e);
-    }
-  }
 
   Future<void> _recreatePlayer() async {
     try {
@@ -1383,8 +1362,8 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
     final localFont = ref.read(storageServiceProvider).localFontPath;
     player = Player(
       configuration: PlayerConfiguration(
-        pitch: _settings.pitchCorrection,
-        libass: _settings.subtitleRendererMode == 'native',
+        pitch: _settings.audio.pitchCorrection,
+        libass: _settings.subtitles.subtitleRendererMode == 'native',
         libassAndroidFont: localFont ?? 'assets/fonts/Roboto-Regular.ttf',
         libassAndroidFontName: 'Roboto',
       ),
@@ -1470,7 +1449,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
           }
         }
         nativePlayer.setProperty('sub-font', 'Roboto');
-        nativePlayer.setProperty('sub-visibility', _settings.subtitleRendererMode == 'native' ? 'yes' : 'no');
+        nativePlayer.setProperty('sub-visibility', _settings.subtitles.subtitleRendererMode == 'native' ? 'yes' : 'no');
         nativePlayer.setProperty('sub-auto', 'all');
         nativePlayer.setProperty('embeddedfonts', 'yes'); // Enable embedded fonts inside media containers (MKV, etc.)
         nativePlayer.setProperty('blend-subtitles', 'no'); // Set to 'no' so subtitles render independently and sync perfectly with the master audio clock
@@ -1490,7 +1469,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         }
 
         // Apply audio filters (DRC & Equalizer)
-        _updateAudioFilters();
+        PlayerFilterService.updateAudioFilters(player, _settings);
 
         // Apply adaptive streaming profile
         _applyStreamingProfile();
@@ -1712,7 +1691,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
       }
 
       // Update blend-subtitles based on selected track codec
-      _updateBlendSubtitlesForTrack(player, selectedTrack ?? player.state.track.subtitle);
+      PlayerFilterService.updateBlendSubtitlesForTrack(player, selectedTrack ?? player.state.track.subtitle);
     }));
 
     _subscriptions.add(player.stream.buffering.listen((buffering) {
@@ -1729,40 +1708,17 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
     }));
   }
 
-  void _updateAudioFilters() {
-    if (player.platform is NativePlayer) {
-      final nativePlayer = player.platform as NativePlayer;
-      final filters = <String>[];
-      if (_settings.dynamicRangeCompression) {
-        filters.add('lavfi=[dynaudnorm]');
-      }
-      if (_settings.equalizerEnabled) {
-        final bands = _settings.equalizerBands;
-        filters.add('equalizer=f=100:width_type=o:w=2.0:g=${bands[0]}');
-        filters.add('equalizer=f=300:width_type=o:w=2.0:g=${bands[1]}');
-        filters.add('equalizer=f=1000:width_type=o:w=2.0:g=${bands[2]}');
-        filters.add('equalizer=f=3000:width_type=o:w=2.0:g=${bands[3]}');
-        filters.add('equalizer=f=10000:width_type=o:w=2.0:g=${bands[4]}');
-      }
-      if (filters.isNotEmpty) {
-        nativePlayer.setProperty('af', filters.join(','));
-        Log.i('Applied audio filters dynamically: ${filters.join(',')}');
-      } else {
-        nativePlayer.setProperty('af', '');
-        Log.i('Cleared audio filters dynamically');
-      }
-    }
-  }
+
 
   void _updateSubtitleProperties() {
     if (player.platform is NativePlayer) {
       final nativePlayer = player.platform as NativePlayer;
-      nativePlayer.setProperty('sub-font-size', _settings.subtitleFontSize.round().toString());
-      nativePlayer.setProperty('sub-color', _settings.subtitleColor);
-      nativePlayer.setProperty('sub-delay', _settings.subtitleDelay.toString());
+      nativePlayer.setProperty('sub-font-size', _settings.subtitles.subtitleFontSize.round().toString());
+      nativePlayer.setProperty('sub-color', _settings.subtitles.subtitleColor);
+      nativePlayer.setProperty('sub-delay', _settings.subtitles.subtitleDelay.toString());
       
       String resolvedFontFamily = 'Roboto';
-      final fontName = _settings.subtitleFont.toLowerCase();
+      final fontName = _settings.subtitles.subtitleFont.toLowerCase();
       if (fontName.contains('arial')) {
         resolvedFontFamily = 'Arial';
       } else if (fontName.contains('dejavu')) {
@@ -1773,7 +1729,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         resolvedFontFamily = 'Roboto';
       }
       nativePlayer.setProperty('sub-font', resolvedFontFamily);
-      Log.i('Updated subtitle settings dynamically: size=${_settings.subtitleFontSize}, color=${_settings.subtitleColor}, delay=${_settings.subtitleDelay}, font=$resolvedFontFamily');
+      Log.i('Updated subtitle settings dynamically: size=${_settings.subtitles.subtitleFontSize}, color=${_settings.subtitles.subtitleColor}, delay=${_settings.subtitles.subtitleDelay}, font=$resolvedFontFamily');
     }
   }
 

@@ -133,10 +133,10 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> with SingleTi
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final theme = Theme.of(context);
     final customTheme = theme.extension<AppThemeExtension>();
     final settingsAccent = customTheme?.settingsAccent ?? theme.primaryColor;
-    final isDark = theme.brightness == Brightness.dark;
 
     final downloadTasks = ref.watch(downloadControllerProvider);
     final settings = ref.watch(videoSettingsProvider);
@@ -184,11 +184,11 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> with SingleTi
         title: Text(
           AppLocalizations.of(context)!.downloadsManager,
           style: TextStyle(
-            color: isDark ? Colors.white : Colors.black87,
+            color: Theme.of(context).colorScheme.onSurface,
             fontWeight: FontWeight.bold,
           ),
         ),
-        iconTheme: IconThemeData(color: isDark ? Colors.white : Colors.black87),
+        iconTheme: IconThemeData(color: Theme.of(context).colorScheme.onSurface),
         actions: [
           // Pause All button
           if (activeDownloads.any((e) => !e.value.isPaused && !e.value.isCompleted))
@@ -264,7 +264,7 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> with SingleTi
                               Text(
                                 AppLocalizations.of(context)!.downloadScheduler,
                                 style: TextStyle(
-                                  color: isDark ? Colors.white : Colors.black87,
+                                  color: Theme.of(context).colorScheme.onSurface,
                                   fontWeight: FontWeight.bold,
                                   fontSize: 14,
                                 ),
@@ -274,7 +274,7 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> with SingleTi
                               Text(
                                 AppLocalizations.of(context)!.restrictDownloadsToOffPeakHours,
                                 style: TextStyle(
-                                  color: isDark ? Colors.white54 : Colors.black54,
+                                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                                   fontSize: 11,
                                 ),
                                 maxLines: 2,
@@ -308,7 +308,7 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> with SingleTi
                                 Text(
                                   AppLocalizations.of(context)!.startTime,
                                   style: TextStyle(
-                                    color: isDark ? Colors.white70 : Colors.black87,
+                                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                                     fontSize: 12,
                                     fontWeight: FontWeight.bold,
                                   ),
@@ -349,7 +349,7 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> with SingleTi
                                 Text(
                                   AppLocalizations.of(context)!.endTime,
                                   style: TextStyle(
-                                    color: isDark ? Colors.white70 : Colors.black87,
+                                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                                     fontSize: 12,
                                     fontWeight: FontWeight.bold,
                                   ),
@@ -433,7 +433,7 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> with SingleTi
                             Text(
                               AppLocalizations.of(context)!.noActiveDownloads,
                               style: TextStyle(
-                                color: isDark ? Colors.white70 : Colors.black87,
+                                color: Theme.of(context).colorScheme.onSurfaceVariant,
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
                               ),
@@ -485,7 +485,7 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> with SingleTi
                                       child: Text(
                                         task.title,
                                         style: TextStyle(
-                                          color: isDark ? Colors.white : Colors.black87,
+                                          color: Theme.of(context).colorScheme.onSurface,
                                           fontWeight: FontWeight.bold,
                                           fontSize: 14,
                                         ),
@@ -549,7 +549,7 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> with SingleTi
                                               Text(
                                                 task.speedString,
                                                 style: TextStyle(
-                                                  color: isDark ? Colors.white70 : Colors.black87,
+                                                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                                                   fontSize: 11,
                                                   fontWeight: FontWeight.w500,
                                                 ),
@@ -563,7 +563,7 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> with SingleTi
                                             child: Text(
                                               AppLocalizations.of(context)!.eta(task.etaString),
                                               style: TextStyle(
-                                                color: isDark ? Colors.white54 : Colors.black54,
+                                                color: Theme.of(context).colorScheme.onSurfaceVariant,
                                                 fontSize: 10,
                                               ),
                                             ),
@@ -653,7 +653,7 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> with SingleTi
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: TextField(
                     controller: _searchController,
-                    style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
                     decoration: InputDecoration(
                       hintText: AppLocalizations.of(context)!.searchDownloadedEpisodes,
                       hintStyle: TextStyle(color: isDark ? Colors.white30 : Colors.black38),
@@ -684,11 +684,11 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> with SingleTi
                       const SizedBox(width: 8),
                       Text(
                         AppLocalizations.of(context)!.totalOfflineStorage,
-                        style: TextStyle(color: isDark ? Colors.white54 : Colors.black54, fontSize: 13),
+                        style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 13),
                       ),
                       Text(
                         _formatSize(totalBytes),
-                        style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontSize: 13, fontWeight: FontWeight.bold),
+                        style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 13, fontWeight: FontWeight.bold),
                       ),
                       const Spacer(),
                       Text(
@@ -709,7 +709,7 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> with SingleTi
                             Text(
                               AppLocalizations.of(context)!.noDownloadsFound,
                               style: TextStyle(
-                                color: isDark ? Colors.white54 : Colors.black54,
+                                color: Theme.of(context).colorScheme.onSurfaceVariant,
                                 fontSize: 15,
                                 fontWeight: FontWeight.bold,
                               ),
@@ -775,7 +775,7 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> with SingleTi
                                       title: Text(
                                         task.title,
                                         style: TextStyle(
-                                          color: isDark ? Colors.white : Colors.black87,
+                                          color: Theme.of(context).colorScheme.onSurface,
                                           fontWeight: FontWeight.bold,
                                           fontSize: 13,
                                         ),
@@ -793,7 +793,7 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> with SingleTi
                                             Text(
                                               _formatSize(fileSize),
                                               style: TextStyle(
-                                                color: isDark ? Colors.white54 : Colors.black54,
+                                                color: Theme.of(context).colorScheme.onSurfaceVariant,
                                                 fontSize: 11,
                                               ),
                                             ),

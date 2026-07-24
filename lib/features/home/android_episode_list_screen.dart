@@ -12,6 +12,7 @@ import '../../core/theme/app_theme.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../l10n/app_localizations.dart';
 import 'home_controller.dart';
+import '../../core/utils/title_normalizer.dart';
 import '../../services/storage_service.dart';
 import '../../services/download_service.dart';
 import '../../services/tdlib_service.dart';
@@ -164,7 +165,7 @@ class _AndroidEpisodeListScreenState extends ConsumerState<AndroidEpisodeListScr
     for (final msg in season.episodes) {
       final fileId = _extractFileId(msg);
       if (fileId != null && fileId != 0) {
-        final title = HomeController.getMessageFileName(msg)
+        final title = TitleNormalizer.getMessageFileName(msg)
             .replaceAll('_', ' ')
             .replaceAll(RegExp(r'\.(mkv|mp4|avi|mov|webm|flv|wmv|ts|m4v|3gp)$', caseSensitive: false), '')
             .trim();
@@ -263,7 +264,7 @@ class _AndroidEpisodeListScreenState extends ConsumerState<AndroidEpisodeListScr
           collectedEpisodes.add(msg);
         } else if (msg.content is td.MessageDocument) {
           final doc = msg.content as td.MessageDocument;
-          final fileName = HomeController.getMessageFileName(msg).toLowerCase();
+          final fileName = TitleNormalizer.getMessageFileName(msg).toLowerCase();
           if (doc.document.mimeType.startsWith('video/') ||
               fileName.endsWith('.mkv') ||
               fileName.endsWith('.mp4') ||
@@ -281,8 +282,8 @@ class _AndroidEpisodeListScreenState extends ConsumerState<AndroidEpisodeListScr
 
       // Sort the episodes chronologically/numerically just like HomeController does
       collectedEpisodes.sort((a, b) {
-        final epA = HomeController.parseEpisodeNumber(a);
-        final epB = HomeController.parseEpisodeNumber(b);
+        final epA = TitleNormalizer.parseEpisodeNumber(a);
+        final epB = TitleNormalizer.parseEpisodeNumber(b);
         if (epA != epB) return epA.compareTo(epB);
         return a.id.compareTo(b.id);
       });
@@ -361,7 +362,7 @@ class _AndroidEpisodeListScreenState extends ConsumerState<AndroidEpisodeListScr
       if (!context.mounted) return;
         
       final overrideKey = '${widget.series.coreName}_$seasonName';
-      final existingIds = FirebaseMetadataService.getOverride(overrideKey) ?? '';
+      final existingIds = ref.read(firebaseMetadataProvider.notifier).getOverride(overrideKey) ?? '';
 
       final result = await showDialog<String>(
         context: context,
@@ -411,7 +412,7 @@ class _AndroidEpisodeListScreenState extends ConsumerState<AndroidEpisodeListScr
 
           if (context.mounted) Navigator.pop(context);
 
-          await FirebaseMetadataService.saveOverride(
+          await ref.read(firebaseMetadataProvider.notifier).saveOverride(
             widget.categoryTitle ?? 'Anime',
             overrideKey,
             ids.join(','),
@@ -464,6 +465,7 @@ class _AndroidEpisodeListScreenState extends ConsumerState<AndroidEpisodeListScr
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     super.build(context);
     // Watch HomeController provider to dynamically update the view with synchronized edits in real-time
     final provider = widget.categoryTitle == 'Anime'
@@ -507,7 +509,6 @@ class _AndroidEpisodeListScreenState extends ConsumerState<AndroidEpisodeListScr
     final theme = Theme.of(context);
     final customTheme = theme.extension<AppThemeExtension>();
     final settingsAccent = customTheme?.settingsAccent ?? theme.primaryColor;
-    final isDark = theme.brightness == Brightness.dark;
 
     final title = selectedSeason.fullTitle;
 
@@ -642,9 +643,7 @@ class _AndroidEpisodeListScreenState extends ConsumerState<AndroidEpisodeListScr
                                 Text(
                                   title,
                                   style: TextStyle(
-                                    color: isDark
-                                        ? Colors.white
-                                        : Colors.black87,
+                                    color: Theme.of(context).colorScheme.onSurface,
                                     fontSize: 20,
                                     fontWeight: FontWeight.bold,
                                     letterSpacing: 0.3,
@@ -656,9 +655,7 @@ class _AndroidEpisodeListScreenState extends ConsumerState<AndroidEpisodeListScr
                                       ? 'Movie'
                                       : '${selectedSeason.episodes.length} Episode${selectedSeason.episodes.length > 1 ? "s" : ""}',
                                   style: TextStyle(
-                                    color: isDark
-                                        ? Colors.white70
-                                        : Colors.black87,
+                                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                                     fontWeight: FontWeight.bold,
                                     fontSize: 14,
                                   ),
@@ -1001,13 +998,14 @@ class _EpisodeCardItemState extends ConsumerState<_EpisodeCardItem> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     String fileTitle = 'Episode ${widget.index + 1}';
     String metadata = '';
     int? fileId;
 
       if (widget.msg.content is td.MessageVideo) {
         final video = widget.msg.content as td.MessageVideo;
-        fileTitle = HomeController.getMessageFileName(widget.msg)
+        fileTitle = TitleNormalizer.getMessageFileName(widget.msg)
             .replaceAll('_', ' ')
             .replaceAll('.mkv', '')
             .replaceAll('.mp4', '');
@@ -1022,7 +1020,7 @@ class _EpisodeCardItemState extends ConsumerState<_EpisodeCardItem> {
       metadata = '$durStr • $sizeMb MB';
       } else if (widget.msg.content is td.MessageDocument) {
         final doc = widget.msg.content as td.MessageDocument;
-        fileTitle = HomeController.getMessageFileName(widget.msg)
+        fileTitle = TitleNormalizer.getMessageFileName(widget.msg)
             .replaceAll('_', ' ')
             .replaceAll('.mkv', '')
             .replaceAll('.mp4', '');
@@ -1085,7 +1083,6 @@ class _EpisodeCardItemState extends ConsumerState<_EpisodeCardItem> {
     final theme = Theme.of(context);
     final customTheme = theme.extension<AppThemeExtension>();
     final settingsAccent = customTheme?.settingsAccent ?? theme.primaryColor;
-    final isDark = theme.brightness == Brightness.dark;
 
     Widget trailingWidget;
     if (task == null) {
@@ -1327,7 +1324,7 @@ class _EpisodeCardItemState extends ConsumerState<_EpisodeCardItem> {
                       Text(
                         epTitle,
                         style: TextStyle(
-                          color: isDark ? Colors.white : Colors.black87,
+                          color: Theme.of(context).colorScheme.onSurface,
                           fontWeight: FontWeight.bold,
                           fontSize: 13,
                         ),
@@ -1407,6 +1404,7 @@ class _TouchScaleState extends State<_TouchScale> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return GestureDetector(
       onTapDown: (_) => setState(() => _isTapped = true),
       onTapUp: (_) => setState(() => _isTapped = false),
@@ -1497,6 +1495,7 @@ class _SwipeToActionState extends State<_SwipeToAction>
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final showRightIcon = _dragOffset > 10;
     final showLeftIcon = _dragOffset < -10;
 

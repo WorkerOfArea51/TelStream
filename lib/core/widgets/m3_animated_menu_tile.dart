@@ -63,8 +63,8 @@ class _M3AnimatedMenuTileState extends State<M3AnimatedMenuTile> with SingleTick
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
     final textColor = isDark ? Colors.white : Colors.black87;
     final subTextColor = isDark ? Colors.white38 : Colors.black54;
 

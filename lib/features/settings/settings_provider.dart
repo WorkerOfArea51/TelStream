@@ -1,365 +1,244 @@
-import 'package:collection/collection.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:freezed_annotation/freezed_annotation.dart';
 import '../../core/logger.dart';
 import '../../services/storage_service.dart';
 
-class VideoSettings {
-  final int doubleTapSeekDuration;
-  final bool savePositionOnQuit;
-  final bool autoplayNextVideo;
-  final bool volumeNormalization;
-  final bool pitchCorrection;
-  final String seekbarStyle;
-  final bool dynamicSpeedOverlay;
-  final bool horizontalSwipeToSeek;
-  final bool volumeGestures;
-  final bool brightnessGestures;
-  final bool pinchToZoom;
-  final int cacheLimitMb;
-  final int cacheTtlDays;
-  final String streamingProfile;
-  final String leftSwipeGesture;
-  final String rightSwipeGesture;
-  final bool downloadSchedulerEnabled;
-  final int downloadStartHour;
-  final int downloadEndHour;
-  final String subtitleRendererMode;
-  final bool dynamicRangeCompression;
-  final bool equalizerEnabled;
-  final List<double> equalizerBands;
-  final String equalizerPreset;
-  final double longPressSpeed;
-  final String gestureSensitivity;
-  final String animeLayout;
-  final String moviesLayout;
-  final String webSeriesLayout;
-  final String preferredSubtitleProvider;
-  final String customMpvOptions;
-  final bool showStatsForNerds;
-  final double subtitleFontSize;
-  final String subtitleColor;
-  final double subtitleDelay;
-  final String subtitleFont;
-  final String downloadSpeedLimit;
-  final String progressSyncMode;
-  final double subtitleBottomMargin;
-  final double subtitleHorizontalOffset;
-  final bool rememberSpeed;
-  final bool longPressVibration;
-  final bool wifiOnlyDownloads;
+part 'settings_provider.freezed.dart';
+part 'settings_provider.g.dart';
 
-  const VideoSettings({
-    this.doubleTapSeekDuration = 10,
-    this.savePositionOnQuit = true,
-    this.autoplayNextVideo = true,
-    this.volumeNormalization = false,
-    this.pitchCorrection = true,
-    this.seekbarStyle = 'Standard',
-    this.dynamicSpeedOverlay = true,
-    this.horizontalSwipeToSeek = true,
-    this.volumeGestures = true,
-    this.brightnessGestures = true,
-    this.pinchToZoom = true,
-    this.cacheLimitMb = 2048, // 2GB default
-    this.cacheTtlDays = 7,     // 7 days default
-    this.streamingProfile = 'Balanced',
-    this.leftSwipeGesture = 'Brightness',
-    this.rightSwipeGesture = 'Volume',
-    this.downloadSchedulerEnabled = false,
-    this.downloadStartHour = 2,
-    this.downloadEndHour = 6,
-    this.subtitleRendererMode = 'flutter',
-    this.dynamicRangeCompression = false,
-    this.equalizerEnabled = false,
-    this.equalizerBands = const [0.0, 0.0, 0.0, 0.0, 0.0],
-    this.equalizerPreset = 'Flat',
-    this.longPressSpeed = 1.5,
-    this.gestureSensitivity = 'Normal',
-    this.animeLayout = 'Grid',
-    this.moviesLayout = 'Grid',
-    this.webSeriesLayout = 'Grid',
-    this.preferredSubtitleProvider = 'opensubtitles',
-    this.customMpvOptions = '',
-    this.showStatsForNerds = false,
-    this.subtitleFontSize = 20.0,
-    this.subtitleColor = '#FFFFFF',
-    this.subtitleDelay = 0.0,
-    this.subtitleFont = 'Roboto',
-    this.downloadSpeedLimit = 'Unlimited',
-    this.progressSyncMode = 'disabled',
-    this.subtitleBottomMargin = 84.0,
-    this.subtitleHorizontalOffset = 0.0,
-    this.rememberSpeed = false,
-    this.longPressVibration = true,
-    this.wifiOnlyDownloads = false,
-  });
+@freezed
+abstract class PlayerLayoutSettings with _$PlayerLayoutSettings {
+  const factory PlayerLayoutSettings({
+    @Default('Grid') String animeLayout,
+    @Default('Grid') String moviesLayout,
+    @Default('Grid') String webSeriesLayout,
+    @Default('Standard') String seekbarStyle,
+    @Default(true) bool dynamicSpeedOverlay,
+    @Default(false) bool showStatsForNerds,
+  }) = _PlayerLayoutSettings;
+
+  factory PlayerLayoutSettings.fromJson(Map<String, dynamic> json) => _$PlayerLayoutSettingsFromJson(json);
+}
+
+@freezed
+abstract class GestureSettings with _$GestureSettings {
+  const factory GestureSettings({
+    @Default(10) int doubleTapSeekDuration,
+    @Default(true) bool horizontalSwipeToSeek,
+    @Default(true) bool volumeGestures,
+    @Default(true) bool brightnessGestures,
+    @Default(true) bool pinchToZoom,
+    @Default('Brightness') String leftSwipeGesture,
+    @Default('Volume') String rightSwipeGesture,
+    @Default(1.5) double longPressSpeed,
+    @Default('Normal') String gestureSensitivity,
+    @Default(true) bool longPressVibration,
+  }) = _GestureSettings;
+
+  factory GestureSettings.fromJson(Map<String, dynamic> json) => _$GestureSettingsFromJson(json);
+}
+
+@freezed
+abstract class AudioSettings with _$AudioSettings {
+  const factory AudioSettings({
+    @Default(false) bool volumeNormalization,
+    @Default(true) bool pitchCorrection,
+    @Default(false) bool dynamicRangeCompression,
+    @Default(false) bool equalizerEnabled,
+    @Default([0.0, 0.0, 0.0, 0.0, 0.0]) List<double> equalizerBands,
+    @Default('Flat') String equalizerPreset,
+  }) = _AudioSettings;
+
+  factory AudioSettings.fromJson(Map<String, dynamic> json) => _$AudioSettingsFromJson(json);
+}
+
+@freezed
+abstract class SubtitleSettings with _$SubtitleSettings {
+  const factory SubtitleSettings({
+    @Default('flutter') String subtitleRendererMode,
+    @Default('opensubtitles') String preferredSubtitleProvider,
+    @Default(20.0) double subtitleFontSize,
+    @Default('#FFFFFF') String subtitleColor,
+    @Default(0.0) double subtitleDelay,
+    @Default('Roboto') String subtitleFont,
+    @Default(84.0) double subtitleBottomMargin,
+    @Default(0.0) double subtitleHorizontalOffset,
+  }) = _SubtitleSettings;
+
+  factory SubtitleSettings.fromJson(Map<String, dynamic> json) => _$SubtitleSettingsFromJson(json);
+}
+
+@freezed
+abstract class CacheSettings with _$CacheSettings {
+  const factory CacheSettings({
+    @Default(2048) int cacheLimitMb,
+    @Default(7) int cacheTtlDays,
+  }) = _CacheSettings;
+
+  factory CacheSettings.fromJson(Map<String, dynamic> json) => _$CacheSettingsFromJson(json);
+}
+
+@freezed
+abstract class VideoSettings with _$VideoSettings {
+  const VideoSettings._();
+
+  const factory VideoSettings({
+    @Default(PlayerLayoutSettings()) PlayerLayoutSettings layout,
+    @Default(GestureSettings()) GestureSettings gestures,
+    @Default(AudioSettings()) AudioSettings audio,
+    @Default(SubtitleSettings()) SubtitleSettings subtitles,
+    @Default(CacheSettings()) CacheSettings cache,
+    @Default(true) bool savePositionOnQuit,
+    @Default(true) bool autoplayNextVideo,
+    @Default('Balanced') String streamingProfile,
+    @Default(false) bool downloadSchedulerEnabled,
+    @Default(2) int downloadStartHour,
+    @Default(6) int downloadEndHour,
+    @Default('') String customMpvOptions,
+    @Default('Unlimited') String downloadSpeedLimit,
+    @Default('disabled') String progressSyncMode,
+    @Default(false) bool rememberSpeed,
+    @Default(false) bool wifiOnlyDownloads,
+    @Default('auto') String hardwareDecoderMode,
+  }) = _VideoSettings;
 
   String getLayoutForCategory(String categoryTitle) {
     switch (categoryTitle.toLowerCase()) {
       case 'anime':
-        return animeLayout;
+        return layout.animeLayout;
       case 'movies':
-        return moviesLayout;
+        return layout.moviesLayout;
       case 'web series':
-        return webSeriesLayout;
+        return layout.webSeriesLayout;
       default:
         return 'Grid';
     }
   }
 
-  VideoSettings copyWithLayoutForCategory(String categoryTitle, String layout) {
+  VideoSettings copyWithLayoutForCategory(String categoryTitle, String newLayout) {
     switch (categoryTitle.toLowerCase()) {
       case 'anime':
-        return copyWith(animeLayout: layout);
+        return copyWith(layout: layout.copyWith(animeLayout: newLayout));
       case 'movies':
-        return copyWith(moviesLayout: layout);
+        return copyWith(layout: layout.copyWith(moviesLayout: newLayout));
       case 'web series':
-        return copyWith(webSeriesLayout: layout);
+        return copyWith(layout: layout.copyWith(webSeriesLayout: newLayout));
       default:
         return this;
     }
   }
 
-  VideoSettings copyWith({
-    int? doubleTapSeekDuration,
-    bool? savePositionOnQuit,
-    bool? autoplayNextVideo,
-    bool? volumeNormalization,
-    bool? pitchCorrection,
-    String? seekbarStyle,
-    bool? dynamicSpeedOverlay,
-    bool? horizontalSwipeToSeek,
-    bool? volumeGestures,
-    bool? brightnessGestures,
-    bool? pinchToZoom,
-    int? cacheLimitMb,
-    int? cacheTtlDays,
-    String? streamingProfile,
-    String? leftSwipeGesture,
-    String? rightSwipeGesture,
-    bool? downloadSchedulerEnabled,
-    int? downloadStartHour,
-    int? downloadEndHour,
-    String? subtitleRendererMode,
-    bool? dynamicRangeCompression,
-    bool? equalizerEnabled,
-    List<double>? equalizerBands,
-    String? equalizerPreset,
-    double? longPressSpeed,
-    String? gestureSensitivity,
-    String? animeLayout,
-    String? moviesLayout,
-    String? webSeriesLayout,
-    String? preferredSubtitleProvider,
-    String? customMpvOptions,
-    bool? showStatsForNerds,
-    double? subtitleFontSize,
-    String? subtitleColor,
-    double? subtitleDelay,
-    String? subtitleFont,
-    String? downloadSpeedLimit,
-    String? progressSyncMode,
-    double? subtitleBottomMargin,
-    double? subtitleHorizontalOffset,
-    bool? rememberSpeed,
-    bool? longPressVibration,
-    bool? wifiOnlyDownloads,
-  }) {
+  // Backwards compatibility with flat JSON
+  factory VideoSettings.fromFlatJson(Map<String, dynamic> json, String hardwareDecoderMode) {
     return VideoSettings(
-      doubleTapSeekDuration: doubleTapSeekDuration ?? this.doubleTapSeekDuration,
-      savePositionOnQuit: savePositionOnQuit ?? this.savePositionOnQuit,
-      autoplayNextVideo: autoplayNextVideo ?? this.autoplayNextVideo,
-      volumeNormalization: volumeNormalization ?? this.volumeNormalization,
-      pitchCorrection: pitchCorrection ?? this.pitchCorrection,
-      seekbarStyle: seekbarStyle ?? this.seekbarStyle,
-      dynamicSpeedOverlay: dynamicSpeedOverlay ?? this.dynamicSpeedOverlay,
-      horizontalSwipeToSeek: horizontalSwipeToSeek ?? this.horizontalSwipeToSeek,
-      volumeGestures: volumeGestures ?? this.volumeGestures,
-      brightnessGestures: brightnessGestures ?? this.brightnessGestures,
-      pinchToZoom: pinchToZoom ?? this.pinchToZoom,
-      cacheLimitMb: cacheLimitMb ?? this.cacheLimitMb,
-      cacheTtlDays: cacheTtlDays ?? this.cacheTtlDays,
-      streamingProfile: streamingProfile ?? this.streamingProfile,
-      leftSwipeGesture: leftSwipeGesture ?? this.leftSwipeGesture,
-      rightSwipeGesture: rightSwipeGesture ?? this.rightSwipeGesture,
-      downloadSchedulerEnabled: downloadSchedulerEnabled ?? this.downloadSchedulerEnabled,
-      downloadStartHour: downloadStartHour ?? this.downloadStartHour,
-      downloadEndHour: downloadEndHour ?? this.downloadEndHour,
-      subtitleRendererMode: subtitleRendererMode ?? this.subtitleRendererMode,
-      dynamicRangeCompression: dynamicRangeCompression ?? this.dynamicRangeCompression,
-      equalizerEnabled: equalizerEnabled ?? this.equalizerEnabled,
-      equalizerBands: equalizerBands ?? this.equalizerBands,
-      equalizerPreset: equalizerPreset ?? this.equalizerPreset,
-      longPressSpeed: longPressSpeed ?? this.longPressSpeed,
-      gestureSensitivity: gestureSensitivity ?? this.gestureSensitivity,
-      animeLayout: animeLayout ?? this.animeLayout,
-      moviesLayout: moviesLayout ?? this.moviesLayout,
-      webSeriesLayout: webSeriesLayout ?? this.webSeriesLayout,
-      preferredSubtitleProvider: preferredSubtitleProvider ?? this.preferredSubtitleProvider,
-      customMpvOptions: customMpvOptions ?? this.customMpvOptions,
-      showStatsForNerds: showStatsForNerds ?? this.showStatsForNerds,
-      subtitleFontSize: subtitleFontSize ?? this.subtitleFontSize,
-      subtitleColor: subtitleColor ?? this.subtitleColor,
-      subtitleDelay: subtitleDelay ?? this.subtitleDelay,
-      subtitleFont: subtitleFont ?? this.subtitleFont,
-      downloadSpeedLimit: downloadSpeedLimit ?? this.downloadSpeedLimit,
-      progressSyncMode: progressSyncMode ?? this.progressSyncMode,
-      subtitleBottomMargin: subtitleBottomMargin ?? this.subtitleBottomMargin,
-      subtitleHorizontalOffset: subtitleHorizontalOffset ?? this.subtitleHorizontalOffset,
-      rememberSpeed: rememberSpeed ?? this.rememberSpeed,
-      longPressVibration: longPressVibration ?? this.longPressVibration,
-      wifiOnlyDownloads: wifiOnlyDownloads ?? this.wifiOnlyDownloads,
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'doubleTapSeekDuration': doubleTapSeekDuration,
-      'savePositionOnQuit': savePositionOnQuit,
-      'autoplayNextVideo': autoplayNextVideo,
-      'volumeNormalization': volumeNormalization,
-      'pitchCorrection': pitchCorrection,
-      'seekbarStyle': seekbarStyle,
-      'dynamicSpeedOverlay': dynamicSpeedOverlay,
-      'horizontalSwipeToSeek': horizontalSwipeToSeek,
-      'volumeGestures': volumeGestures,
-      'brightnessGestures': brightnessGestures,
-      'pinchToZoom': pinchToZoom,
-      'cacheLimitMb': cacheLimitMb,
-      'cacheTtlDays': cacheTtlDays,
-      'streamingProfile': streamingProfile,
-      'leftSwipeGesture': leftSwipeGesture,
-      'rightSwipeGesture': rightSwipeGesture,
-      'downloadSchedulerEnabled': downloadSchedulerEnabled,
-      'downloadStartHour': downloadStartHour,
-      'downloadEndHour': downloadEndHour,
-      'subtitleRendererMode': subtitleRendererMode,
-      'dynamicRangeCompression': dynamicRangeCompression,
-      'equalizerEnabled': equalizerEnabled,
-      'equalizerBands': equalizerBands,
-      'equalizerPreset': equalizerPreset,
-      'longPressSpeed': longPressSpeed,
-      'gestureSensitivity': gestureSensitivity,
-      'animeLayout': animeLayout,
-      'moviesLayout': moviesLayout,
-      'webSeriesLayout': webSeriesLayout,
-      'preferredSubtitleProvider': preferredSubtitleProvider,
-      'customMpvOptions': customMpvOptions,
-      'showStatsForNerds': showStatsForNerds,
-      'subtitleFontSize': subtitleFontSize,
-      'subtitleColor': subtitleColor,
-      'subtitleDelay': subtitleDelay,
-      'subtitleFont': subtitleFont,
-      'downloadSpeedLimit': downloadSpeedLimit,
-      'progressSyncMode': progressSyncMode,
-      'subtitleBottomMargin': subtitleBottomMargin,
-      'subtitleHorizontalOffset': subtitleHorizontalOffset,
-      'rememberSpeed': rememberSpeed,
-      'longPressVibration': longPressVibration,
-      'wifiOnlyDownloads': wifiOnlyDownloads,
-    };
-  }
-
-  factory VideoSettings.fromJson(Map<String, dynamic> json) {
-    return VideoSettings(
-      doubleTapSeekDuration: json['doubleTapSeekDuration'] ?? 10,
+      layout: PlayerLayoutSettings(
+        animeLayout: json['animeLayout'] ?? json['libraryLayout'] ?? 'Grid',
+        moviesLayout: json['moviesLayout'] ?? json['libraryLayout'] ?? 'Grid',
+        webSeriesLayout: json['webSeriesLayout'] ?? json['libraryLayout'] ?? 'Grid',
+        seekbarStyle: json['seekbarStyle'] ?? 'Standard',
+        dynamicSpeedOverlay: json['dynamicSpeedOverlay'] ?? true,
+        showStatsForNerds: json['showStatsForNerds'] ?? false,
+      ),
+      gestures: GestureSettings(
+        doubleTapSeekDuration: json['doubleTapSeekDuration'] ?? 10,
+        horizontalSwipeToSeek: json['horizontalSwipeToSeek'] ?? true,
+        volumeGestures: json['volumeGestures'] ?? true,
+        brightnessGestures: json['brightnessGestures'] ?? true,
+        pinchToZoom: json['pinchToZoom'] ?? true,
+        leftSwipeGesture: json['leftSwipeGesture'] ?? 'Brightness',
+        rightSwipeGesture: json['rightSwipeGesture'] ?? 'Volume',
+        longPressSpeed: (json['longPressSpeed'] as num?)?.toDouble() ?? 1.5,
+        gestureSensitivity: json['gestureSensitivity'] ?? 'Normal',
+        longPressVibration: json['longPressVibration'] ?? true,
+      ),
+      audio: AudioSettings(
+        volumeNormalization: json['volumeNormalization'] ?? false,
+        pitchCorrection: json['pitchCorrection'] ?? true,
+        dynamicRangeCompression: json['dynamicRangeCompression'] ?? false,
+        equalizerEnabled: json['equalizerEnabled'] ?? false,
+        equalizerBands: (json['equalizerBands'] as List?)?.map((e) => (e as num).toDouble()).toList() ?? const [0.0, 0.0, 0.0, 0.0, 0.0],
+        equalizerPreset: json['equalizerPreset'] ?? 'Flat',
+      ),
+      subtitles: SubtitleSettings(
+        subtitleRendererMode: json['subtitleRendererMode'] ?? 'flutter',
+        preferredSubtitleProvider: json['preferredSubtitleProvider'] ?? 'opensubtitles',
+        subtitleFontSize: (json['subtitleFontSize'] as num?)?.toDouble() ?? 20.0,
+        subtitleColor: json['subtitleColor'] ?? '#FFFFFF',
+        subtitleDelay: (json['subtitleDelay'] as num?)?.toDouble() ?? 0.0,
+        subtitleFont: json['subtitleFont'] ?? 'Roboto',
+        subtitleBottomMargin: (json['subtitleBottomMargin'] as num?)?.toDouble() ?? 84.0,
+        subtitleHorizontalOffset: (json['subtitleHorizontalOffset'] as num?)?.toDouble() ?? 0.0,
+      ),
+      cache: CacheSettings(
+        cacheLimitMb: json['cacheLimitMb'] ?? 2048,
+        cacheTtlDays: json['cacheTtlDays'] ?? 7,
+      ),
       savePositionOnQuit: json['savePositionOnQuit'] ?? true,
       autoplayNextVideo: json['autoplayNextVideo'] ?? true,
-      volumeNormalization: json['volumeNormalization'] ?? false,
-      pitchCorrection: json['pitchCorrection'] ?? true,
-      seekbarStyle: json['seekbarStyle'] ?? 'Standard',
-      dynamicSpeedOverlay: json['dynamicSpeedOverlay'] ?? true,
-      horizontalSwipeToSeek: json['horizontalSwipeToSeek'] ?? true,
-      volumeGestures: json['volumeGestures'] ?? true,
-      brightnessGestures: json['brightnessGestures'] ?? true,
-      pinchToZoom: json['pinchToZoom'] ?? true,
-      cacheLimitMb: json['cacheLimitMb'] ?? 2048,
-      cacheTtlDays: json['cacheTtlDays'] ?? 7,
       streamingProfile: json['streamingProfile'] ?? 'Balanced',
-      leftSwipeGesture: json['leftSwipeGesture'] ?? 'Brightness',
-      rightSwipeGesture: json['rightSwipeGesture'] ?? 'Volume',
       downloadSchedulerEnabled: json['downloadSchedulerEnabled'] ?? false,
       downloadStartHour: json['downloadStartHour'] ?? 2,
       downloadEndHour: json['downloadEndHour'] ?? 6,
-      subtitleRendererMode: json['subtitleRendererMode'] ?? 'flutter',
-      dynamicRangeCompression: json['dynamicRangeCompression'] ?? false,
-      equalizerEnabled: json['equalizerEnabled'] ?? false,
-      equalizerBands: (json['equalizerBands'] as List?)?.map((e) => (e as num).toDouble()).toList() ?? const [0.0, 0.0, 0.0, 0.0, 0.0],
-      equalizerPreset: json['equalizerPreset'] ?? 'Flat',
-      longPressSpeed: (json['longPressSpeed'] as num?)?.toDouble() ?? 1.5,
-      gestureSensitivity: json['gestureSensitivity'] ?? 'Normal',
-      animeLayout: json['animeLayout'] ?? json['libraryLayout'] ?? 'Grid',
-      moviesLayout: json['moviesLayout'] ?? json['libraryLayout'] ?? 'Grid',
-      webSeriesLayout: json['webSeriesLayout'] ?? json['libraryLayout'] ?? 'Grid',
-      preferredSubtitleProvider: json['preferredSubtitleProvider'] ?? 'opensubtitles',
       customMpvOptions: json['customMpvOptions'] ?? '',
-      showStatsForNerds: json['showStatsForNerds'] ?? false,
-      subtitleFontSize: (json['subtitleFontSize'] as num?)?.toDouble() ?? 20.0,
-      subtitleColor: json['subtitleColor'] ?? '#FFFFFF',
-      subtitleDelay: (json['subtitleDelay'] as num?)?.toDouble() ?? 0.0,
-      subtitleFont: json['subtitleFont'] ?? 'Roboto',
       downloadSpeedLimit: json['downloadSpeedLimit'] ?? 'Unlimited',
       progressSyncMode: json['progressSyncMode'] ?? 'disabled',
-      subtitleBottomMargin: (json['subtitleBottomMargin'] as num?)?.toDouble() ?? 84.0,
-      subtitleHorizontalOffset: (json['subtitleHorizontalOffset'] as num?)?.toDouble() ?? 0.0,
       rememberSpeed: json['rememberSpeed'] ?? false,
-      longPressVibration: json['longPressVibration'] ?? true,
-      wifiOnlyDownloads: json['wifiOnlyDownloads'] as bool? ?? false,
+      wifiOnlyDownloads: json['wifiOnlyDownloads'] ?? false,
+      hardwareDecoderMode: hardwareDecoderMode,
     );
   }
 
-@override
-  bool operator ==(Object other) {
-    if (identical(this, other)) return true;
-    return other is VideoSettings &&
-      other.doubleTapSeekDuration == doubleTapSeekDuration &&
-      other.savePositionOnQuit == savePositionOnQuit &&
-      other.autoplayNextVideo == autoplayNextVideo &&
-      other.volumeNormalization == volumeNormalization &&
-      other.pitchCorrection == pitchCorrection &&
-      other.seekbarStyle == seekbarStyle &&
-      other.dynamicSpeedOverlay == dynamicSpeedOverlay &&
-      other.horizontalSwipeToSeek == horizontalSwipeToSeek &&
-      other.volumeGestures == volumeGestures &&
-      other.brightnessGestures == brightnessGestures &&
-      other.pinchToZoom == pinchToZoom &&
-      other.cacheLimitMb == cacheLimitMb &&
-      other.cacheTtlDays == cacheTtlDays &&
-      other.streamingProfile == streamingProfile &&
-      other.leftSwipeGesture == leftSwipeGesture &&
-      other.rightSwipeGesture == rightSwipeGesture &&
-      other.downloadSchedulerEnabled == downloadSchedulerEnabled &&
-      other.downloadStartHour == downloadStartHour &&
-      other.downloadEndHour == downloadEndHour &&
-      other.subtitleRendererMode == subtitleRendererMode &&
-      other.dynamicRangeCompression == dynamicRangeCompression &&
-      other.equalizerEnabled == equalizerEnabled &&
-      const ListEquality().equals(other.equalizerBands, equalizerBands) &&
-      other.equalizerPreset == equalizerPreset &&
-      other.longPressSpeed == longPressSpeed &&
-      other.gestureSensitivity == gestureSensitivity &&
-      other.animeLayout == animeLayout &&
-      other.moviesLayout == moviesLayout &&
-      other.webSeriesLayout == webSeriesLayout &&
-      other.preferredSubtitleProvider == preferredSubtitleProvider &&
-      other.customMpvOptions == customMpvOptions &&
-      other.showStatsForNerds == showStatsForNerds &&
-      other.subtitleFontSize == subtitleFontSize &&
-      other.subtitleColor == subtitleColor &&
-      other.subtitleDelay == subtitleDelay &&
-      other.subtitleFont == subtitleFont &&
-      other.downloadSpeedLimit == downloadSpeedLimit &&
-      other.progressSyncMode == progressSyncMode &&
-      other.subtitleBottomMargin == subtitleBottomMargin &&
-      other.subtitleHorizontalOffset == subtitleHorizontalOffset &&
-      other.rememberSpeed == rememberSpeed &&
-      other.longPressVibration == longPressVibration &&
-      other.wifiOnlyDownloads == wifiOnlyDownloads;
-  }
+  Map<String, dynamic> toFlatJson() {
+    return {
+      'animeLayout': layout.animeLayout,
+      'moviesLayout': layout.moviesLayout,
+      'webSeriesLayout': layout.webSeriesLayout,
+      'seekbarStyle': layout.seekbarStyle,
+      'dynamicSpeedOverlay': layout.dynamicSpeedOverlay,
+      'showStatsForNerds': layout.showStatsForNerds,
 
-  @override
-  int get hashCode {
-    return Object.hashAll([doubleTapSeekDuration, savePositionOnQuit, autoplayNextVideo, volumeNormalization, pitchCorrection, seekbarStyle, dynamicSpeedOverlay, horizontalSwipeToSeek, volumeGestures, brightnessGestures, pinchToZoom, cacheLimitMb, cacheTtlDays, streamingProfile, leftSwipeGesture, rightSwipeGesture, downloadSchedulerEnabled, downloadStartHour, downloadEndHour, subtitleRendererMode, dynamicRangeCompression, equalizerEnabled, equalizerBands, equalizerPreset, longPressSpeed, gestureSensitivity, animeLayout, moviesLayout, webSeriesLayout, preferredSubtitleProvider, customMpvOptions, showStatsForNerds, subtitleFontSize, subtitleColor, subtitleDelay, subtitleFont, downloadSpeedLimit, progressSyncMode, subtitleBottomMargin, subtitleHorizontalOffset, rememberSpeed, longPressVibration, wifiOnlyDownloads, ]);
+      'doubleTapSeekDuration': gestures.doubleTapSeekDuration,
+      'horizontalSwipeToSeek': gestures.horizontalSwipeToSeek,
+      'volumeGestures': gestures.volumeGestures,
+      'brightnessGestures': gestures.brightnessGestures,
+      'pinchToZoom': gestures.pinchToZoom,
+      'leftSwipeGesture': gestures.leftSwipeGesture,
+      'rightSwipeGesture': gestures.rightSwipeGesture,
+      'longPressSpeed': gestures.longPressSpeed,
+      'gestureSensitivity': gestures.gestureSensitivity,
+      'longPressVibration': gestures.longPressVibration,
+
+      'volumeNormalization': audio.volumeNormalization,
+      'pitchCorrection': audio.pitchCorrection,
+      'dynamicRangeCompression': audio.dynamicRangeCompression,
+      'equalizerEnabled': audio.equalizerEnabled,
+      'equalizerBands': audio.equalizerBands,
+      'equalizerPreset': audio.equalizerPreset,
+
+      'subtitleRendererMode': subtitles.subtitleRendererMode,
+      'preferredSubtitleProvider': subtitles.preferredSubtitleProvider,
+      'subtitleFontSize': subtitles.subtitleFontSize,
+      'subtitleColor': subtitles.subtitleColor,
+      'subtitleDelay': subtitles.subtitleDelay,
+      'subtitleFont': subtitles.subtitleFont,
+      'subtitleBottomMargin': subtitles.subtitleBottomMargin,
+      'subtitleHorizontalOffset': subtitles.subtitleHorizontalOffset,
+
+      'cacheLimitMb': cache.cacheLimitMb,
+      'cacheTtlDays': cache.cacheTtlDays,
+
+      'savePositionOnQuit': savePositionOnQuit,
+      'autoplayNextVideo': autoplayNextVideo,
+      'streamingProfile': streamingProfile,
+      'downloadSchedulerEnabled': downloadSchedulerEnabled,
+      'downloadStartHour': downloadStartHour,
+      'downloadEndHour': downloadEndHour,
+      'customMpvOptions': customMpvOptions,
+      'downloadSpeedLimit': downloadSpeedLimit,
+      'progressSyncMode': progressSyncMode,
+      'rememberSpeed': rememberSpeed,
+      'wifiOnlyDownloads': wifiOnlyDownloads,
+    };
   }
 }
 
@@ -371,6 +250,7 @@ class VideoSettingsNotifier extends Notifier<VideoSettings> {
     final animeLayout = storageService.getAnimeLayout();
     final moviesLayout = storageService.getMoviesLayout();
     final webSeriesLayout = storageService.getWebSeriesLayout();
+    final hardwareDec = storageService.getHardwareDecoderMode();
 
     if (rawSettings.isNotEmpty) {
       final updatedJson = Map<String, dynamic>.from(rawSettings);
@@ -396,28 +276,34 @@ class VideoSettingsNotifier extends Notifier<VideoSettings> {
       updatedJson['moviesLayout'] = moviesLayout;
       updatedJson['webSeriesLayout'] = webSeriesLayout;
       try {
-        return VideoSettings.fromJson(updatedJson);
+        return VideoSettings.fromFlatJson(updatedJson, hardwareDec);
       } catch (e, stack) {
         Log.e('Failed to parse VideoSettings from storage, using defaults', e, stack);
       }
     }
-    return VideoSettings(
-      subtitleFontSize: storageService.getSubtitleFontSize(),
-      subtitleColor: storageService.getSubtitleColor(),
-      subtitleDelay: storageService.getSubtitleDelay(),
-      subtitleFont: storageService.getSubtitleFont(),
-      downloadSpeedLimit: 'Unlimited',
-      progressSyncMode: 'disabled',
-      animeLayout: animeLayout,
-      moviesLayout: moviesLayout,
-      webSeriesLayout: webSeriesLayout,
+
+    // Default fallback
+    final def = VideoSettings.fromFlatJson({}, hardwareDec);
+    return def.copyWith(
+      layout: def.layout.copyWith(
+        animeLayout: animeLayout,
+        moviesLayout: moviesLayout,
+        webSeriesLayout: webSeriesLayout,
+      ),
+      subtitles: def.subtitles.copyWith(
+        subtitleFontSize: storageService.getSubtitleFontSize(),
+        subtitleColor: storageService.getSubtitleColor(),
+        subtitleDelay: storageService.getSubtitleDelay(),
+        subtitleFont: storageService.getSubtitleFont(),
+      ),
     );
   }
 
   void updateSettings(VideoSettings newSettings) {
     state = newSettings;
     final storage = ref.read(storageServiceProvider);
-    storage.updateVideoSettingsBatch(state.toJson(), state.animeLayout, state.moviesLayout, state.webSeriesLayout);
+    storage.updateVideoSettingsBatch(state.toFlatJson(), state.layout.animeLayout, state.layout.moviesLayout, state.layout.webSeriesLayout);
+    storage.setHardwareDecoderMode(state.hardwareDecoderMode);
   }
 }
 

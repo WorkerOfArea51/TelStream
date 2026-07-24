@@ -8,10 +8,10 @@ class LanguageSettingsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     final currentLocale = ref.watch(localeProvider);
     final currentLocaleCode = currentLocale?.languageCode ?? 'system';
-    final l10n = AppLocalizations.of(context)!;
 
     final languages = [
       {'code': 'system', 'native': l10n.systemDefault, 'en': l10n.systemDefault},

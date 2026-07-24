@@ -77,6 +77,7 @@ class _AndroidMainScreenState extends ConsumerState<AndroidMainScreen> with Widg
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     final userChannels = ref.watch(userChannelsProvider);
     final hasUserChannels = userChannels.isNotEmpty;
@@ -84,7 +85,6 @@ class _AndroidMainScreenState extends ConsumerState<AndroidMainScreen> with Widg
     // Build the list of screens and destinations dynamically
     final screens = <Widget>[];
     final destinations = <NavigationDestination>[];
-    final l10n = AppLocalizations.of(context)!;
 
     if (hasUserChannels) {
       screens.add(UserChannelsHomeScreen(isActive: _currentIndex == 0));

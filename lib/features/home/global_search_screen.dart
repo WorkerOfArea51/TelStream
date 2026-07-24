@@ -87,10 +87,10 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final theme = Theme.of(context);
     final customTheme = theme.extension<AppThemeExtension>();
     final settingsAccent = customTheme?.settingsAccent ?? theme.primaryColor;
-    final isDark = theme.brightness == Brightness.dark;
 
     final animeList = ref.watch(animeControllerProvider).value ?? [];
     final moviesList = ref.watch(moviesControllerProvider).value ?? [];
@@ -110,13 +110,13 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
         elevation: 0,
         leading: widget.onBack != null
             ? IconButton(
-                icon: Icon(Icons.arrow_back, color: isDark ? Colors.white : Colors.black87),
+                icon: Icon(Icons.arrow_back, color: Theme.of(context).colorScheme.onSurface),
                 onPressed: widget.onBack,
               )
             : null,
         title: TextField(
           controller: _searchController,
-          style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+          style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
           autofocus: true,
           decoration: InputDecoration(
             hintText: AppLocalizations.of(context)!.searchGlobalHint,
@@ -151,7 +151,7 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
             }
           },
         ),
-        iconTheme: IconThemeData(color: isDark ? Colors.white : Colors.black87),
+        iconTheme: IconThemeData(color: Theme.of(context).colorScheme.onSurface),
       ),
       body: _query.isEmpty
           ? (searchHistory.isEmpty
@@ -164,7 +164,7 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
                       Text(
                         AppLocalizations.of(context)!.searchLibraryDynamically,
                         style: TextStyle(
-                          color: isDark ? Colors.white54 : Colors.black54,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                           fontSize: 15,
                           fontWeight: FontWeight.bold,
                         ),
@@ -239,7 +239,7 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
                       Text(
                         AppLocalizations.of(context)!.noResultsFound,
                         style: TextStyle(
-                          color: isDark ? Colors.white70 : Colors.black87,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
                         ),
@@ -251,7 +251,7 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
                           AppLocalizations.of(context)!.noResultsFoundGlobal(_query),
                           textAlign: TextAlign.center,
                           style: TextStyle(
-                            color: isDark ? Colors.white54 : Colors.black54,
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
                             fontSize: 15,
                           ),
                         ),
@@ -283,7 +283,6 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
     final theme = Theme.of(context);
     final customTheme = theme.extension<AppThemeExtension>();
     final settingsAccent = customTheme?.settingsAccent ?? theme.primaryColor;
-    final isDark = theme.brightness == Brightness.dark;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -304,7 +303,7 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
               Text(
                 '$title (${results.length})',
                 style: TextStyle(
-                  color: isDark ? Colors.white : Colors.black87,
+                  color: Theme.of(context).colorScheme.onSurface,
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
                 ),
@@ -384,7 +383,7 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
                   Text(
                     series.coreName,
                     style: TextStyle(
-                      color: isDark ? Colors.white : Colors.black87,
+                      color: Theme.of(context).colorScheme.onSurface,
                       fontWeight: FontWeight.bold,
                       fontSize: 11,
                     ),

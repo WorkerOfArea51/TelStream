@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:telstream/features/home/home_controller.dart';
+import 'package:telstream/core/utils/title_normalizer.dart';
 import 'package:telstream/services/storage_service.dart';
 import 'package:telstream/core/constants.dart';
 import 'package:telstream/models/anime_models.dart';
@@ -87,32 +88,32 @@ class TestHomeController extends HomeController {
 void main() {
   group('Season Parsing & Grouping Tests', () {
     test('parseSeasonName parses standard season names correctly', () async {
-      expect(HomeController.parseSeasonName('Ranma ½', 'Ranma ½'), 'Season 1');
-      expect(HomeController.parseSeasonName('Ranma ½ Nettouhen', 'Ranma ½'), 'Nettouhen');
-      expect(HomeController.parseSeasonName('Ranma ½ (2024)', 'Ranma ½'), 'Season 1 (2024)');
-      expect(HomeController.parseSeasonName('Ranma ½ (2024) 2nd Season', 'Ranma ½'), 'Season 2 (2024)');
-      expect(HomeController.parseSeasonName('Ranma ½ (2024) Season 2', 'Ranma ½'), 'Season 2 (2024)');
-      expect(HomeController.parseSeasonName('Ranma ½ - 2nd Season', 'Ranma ½'), 'Season 2');
-      expect(HomeController.parseSeasonName('Re:ZERO -Starting Life in Another World- Memory Snow', 'Re:ZERO -Starting Life in Another World'), 'Memory Snow');
-      expect(HomeController.parseSeasonName('Re:ZERO -Starting Life in Another World- Frozen Bond', 'Re:ZERO -Starting Life in Another World'), 'Frozen Bond');
-      expect(HomeController.parseSeasonName('Tokyo Ghoul √A', 'Tokyo Ghoul'), '√A');
-      expect(HomeController.parseSeasonName('Tokyo Ghoul Root A', 'Tokyo Ghoul'), '√A');
+      expect(TitleNormalizer.parseSeasonName('Ranma ½', 'Ranma ½'), 'Season 1');
+      expect(TitleNormalizer.parseSeasonName('Ranma ½ Nettouhen', 'Ranma ½'), 'Nettouhen');
+      expect(TitleNormalizer.parseSeasonName('Ranma ½ (2024)', 'Ranma ½'), 'Season 1 (2024)');
+      expect(TitleNormalizer.parseSeasonName('Ranma ½ (2024) 2nd Season', 'Ranma ½'), 'Season 2 (2024)');
+      expect(TitleNormalizer.parseSeasonName('Ranma ½ (2024) Season 2', 'Ranma ½'), 'Season 2 (2024)');
+      expect(TitleNormalizer.parseSeasonName('Ranma ½ - 2nd Season', 'Ranma ½'), 'Season 2');
+      expect(TitleNormalizer.parseSeasonName('Re:ZERO -Starting Life in Another World- Memory Snow', 'Re:ZERO -Starting Life in Another World'), 'Memory Snow');
+      expect(TitleNormalizer.parseSeasonName('Re:ZERO -Starting Life in Another World- Frozen Bond', 'Re:ZERO -Starting Life in Another World'), 'Frozen Bond');
+      expect(TitleNormalizer.parseSeasonName('Tokyo Ghoul √A', 'Tokyo Ghoul'), '√A');
+      expect(TitleNormalizer.parseSeasonName('Tokyo Ghoul Root A', 'Tokyo Ghoul'), '√A');
     });
 
     test('normalizeSeriesName normalizes series names correctly', () async {
-      expect(HomeController.normalizeSeriesName('Ranma ½'), 'Ranma ½');
-      expect(HomeController.normalizeSeriesName('Ranma ½ (2024)'), 'Ranma ½');
-      expect(HomeController.normalizeSeriesName('Re:ZERO -Starting Life in Another World-'), 'Re:ZERO -Starting Life in Another World');
-      expect(HomeController.normalizeSeriesName('👑 Re:ZERO -Starting Life in Another World- Season 1'), '👑 Re:ZERO -Starting Life in Another World');
-      expect(HomeController.normalizeSeriesName('👑 Re:ZERO'), '👑 Re:ZERO');
-      expect(HomeController.normalizeSeriesName('Re:Creators'), 'Re:Creators');
-      expect(HomeController.normalizeSeriesName('Re: Creators'), 'Re: Creators');
-      expect(HomeController.normalizeSeriesName('Re:ZERO -Starting Life in Another World- Memory Snow'), 'Re:ZERO -Starting Life in Another World');
-      expect(HomeController.normalizeSeriesName('Re:ZERO -Starting Life in Another World- Frozen Bond'), 'Re:ZERO -Starting Life in Another World');
-      expect(HomeController.normalizeSeriesName('Tokyo Ghoul'), 'Tokyo Ghoul');
-      expect(HomeController.normalizeSeriesName('Tokyo Ghoul √A'), 'Tokyo Ghoul');
-      expect(HomeController.normalizeSeriesName('Tokyo Ghoul Root A'), 'Tokyo Ghoul');
-      expect(HomeController.normalizeSeriesName('Tokyo Ghoul: Root A'), 'Tokyo Ghoul');
+      expect(TitleNormalizer.normalizeSeriesName('Ranma ½'), 'Ranma ½');
+      expect(TitleNormalizer.normalizeSeriesName('Ranma ½ (2024)'), 'Ranma ½');
+      expect(TitleNormalizer.normalizeSeriesName('Re:ZERO -Starting Life in Another World-'), 'Re:ZERO -Starting Life in Another World');
+      expect(TitleNormalizer.normalizeSeriesName('👑 Re:ZERO -Starting Life in Another World- Season 1'), '👑 Re:ZERO -Starting Life in Another World');
+      expect(TitleNormalizer.normalizeSeriesName('👑 Re:ZERO'), '👑 Re:ZERO');
+      expect(TitleNormalizer.normalizeSeriesName('Re:Creators'), 'Re:Creators');
+      expect(TitleNormalizer.normalizeSeriesName('Re: Creators'), 'Re: Creators');
+      expect(TitleNormalizer.normalizeSeriesName('Re:ZERO -Starting Life in Another World- Memory Snow'), 'Re:ZERO -Starting Life in Another World');
+      expect(TitleNormalizer.normalizeSeriesName('Re:ZERO -Starting Life in Another World- Frozen Bond'), 'Re:ZERO -Starting Life in Another World');
+      expect(TitleNormalizer.normalizeSeriesName('Tokyo Ghoul'), 'Tokyo Ghoul');
+      expect(TitleNormalizer.normalizeSeriesName('Tokyo Ghoul √A'), 'Tokyo Ghoul');
+      expect(TitleNormalizer.normalizeSeriesName('Tokyo Ghoul Root A'), 'Tokyo Ghoul');
+      expect(TitleNormalizer.normalizeSeriesName('Tokyo Ghoul: Root A'), 'Tokyo Ghoul');
     });
 
     test('franchise grouping bypass separates Dragon Ball, Z, and Daima', () async {

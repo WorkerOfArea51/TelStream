@@ -54,16 +54,16 @@ class _VideoSettingsScreenState extends ConsumerState<VideoSettingsScreen> {
                   context: context,
                   title: 'Seekbar Style',
                   options: const ['Standard', 'Wavy', 'Thick'],
-                  currentValue: settings.seekbarStyle,
-                  onChanged: (val) => notifier.updateSettings(settings.copyWith(seekbarStyle: val)),
+                  currentValue: settings.layout.seekbarStyle,
+                  onChanged: (val) => notifier.updateSettings(settings.copyWith(layout: settings.layout.copyWith(seekbarStyle: val))),
                 ),
                 Divider(color: theme.dividerColor, height: 1, indent: 16, endIndent: 16),
                 _buildSwitch(
                   context: context,
                   title: 'Dynamic Speed Overlay',
                   subtitle: 'Show advanced overlay for speed control during long press and swipe',
-                  value: settings.dynamicSpeedOverlay,
-                  onChanged: (val) => notifier.updateSettings(settings.copyWith(dynamicSpeedOverlay: val)),
+                  value: settings.layout.dynamicSpeedOverlay,
+                  onChanged: (val) => notifier.updateSettings(settings.copyWith(layout: settings.layout.copyWith(dynamicSpeedOverlay: val))),
                 ),
               ],
             ),
@@ -114,36 +114,36 @@ class _VideoSettingsScreenState extends ConsumerState<VideoSettingsScreen> {
                 _buildSwitch(
                   context: context,
                   title: 'Brightness gestures',
-                  value: settings.brightnessGestures,
-                  onChanged: (val) => notifier.updateSettings(settings.copyWith(brightnessGestures: val)),
+                  value: settings.gestures.brightnessGestures,
+                  onChanged: (val) => notifier.updateSettings(settings.copyWith(gestures: settings.gestures.copyWith(brightnessGestures: val))),
                 ),
                 Divider(color: theme.dividerColor, height: 1, indent: 16, endIndent: 16),
                 _buildSwitch(
                   context: context,
                   title: 'Volume gestures',
-                  value: settings.volumeGestures,
-                  onChanged: (val) => notifier.updateSettings(settings.copyWith(volumeGestures: val)),
+                  value: settings.gestures.volumeGestures,
+                  onChanged: (val) => notifier.updateSettings(settings.copyWith(gestures: settings.gestures.copyWith(volumeGestures: val))),
                 ),
                 Divider(color: theme.dividerColor, height: 1, indent: 16, endIndent: 16),
                 _buildSwitch(
                   context: context,
                   title: 'Horizontal swipe to seek',
-                  value: settings.horizontalSwipeToSeek,
-                  onChanged: (val) => notifier.updateSettings(settings.copyWith(horizontalSwipeToSeek: val)),
+                  value: settings.gestures.horizontalSwipeToSeek,
+                  onChanged: (val) => notifier.updateSettings(settings.copyWith(gestures: settings.gestures.copyWith(horizontalSwipeToSeek: val))),
                 ),
                 Divider(color: theme.dividerColor, height: 1, indent: 16, endIndent: 16),
                 _buildSwitch(
                   context: context,
                   title: 'Pinch to zoom',
-                  value: settings.pinchToZoom,
-                  onChanged: (val) => notifier.updateSettings(settings.copyWith(pinchToZoom: val)),
+                  value: settings.gestures.pinchToZoom,
+                  onChanged: (val) => notifier.updateSettings(settings.copyWith(gestures: settings.gestures.copyWith(pinchToZoom: val))),
                 ),
                 Divider(color: theme.dividerColor, height: 1, indent: 56, endIndent: 16),
                 ListTile(
                   title: Text('Left Vertical Swipe Gesture', style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
-                  subtitle: Text(settings.leftSwipeGesture, style: TextStyle(color: isDark ? Colors.white54 : Colors.black54, fontSize: 12)),
+                  subtitle: Text(settings.gestures.leftSwipeGesture, style: TextStyle(color: isDark ? Colors.white54 : Colors.black54, fontSize: 12)),
                   trailing: DropdownButton<String>(
-                    value: settings.leftSwipeGesture,
+                    value: settings.gestures.leftSwipeGesture,
                     dropdownColor: theme.cardColor,
                     underline: const SizedBox(),
                     style: TextStyle(color: isDark ? Colors.white : Colors.black87),
@@ -156,7 +156,7 @@ class _VideoSettingsScreenState extends ConsumerState<VideoSettingsScreen> {
                     ],
                     onChanged: (String? value) {
                       if (value != null) {
-                        notifier.updateSettings(settings.copyWith(leftSwipeGesture: value));
+                        notifier.updateSettings(settings.copyWith(gestures: settings.gestures.copyWith(leftSwipeGesture: value)));
                       }
                     },
                   ),
@@ -164,9 +164,9 @@ class _VideoSettingsScreenState extends ConsumerState<VideoSettingsScreen> {
                 Divider(color: theme.dividerColor, height: 1, indent: 56, endIndent: 16),
                 ListTile(
                   title: Text('Right Vertical Swipe Gesture', style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
-                  subtitle: Text(settings.rightSwipeGesture, style: TextStyle(color: isDark ? Colors.white54 : Colors.black54, fontSize: 12)),
+                  subtitle: Text(settings.gestures.rightSwipeGesture, style: TextStyle(color: isDark ? Colors.white54 : Colors.black54, fontSize: 12)),
                   trailing: DropdownButton<String>(
-                    value: settings.rightSwipeGesture,
+                    value: settings.gestures.rightSwipeGesture,
                     dropdownColor: theme.cardColor,
                     underline: const SizedBox(),
                     style: TextStyle(color: isDark ? Colors.white : Colors.black87),
@@ -179,7 +179,7 @@ class _VideoSettingsScreenState extends ConsumerState<VideoSettingsScreen> {
                     ],
                     onChanged: (String? value) {
                       if (value != null) {
-                        notifier.updateSettings(settings.copyWith(rightSwipeGesture: value));
+                        notifier.updateSettings(settings.copyWith(gestures: settings.gestures.copyWith(rightSwipeGesture: value)));
                       }
                     },
                   ),
@@ -187,9 +187,9 @@ class _VideoSettingsScreenState extends ConsumerState<VideoSettingsScreen> {
                 Divider(color: theme.dividerColor, height: 1, indent: 56, endIndent: 16),
                 ListTile(
                   title: Text('Gesture Sensitivity', style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
-                  subtitle: Text(settings.gestureSensitivity, style: TextStyle(color: isDark ? Colors.white54 : Colors.black54, fontSize: 12)),
+                  subtitle: Text(settings.gestures.gestureSensitivity, style: TextStyle(color: isDark ? Colors.white54 : Colors.black54, fontSize: 12)),
                   trailing: DropdownButton<String>(
-                    value: settings.gestureSensitivity,
+                    value: settings.gestures.gestureSensitivity,
                     dropdownColor: theme.cardColor,
                     underline: const SizedBox(),
                     style: TextStyle(color: isDark ? Colors.white : Colors.black87),
@@ -201,7 +201,7 @@ class _VideoSettingsScreenState extends ConsumerState<VideoSettingsScreen> {
                     ],
                     onChanged: (String? value) {
                       if (value != null) {
-                        notifier.updateSettings(settings.copyWith(gestureSensitivity: value));
+                        notifier.updateSettings(settings.copyWith(gestures: settings.gestures.copyWith(gestureSensitivity: value)));
                       }
                     },
                   ),
@@ -209,9 +209,9 @@ class _VideoSettingsScreenState extends ConsumerState<VideoSettingsScreen> {
                 Divider(color: theme.dividerColor, height: 1, indent: 56, endIndent: 16),
                 ListTile(
                   title: Text('Long Press Playback Speed', style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
-                  subtitle: Text('${settings.longPressSpeed}x', style: TextStyle(color: isDark ? Colors.white54 : Colors.black54, fontSize: 12)),
+                  subtitle: Text('${settings.gestures.longPressSpeed}x', style: TextStyle(color: isDark ? Colors.white54 : Colors.black54, fontSize: 12)),
                   trailing: DropdownButton<double>(
-                    value: settings.longPressSpeed,
+                    value: settings.gestures.longPressSpeed,
                     dropdownColor: theme.cardColor,
                     underline: const SizedBox(),
                     style: TextStyle(color: isDark ? Colors.white : Colors.black87),
@@ -227,7 +227,7 @@ class _VideoSettingsScreenState extends ConsumerState<VideoSettingsScreen> {
                     ],
                     onChanged: (double? value) {
                       if (value != null) {
-                        notifier.updateSettings(settings.copyWith(longPressSpeed: value));
+                        notifier.updateSettings(settings.copyWith(gestures: settings.gestures.copyWith(longPressSpeed: value)));
                       }
                     },
                   ),
@@ -235,15 +235,15 @@ class _VideoSettingsScreenState extends ConsumerState<VideoSettingsScreen> {
                 Divider(color: theme.dividerColor, height: 1, indent: 56, endIndent: 16),
                 ListTile(
                   title: Text('Double tap seek duration', style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
-                  subtitle: Text('${settings.doubleTapSeekDuration}s', style: TextStyle(color: isDark ? Colors.white54 : Colors.black54, fontSize: 12)),
+                  subtitle: Text('${settings.gestures.doubleTapSeekDuration}s', style: TextStyle(color: isDark ? Colors.white54 : Colors.black54, fontSize: 12)),
                   trailing: Icon(Icons.chevron_right, color: isDark ? Colors.white54 : Colors.black54),
                   onTap: () async {
                     final newDuration = await showDialog<int>(
                       context: context,
-                      builder: (context) => SeekDurationDialog(current: settings.doubleTapSeekDuration, accentColor: settingsAccent),
+                      builder: (context) => SeekDurationDialog(current: settings.gestures.doubleTapSeekDuration, accentColor: settingsAccent),
                     );
                     if (newDuration != null) {
-                      notifier.updateSettings(settings.copyWith(doubleTapSeekDuration: newDuration));
+                      notifier.updateSettings(settings.copyWith(gestures: settings.gestures.copyWith(doubleTapSeekDuration: newDuration)));
                     }
                   },
                 ),
@@ -267,16 +267,16 @@ class _VideoSettingsScreenState extends ConsumerState<VideoSettingsScreen> {
                   context: context,
                   title: 'Enable audio pitch correction',
                   subtitle: 'Prevents the audio from becoming high-pitched at faster speeds',
-                  value: settings.pitchCorrection,
-                  onChanged: (val) => notifier.updateSettings(settings.copyWith(pitchCorrection: val)),
+                  value: settings.audio.pitchCorrection,
+                  onChanged: (val) => notifier.updateSettings(settings.copyWith(audio: settings.audio.copyWith(pitchCorrection: val))),
                 ),
                 Divider(color: theme.dividerColor, height: 1, indent: 16, endIndent: 16),
                 _buildSwitch(
                   context: context,
                   title: 'Volume normalization',
                   subtitle: 'Automatically adjust audio volume to maintain consistent loudness levels',
-                  value: settings.volumeNormalization,
-                  onChanged: (val) => notifier.updateSettings(settings.copyWith(volumeNormalization: val)),
+                  value: settings.audio.volumeNormalization,
+                  onChanged: (val) => notifier.updateSettings(settings.copyWith(audio: settings.audio.copyWith(volumeNormalization: val))),
                 ),
                 Divider(color: theme.dividerColor, height: 1, indent: 16, endIndent: 16),
                 _buildSwitch(
@@ -294,8 +294,8 @@ class _VideoSettingsScreenState extends ConsumerState<VideoSettingsScreen> {
                   context: context,
                   title: 'Dynamic Range Compression (DRC)',
                   subtitle: 'Balance music and dialogue levels to prevent sudden volume spikes',
-                  value: settings.dynamicRangeCompression,
-                  onChanged: (val) => notifier.updateSettings(settings.copyWith(dynamicRangeCompression: val)),
+                  value: settings.audio.dynamicRangeCompression,
+                  onChanged: (val) => notifier.updateSettings(settings.copyWith(audio: settings.audio.copyWith(dynamicRangeCompression: val))),
                 ),
               ],
             ),
@@ -317,10 +317,10 @@ class _VideoSettingsScreenState extends ConsumerState<VideoSettingsScreen> {
                   context: context,
                   title: 'Subtitle Renderer Mode',
                   options: const ['Flutter Text Overlay', 'Native Blending'],
-                  currentValue: settings.subtitleRendererMode == 'flutter' ? 'Flutter Text Overlay' : 'Native Blending',
+                  currentValue: settings.subtitles.subtitleRendererMode == 'flutter' ? 'Flutter Text Overlay' : 'Native Blending',
                   onChanged: (val) {
                     final mode = val == 'Flutter Text Overlay' ? 'flutter' : 'native';
-                    notifier.updateSettings(settings.copyWith(subtitleRendererMode: mode));
+                    notifier.updateSettings(settings.copyWith(subtitles: settings.subtitles.copyWith(subtitleRendererMode: mode)));
                   },
                 ),
                 Divider(color: theme.dividerColor, height: 1, indent: 16, endIndent: 16),
@@ -328,10 +328,8 @@ class _VideoSettingsScreenState extends ConsumerState<VideoSettingsScreen> {
                   context: context,
                   title: 'Preferred Provider',
                   options: const ['OpenSubtitles v2', 'SubDL'],
-                  currentValue: settings.preferredSubtitleProvider == 'subdl' ? 'SubDL' : 'OpenSubtitles v2',
-                  onChanged: (val) => notifier.updateSettings(settings.copyWith(
-                    preferredSubtitleProvider: val == 'SubDL' ? 'subdl' : 'opensubtitles',
-                  )),
+                  currentValue: settings.subtitles.preferredSubtitleProvider == 'subdl' ? 'SubDL' : 'OpenSubtitles v2',
+                  onChanged: (val) => notifier.updateSettings(settings.copyWith(subtitles: settings.subtitles.copyWith(preferredSubtitleProvider: val == 'SubDL' ? 'subdl' : 'opensubtitles'))),
                 ),
                 Divider(color: theme.dividerColor, height: 1, indent: 16, endIndent: 16),
                 ListTile(
@@ -382,20 +380,20 @@ class _VideoSettingsScreenState extends ConsumerState<VideoSettingsScreen> {
                 Divider(color: theme.dividerColor, height: 1, indent: 16, endIndent: 16),
                 ListTile(
                   title: Text('Subtitle Font Size', style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
-                  subtitle: Text('${settings.subtitleFontSize.toInt()} px', style: TextStyle(color: isDark ? Colors.white54 : Colors.black54, fontSize: 12)),
+                  subtitle: Text('${settings.subtitles.subtitleFontSize.toInt()} px', style: TextStyle(color: isDark ? Colors.white54 : Colors.black54, fontSize: 12)),
                   trailing: Icon(Icons.chevron_right, color: isDark ? Colors.white54 : Colors.black54),
                   onTap: () async {
                     final newSize = await showDialog<double>(
                       context: context,
                       builder: (context) => SubtitleSizeDialog(
-                        current: settings.subtitleFontSize,
-                        currentColor: settings.subtitleColor,
-                        currentFont: settings.subtitleFont,
+                        current: settings.subtitles.subtitleFontSize,
+                        currentColor: settings.subtitles.subtitleColor,
+                        currentFont: settings.subtitles.subtitleFont,
                         accentColor: settingsAccent,
                       ),
                     );
                     if (newSize != null) {
-                      notifier.updateSettings(settings.copyWith(subtitleFontSize: newSize));
+                      notifier.updateSettings(settings.copyWith(subtitles: settings.subtitles.copyWith(subtitleFontSize: newSize)));
                     }
                   },
                 ),
@@ -408,13 +406,13 @@ class _VideoSettingsScreenState extends ConsumerState<VideoSettingsScreen> {
                         width: 14,
                         height: 14,
                         decoration: BoxDecoration(
-                          color: _parseHexColor(settings.subtitleColor),
+                          color: _parseHexColor(settings.subtitles.subtitleColor),
                           shape: BoxShape.circle,
                           border: Border.all(color: Colors.white24),
                         ),
                       ),
                       const SizedBox(width: 8),
-                      Text(settings.subtitleColor, style: TextStyle(color: isDark ? Colors.white54 : Colors.black54, fontSize: 12)),
+                      Text(settings.subtitles.subtitleColor, style: TextStyle(color: isDark ? Colors.white54 : Colors.black54, fontSize: 12)),
                     ],
                   ),
                   trailing: Icon(Icons.chevron_right, color: isDark ? Colors.white54 : Colors.black54),
@@ -422,14 +420,14 @@ class _VideoSettingsScreenState extends ConsumerState<VideoSettingsScreen> {
                     final newColor = await showDialog<String>(
                       context: context,
                       builder: (context) => SubtitleColorDialog(
-                        current: settings.subtitleColor,
-                        currentSize: settings.subtitleFontSize,
-                        currentFont: settings.subtitleFont,
+                        current: settings.subtitles.subtitleColor,
+                        currentSize: settings.subtitles.subtitleFontSize,
+                        currentFont: settings.subtitles.subtitleFont,
                         accentColor: settingsAccent,
                       ),
                     );
                     if (newColor != null) {
-                      notifier.updateSettings(settings.copyWith(subtitleColor: newColor));
+                      notifier.updateSettings(settings.copyWith(subtitles: settings.subtitles.copyWith(subtitleColor: newColor)));
                     }
                   },
                 ),
@@ -437,11 +435,11 @@ class _VideoSettingsScreenState extends ConsumerState<VideoSettingsScreen> {
                 ListTile(
                   title: Text('Subtitle Delay Offset', style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
                   subtitle: Text(
-                    settings.subtitleDelay == 0.0
+                    settings.subtitles.subtitleDelay == 0.0
                         ? 'No default delay'
-                        : settings.subtitleDelay > 0.0
-                            ? '+${settings.subtitleDelay.toStringAsFixed(1)}s delay'
-                            : '${settings.subtitleDelay.toStringAsFixed(1)}s delay',
+                        : settings.subtitles.subtitleDelay > 0.0
+                            ? '+${settings.subtitles.subtitleDelay.toStringAsFixed(1)}s delay'
+                            : '${settings.subtitles.subtitleDelay.toStringAsFixed(1)}s delay',
                     style: TextStyle(color: isDark ? Colors.white54 : Colors.black54, fontSize: 12),
                   ),
                   trailing: Icon(Icons.chevron_right, color: isDark ? Colors.white54 : Colors.black54),
@@ -449,19 +447,19 @@ class _VideoSettingsScreenState extends ConsumerState<VideoSettingsScreen> {
                     final newDelay = await showDialog<double>(
                       context: context,
                       builder: (context) => SubtitleDelayDialog(
-                        current: settings.subtitleDelay,
+                        current: settings.subtitles.subtitleDelay,
                         accentColor: settingsAccent,
                       ),
                     );
                     if (newDelay != null) {
-                      notifier.updateSettings(settings.copyWith(subtitleDelay: newDelay));
+                      notifier.updateSettings(settings.copyWith(subtitles: settings.subtitles.copyWith(subtitleDelay: newDelay)));
                     }
                   },
                 ),
                 Divider(color: theme.dividerColor, height: 1, indent: 16, endIndent: 16),
                 ListTile(
                   title: Text('Subtitle Font Family', style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
-                  subtitle: Text(settings.subtitleFont, style: TextStyle(color: isDark ? Colors.white54 : Colors.black54, fontSize: 12)),
+                  subtitle: Text(settings.subtitles.subtitleFont, style: TextStyle(color: isDark ? Colors.white54 : Colors.black54, fontSize: 12)),
                   trailing: Icon(Icons.chevron_right, color: isDark ? Colors.white54 : Colors.black54),
                   onTap: () async {
                     final newFont = await showDialog<String>(
@@ -482,14 +480,14 @@ class _VideoSettingsScreenState extends ConsumerState<VideoSettingsScreen> {
                             'sans-serif',
                           ].map((f) => ListTile(
                             title: Text(f, style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontFamily: f == 'DejaVuSans' ? 'DejaVuSans' : f)),
-                            trailing: settings.subtitleFont == f ? Icon(Icons.check, color: settingsAccent) : null,
+                            trailing: settings.subtitles.subtitleFont == f ? Icon(Icons.check, color: settingsAccent) : null,
                             onTap: () => Navigator.pop(context, f),
                           )).toList(),
                         ),
                       ),
                     );
                     if (newFont != null) {
-                      notifier.updateSettings(settings.copyWith(subtitleFont: newFont));
+                      notifier.updateSettings(settings.copyWith(subtitles: settings.subtitles.copyWith(subtitleFont: newFont)));
                     }
                   },
                 ),

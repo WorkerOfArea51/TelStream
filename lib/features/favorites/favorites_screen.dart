@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/utils/responsive_utils.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../services/storage_service.dart';
 import '../../models/anime_models.dart';
@@ -49,7 +50,6 @@ class FavoritesScreen extends ConsumerWidget {
 
   Widget _buildFavoritesBody(BuildContext context, WidgetRef ref, List<AnimeSeries> favoriteSeries) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
 
     if (favoriteSeries.isEmpty) {
       return Center(
@@ -65,7 +65,7 @@ class FavoritesScreen extends ConsumerWidget {
             Text(
               AppLocalizations.of(context)!.noFavoritesYet, 
               style: TextStyle(
-                color: isDark ? Colors.white70 : Colors.black87, 
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
                 fontSize: 20, 
                 fontWeight: FontWeight.bold,
               ),
@@ -77,7 +77,7 @@ class FavoritesScreen extends ConsumerWidget {
                 AppLocalizations.of(context)!.tapHeartToFavorite, 
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  color: isDark ? Colors.white54 : Colors.black54, 
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                   fontSize: 15,
                 ),
               ),
@@ -92,8 +92,8 @@ class FavoritesScreen extends ConsumerWidget {
 
     return GridView.builder(
       padding: const EdgeInsets.all(16),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: responsiveCrossAxisCount(context, itemWidth: 150),
         childAspectRatio: 0.65,
         crossAxisSpacing: 16,
         mainAxisSpacing: 16,

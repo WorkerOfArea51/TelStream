@@ -83,7 +83,7 @@ void main() async {
       // These two can run in parallel — both are pure I/O and independent.
       await Future.wait([
         container.read(storageServiceProvider).init(),
-        FirebaseMetadataService.loadAllMetadata(),
+        container.read(firebaseMetadataProvider.notifier).loadAllMetadata(),
       ]);
       
       // Pre-warm the streaming proxy provider to start the HTTP server early

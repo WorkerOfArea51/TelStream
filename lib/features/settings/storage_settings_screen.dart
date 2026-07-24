@@ -404,7 +404,7 @@ class _StorageSettingsScreenState extends ConsumerState<StorageSettingsScreen> {
                       ),
                       title: Text(l10n.cacheSizeLimit),
                       trailing: DropdownButton<int>(
-                        value: settings.cacheLimitMb,
+                        value: settings.cache.cacheLimitMb,
                         dropdownColor: theme.cardColor,
                         underline: const SizedBox(),
                         icon: Icon(Icons.arrow_drop_down, color: isDark ? Colors.white70 : Colors.black54),
@@ -417,7 +417,7 @@ class _StorageSettingsScreenState extends ConsumerState<StorageSettingsScreen> {
                         onChanged: (int? value) {
                           if (value != null) {
                             ref.read(videoSettingsProvider.notifier).updateSettings(
-                              settings.copyWith(cacheLimitMb: value)
+                              settings.copyWith(cache: settings.cache.copyWith(cacheLimitMb: value))
                             );
                           }
                         },
@@ -434,7 +434,7 @@ class _StorageSettingsScreenState extends ConsumerState<StorageSettingsScreen> {
                       ),
                       title: Text(l10n.cacheAutoDeleteTTL),
                       trailing: DropdownButton<int>(
-                        value: settings.cacheTtlDays,
+                        value: settings.cache.cacheTtlDays,
                         dropdownColor: theme.cardColor,
                         underline: const SizedBox(),
                         icon: Icon(Icons.arrow_drop_down, color: isDark ? Colors.white70 : Colors.black54),
@@ -447,7 +447,7 @@ class _StorageSettingsScreenState extends ConsumerState<StorageSettingsScreen> {
                         onChanged: (int? value) {
                           if (value != null) {
                             ref.read(videoSettingsProvider.notifier).updateSettings(
-                              settings.copyWith(cacheTtlDays: value)
+                              settings.copyWith(cache: settings.cache.copyWith(cacheTtlDays: value))
                             );
                           }
                         },

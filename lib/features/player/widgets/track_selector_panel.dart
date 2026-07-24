@@ -74,11 +74,11 @@ class TrackSelectorPanelState extends ConsumerState<TrackSelectorPanel> {
 
   Widget _buildPresetCard(String sampleText, String colorHex, Color activeColor) {
     final settings = ref.watch(videoSettingsProvider);
-    final isSelected = settings.subtitleColor.toUpperCase() == colorHex.toUpperCase();
+    final isSelected = settings.subtitles.subtitleColor.toUpperCase() == colorHex.toUpperCase();
     final colorVal = SubtitleColorUtils.parseColor(colorHex);
 
     return GestureDetector(
-      onTap: () => ref.read(videoSettingsProvider.notifier).updateSettings(settings.copyWith(subtitleColor: colorHex)),
+      onTap: () => ref.read(videoSettingsProvider.notifier).updateSettings(settings.copyWith(subtitles: settings.subtitles.copyWith(subtitleColor: colorHex))),
       child: Container(
         width: 68,
         height: 48,
@@ -233,7 +233,7 @@ class TrackSelectorPanelState extends ConsumerState<TrackSelectorPanel> {
                             const SizedBox(height: 12),
 
                             // Helper text or custom styles depending on active Mode
-                            if (settings.subtitleRendererMode == 'native') ...[
+                            if (settings.subtitles.subtitleRendererMode == 'native') ...[
                               Text(
                                 'To set more subtitle options, like color, please change subtitle rendering',
                                 style: TextStyle(
@@ -257,8 +257,8 @@ class TrackSelectorPanelState extends ConsumerState<TrackSelectorPanel> {
                                 child: Text(
                                   'Sample Subtitle',
                                   style: TextStyle(
-                                    color: SubtitleColorUtils.parseColor(settings.subtitleColor),
-                                    fontSize: (settings.subtitleFontSize * 0.45).clamp(12.0, 24.0),
+                                    color: SubtitleColorUtils.parseColor(settings.subtitles.subtitleColor),
+                                    fontSize: (settings.subtitles.subtitleFontSize * 0.45).clamp(12.0, 24.0),
                                     fontWeight: FontWeight.bold,
                                     shadows: const [
                                       Shadow(offset: Offset(-1.5, -1.5), color: Colors.black, blurRadius: 1.0),
@@ -302,13 +302,13 @@ class TrackSelectorPanelState extends ConsumerState<TrackSelectorPanel> {
                                   itemBuilder: (context, idx) {
                                     final colorInfo = SubtitleColorUtils.colors[idx];
                                     final colorHex = colorInfo['hex']!;
-                                    final isSelected = settings.subtitleColor.toUpperCase() == colorHex.toUpperCase();
+                                    final isSelected = settings.subtitles.subtitleColor.toUpperCase() == colorHex.toUpperCase();
                                     final colorVal = SubtitleColorUtils.parseColor(colorHex);
 
                                     return Padding(
                                       padding: const EdgeInsets.only(right: 10),
                                       child: GestureDetector(
-                                        onTap: () => ref.read(videoSettingsProvider.notifier).updateSettings(settings.copyWith(subtitleColor: colorHex)),
+                                        onTap: () => ref.read(videoSettingsProvider.notifier).updateSettings(settings.copyWith(subtitles: settings.subtitles.copyWith(subtitleColor: colorHex))),
                                         child: Container(
                                           width: 32,
                                           height: 32,
@@ -344,7 +344,7 @@ class TrackSelectorPanelState extends ConsumerState<TrackSelectorPanel> {
                                     style: TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold),
                                   ),
                                   Text(
-                                    '${settings.subtitleFontSize.round()}px',
+                                    '${settings.subtitles.subtitleFontSize.round()}px',
                                     style: TextStyle(color: settingsAccent, fontSize: 12, fontWeight: FontWeight.bold),
                                   ),
                                 ],
@@ -356,13 +356,13 @@ class TrackSelectorPanelState extends ConsumerState<TrackSelectorPanel> {
                                   overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
                                 ),
                                 child: Slider(
-                                  value: settings.subtitleFontSize,
+                                  value: settings.subtitles.subtitleFontSize,
                                   min: 16.0,
                                   max: 72.0,
                                   divisions: 56,
                                   activeColor: settingsAccent,
                                   inactiveColor: Colors.white24,
-                                  onChanged: (s) => ref.read(videoSettingsProvider.notifier).updateSettings(settings.copyWith(subtitleFontSize: s)),
+                                  onChanged: (s) => ref.read(videoSettingsProvider.notifier).updateSettings(settings.copyWith(subtitles: settings.subtitles.copyWith(subtitleFontSize: s))),
                                 ),
                               ),
                               const SizedBox(height: 12),
@@ -386,7 +386,7 @@ class TrackSelectorPanelState extends ConsumerState<TrackSelectorPanel> {
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
                                     Text(
-                                      '${settings.subtitleDelay > 0 ? '+' : ''}${settings.subtitleDelay.toStringAsFixed(1)}s',
+                                      '${settings.subtitles.subtitleDelay > 0 ? '+' : ''}${settings.subtitles.subtitleDelay.toStringAsFixed(1)}s',
                                       style: TextStyle(
                                         color: settingsAccent,
                                         fontSize: 14,
@@ -400,7 +400,7 @@ class TrackSelectorPanelState extends ConsumerState<TrackSelectorPanel> {
                                         minimumSize: Size.zero,
                                         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                                       ),
-                                      onPressed: () => ref.read(videoSettingsProvider.notifier).updateSettings(settings.copyWith(subtitleDelay: 0.0)),
+                                      onPressed: () => ref.read(videoSettingsProvider.notifier).updateSettings(settings.copyWith(subtitles: settings.subtitles.copyWith(subtitleDelay: 0.0))),
                                       child: Text(
                                         'Reset',
                                         style: TextStyle(
@@ -422,13 +422,13 @@ class TrackSelectorPanelState extends ConsumerState<TrackSelectorPanel> {
                                 overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
                               ),
                               child: Slider(
-                                value: settings.subtitleDelay.clamp(-5.0, 5.0),
+                                value: settings.subtitles.subtitleDelay.clamp(-5.0, 5.0),
                                 min: -5.0,
                                 max: 5.0,
                                 divisions: 100,
                                 activeColor: settingsAccent,
                                 inactiveColor: Colors.white24,
-                                onChanged: (d) => ref.read(videoSettingsProvider.notifier).updateSettings(settings.copyWith(subtitleDelay: d)),
+                                onChanged: (d) => ref.read(videoSettingsProvider.notifier).updateSettings(settings.copyWith(subtitles: settings.subtitles.copyWith(subtitleDelay: d))),
                               ),
                             ),
                           ],
@@ -796,11 +796,11 @@ class TrackSelectorPanelState extends ConsumerState<TrackSelectorPanel> {
 
   Widget _buildRendererModeButton(String modeId, String label, Color settingsAccent) {
     final settings = ref.watch(videoSettingsProvider);
-    final isSelected = settings.subtitleRendererMode == modeId;
+    final isSelected = settings.subtitles.subtitleRendererMode == modeId;
     return Expanded(
       child: InkWell(
         onTap: () {
-          ref.read(videoSettingsProvider.notifier).updateSettings(settings.copyWith(subtitleRendererMode: modeId));
+          ref.read(videoSettingsProvider.notifier).updateSettings(settings.copyWith(subtitles: settings.subtitles.copyWith(subtitleRendererMode: modeId)));
         },
         borderRadius: BorderRadius.circular(10),
         child: AnimatedContainer(

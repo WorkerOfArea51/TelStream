@@ -115,7 +115,7 @@ class _BackupManagerScreenState extends ConsumerState<BackupManagerScreen> {
       final keyBytes = sha256.convert(utf8.encode(password)).bytes;
       final key = enc.Key(Uint8List.fromList(keyBytes));
       final iv = enc.IV.fromSecureRandom(16);
-      final encrypter = enc.Encrypter(enc.AES(key, mode: enc.AESMode.cbc));
+      final encrypter = enc.Encrypter(enc.AES(key, mode: enc.AESMode.gcm));
       final encrypted = encrypter.encrypt(backupJson, iv: iv);
       final backupData = '${iv.base64}:${encrypted.base64}';
 
@@ -170,7 +170,7 @@ class _BackupManagerScreenState extends ConsumerState<BackupManagerScreen> {
         final key = enc.Key(Uint8List.fromList(keyBytes));
         final parts = contents.split(':');
         final iv = enc.IV.fromBase64(parts[0]);
-        final encrypter = enc.Encrypter(enc.AES(key, mode: enc.AESMode.cbc));
+        final encrypter = enc.Encrypter(enc.AES(key, mode: enc.AESMode.gcm));
         try {
           decryptedJson = encrypter.decrypt64(parts[1], iv: iv);
         } catch (e) {
@@ -212,10 +212,10 @@ class _BackupManagerScreenState extends ConsumerState<BackupManagerScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     final settings = ref.watch(videoSettingsProvider);
     final notifier = ref.read(videoSettingsProvider.notifier);
-    final l10n = AppLocalizations.of(context)!;
 
     String syncModeText = 'Disabled';
     if (settings.progressSyncMode == 'pinned') {

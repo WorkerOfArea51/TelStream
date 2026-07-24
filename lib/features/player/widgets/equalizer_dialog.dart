@@ -40,9 +40,9 @@ class EqualizerDialog extends ConsumerWidget {
     return StatefulBuilder(
       builder: (context, setModalState) {
         final settings = ref.watch(videoSettingsProvider);
-        final isEnabled = settings.equalizerEnabled;
-        final activePreset = settings.equalizerPreset;
-        final bands = settings.equalizerBands;
+        final isEnabled = settings.audio.equalizerEnabled;
+        final activePreset = settings.audio.equalizerPreset;
+        final bands = settings.audio.equalizerBands;
 
         return Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 12.0),
@@ -70,7 +70,7 @@ class EqualizerDialog extends ConsumerWidget {
                         activeThumbColor: settingsAccent,
                         onChanged: (val) {
                           ref.read(videoSettingsProvider.notifier).updateSettings(
-                            settings.copyWith(equalizerEnabled: val),
+                            settings.copyWith(audio: settings.audio.copyWith(equalizerEnabled: val)),
                           );
                           setModalState(() {});
                           onFiltersUpdated();
@@ -115,8 +115,10 @@ class EqualizerDialog extends ConsumerWidget {
                                 if (selected) {
                                   ref.read(videoSettingsProvider.notifier).updateSettings(
                                     settings.copyWith(
-                                      equalizerPreset: presetName,
-                                      equalizerBands: presets[presetName]!,
+                                      audio: settings.audio.copyWith(
+                                        equalizerPreset: presetName,
+                                        equalizerBands: presets[presetName]!,
+                                      ),
                                     ),
                                   );
                                   setModalState(() {});
@@ -186,10 +188,7 @@ class EqualizerDialog extends ConsumerWidget {
                                       newBands[index] = double.parse(newVal.toStringAsFixed(1));
                                     }
                                     ref.read(videoSettingsProvider.notifier).updateSettings(
-                                      settings.copyWith(
-                                        equalizerPreset: 'Custom',
-                                        equalizerBands: newBands,
-                                      ),
+                                      settings.copyWith(audio: settings.audio.copyWith(equalizerPreset: 'Custom', equalizerBands: newBands)),
                                     );
                                     setModalState(() {});
                                     onFiltersUpdated();
