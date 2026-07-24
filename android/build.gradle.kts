@@ -46,9 +46,9 @@ subprojects {
     }
 
     project.tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile::class.java).configureEach {
-        kotlinOptions {
-            jvmTarget = "17"
-            languageVersion = "2.0"
+        compilerOptions {
+            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+            languageVersion.set(org.jetbrains.kotlin.gradle.dsl.KotlinVersion.KOTLIN_2_0)
         }
     }
 }
