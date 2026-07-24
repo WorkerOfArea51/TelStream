@@ -885,13 +885,8 @@ class MetadataService {
   Future<SeriesMetadata?> searchTmdbByTitle(String title, String type) async {
     try {
       final encodedTitle = Uri.encodeComponent(title);
-      // Retrieve the tmdbApiKey since it's needed
-      final SettingsStore settingsStore = SettingsStore();
-      final settings = await settingsStore.getSettings();
-      final tmdbApiKey = settings['tmdb_api_key']?.toString() ?? '8806cd79fa69b2d698f1f7274db27c88'; // fallback to default
-      final queryParam = '&api_key=';
-      
-      final url = '/search/=';
+      final tmdbApiKey = '8806cd79fa69b2d698f1f7274db27c88';
+      final url = '$_tmdbBaseUrl/search/$type?query=$encodedTitle&api_key=$tmdbApiKey';
       final response = await http.get(Uri.parse(url));
       if (response.statusCode == 200) {
         final data = json.decode(response.body);

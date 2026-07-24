@@ -70,6 +70,7 @@ class CustomVideoControls extends ConsumerStatefulWidget {
   final bool customBuffering;
   final String seriesName;
   final int currentEpisodeIndex;
+  final bool isDesktop;
 
   const CustomVideoControls({
     super.key,
@@ -90,6 +91,7 @@ class CustomVideoControls extends ConsumerStatefulWidget {
     this.customBuffering = false,
     this.seriesName = '',
     this.currentEpisodeIndex = 0,
+    this.isDesktop = false,
   });
 
   @override
@@ -1971,12 +1973,17 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                     child: Container(color: Colors.transparent),
                   ),
                 AutoNextOverlay(
-                  episodeList: widget.episodeList,
-                  currentEpisodeIndex: widget.currentEpisodeIndex,
-                  seriesName: widget.seriesName,
-                  videoFileId: widget.videoFileId,
-                  showAutoNext: _showAutoNext,
-                  onCancel: _cancelAutoNext,
+                  showAutoNextCountdown: _showAutoNextCountdown,
+                  autoNextSlideIn: _autoNextSlideIn,
+                  autoNextSecondsRemaining: _autoNextSecondsRemaining,
+                  showControls: _showControls,
+                  onCancelAutoNext: _onCancelAutoNext,
+                  onPlayNow: () {
+                    _cancelAutoNextCountdown();
+                    if (widget.onNextEpisode != null) {
+                      widget.onNextEpisode!();
+                    }
+                  },
                 ),
                 if (_toastShowing)
                   Positioned(
@@ -1998,7 +2005,12 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                     ),
                   ),
                 if (!_isBlendingSubtitles) SubtitleOverlay(player: widget.player),
-                if (_showStats) _buildNerdStats(Theme.of(context).primaryColor, context, isPortrait),
+                if (settings.layout.showStatsForNerds && _nerdStats.isNotEmpty)
+                  Positioned(
+                    top: 10,
+                    left: 10,
+                    child: NerdStatsOverlay(nerdStats: _nerdStats),
+                  ),
               ],
             ),
           ),

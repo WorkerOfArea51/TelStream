@@ -912,7 +912,7 @@ class _LibraryGridItemState extends ConsumerState<_LibraryGridItem> {
                       ),
                       const SizedBox(width: 4),
                       Text(
-                        ref.watch(historyLogProvider).where((item) => item['seriesName'] == widget.series.coreName).length > 0 
+                        ref.watch(historyLogProvider).where((item) => item['seriesName'] == widget.series.coreName).isNotEmpty 
                             ? '/'
                             : totalEpisodes.toString(),
                         style: const TextStyle(
