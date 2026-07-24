@@ -26,11 +26,21 @@ class AspectRatioPanel extends ConsumerWidget {
 
   bool _isRatioActive(String ratioId) {
     if (ratioId == 'fit' && currentFit == BoxFit.contain && customAspectRatio == null) return true;
+    if (ratioId == 'original' && currentFit == BoxFit.none && customAspectRatio == null) return true;
     if (ratioId == 'fill' && currentFit == BoxFit.cover && customAspectRatio == null) return true;
     if (ratioId == 'stretch' && currentFit == BoxFit.fill && customAspectRatio == null) return true;
+    // Standard ratios
     if (ratioId == '16:9' && currentFit == BoxFit.contain && customAspectRatio == 16 / 9) return true;
     if (ratioId == '4:3' && currentFit == BoxFit.contain && customAspectRatio == 4 / 3) return true;
+    if (ratioId == '18:9' && currentFit == BoxFit.contain && customAspectRatio == 18 / 9) return true;
+    if (ratioId == '19.5:9' && currentFit == BoxFit.contain && customAspectRatio == 19.5 / 9) return true;
+    if (ratioId == '20:9' && currentFit == BoxFit.contain && customAspectRatio == 20 / 9) return true;
     if (ratioId == '21:9' && currentFit == BoxFit.contain && customAspectRatio == 21 / 9) return true;
+    // Cinema ratios
+    if (ratioId == '1.85:1' && currentFit == BoxFit.contain && customAspectRatio == 1.85) return true;
+    if (ratioId == '2.21:1' && currentFit == BoxFit.contain && customAspectRatio == 2.21) return true;
+    if (ratioId == '2.35:1' && currentFit == BoxFit.contain && customAspectRatio == 2.35) return true;
+    if (ratioId == '2.39:1' && currentFit == BoxFit.contain && customAspectRatio == 2.39) return true;
     return false;
   }
 
@@ -207,6 +217,7 @@ class AspectRatioPanel extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // Screen Fit Section (4 modes matching reference)
                     const Padding(
                       padding: EdgeInsets.only(left: 8, bottom: 12),
                       child: Text(
@@ -221,17 +232,20 @@ class AspectRatioPanel extends ConsumerWidget {
                     Row(
                       children: [
                         _buildScreenRatioButton('fit', 'Fit (Auto)', Icons.aspect_ratio_rounded, settingsAccent),
-                        const SizedBox(width: 12),
+                        const SizedBox(width: 8),
+                        _buildScreenRatioButton('original', 'Original', Icons.fullscreen_rounded, settingsAccent),
+                        const SizedBox(width: 8),
                         _buildScreenRatioButton('stretch', 'Stretch', Icons.settings_overscan_rounded, settingsAccent),
-                        const SizedBox(width: 12),
+                        const SizedBox(width: 8),
                         _buildScreenRatioButton('fill', 'Crop (Zoom)', Icons.crop_free_rounded, settingsAccent),
                       ],
                     ),
                     const SizedBox(height: 24),
+                    // Standard Ratios Section
                     const Padding(
                       padding: EdgeInsets.only(left: 8, bottom: 12),
                       child: Text(
-                        'Fixed Ratios',
+                        'Standard',
                         style: TextStyle(
                           color: Colors.white70,
                           fontSize: 14,
@@ -246,9 +260,32 @@ class AspectRatioPanel extends ConsumerWidget {
                         _buildPillRatioButton('16:9', settingsAccent),
                         _buildPillRatioButton('4:3', settingsAccent),
                         _buildPillRatioButton('18:9', settingsAccent),
+                        _buildPillRatioButton('19.5:9', settingsAccent),
+                        _buildPillRatioButton('20:9', settingsAccent),
                         _buildPillRatioButton('21:9', settingsAccent),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+                    // Cinema Ratios Section
+                    const Padding(
+                      padding: EdgeInsets.only(left: 8, bottom: 12),
+                      child: Text(
+                        'Cinema',
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    Wrap(
+                      spacing: 12,
+                      runSpacing: 12,
+                      children: [
                         _buildPillRatioButton('1.85:1', settingsAccent),
+                        _buildPillRatioButton('2.21:1', settingsAccent),
                         _buildPillRatioButton('2.35:1', settingsAccent),
+                        _buildPillRatioButton('2.39:1', settingsAccent),
                       ],
                     ),
                     const SizedBox(height: 24),

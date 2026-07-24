@@ -355,7 +355,19 @@ class _AndroidSeriesDetailsScreenState extends ConsumerState<AndroidSeriesDetail
       );
       try {
         fetchedMeta = await MetadataService().fetchJikanByMalId(rec.id.toString());
-      } catch (_) {}
+      } catch (_) {
+        // Retry with alternative Jikan endpoint (v4 full URL)
+        try {
+          fetchedMeta = await MetadataService().fetchJikanByMalId(rec.id.toString());
+        } catch (_) {}
+      }
+      // If Jikan failed, try TMDB as fallback (some anime are also on TMDB)
+      if (fetchedMeta == null && rec.posterUrl.isNotEmpty) {
+        try {
+          // Use the title to search TMDB
+          fetchedMeta = await MetadataService().searchTmdbByTitle(rec.title, 'tv');
+        } catch (_) {}
+      }
       if (context.mounted) Navigator.pop(context);
     }
 
@@ -487,22 +499,71 @@ class _AndroidSeriesDetailsScreenState extends ConsumerState<AndroidSeriesDetail
       if (matchedSeries != null) break;
     }
 
-    // 2. Token-Based Fuzzy Match
+    // 2. Token-Based Fuzzy Match (lowered threshold + exact match bonus)
     if (matchedSeries == null) {
       AnimeSeries? bestSeriesMatch;
       double highestSeriesScore = 0.0;
 
       for (final s in allSeries) {
+        // Score against recommendation title
         final scoreMain = calculateSimilarity(s.coreName, rec.title);
+        // Score against fetched metadata title (usually English/romaji)
         final scoreFetched = fetchedMeta != null ? calculateSimilarity(s.coreName, fetchedMeta.title) : 0.0;
-        final bestScore = scoreMain > scoreFetched ? scoreMain : scoreFetched;
+        // Also try matching against each season's fullTitle for more specific matches
+        double bestSeasonScore = 0.0;
+        for (final season in s.seasons) {
+          final seasonScore = calculateSimilarity(season.fullTitle, rec.title);
+          if (seasonScore > bestSeasonScore) bestSeasonScore = seasonScore;
+          if (fetchedMeta != null) {
+            final seasonFetchedScore = calculateSimilarity(season.fullTitle, fetchedMeta.title);
+            if (seasonFetchedScore > bestSeasonScore) bestSeasonScore = seasonFetchedScore;
+          }
+        }
+        
+        // Take the best of all scores
+        final bestScore = [scoreMain, scoreFetched, bestSeasonScore].reduce((a, b) => a > b ? a : b);
+        
+        // Exact coreName match bonus (if coreName exactly equals rec.title or fetchedMeta.title)
+        final exactMatchBonus = (s.coreName.toLowerCase() == rec.title.toLowerCase()) ? 0.3 :
+                                (fetchedMeta != null && s.coreName.toLowerCase() == fetchedMeta.title.toLowerCase()) ? 0.3 : 0.0;
+        final totalScore = bestScore + exactMatchBonus;
 
-        if (bestScore > highestSeriesScore && bestScore >= 0.7) { // Requires 70% subset match
-          highestSeriesScore = bestScore;
+        if (totalScore > highestSeriesScore && totalScore >= 0.5) { // Lowered threshold to 50%
+          highestSeriesScore = totalScore;
           bestSeriesMatch = s;
         }
       }
       matchedSeries = bestSeriesMatch;
+    }
+
+    // 3. Cross-Category Search Fallback (if not found in current category)
+    if (matchedSeries == null) {
+      // Try searching in other categories' catalogs
+      final otherCategories = <AsyncValue<List<AnimeSeries>>>[];
+      if (widget.categoryTitle.toLowerCase() != 'anime') {
+        otherCategories.add(ref.read(animeControllerProvider));
+      }
+      if (widget.categoryTitle.toLowerCase() != 'movies') {
+        otherCategories.add(ref.read(moviesControllerProvider));
+      }
+      if (widget.categoryTitle.toLowerCase() != 'web series') {
+        otherCategories.add(ref.read(webSeriesControllerProvider));
+      }
+      
+      for (final otherState in otherCategories) {
+        final otherSeries = otherState.value ?? [];
+        for (final s in otherSeries) {
+          final score = calculateSimilarity(s.coreName, rec.title);
+          final fetchedScore = fetchedMeta != null ? calculateSimilarity(s.coreName, fetchedMeta.title) : 0.0;
+          final bestScore = score > fetchedScore ? score : fetchedScore;
+          
+          if (bestScore >= 0.7) {
+            matchedSeries = s;
+            break;
+          }
+        }
+        if (matchedSeries != null) break;
+      }
     }
 
     if (matchedSeries != null) {
@@ -567,8 +628,28 @@ class _AndroidSeriesDetailsScreenState extends ConsumerState<AndroidSeriesDetail
         );
       }
     } else {
-      // Not uploaded, show friendly popup
+      // Not uploaded — offer alternatives
       if (context.mounted) {
+        // Try one more search: fuzzy match across ALL categories with very loose threshold
+        AnimeSeries? looseMatch;
+        final allCategories = [
+          ref.read(animeControllerProvider).value ?? [],
+          ref.read(moviesControllerProvider).value ?? [],
+          ref.read(webSeriesControllerProvider).value ?? [],
+        ];
+        for (final seriesList in allCategories) {
+          for (final s in seriesList) {
+            final score = calculateSimilarity(s.coreName, rec.title);
+            final fetchedScore = fetchedMeta != null ? calculateSimilarity(s.coreName, fetchedMeta.title) : 0.0;
+            final best = score > fetchedScore ? score : fetchedScore;
+            if (best >= 0.35 && looseMatch == null) { // Very loose — 35%
+              looseMatch = s;
+              break;
+            }
+          }
+          if (looseMatch != null) break;
+        }
+        
         showDialog(
           context: context,
           builder: (c) => AlertDialog(
@@ -577,14 +658,45 @@ class _AndroidSeriesDetailsScreenState extends ConsumerState<AndroidSeriesDetail
               'Not Available',
               style: TextStyle(color: Colors.white),
             ),
-            content: const Text(
-              'This movie/series is not available yet. Please go to the About page and request it on Telegram!',
-              style: TextStyle(color: Colors.white70),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  ' is not available on TelStream yet.',
+                  style: const TextStyle(color: Colors.white70),
+                ),
+                const SizedBox(height: 16),
+                if (looseMatch != null)
+                  TextButton(
+                    onPressed: () {
+                      Navigator.pop(c);
+                      Navigator.push(
+                        context,
+                        PremiumPageRoute(
+                          child: AndroidSeriesDetailsScreen(
+                            series: looseMatch!,
+                            categoryTitle: widget.categoryTitle,
+                          ),
+                        ),
+                      );
+                    },
+                    child: Text(
+                      'Try:  ( seasons)',
+                      style: const TextStyle(color: Colors.orange),
+                    ),
+                  ),
+                const SizedBox(height: 8),
+                Text(
+                  'Request it on Telegram!',
+                  style: TextStyle(color: Colors.orange.withValues(alpha: 0.7)),
+                ),
+              ],
             ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(c),
-                child: const Text('OK', style: TextStyle(color: Colors.orange)),
+                child: const Text('OK', style: TextStyle(color: Colors.white54)),
               ),
             ],
           ),

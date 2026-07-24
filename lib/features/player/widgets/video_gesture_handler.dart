@@ -17,6 +17,7 @@ class VideoGestureHandler {
   final bool Function(Duration) isPositionDownloaded;
   final Duration Function(Duration, {bool showMessage}) clampSeekTarget;
   final void Function(VoidCallback) setState;
+  final void Function(double speed)? onSpeedChanged;
 
   // Gesture state
   Offset? dragStartFocalPoint;
@@ -51,6 +52,7 @@ class VideoGestureHandler {
     required this.isPositionDownloaded,
     required this.clampSeekTarget,
     required this.setState,
+    this.onSpeedChanged,
   });
 
   void handleScaleStart(ScaleStartDetails details, {bool isLocked = false}) {
@@ -263,10 +265,11 @@ class VideoGestureHandler {
     } else if (actionType == 'Speed') {
       setState(() {
         double newSpeed = player.state.rate - (deltaY * 0.005 * sensitivityMultiplier);
-        newSpeed = newSpeed.clamp(0.25, 4.0);
+        newSpeed = newSpeed.clamp(0.25, 8.0);
         newSpeed = double.parse(newSpeed.toStringAsFixed(2));
         player.setRate(newSpeed);
         showSpeedIndicator = true;
+        onSpeedChanged?.call(newSpeed);
       });
     }
   }

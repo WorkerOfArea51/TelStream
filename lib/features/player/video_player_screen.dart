@@ -31,6 +31,7 @@ class VideoPlayerScreen extends ConsumerStatefulWidget {
   final String seriesName;
   final bool isPip;
   final String? networkUrl;
+  final bool isDesktopMode;
   
   const VideoPlayerScreen({
     super.key, 
@@ -42,6 +43,7 @@ class VideoPlayerScreen extends ConsumerStatefulWidget {
     this.seriesName = '',
     this.isPip = false,
     this.networkUrl,
+    this.isDesktopMode = false,
   });
 
   @override
@@ -1050,6 +1052,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
                      : CustomVideoControls(
                          player: player,
                          controller: controller,
+                         isDesktop: widget.isDesktopMode,
                          videoTitle: pipState?.queue[pipState.currentIndex].videoTitle ?? widget.videoTitle,
                      isPip: false,
                      downloadedPrefixSize: _downloadedPrefixSize,
@@ -1510,7 +1513,12 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
     }
 
     final hwDecMode = _storageService.getHardwareDecoderMode();
-    final enableHw = hwDecMode != 'no';
+    // On Windows/Linux/macOS, ALWAYS enable hardware acceleration for the video output surface.
+    // This flag controls how the VIDEO RENDERING SURFACE connects to Flutter's rendering pipeline,
+    // NOT the decoder. Setting it to false causes the black screen bug — video frames decoded by
+    // mpv (whether via hwdec or software) never reach the Flutter Video widget.
+    // On Android, respect the user's hwdec choice since mediacodec handles rendering natively.
+    final enableHw = Platform.isAndroid ? (hwDecMode != 'no') : true;
     // Defer to after the widget tree finishes building — Riverpod forbids
     // modifying providers during initState/build.
     Future.microtask(() {

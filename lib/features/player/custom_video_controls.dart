@@ -793,6 +793,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
       setState: (VoidCallback fn) {
         if (mounted) setState(fn);
       },
+      onSpeedChanged: (speed) => _adjustSyncForSpeed(speed),
     );
     _outroThresholdSeconds = ref.read(storageServiceProvider).getVideoSettings()['outro_threshold_seconds'] as int? ?? 45;
     final settings = ref.read(videoSettingsProvider);
@@ -803,6 +804,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
         Future.delayed(const Duration(milliseconds: 200), () {
           try {
             widget.player.setRate(savedSpeed);
+            _adjustSyncForSpeed(savedSpeed);
           } catch (_) {}
         });
       }
@@ -1586,6 +1588,72 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     _applyAspectRatioString(_currentAspectRatioString, save: false);
   }
 
+  /// Dynamically adjusts mpv A/V sync properties based on current playback speed.
+  /// At higher speeds, audio needs larger buffers and video sync needs more tolerance
+  /// to prevent A/V desynchronization.
+  void _adjustSyncForSpeed(double speed) {
+    if (widget.player.platform is NativePlayer) {
+      final nativePlayer = widget.player.platform as NativePlayer;
+      
+      if (speed > 1.5) {
+        // High speed: increase audio buffer proportionally to prevent starvation
+        // Formula: base 0.2s * speed factor, capped at 2.0s to avoid latency
+        final audioBuffer = (0.2 * speed).clamp(0.2, 2.0);
+        nativePlayer.setProperty('audio-buffer', audioBuffer.toStringAsFixed(2));
+        
+        // Allow video to drift more from display refresh at high speed
+        // This prevents frame drops that cause video to run ahead of audio
+        nativePlayer.setProperty('video-sync-max-video-change', '0.5');
+        
+        // Reduce interpolation at high speed - it causes frame timing issues above 2x
+        if (speed > 2.0) {
+          nativePlayer.setProperty('interpolation', 'no');
+        } else {
+          nativePlayer.setProperty('interpolation', 'yes');
+        }
+        
+        // At very high speeds (>3x), use resample-vdrop which drops video frames
+        // but maintains audio-video clock sync
+        if (speed > 3.0) {
+          nativePlayer.setProperty('video-sync', 'resample-vdrop');
+        } else {
+          nativePlayer.setProperty('video-sync', 'display-resample');
+        }
+        
+        // Increase demuxer readahead at high speed so data keeps flowing
+        final readahead = (180 * speed).clamp(180, 600).round();
+        nativePlayer.setProperty('demuxer-readahead-secs', readahead.toString());
+        
+        // At extreme speeds, use scaletempo2 (better quality than scaletempo)
+        if (speed > 2.0) {
+          nativePlayer.setProperty('af', 'scaletempo2');
+        }
+        
+        // At high speeds, subtitles flash by too fast - increase subtitle delay proportionally
+        final baseDelay = ref.read(storageServiceProvider).getSubtitleDelay() ?? 0.0;
+        final adjustedDelay = baseDelay + (speed - 1.0) * 0.3; // Add 0.3s per speed unit above 1.0
+        nativePlayer.setProperty('sub-delay', adjustedDelay.toStringAsFixed(2));
+      } else {
+        // Normal speed: restore optimal quality settings
+        nativePlayer.setProperty('audio-buffer', '0.2');
+        nativePlayer.setProperty('video-sync', 'display-resample');
+        nativePlayer.setProperty('interpolation', 'yes');
+        nativePlayer.setProperty('video-sync-max-video-change', '0.04');
+        nativePlayer.setProperty('demuxer-readahead-secs', '180');
+        
+        // Clear speed-specific audio filter if no user EQ/boost is active
+        final settings = ref.read(videoSettingsProvider);
+        if (!settings.audio.equalizerEnabled && !settings.audio.dynamicRangeCompression) {
+          nativePlayer.setProperty('af', '');
+        }
+        
+        // Restore original subtitle delay
+        final baseDelay = ref.read(storageServiceProvider).getSubtitleDelay() ?? 0.0;
+        nativePlayer.setProperty('sub-delay', baseDelay.toStringAsFixed(2));
+      }
+    }
+  }
+
   void _applyAspectRatioString(String ratioString, {bool save = true}) {
     double? customRatio;
     BoxFit boxFit = BoxFit.contain;
@@ -1671,7 +1739,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
   }
 
   void _cycleAspectRatio() {
-    const cycle = ['fit', 'fill', 'stretch', '16:9', '21:9'];
+    const cycle = ['fit', 'original', 'fill', 'stretch', '16:9', '4:3', '21:9'];
     int currentIndex = cycle.indexOf(_currentAspectRatioString);
     if (currentIndex == -1) {
       currentIndex = 0;
@@ -1857,6 +1925,86 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     final settingsAccent = customTheme?.settingsAccent ?? theme.primaryColor;
 
     final subtitleConfig = const SubtitleViewConfiguration(visible: false);
+
+    if (widget.isDesktop) {
+      return Shortcuts(
+        shortcuts: {
+          LogicalKeySet(LogicalKeyboardKey.space): const _PlayPauseIntent(),
+          LogicalKeySet(LogicalKeyboardKey.arrowLeft): const _SeekBackwardIntent(),
+          LogicalKeySet(LogicalKeyboardKey.arrowRight): const _SeekForwardIntent(),
+          LogicalKeySet(LogicalKeyboardKey.keyF): const _FullscreenIntent(),
+          LogicalKeySet(LogicalKeyboardKey.keyM): const _MuteIntent(),
+        },
+        child: Actions(
+          actions: {
+            _PlayPauseIntent: CallbackAction<_PlayPauseIntent>(onInvoke: (_) => widget.player.playOrPause()),
+            _SeekBackwardIntent: CallbackAction<_SeekBackwardIntent>(onInvoke: (_) => _performSeek(widget.player.state.position - const Duration(seconds: 5))),
+            _SeekForwardIntent: CallbackAction<_SeekForwardIntent>(onInvoke: (_) => _performSeek(widget.player.state.position + const Duration(seconds: 5))),
+            _FullscreenIntent: CallbackAction<_FullscreenIntent>(onInvoke: (_) => _toggleFullscreen()),
+            _MuteIntent: CallbackAction<_MuteIntent>(onInvoke: (_) => _toggleMute()),
+          },
+          child: Focus(
+            autofocus: true,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                VideoLayer(
+                  controller: widget.controller,
+                  fitNotifier: _fitNotifier,
+                  customAspectRatioNotifier: _customAspectRatioNotifier,
+                  scaleNotifier: _scaleNotifier,
+                  panNotifier: _panNotifier,
+                  subtitleConfig: subtitleConfig,
+                  isBuffering: _isBuffering,
+                  customBuffering: widget.customBuffering,
+                ),
+                if (_showControls)
+                  GestureDetector(
+                    onTap: () {
+                      if (widget.player.state.playing) {
+                        widget.player.pause();
+                      } else {
+                        widget.player.play();
+                      }
+                      _startHideTimer();
+                    },
+                    child: Container(color: Colors.transparent),
+                  ),
+                AutoNextOverlay(
+                  episodeList: widget.episodeList,
+                  currentEpisodeIndex: widget.currentEpisodeIndex,
+                  seriesName: widget.seriesName,
+                  videoFileId: widget.videoFileId,
+                  showAutoNext: _showAutoNext,
+                  onCancel: _cancelAutoNext,
+                ),
+                if (_toastShowing)
+                  Positioned(
+                    top: 20,
+                    left: 0,
+                    right: 0,
+                    child: Center(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.7),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          _toastMessage,
+                          style: const TextStyle(color: Colors.white, fontSize: 14),
+                        ),
+                      ),
+                    ),
+                  ),
+                if (!_isBlendingSubtitles) SubtitleOverlay(player: widget.player),
+                if (_showStats) _buildNerdStats(Theme.of(context).primaryColor, context, isPortrait),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
 
     return Shortcuts(
       shortcuts: {
@@ -2716,6 +2864,9 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
               setState(() {
                 _showControls = !(_speedPanelKey.currentState?.isVisible ?? false);
               });
+            },
+            onSpeedChanged: (speed) {
+              _adjustSyncForSpeed(speed);
             },
           ),
 

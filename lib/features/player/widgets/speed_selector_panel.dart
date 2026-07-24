@@ -9,11 +9,13 @@ import '../../../services/storage_service.dart';
 class SpeedSelectorPanel extends ConsumerStatefulWidget {
   final Player player;
   final VoidCallback onVisibilityChanged;
+  final void Function(double speed)? onSpeedChanged; // NEW: callback for A/V sync adjustment
 
   const SpeedSelectorPanel({
     super.key,
     required this.player,
     required this.onVisibilityChanged,
+    this.onSpeedChanged, // NEW
   });
 
   @override
@@ -54,6 +56,7 @@ class SpeedSelectorPanelState extends ConsumerState<SpeedSelectorPanel> {
       _speed = roundedVal;
     });
     widget.player.setRate(roundedVal);
+    widget.onSpeedChanged?.call(roundedVal); // NEW: notify parent for A/V sync adjustment
   }
 
   @override

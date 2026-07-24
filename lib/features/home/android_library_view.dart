@@ -421,6 +421,108 @@ class _AndroidLibraryViewState extends ConsumerState<AndroidLibraryView>
               slivers: [
                 if (!_isSearching &&
                     !_showFavoritesOnly &&
+                    _searchController.text.isEmpty)
+                  Builder(
+                    builder: (context) {
+                      final history = ref.watch(historyLogProvider);
+                      final storage = ref.read(storageServiceProvider);
+                      final allSeries = ref.read(provider.notifier).allSeries;
+                      
+                      final lastWatched = history.where((item) {
+                        final hasSeries = allSeries.any((s) => s.coreName == item['seriesName']);
+                        if (!hasSeries) return false;
+                        final msgId = item['messageId'] as int;
+                        final pos = item['position'] as int;
+                        final dur = storage.getVideoDuration(msgId);
+                        if (dur > 0) {
+                          final progress = pos / dur;
+                          return progress < 0.95 && progress > 0.01;
+                        }
+                        return pos > 0;
+                      }).lastOrNull;
+                      
+                      if (lastWatched == null) return const SliverToBoxAdapter(child: SizedBox.shrink());
+                      
+                      final series = allSeries.firstWhere((s) => s.coreName == lastWatched['seriesName']);
+                      final String? posterPath = ref.read(storageServiceProvider).getSeriesFiles()[series.coreName];
+                      final File? posterFile = posterPath != null ? File(posterPath) : null;
+                      
+                      return SliverToBoxAdapter(
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                          child: InkWell(
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                PremiumPageRoute(
+                                  child: AndroidSeriesDetailsScreen(
+                                    series: series,
+                                    categoryTitle: widget.category.title,
+                                  ),
+                                ),
+                              );
+                            },
+                            borderRadius: BorderRadius.circular(12),
+                            child: Container(
+                              height: 80,
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(12),
+                                color: Theme.of(context).primaryColor.withValues(alpha: 0.15),
+                                border: Border.all(color: Theme.of(context).primaryColor.withValues(alpha: 0.3)),
+                              ),
+                              padding: const EdgeInsets.all(12),
+                              child: Row(
+                                children: [
+                                  if (posterFile != null)
+                                    ClipRRect(
+                                      borderRadius: BorderRadius.circular(8),
+                                      child: Image.file(posterFile, width: 40, height: 56, fit: BoxFit.cover),
+                                    ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        const Text(
+                                          'Continue Watching',
+                                          style: TextStyle(fontSize: 12, color: Colors.orange, fontWeight: FontWeight.bold),
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          series.coreName,
+                                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                        Text(
+                                          lastWatched['episodeTitle']?.toString() ?? 'Episode',
+                                          style: const TextStyle(fontSize: 12, color: Colors.white70),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  Container(
+                                    width: 40,
+                                    height: 40,
+                                    decoration: BoxDecoration(
+                                      color: Colors.orange,
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Icon(Icons.play_arrow_rounded, color: Colors.white),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                if (!_isSearching &&
+                    !_showFavoritesOnly &&
                     _searchController.text.isEmpty &&
                     filteredList.isNotEmpty)
                   SliverToBoxAdapter(
@@ -810,7 +912,9 @@ class _LibraryGridItemState extends ConsumerState<_LibraryGridItem> {
                       ),
                       const SizedBox(width: 4),
                       Text(
-                        totalEpisodes.toString(),
+                        ref.watch(historyLogProvider).where((item) => item['seriesName'] == widget.series.coreName).length > 0 
+                            ? '/'
+                            : totalEpisodes.toString(),
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 10,

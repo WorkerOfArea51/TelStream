@@ -880,4 +880,28 @@ class MetadataService {
     }
     return ids;
   }
+
+  /// Search TMDB by title string — used as fallback when ID-based lookup fails
+  Future<SeriesMetadata?> searchTmdbByTitle(String title, String type) async {
+    try {
+      final encodedTitle = Uri.encodeComponent(title);
+      // Retrieve the tmdbApiKey since it's needed
+      final SettingsStore settingsStore = SettingsStore();
+      final settings = await settingsStore.getSettings();
+      final tmdbApiKey = settings['tmdb_api_key']?.toString() ?? '8806cd79fa69b2d698f1f7274db27c88'; // fallback to default
+      final queryParam = '&api_key=';
+      
+      final url = '/search/=';
+      final response = await http.get(Uri.parse(url));
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['results'] != null && data['results'].isNotEmpty) {
+          final firstResult = data['results'][0];
+          final tmdbId = firstResult['id'];
+          return fetchTmdbByImdbId(tmdbId.toString());
+        }
+      }
+    } catch (_) {}
+    return null;
+  }
 }
