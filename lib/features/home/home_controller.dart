@@ -49,7 +49,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
   /// Maximum number of raw messages to retain per chat.
   /// Prevents unbounded memory growth for channels with thousands of videos.
   /// Older messages are trimmed when this cap is exceeded.
-  static const int _maxMessagesPerChat = 2000;
+  static const int _maxMessagesPerChat = 5000;
 
   final List<td.Message> _rawMessages = [];
   final Set<int> _rawMessageIds = {};
@@ -59,35 +59,69 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
   /// This keeps memory bounded while preserving the most recent content.
   void _trimMessages() {
     if (_rawMessages.length <= _maxMessagesPerChat) return;
-    
+
     // Messages are sorted newest-first (b.id.compareTo(a.id)),
     // so the end of the list contains the oldest messages.
-    // We must NOT remove poster messages (MessagePhoto with non-empty caption)
-    // because they anchor series grouping — losing them causes episodes to
-    // appear as standalone series entries.
-    int removedCount = 0;
-    int targetRemovals = _rawMessages.length - _maxMessagesPerChat;
-    
-    // Walk backwards from the oldest end, removing non-poster messages
-    for (int i = _rawMessages.length - 1; i >= 0 && removedCount < targetRemovals; i--) {
-      final msg = _rawMessages[i];
-      bool isPoster = false;
+    // We must protect:
+    //   1. Poster messages (MessagePhoto with caption) — they anchor series grouping
+    //   2. Episode videos that belong to a series whose poster is still in _rawMessages
+    //      (i.e. there exists a poster message with a smaller ID in the list)
+    // Only remove messages that are truly orphaned — no poster anchor exists for them.
+
+    // First, collect all poster message IDs to know which series anchors we have
+    final Set<int> posterIds = {};
+    for (final msg in _rawMessages) {
       if (msg.content is td.MessagePhoto) {
         final photo = msg.content as td.MessagePhoto;
         if (photo.caption.text.isNotEmpty) {
-          isPoster = true;
+          posterIds.add(msg.id);
         }
       }
-      
-      if (!isPoster) {
-        _rawMessageIds.remove(msg.id);
-        _rawMessages.removeAt(i);
-        removedCount++;
-      }
     }
-    
+
+    int removedCount = 0;
+    int targetRemovals = _rawMessages.length - _maxMessagesPerChat;
+
+    // Walk backwards from the oldest end (end of list = oldest messages)
+    for (int i = _rawMessages.length - 1; i >= 0 && removedCount < targetRemovals; i--) {
+      final msg = _rawMessages[i];
+
+      // Always keep poster messages
+      if (msg.content is td.MessagePhoto) {
+        final photo = msg.content as td.MessagePhoto;
+        if (photo.caption.text.isNotEmpty) {
+          continue; // Skip — this is a poster anchor
+        }
+      }
+
+      // For video/document messages, check if any poster exists with a smaller ID
+      // (meaning the episode belongs to a series whose poster is still in our list)
+      bool hasPosterAnchor = false;
+      if (msg.content is td.MessageVideo || msg.content is td.MessageDocument) {
+        final fileName = TitleNormalizer.getMessageFileName(msg);
+        final isVideoFile = fileName.isNotEmpty;
+        if (isVideoFile) {
+          for (final posterId in posterIds) {
+            if (posterId < msg.id) {
+              hasPosterAnchor = true;
+              break;
+            }
+          }
+        }
+      }
+
+      if (hasPosterAnchor) {
+        continue; // Skip — this episode belongs to a series whose poster we still have
+      }
+
+      // This message has no poster anchor — it's safe to remove
+      _rawMessageIds.remove(msg.id);
+      _rawMessages.removeAt(i);
+      removedCount++;
+    }
+
     if (removedCount > 0) {
-      Log.i('Trimmed $removedCount non-poster messages (cap: $_maxMessagesPerChat, remaining: ${_rawMessages.length})');
+      Log.i('Trimmed $removedCount orphaned messages (cap: $_maxMessagesPerChat, remaining: ${_rawMessages.length})');
     }
   }
 
