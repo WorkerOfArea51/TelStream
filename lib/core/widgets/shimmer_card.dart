@@ -50,7 +50,6 @@ class _ShimmerEffectState extends State<ShimmerEffect> with SingleTickerProvider
     final isDark = Theme.of(context).brightness == Brightness.dark;
     if (!widget.enabled) return widget.child;
 
-    final theme = Theme.of(context);
     
     // Smooth grey tones matching Google Pixel M3 design
     final baseColor = isDark ? Colors.white.withValues(alpha: 0.06) : Colors.black.withValues(alpha: 0.06);
@@ -103,7 +102,6 @@ class ShimmerCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final theme = Theme.of(context);
     return ShimmerEffect(
       child: Container(
@@ -121,7 +119,6 @@ class ShimmerEpisodeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final theme = Theme.of(context);
     return ShimmerEffect(
       child: Container(

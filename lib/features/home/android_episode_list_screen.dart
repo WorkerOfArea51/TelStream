@@ -465,7 +465,6 @@ class _AndroidEpisodeListScreenState extends ConsumerState<AndroidEpisodeListScr
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     super.build(context);
     // Watch HomeController provider to dynamically update the view with synchronized edits in real-time
     final provider = widget.categoryTitle == 'Anime'
@@ -1404,7 +1403,6 @@ class _TouchScaleState extends State<_TouchScale> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     return GestureDetector(
       onTapDown: (_) => setState(() => _isTapped = true),
       onTapUp: (_) => setState(() => _isTapped = false),
@@ -1495,7 +1493,6 @@ class _SwipeToActionState extends State<_SwipeToAction>
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final showRightIcon = _dragOffset > 10;
     final showLeftIcon = _dragOffset < -10;
 
