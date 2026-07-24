@@ -36,7 +36,10 @@ jobs:
       - name: Validate Secrets
         shell: bash
         run: |
-          if [ -z "${{ secrets.TELEGRAM_API_ID }}" ] || [ -z "${{ secrets.TMDB_API_KEY }}" ]; then
+          if [ -z "${{ secrets.SENTRY_DSN }}" ]; then
+          echo "Warning: SENTRY_DSN is not set. Crash reporting will be disabled."
+        fi
+        if [ -z "${{ secrets.TELEGRAM_API_ID }}" ] || [ -z "${{ secrets.TMDB_API_KEY }}" ]; then
             echo "Error: CI Secrets are missing."
             exit 1
           fi
@@ -91,7 +94,7 @@ jobs:
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
-          flutter build apk --split-per-abi --target-platform android-arm,android-arm64,android-x64 --release --build-number=${{ github.run_number }} --dart-define=FIREBASE_DB_URL=${{ secrets.FIREBASE_DB_URL }}
+          flutter build apk --split-per-abi --target-platform android-arm,android-arm64,android-x64 --release --build-number=${{ github.run_number }} --dart-define=FIREBASE_DB_URL=${{ secrets.FIREBASE_DB_URL }} --dart-define=SENTRY_DSN=${{ secrets.SENTRY_DSN }}
           cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk build/app/outputs/flutter-apk/telstream-arm64.apk
           cp build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk build/app/outputs/flutter-apk/telstream-arm32.apk
 
@@ -152,7 +155,7 @@ jobs:
           }
 
       - name: Build Windows Application
-        run: flutter build windows --release --dart-define=FIREBASE_DB_URL=${{ secrets.FIREBASE_DB_URL }}
+        run: flutter build windows --release --dart-define=FIREBASE_DB_URL=${{ secrets.FIREBASE_DB_URL }} --dart-define=SENTRY_DSN=${{ secrets.SENTRY_DSN }}
 
 
 

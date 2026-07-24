@@ -46,9 +46,29 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
   bool _isLoadingMore = false;
   SortOrder _sortOrder = SortOrder.newest;
   
+  /// Maximum number of raw messages to retain per chat.
+  /// Prevents unbounded memory growth for channels with thousands of videos.
+  /// Older messages are trimmed when this cap is exceeded.
+  static const int _maxMessagesPerChat = 2000;
+
   final List<td.Message> _rawMessages = [];
   final Set<int> _rawMessageIds = {};
   final _mutationLock = Lock();
+
+  /// Trim oldest messages when the list exceeds the cap.
+  /// This keeps memory bounded while preserving the most recent content.
+  void _trimMessages() {
+    if (_rawMessages.length <= _maxMessagesPerChat) return;
+    final excess = _rawMessages.length - _maxMessagesPerChat;
+    // Messages are sorted newest-first (b.id.compareTo(a.id))
+    // so removing from the end removes the oldest.
+    final removed = _rawMessages.sublist(_rawMessages.length - excess);
+    for (final m in removed) {
+      _rawMessageIds.remove(m.id);
+    }
+    _rawMessages.removeRange(_rawMessages.length - excess, _rawMessages.length);
+    Log.i('Trimmed $excess oldest messages (cap: $_maxMessagesPerChat, remaining: ${_rawMessages.length})');
+  }
 
   bool get hasMore => _hasMore;
   bool get isLoadingMore => _isLoadingMore;
@@ -118,6 +138,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
             if (!_rawMessageIds.contains(event.message.id)) {
               _rawMessages.insert(0, event.message);
               _rawMessageIds.add(event.message.id);
+              _trimMessages();
               final changed = await _upsertMessageIncrementally(event.message);
               if (changed && state.value != null) {
                 if (!_isDisposed) state = AsyncValue.data(await _applySearchAndSort(_allSeries));
@@ -326,6 +347,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
           
           if (changed) {
             _rawMessages.sort((a, b) => b.id.compareTo(a.id));
+      _trimMessages();
             _allSeries = await _parseMessages(_rawMessages);
             if (!_isDisposed) state = AsyncValue.data(await _applySearchAndSort(_allSeries));
             _triggerReleaseYearsSync();
@@ -379,6 +401,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
         }
         
         _rawMessages.sort((a, b) => b.id.compareTo(a.id));
+      _trimMessages();
         _cacheLoadComplete = true; // Cache loading completes the full load, subsequent sync starts incremental
         _hasMore = false; // Prevent UI from calling loadMore() on startup
         Log.i('Loaded ${cachedList.length} series from catalog cache for category ${category.title} instantly');
@@ -460,7 +483,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
     _rawMessageIds.clear();
     int iterations = 0;
     int currentFromId = 0;
-    while (_hasMore && iterations < 200 && !_isDisposed) {
+    while (_hasMore && iterations < 200 && !_isDisposed && _rawMessages.length < _maxMessagesPerChat) {
       iterations++;
       final localMessages = await _fetchMessages(fromId: currentFromId, onlyLocal: true);
       if (localMessages.isEmpty) {
@@ -475,6 +498,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
                 _rawMessageIds.add(msg.id);
               }
             }
+            _trimMessages();
             if (_rawMessages.isNotEmpty) {
               currentFromId = _rawMessages.last.id;
             }
@@ -490,6 +514,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
           _rawMessageIds.add(msg.id);
         }
       }
+      _trimMessages();
       currentFromId = _rawMessages.last.id;
       
       // Yield to the UI thread to prevent ANR during massive local DB loading
@@ -618,6 +643,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
               final isNearEnd = !_hasMore;
               if (isNearEnd || now.difference(lastUiUpdateTime) > const Duration(milliseconds: 1500)) {
                 _rawMessages.sort((a, b) => b.id.compareTo(a.id));
+      _trimMessages();
                 _allSeries = await _parseMessages(_rawMessages);
                 if (!_isDisposed) state = AsyncValue.data(await _applySearchAndSort(_allSeries));
                 _triggerReleaseYearsSync();
@@ -645,6 +671,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
       if (_isDisposed) return;
       if (changed) {
         _rawMessages.sort((a, b) => b.id.compareTo(a.id));
+      _trimMessages();
         _allSeries = await _parseMessages(_rawMessages);
         if (!_isDisposed) state = AsyncValue.data(await _applySearchAndSort(_allSeries));
         _triggerReleaseYearsSync();

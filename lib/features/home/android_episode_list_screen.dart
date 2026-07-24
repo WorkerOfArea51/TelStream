@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:tdlib/td_api.dart' as td;
 
 import '../../models/anime_models.dart';
@@ -808,7 +809,9 @@ class _AndroidEpisodeListScreenState extends ConsumerState<AndroidEpisodeListScr
                         series: widget.series,
                         onLongPress: _showMarkWatchedDialog,
                         isHighlighted: isHighlighted,
-                      );
+                      ).animate()
+                       .fadeIn(duration: 300.ms, delay: (index * 30).ms)
+                       .slideY(begin: 0.1, end: 0, duration: 300.ms, delay: (index * 30).ms);
                     },
                     childCount: selectedSeason.episodes.length,
                   ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/m3_animated_menu_tile.dart';
@@ -68,7 +69,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       ),
       clipBehavior: Clip.antiAlias,
       child: Column(children: children),
-    );
+    ).animate()
+     .fadeIn(duration: 300.ms)
+     .slideX(begin: -0.05, end: 0, duration: 300.ms);
   }
 
   @override
