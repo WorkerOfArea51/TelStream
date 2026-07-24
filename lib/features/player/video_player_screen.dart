@@ -1385,8 +1385,8 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         
         // Prevent artificial freeze/stall on first load by disabling hard pause-initial locks
         nativePlayer.setProperty('cache-pause', 'yes'); 
-        nativePlayer.setProperty('cache-pause-initial', 'yes'); 
-        nativePlayer.setProperty('cache-pause-wait', '5'); // Buffer 5 seconds before resuming play
+        nativePlayer.setProperty('cache-pause-initial', 'no');  // Start playing immediately — don't show black screen while buffering
+        nativePlayer.setProperty('cache-pause-wait', '2'); // Shorter wait (2s) when re-buffering during playback
         nativePlayer.setProperty('cache-secs', '180'); // Max caching seconds
         nativePlayer.setProperty('hr-seek', 'no'); // Disable high-precision seeking to avoid frame decoding stalls
         

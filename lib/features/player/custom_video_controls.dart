@@ -1184,7 +1184,8 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
 
   void _startHideTimer() {
     _hideTimer?.cancel();
-    _hideTimer = Timer(const Duration(seconds: 4), () {
+    final hideDelay = widget.isDesktop ? const Duration(seconds: 5) : const Duration(seconds: 4);
+    _hideTimer = Timer(hideDelay, () {
       if (mounted && _showControls) {
         setState(() {
           _showControls = false;

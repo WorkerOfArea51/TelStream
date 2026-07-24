@@ -629,6 +629,7 @@ class _DesktopMainScreenState extends ConsumerState<DesktopMainScreen> with Tick
                     seriesName: pipState.seriesName,
                     networkUrl: pipState.networkUrl,
                     isPip: false,
+                    isDesktopMode: true,
                   )
                 : Center(
                     child: Column(

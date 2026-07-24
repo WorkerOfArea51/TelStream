@@ -218,6 +218,7 @@ class PipController extends Notifier<PipVideoState?> {
         seriesName: seriesName,
         isPip: false,
         networkUrl: networkUrl,
+        isDesktopMode: Platform.isWindows || Platform.isLinux || Platform.isMacOS,
       ),
     );
 
@@ -274,6 +275,7 @@ class PipController extends Notifier<PipVideoState?> {
         seriesName: item.seriesName,
         isPip: false,
         networkUrl: item.networkUrl,
+        isDesktopMode: Platform.isWindows || Platform.isLinux || Platform.isMacOS,
       ),
     );
 
