@@ -5,8 +5,10 @@ void main() {
   group('Search History Tests', () {
     late StorageService storageService;
 
-    setUp(() {
+    setUp(() async {
+      TestWidgetsFlutterBinding.ensureInitialized();
       storageService = StorageService();
+      await storageService.init();
     });
 
     test('getSearchHistory returns empty list initially', () {

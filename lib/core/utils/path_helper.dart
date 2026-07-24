@@ -7,6 +7,9 @@ import 'package:path_provider/path_provider.dart';
 /// - Windows: %APPDATA%/`<vendor>`/`<app>`
 /// - Linux: ${XDG_DATA_HOME}/`<app>` or ~/.local/share/`<app>`
 Future<Directory> getAppDirectory() async {
+  if (Platform.environment.containsKey('FLUTTER_TEST')) {
+    return Directory.current;
+  }
   final dir = await getApplicationSupportDirectory();
   try {
     await dir.create(recursive: true);

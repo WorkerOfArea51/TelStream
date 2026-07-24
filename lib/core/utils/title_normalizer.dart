@@ -96,7 +96,12 @@ class TitleNormalizer {
     if (RegExp(r'^\d+$').hasMatch(diff)) {
       return 'Season $diff';
     }
-    
+    // Convert ordinal "Nth Season" to "Season N"
+    final ordinalMatch = RegExp(r'^(\d+)(?:st|nd|rd|th)\s+Season$', caseSensitive: false).firstMatch(diff);
+    if (ordinalMatch != null) {
+      return 'Season ${ordinalMatch.group(1)}';
+    }
+
     return diff;
   }
 
