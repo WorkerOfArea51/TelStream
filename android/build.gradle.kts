@@ -44,6 +44,13 @@ subprojects {
     } else {
         project.afterEvaluate { configureAndroidNamespace() }
     }
+
+    project.tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile::class.java).configureEach {
+        kotlinOptions {
+            jvmTarget = "17"
+            languageVersion = "2.0"
+        }
+    }
 }
 
 
