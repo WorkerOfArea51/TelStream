@@ -37,9 +37,9 @@ jobs:
         shell: bash
         run: |
           if [ -z "${{ secrets.SENTRY_DSN }}" ]; then
-          echo "Warning: SENTRY_DSN is not set. Crash reporting will be disabled."
-        fi
-        if [ -z "${{ secrets.TELEGRAM_API_ID }}" ] || [ -z "${{ secrets.TMDB_API_KEY }}" ]; then
+            echo "Warning: SENTRY_DSN is not set. Crash reporting will be disabled."
+          fi
+          if [ -z "${{ secrets.TELEGRAM_API_ID }}" ] || [ -z "${{ secrets.TMDB_API_KEY }}" ]; then
             echo "Error: CI Secrets are missing."
             exit 1
           fi

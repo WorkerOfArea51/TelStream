@@ -1,20 +1,8 @@
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:media_kit/media_kit.dart';
 
 void main() {
   group('Video Player Keyboard Shortcuts', () {
-    late Player mockPlayer;
-
-    setUp(() {
-      MediaKit.ensureInitialized();
-      mockPlayer = Player(configuration: const PlayerConfiguration());
-    });
-
-    tearDown(() async {
-      await mockPlayer.dispose();
-    });
-
     test('Space key triggers play/pause', () {
       // Simulate a KeyDownEvent for space
       const event = KeyDownEvent(
