@@ -1,14 +1,9 @@
-import 'dart:async';
-import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:screen_brightness/screen_brightness.dart';
 import 'package:flutter_volume_controller/flutter_volume_controller.dart';
 import '../../../services/storage_service.dart';
 import '../../settings/settings_provider.dart';
-import '../../../core/logger.dart';
 
 class VideoGestureHandler {
   final Player player;

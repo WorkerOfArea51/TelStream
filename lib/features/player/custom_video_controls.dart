@@ -122,23 +122,15 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
   bool _isBlendingSubtitles = false;
   StreamSubscription<Track>? _trackSubscription;
   StreamSubscription? _tracksListSubscription;
-  String _trackSelectorTitle = '';
   Map<String, String> _trackCodecs = {};
 
   // Gestures
   double _currentVolume = 100.0;
   double _currentBrightness = 1.0;
-  bool _showVolumeIndicator = false;
-  bool _showBrightnessIndicator = false;
-  bool _showSeekIndicator = false;
-  String _seekDirection = '';
   bool _isPhysicalBrightnessSupported = false;
   Timer? _brightnessSaveTimer;
-  DateTime _lastVolumeCallTime = DateTime.fromMillisecondsSinceEpoch(0);
-  DateTime _lastBrightnessCallTime = DateTime.fromMillisecondsSinceEpoch(0);
   final bool _audioBoostActive = false;
   bool _nightModeActive = false;
-  bool _showSpeedIndicator = false;
   double _audioDelay = 0.0;
   Timer? _statsTimer;
   Map<String, String> _nerdStats = {};
@@ -192,20 +184,11 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
 
   // Pinch to zoom
   final _scaleNotifier = ValueNotifier<double>(1.0);
-  double _baseScale = 1.0;
   final _panNotifier = ValueNotifier<Offset>(Offset.zero);
-  Offset _basePanOffset = Offset.zero;
 
   // Swipe to seek variables
-  bool _isSwipingToSeek = false;
-  Duration _swipeTargetPosition = Duration.zero;
-  Duration _swipeStartPosition = Duration.zero;
 
   // Gesture detection flags
-  bool _isScaleGesture = false;
-  bool _isVerticalDrag = false;
-  bool _isHorizontalDrag = false;
-  Offset? _dragStartFocalPoint;
   DateTime? _lastSeekWarningTime;
   StreamSubscription<double>? _volumeSubscription;
   DateTime? _lastDragSeekTime;
@@ -999,7 +982,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
 
     try {
       _volumeSubscription = FlutterVolumeController.addListener((volume) {
-        if (mounted && !_showVolumeIndicator) {
+        if (mounted) {
           setState(() {
             _currentVolume = volume * 100.0;
             widget.player.setVolume(_currentVolume);
@@ -1357,24 +1340,13 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
       widget.player.seek(target);
     }
   }
-
-  void _saveBrightnessDebounced(double value) {
-    _brightnessSaveTimer?.cancel();
-    _brightnessSaveTimer = Timer(const Duration(milliseconds: 500), () {
-      ref.read(storageServiceProvider).setBrightness(value);
-    });
-  }
-
   void _showOSD(String text) {
     _osdTimer?.cancel();
     setState(() {
-      _showSeekIndicator = true;
-      _seekDirection = text;
     });
     _osdTimer = Timer(const Duration(seconds: 2), () {
       if (mounted) {
         setState(() {
-          _showSeekIndicator = false;
         });
       }
     });
@@ -1688,20 +1660,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     }
   }
 
-  String _getRatioLabel(String value) {
-    switch (value) {
-      case 'fit':
-        return 'Fit';
-      case 'fill':
-        return 'Fill';
-      case 'original':
-        return 'Original';
-      case 'stretch':
-        return 'Stretch';
-      default:
-        return value;
-    }
-  }
+
 
   void _handleAspectRatioButtonTap() {
     if (_tapToSwitchRatio) {
@@ -1723,14 +1682,11 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     _applyAspectRatioString(nextRatio);
 
     setState(() {
-      _showSeekIndicator = true;
-      _seekDirection = 'Aspect Ratio: ${_getRatioLabel(nextRatio)}';
     });
     _hideTimer?.cancel();
     _startHideTimer();
     Future.delayed(const Duration(milliseconds: 1000), () {
       if (mounted) {
-        setState(() => _showSeekIndicator = false);
       }
     });
   }
@@ -1778,7 +1734,6 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     _loadTrackCodecs();
     _trackPanelKey.currentState?.show(isSubtitle);
     setState(() {
-      _trackSelectorTitle = title;
       _showControls = false;
     });
   }
@@ -1873,21 +1828,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
         }
       });
     }
-    setState(() {
-      
-      _showSeekIndicator = true;
-      _seekDirection =
-          '$_trackSelectorTitle: ${track.id == 'auto'
-              ? 'Auto'
-              : track.id == 'no'
-              ? 'None'
-              : (track.title ?? 'Track ${track.id}')}';
-    });
-    Future.delayed(const Duration(milliseconds: 1000), () {
-      if (mounted) {
-        setState(() => _showSeekIndicator = false);
-      }
-    });
+
 
     // Force a buffer flush to prevent MPV from stalling when changing HTTP streams.
     // Seeking to the exact current position forces libavformat to re-init the stream and immediately resume.
@@ -1959,15 +1900,12 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
         _preLongPressSpeed = widget.player.state.rate;
         widget.player.setRate(speed);
         setState(() {
-          _showSeekIndicator = true;
-          _seekDirection = '${speed}x Fast Forwarding';
         });
       },
       onLongPressEnd: (details) {
         if (!settings.layout.dynamicSpeedOverlay) return;
         widget.player.setRate(_preLongPressSpeed);
         setState(() {
-          _showSeekIndicator = false;
         });
       },
       child: Stack(
@@ -2764,11 +2702,8 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
               final safeTarget = _clampSeekTarget(position, showMessage: false);
               _performSeek(safeTarget);
               setState(() {
-                _showSeekIndicator = true;
-                _seekDirection = 'Chapter: $displayTitle';
               });
               Future.delayed(const Duration(milliseconds: 1000), () {
-                if (mounted) setState(() => _showSeekIndicator = false);
               });
             },
           ),
