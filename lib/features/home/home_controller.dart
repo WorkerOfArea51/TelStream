@@ -59,15 +59,36 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
   /// This keeps memory bounded while preserving the most recent content.
   void _trimMessages() {
     if (_rawMessages.length <= _maxMessagesPerChat) return;
-    final excess = _rawMessages.length - _maxMessagesPerChat;
-    // Messages are sorted newest-first (b.id.compareTo(a.id))
-    // so removing from the end removes the oldest.
-    final removed = _rawMessages.sublist(_rawMessages.length - excess);
-    for (final m in removed) {
-      _rawMessageIds.remove(m.id);
+    
+    // Messages are sorted newest-first (b.id.compareTo(a.id)),
+    // so the end of the list contains the oldest messages.
+    // We must NOT remove poster messages (MessagePhoto with non-empty caption)
+    // because they anchor series grouping — losing them causes episodes to
+    // appear as standalone series entries.
+    int removedCount = 0;
+    int targetRemovals = _rawMessages.length - _maxMessagesPerChat;
+    
+    // Walk backwards from the oldest end, removing non-poster messages
+    for (int i = _rawMessages.length - 1; i >= 0 && removedCount < targetRemovals; i--) {
+      final msg = _rawMessages[i];
+      bool isPoster = false;
+      if (msg.content is td.MessagePhoto) {
+        final photo = msg.content as td.MessagePhoto;
+        if (photo.caption.text.isNotEmpty) {
+          isPoster = true;
+        }
+      }
+      
+      if (!isPoster) {
+        _rawMessageIds.remove(msg.id);
+        _rawMessages.removeAt(i);
+        removedCount++;
+      }
     }
-    _rawMessages.removeRange(_rawMessages.length - excess, _rawMessages.length);
-    Log.i('Trimmed $excess oldest messages (cap: $_maxMessagesPerChat, remaining: ${_rawMessages.length})');
+    
+    if (removedCount > 0) {
+      Log.i('Trimmed $removedCount non-poster messages (cap: $_maxMessagesPerChat, remaining: ${_rawMessages.length})');
+    }
   }
 
   bool get hasMore => _hasMore;

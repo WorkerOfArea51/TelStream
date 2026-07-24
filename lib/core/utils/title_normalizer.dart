@@ -12,6 +12,10 @@ class TitleNormalizer {
   static final _rootARegex = RegExp(r'(?:\s*[-—–|]\s*)?(?:root\s*a|root\s*alpha|√\s*a)\b', caseSensitive: false);
   static final _rePrefixRegex = RegExp(r'\b[rR][eE]\b$');
   static final _trailingPunctuationRegex = RegExp(r'\s*[-—–|]+\s*$');
+  static final _episodePrefixRegex = RegExp(
+    r'(?:\s*[-—–_]*\s*)?\b(?:ep|episode|e|eps)\.?\s*[-—–_]*\s*\d+\b',
+    caseSensitive: false,
+  );
 
   static String normalizeSeriesName(String name, {bool isMovie = false}) {
     var normalized = name.trim();
@@ -24,6 +28,7 @@ class TitleNormalizer {
       normalized = normalized.replaceAll(_seasonSuffixRegex, '');
       normalized = normalized.replaceAll(_finalSeasonRegex, '');
       normalized = normalized.replaceAll(_movieOvaRegex, '');
+      normalized = normalized.replaceAll(_episodePrefixRegex, '');
       normalized = normalized.replaceAll(_romanNumeralRegex, '');
       normalized = normalized.replaceAll(_singleDigitRegex, '');
       normalized = normalized.replaceAll(_singleLetterSRegex, '');

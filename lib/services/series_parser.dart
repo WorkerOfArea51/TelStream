@@ -118,28 +118,70 @@ class SeriesParser {
     if (selectedPoster != null) {
       (selectedPoster['episodesList'] as List<td.Message>).add(ep);
     } else {
-      // No poster found â€” create a standalone poster from the video itself.
-      // This handles user channels where videos are posted without preceding text/photo posts.
+      // No poster found — try to match this episode to an existing series first.
       final epFileName = TitleNormalizer.getMessageFileName(ep);
       final epTitle = epFileName.isNotEmpty 
           ? epFileName.replaceAll(RegExp(r'\.(mkv|mp4|avi|mov|webm|flv|wmv|ts|m4v|3gp)$', caseSensitive: false), '').replaceAll('_', ' ').trim()
           : 'Video ${ep.id}';
       final epBaseName = TitleNormalizer.normalizeSeriesName(epTitle, isMovie: isMovie);
       final epKey = isMovie ? '${epBaseName}_${ep.id}' : epBaseName.toLowerCase().replaceAll(RegExp(r'[^\p{L}\p{N}]', unicode: true), '');
-      
-      // Create a synthetic poster entry using the video message itself as the "poster"
-      final standalonePoster = {
-        'message': ep,
-        'fullTitle': epTitle,
-        'baseName': epBaseName,
-        'matchedKey': epKey,
-        'episodesList': <td.Message>[ep],
-      };
-      posterDetails.add(standalonePoster);
-      
-      if (!seriesMap.containsKey(epKey)) {
-        seriesMap[epKey] = AnimeSeries(coreName: epBaseName, seasons: []);
-        seriesList.add(seriesMap[epKey]!);
+
+      // Try to find an existing series this orphan episode belongs to
+      String? matchedExistingKey;
+      if (!isMovie) {
+        for (final existingKey in seriesMap.keys) {
+          final cleanExisting = existingKey.toLowerCase();
+          final cleanEp = epKey.toLowerCase();
+          if (cleanExisting.length >= 4 && cleanEp.length >= 4) {
+            // Skip franchise bypass (same logic as poster matching above)
+            bool isFranchiseBypass = false;
+            const franchisePrefixes = ['dragonball', 'naruto', 'onepiece', 'bleach'];
+            for (final prefix in franchisePrefixes) {
+              if ((cleanEp.startsWith(prefix) || cleanExisting.startsWith(prefix)) &&
+                  cleanEp != cleanExisting) {
+                isFranchiseBypass = true;
+                break;
+              }
+            }
+            if (isFranchiseBypass) continue;
+
+            if (cleanEp.startsWith(cleanExisting) || cleanExisting.startsWith(cleanEp)) {
+              matchedExistingKey = existingKey;
+              break;
+            }
+          }
+        }
+      }
+
+      if (matchedExistingKey != null) {
+        // Add this episode to the existing series' latest season
+        final existingSeries = seriesMap[matchedExistingKey]!;
+        if (existingSeries.seasons.isNotEmpty) {
+          existingSeries.seasons.last.episodes.add(ep);
+        } else {
+          final syntheticSeason = AnimeSeason(
+            fullTitle: existingSeries.coreName,
+            seasonName: isMovie ? 'Movie' : 'Season 1',
+            posterMessage: ep,
+            episodes: [ep],
+          );
+          existingSeries.seasons.add(syntheticSeason);
+        }
+      } else {
+        // No existing series matches — create standalone entry as fallback
+        final standalonePoster = {
+          'message': ep,
+          'fullTitle': epTitle,
+          'baseName': epBaseName,
+          'matchedKey': epKey,
+          'episodesList': <td.Message>[ep],
+        };
+        posterDetails.add(standalonePoster);
+
+        if (!seriesMap.containsKey(epKey)) {
+          seriesMap[epKey] = AnimeSeries(coreName: epBaseName, seasons: []);
+          seriesList.add(seriesMap[epKey]!);
+        }
       }
     }
     // Yield to keep UI smooth (Removed fake concurrency)
