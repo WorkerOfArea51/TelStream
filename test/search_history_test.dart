@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:telstream/services/storage_service.dart';
 
 void main() {
@@ -7,8 +8,10 @@ void main() {
 
     setUp(() async {
       TestWidgetsFlutterBinding.ensureInitialized();
+      FlutterSecureStorage.setMockInitialValues({});
       storageService = StorageService();
       await storageService.init();
+      await storageService.saveSearchHistory('test_category', []);
     });
 
     test('getSearchHistory returns empty list initially', () {
