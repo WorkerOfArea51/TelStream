@@ -1632,7 +1632,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
         }
         
         // At high speeds, subtitles flash by too fast - increase subtitle delay proportionally
-        final baseDelay = ref.read(storageServiceProvider).getSubtitleDelay() ?? 0.0;
+        final baseDelay = ref.read(storageServiceProvider).getSubtitleDelay();
         final adjustedDelay = baseDelay + (speed - 1.0) * 0.3; // Add 0.3s per speed unit above 1.0
         nativePlayer.setProperty('sub-delay', adjustedDelay.toStringAsFixed(2));
       } else {
@@ -1650,7 +1650,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
         }
         
         // Restore original subtitle delay
-        final baseDelay = ref.read(storageServiceProvider).getSubtitleDelay() ?? 0.0;
+        final baseDelay = ref.read(storageServiceProvider).getSubtitleDelay();
         nativePlayer.setProperty('sub-delay', baseDelay.toStringAsFixed(2));
       }
     }
