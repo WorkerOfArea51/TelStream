@@ -14,6 +14,7 @@ import '../settings/settings_provider.dart';
 import 'home_controller.dart';
 import 'desktop_state.dart';
 import 'desktop_library_widgets.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 
 class DesktopLibraryView extends ConsumerStatefulWidget {
   final ChannelCategory category;
@@ -285,7 +286,9 @@ class _DesktopLibraryViewState extends ConsumerState<DesktopLibraryView> {
                             return DesktopPosterCard(
                               series: filteredList[index],
                               categoryTitle: widget.category.title,
-                            );
+                            ).animate()
+                             .fadeIn(duration: 300.ms, delay: (index * 30).ms)
+                             .slideY(begin: 0.1, end: 0, duration: 300.ms, delay: (index * 30).ms);
                           },
                           childCount: filteredList.length + (isSyncing ? 3 : 0),
                         ),
@@ -302,7 +305,9 @@ class _DesktopLibraryViewState extends ConsumerState<DesktopLibraryView> {
                               series: filteredList[index],
                               categoryTitle: widget.category.title,
                               isCompact: layout == 'Compact',
-                            );
+                            ).animate()
+                             .fadeIn(duration: 300.ms, delay: (index * 30).ms)
+                             .slideY(begin: 0.1, end: 0, duration: 300.ms, delay: (index * 30).ms);
                           },
                           childCount: filteredList.length,
                         ),

@@ -8,6 +8,8 @@ import 'package:tdlib/td_client.dart';
 import 'package:path_provider/path_provider.dart';
 import 'core/logger.dart';
 import 'core/constants.dart';
+import 'core/secrets.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -22,22 +24,37 @@ import 'services/streaming_proxy_service.dart';
 import 'services/firebase_metadata_service.dart';
 import 'core/theme/app_theme.dart';
 import 'services/tdlib_service.dart';
-
+import 'package:sentry_flutter/sentry_flutter.dart';
 void main() async {
   // 1. Catch synchronous framework errors.
   FlutterError.onError = (FlutterErrorDetails details) {
     Log.e('Flutter framework error: ${details.exception}', details.stack);
     FlutterError.presentError(details);
+    Sentry.captureException(details.exception, stackTrace: details.stack);
   };
 
   // 2. Catch isolate-creation errors (compute() / Isolate.run).
   Isolate.current.addErrorListener(RawReceivePort((dynamic data) {
     final list = data as List;
     Log.e('Isolate error: ${list[0]}', null, StackTrace.fromString(list[1] as String));
+    Sentry.captureException(list[0], stackTrace: StackTrace.fromString(list[1] as String));
   }).sendPort);
 
   // 3. Catch all other async errors.
-  runZonedGuarded(() async {
+  await SentryFlutter.init(
+    (options) {
+      options.dsn = Secrets.sentryDsn.isNotEmpty ? Secrets.sentryDsn : '';
+      options.tracesSampleRate = 0.0;
+            options.environment = kReleaseMode ? 'production' : 'development';
+      options.release = 'telstream@${Constants.currentVersion}';
+      options.sendDefaultPii = false;
+      options.attachThreads = false;
+      options.enableUserInteractionBreadcrumbs = true;
+      options.enableAppLifecycleBreadcrumbs = true;
+      options.attachScreenshot = true;
+      options.maxBreadcrumbs = 50;
+    },
+    appRunner: () => runZonedGuarded(() async {
     WidgetsFlutterBinding.ensureInitialized();
     
     ProviderContainer? container;
@@ -92,6 +109,7 @@ void main() async {
     } catch (e, stack) {
       startupError = e;
       Log.e('Fatal error during startup: $e', stack);
+      await Sentry.captureException(e, stackTrace: stack);
       container?.dispose();
       container = null;
     }
@@ -99,7 +117,9 @@ void main() async {
     runApp(_TelStreamRoot(container: container, startupError: startupError));
   }, (error, stack) {
     Log.e('Uncaught asynchronous error: $error', stack);
-  });
+    Sentry.captureException(error, stackTrace: stack);
+  }),
+  );
 }
 
 class _TelStreamRoot extends StatelessWidget {

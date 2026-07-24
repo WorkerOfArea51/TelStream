@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 
 import 'expressive_container.dart';
 
@@ -105,6 +106,13 @@ class _M3AnimatedMenuTileState extends State<M3AnimatedMenuTile> with SingleTick
           : null,
       trailing: widget.trailing ?? Icon(Icons.chevron_right, color: subTextColor.withValues(alpha: 0.5), size: 20),
       onTap: _handleTap,
+    ).animate(
+      onPlay: (controller) => controller.forward(),
+    ).fadeIn(
+      duration: 200.ms,
+    ).slideX(
+      begin: 0.1, end: 0,
+      duration: 200.ms,
     );
   }
 }
