@@ -10,6 +10,9 @@ on:
       - master
   workflow_dispatch:
 
+env:
+  ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: 'true'
+
 jobs:
   build-android:
     runs-on: ubuntu-latest
@@ -155,7 +158,26 @@ jobs:
           }
 
       - name: Build Windows Application
-        run: flutter build windows --release --dart-define=FIREBASE_DB_URL=${{ secrets.FIREBASE_DB_URL }} --dart-define=SENTRY_DSN=${{ secrets.SENTRY_DSN }}
+        shell: pwsh
+        run: |
+          $maxAttempts = 3
+          for ($i = 1; $i -le $maxAttempts; $i++) {
+            Write-Host "Attempt $i of $maxAttempts..."
+            flutter build windows --release --dart-define=FIREBASE_DB_URL=${{ secrets.FIREBASE_DB_URL }} --dart-define=SENTRY_DSN=${{ secrets.SENTRY_DSN }}
+            if ($LASTEXITCODE -eq 0) {
+              Write-Host "Build succeeded on attempt $i!"
+              break
+            }
+            if ($i -lt $maxAttempts) {
+              Write-Host "Build failed, cleaning and retrying..."
+              Remove-Item -Recurse -Force build\windows -ErrorAction SilentlyContinue
+              Remove-Item -Recurse -Force flutter\ephemeral\.plugin_symlinks -ErrorAction SilentlyContinue
+              Start-Sleep -Seconds 5
+            } else {
+              Write-Host "Build failed after $maxAttempts attempts."
+              exit 1
+            }
+          }
 
 
 

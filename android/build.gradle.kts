@@ -51,6 +51,15 @@ subprojects {
             languageVersion.set(org.jetbrains.kotlin.gradle.dsl.KotlinVersion.KOTLIN_2_0)
         }
     }
+    
+    project.afterEvaluate {
+        project.extensions.findByType<com.android.build.gradle.BaseExtension>()?.let {
+            it.compileOptions {
+                sourceCompatibility = JavaVersion.VERSION_17
+                targetCompatibility = JavaVersion.VERSION_17
+            }
+        }
+    }
 }
 
 
