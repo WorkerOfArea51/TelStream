@@ -14,6 +14,7 @@ import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'widgets/gesture_overlay_indicators.dart';
 import 'widgets/sleep_timer_panel.dart';
+import 'widgets/video_gesture_handler.dart';
 import 'package:screen_brightness/screen_brightness.dart';
 import 'package:flutter_volume_controller/flutter_volume_controller.dart';
 import 'package:file_picker/file_picker.dart';
@@ -100,6 +101,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
   final GlobalKey<SpeedSelectorPanelState> _speedPanelKey = GlobalKey();
   final GlobalKey<TrackSelectorPanelState> _trackPanelKey = GlobalKey();
   final GlobalKey<ChaptersPanelState> _chaptersPanelKey = GlobalKey();
+  late final VideoGestureHandler _gestureHandler;
 
   bool _showControls = true;
   Timer? _hideTimer;
@@ -794,6 +796,21 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
   @override
   void initState() {
     super.initState();
+    _gestureHandler = VideoGestureHandler(
+      player: widget.player,
+      scaleNotifier: _scaleNotifier,
+      panNotifier: _panNotifier,
+      onSeekStart: () { _hideTimer?.cancel(); },
+      onSeek: _performSeek,
+      onHideTimerStart: _startHideTimer,
+      onOSD: _showOSD,
+      formatDuration: _formatDuration,
+      isPositionDownloaded: _isPositionDownloaded,
+      clampSeekTarget: _clampSeekTarget,
+      setState: (VoidCallback fn) {
+        if (mounted) setState(fn);
+      },
+    );
     _outroThresholdSeconds = ref.read(storageServiceProvider).getVideoSettings()['outro_threshold_seconds'] as int? ?? 45;
     final settings = ref.read(videoSettingsProvider);
     _nightModeActive = settings.audio.dynamicRangeCompression;
@@ -1536,229 +1553,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     return targetPosition;
   }
 
-  void _handleScaleStart(ScaleStartDetails details) {
-    if (_isLocked) return;
-    _dragStartFocalPoint = details.focalPoint;
-    _isScaleGesture = false;
-    _isVerticalDrag = false;
-    _isHorizontalDrag = false;
 
-    _baseScale = _scaleNotifier.value;
-    _basePanOffset = _panNotifier.value;
-
-    _swipeStartPosition = widget.player.state.position;
-    _swipeTargetPosition = _swipeStartPosition;
-
-    _hideTimer?.cancel();
-  }
-
-  void _handleScaleUpdate(
-    ScaleUpdateDetails details,
-    double screenWidth,
-    bool pinchToZoom,
-    bool volGestures,
-    bool brightGestures,
-    bool swipeSeek,
-  ) {
-    if (_isLocked) return;
-
-    // 1. Pinch to zoom (multi-touch)
-    if (details.pointerCount > 1) {
-      if (pinchToZoom) {
-        _isScaleGesture = true;
-        setState(() {
-          _scaleNotifier.value = (_baseScale * details.scale).clamp(1.0, 4.0);
-          if (_scaleNotifier.value == 1.0) _panNotifier.value = Offset.zero;
-        });
-      }
-      return;
-    }
-
-    if (_isScaleGesture) return;
-
-    // 2. Determine drag type
-    if (_dragStartFocalPoint != null &&
-        !_isVerticalDrag &&
-        !_isHorizontalDrag) {
-      final double deltaX = (details.focalPoint.dx - _dragStartFocalPoint!.dx)
-          .abs();
-      final double deltaY = (details.focalPoint.dy - _dragStartFocalPoint!.dy)
-          .abs();
-
-      if (deltaX > 10 || deltaY > 10) {
-        if (deltaX > deltaY) {
-          if (swipeSeek) {
-            _isHorizontalDrag = true;
-            _isSwipingToSeek = true;
-          }
-        } else {
-          _isVerticalDrag = true;
-        }
-      }
-      return;
-    }
-
-    // 3. Perform actions
-    if (_isHorizontalDrag && _isSwipingToSeek) {
-      final duration = widget.player.state.duration;
-      if (duration.inSeconds == 0) return;
-
-      final double totalDeltaX =
-          details.focalPoint.dx - _dragStartFocalPoint!.dx;
-      final settings = ref.read(videoSettingsProvider);
-      double sensitivityMultiplier = 1.0;
-      if (settings.gestures.gestureSensitivity == 'Low') {
-        sensitivityMultiplier = 0.5;
-      } else if (settings.gestures.gestureSensitivity == 'High') {
-        sensitivityMultiplier = 1.5;
-      }
-      final secondsOffset =
-          ((totalDeltaX / (screenWidth / 2)) * 60 * sensitivityMultiplier)
-              .toInt();
-
-      setState(() {
-        final newSeconds = (_swipeStartPosition.inSeconds + secondsOffset)
-            .clamp(0, duration.inSeconds);
-        _swipeTargetPosition = Duration(seconds: newSeconds);
-        _showSeekIndicator = true;
-
-        final diff =
-            _swipeTargetPosition.inSeconds - _swipeStartPosition.inSeconds;
-        final sign = diff >= 0 ? '+' : '';
-        _seekDirection =
-            'Swipe: ${_formatDuration(_swipeTargetPosition)} ($sign${diff}s)';
-      });
-    } else if (_isVerticalDrag && _scaleNotifier.value <= 1.0) {
-      final double deltaY = details.focalPointDelta.dy;
-      final settings = ref.read(videoSettingsProvider);
-      final isLeft = _dragStartFocalPoint!.dx <= screenWidth / 2;
-      final action = isLeft
-          ? settings.gestures.leftSwipeGesture
-          : settings.gestures.rightSwipeGesture;
-
-      if (action == 'Volume' && volGestures) {
-        _performVerticalSwipeAction('Volume', deltaY);
-      } else if (action == 'Brightness' && brightGestures) {
-        _performVerticalSwipeAction('Brightness', deltaY);
-      } else if (action == 'Speed') {
-        _performVerticalSwipeAction('Speed', deltaY);
-      }
-    } else if (_scaleNotifier.value > 1.0) {
-      setState(() {
-        _panNotifier.value =
-            _basePanOffset + (details.focalPoint - _dragStartFocalPoint!);
-      });
-    }
-  }
-
-  void _handleScaleEnd(ScaleEndDetails details) {
-    if (_isSwipingToSeek) {
-      setState(() {
-        _isSwipingToSeek = false;
-        _showSeekIndicator = false;
-      });
-      final safeTarget = _clampSeekTarget(
-        _swipeTargetPosition,
-        showMessage: true,
-      );
-      _performSeek(safeTarget);
-    }
-    if (_showSpeedIndicator) {
-      widget.player.seek(widget.player.state.position);
-    }
-
-    // Final hardware state synchronization
-    if (_showVolumeIndicator) {
-      try {
-        FlutterVolumeController.setVolume(
-          (_currentVolume / 100.0).clamp(0.0, 1.0),
-        );
-      } catch (_) {}
-    }
-    if (_showBrightnessIndicator) {
-      try {
-        ScreenBrightness().setApplicationScreenBrightness(_currentBrightness);
-      } catch (_) {}
-    }
-
-    setState(() {
-      _showVolumeIndicator = false;
-      _showBrightnessIndicator = false;
-      _showSpeedIndicator = false;
-    });
-    _dragStartFocalPoint = null;
-    _isScaleGesture = false;
-    _isVerticalDrag = false;
-    _isHorizontalDrag = false;
-    _startHideTimer();
-  }
-
-  void _performVerticalSwipeAction(String actionType, double deltaY) {
-    final settings = ref.read(videoSettingsProvider);
-    double sensitivityMultiplier = 1.0;
-    if (settings.gestures.gestureSensitivity == 'Low') {
-      sensitivityMultiplier = 0.5;
-    } else if (settings.gestures.gestureSensitivity == 'High') {
-      sensitivityMultiplier = 1.5;
-    }
-
-    if (actionType == 'Volume') {
-      final bool volumeBoost = ref
-          .read(storageServiceProvider)
-          .getVolumeBoostEnabled();
-      final maxVol = volumeBoost ? 200.0 : 100.0;
-      setState(() {
-        _currentVolume -= deltaY * 0.2 * sensitivityMultiplier;
-        _currentVolume = _currentVolume.clamp(0.0, maxVol);
-
-        final now = DateTime.now();
-        if (now.difference(_lastVolumeCallTime) >
-            const Duration(milliseconds: 80)) {
-          _lastVolumeCallTime = now;
-          try {
-            FlutterVolumeController.setVolume(
-              (_currentVolume / 100.0).clamp(0.0, 1.0),
-            );
-          } catch (_) {}
-        }
-
-        widget.player.setVolume(_currentVolume);
-        _showVolumeIndicator = true;
-      });
-    } else if (actionType == 'Brightness') {
-      setState(() {
-        _currentBrightness -= (deltaY / 300) * sensitivityMultiplier;
-        _currentBrightness = _currentBrightness.clamp(0.0, 1.0);
-
-        final now = DateTime.now();
-        if (now.difference(_lastBrightnessCallTime) >
-            const Duration(milliseconds: 80)) {
-          _lastBrightnessCallTime = now;
-          try {
-            ScreenBrightness().setApplicationScreenBrightness(
-              _currentBrightness,
-            );
-            _isPhysicalBrightnessSupported = true;
-          } catch (_) {
-            _isPhysicalBrightnessSupported = false;
-          }
-        }
-
-        _showBrightnessIndicator = true;
-      });
-      _saveBrightnessDebounced(_currentBrightness);
-    } else if (actionType == 'Speed') {
-      setState(() {
-        double newSpeed = widget.player.state.rate - (deltaY * 0.005 * sensitivityMultiplier);
-        newSpeed = newSpeed.clamp(0.25, 4.0);
-        newSpeed = double.parse(newSpeed.toStringAsFixed(2));
-        widget.player.setRate(newSpeed);
-        setState(() {
-          _showSpeedIndicator = true;
-        });
-      });
-    }
-  }
 
   void _updateAudioFilters() {
     try {
@@ -2142,16 +1937,14 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
           autofocus: true,
           child: GestureDetector(
             onTap: _toggleControls,
-            onScaleStart: _handleScaleStart,
-      onScaleUpdate: (details) => _handleScaleUpdate(
-        details,
-        screenWidth,
-        settings.gestures.pinchToZoom,
-        settings.gestures.volumeGestures,
-        settings.gestures.brightnessGestures,
-        settings.gestures.horizontalSwipeToSeek,
+            onScaleStart: (d) => _gestureHandler.handleScaleStart(d, isLocked: _isLocked),
+      onScaleUpdate: (d) => _gestureHandler.handleScaleUpdate(
+        d, screenWidth, settings.gestures.pinchToZoom,
+        settings.gestures.volumeGestures, settings.gestures.brightnessGestures,
+        settings.gestures.horizontalSwipeToSeek, settings.gestures,
+        ref.read(storageServiceProvider), isLocked: _isLocked,
       ),
-      onScaleEnd: _handleScaleEnd,
+      onScaleEnd: (d) => _gestureHandler.handleScaleEnd(d),
       onDoubleTapDown: (details) => _handleDoubleTap(
         details,
         screenWidth,
@@ -2325,13 +2118,13 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
             ),
 
           // Indicators
-          BrightnessIndicatorOverlay(brightness: _currentBrightness, visible: _showBrightnessIndicator && !_isLocked),
-          VolumeIndicatorOverlay(volume: _currentVolume, visible: _showVolumeIndicator && !_isLocked),
-          if (_showSpeedIndicator && !_isLocked && _dragStartFocalPoint != null)
+          BrightnessIndicatorOverlay(brightness: _gestureHandler.currentBrightness, visible: _gestureHandler.showBrightnessIndicator && !_isLocked),
+          VolumeIndicatorOverlay(volume: _gestureHandler.currentVolume, visible: _gestureHandler.showVolumeIndicator && !_isLocked),
+          if (_gestureHandler.showSpeedIndicator && !_isLocked && _gestureHandler.dragStartFocalPoint != null)
             Positioned(
               top: 100,
-              left: _dragStartFocalPoint!.dx <= screenWidth / 2 ? 40 : null,
-              right: _dragStartFocalPoint!.dx > screenWidth / 2 ? 40 : null,
+              left: _gestureHandler.dragStartFocalPoint!.dx <= screenWidth / 2 ? 40 : null,
+              right: _gestureHandler.dragStartFocalPoint!.dx > screenWidth / 2 ? 40 : null,
               child: Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
@@ -2360,27 +2153,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                 ),
               ),
             ),
-          if (_showSeekIndicator && !_isLocked)
-            Center(
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 12,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.black54,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  _seekDirection,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ),
+          SeekIndicatorOverlay(direction: _gestureHandler.seekDirection, visible: _gestureHandler.showSeekIndicator && !_isLocked),
 
           // Locked overlay
           if (_isLocked && _showControls)
