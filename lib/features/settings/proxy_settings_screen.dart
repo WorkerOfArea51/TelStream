@@ -89,17 +89,55 @@ class _ProxySettingsScreenState extends ConsumerState<ProxySettingsScreen> {
   Future<void> _fetchMtprotoProxies() async {
     setState(() => _isFetching = true);
     try {
-      final response = await http.get(Uri.parse('https://raw.githubusercontent.com/SoliSpirit/mtproto/main/proxy-list.json'));
+      // The SoliSpirit/mtproto repo provides proxies as a plain text file
+      // on the 'master' branch, NOT as JSON on 'main'.
+      // Format: https://t.me/proxy?server=HOST&port=PORT&secret=SECRET
+      final response = await http.get(
+        Uri.parse('https://raw.githubusercontent.com/SoliSpirit/mtproto/master/all_proxies.txt'),
+      );
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        if (data is List) {
-          setState(() {
-            _fetchedProxies = data.cast<Map<String, dynamic>>();
-          });
-        } else if (data is Map && data.containsKey('proxies')) {
-          setState(() {
-            _fetchedProxies = (data['proxies'] as List).cast<Map<String, dynamic>>();
-          });
+        final lines = response.body.trim().split('\n');
+        final proxies = <Map<String, dynamic>>[];
+        
+        for (final line in lines) {
+          if (line.isEmpty || !line.contains('t.me/proxy')) continue;
+          
+          // Parse t.me/proxy URL format
+          // Example: https://t.me/proxy?server=webcam.shirbooni.co.uk&port=144&secret=ee160301...
+          try {
+            final uri = Uri.parse(line.trim());
+            final server = uri.queryParameters['server'] ?? '';
+            final portStr = uri.queryParameters['port'] ?? '443';
+            final secret = uri.queryParameters['secret'] ?? '';
+            final port = int.tryParse(portStr) ?? 443;
+            
+            if (server.isNotEmpty && secret.isNotEmpty) {
+              proxies.add({
+                'server': server,
+                'port': port,
+                'secret': secret,
+              });
+            }
+          } catch (e) {
+            // Skip malformed lines
+            continue;
+          }
+        }
+        
+        setState(() {
+          _fetchedProxies = proxies;
+        });
+        
+        if (proxies.isEmpty && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('No proxies found. The list may be temporarily empty.')),
+          );
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Failed to fetch proxy list (HTTP ${response.statusCode})')),
+          );
         }
       }
     } catch (e) {
