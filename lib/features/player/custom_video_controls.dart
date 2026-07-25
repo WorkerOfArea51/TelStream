@@ -1737,27 +1737,6 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     _showAspectRatioPanel();
   }
 
-  void _cycleAspectRatio() {
-    const cycle = ['fit', 'original', 'fill', 'stretch', '16:9', '4:3', '21:9'];
-    int currentIndex = cycle.indexOf(_currentAspectRatioString);
-    if (currentIndex == -1) {
-      currentIndex = 0;
-    } else {
-      currentIndex = (currentIndex + 1) % cycle.length;
-    }
-    final nextRatio = cycle[currentIndex];
-    _applyAspectRatioString(nextRatio);
-
-    setState(() {
-    });
-    _hideTimer?.cancel();
-    _startHideTimer();
-    Future.delayed(const Duration(milliseconds: 1000), () {
-      if (mounted) {
-      }
-    });
-  }
-
   void _showAspectRatioPanel() {
     setState(() {
       _showRatioPanel = true;
