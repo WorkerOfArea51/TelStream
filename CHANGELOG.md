@@ -2,6 +2,26 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.11.0] - 2025-07-25
+
+### Added
+- **Proxy Support for Login (Issue #9)**: Users in regions where Telegram is banned can now configure SOCKS5 or MTProto proxy before logging in. Proxy settings are accessible from both the login screen and the Settings screen. Includes auto-fetch of MTProto proxy lists from SoliSpirit/mtproto.
+- **Clean Desktop Video Player**: Desktop video player now has a PotPlayer-style clean bottom bar (play/pause, stop, prev/next, time, volume, speed, settings, playlist) with no mobile UI leaking through. Mobile-only overlays (seek indicators, brightness, gestures, track selector panels) are properly gated and hidden on desktop.
+- **Aspect Ratio Panel on Android**: Tapping the aspect ratio icon on Android now opens a selection panel (like subtitle/audio selector) instead of silently cycling through ratios.
+- **Desktop Video Rendering Fix**: Video now renders properly on Windows desktop (no more black screen). Uses `d3d11va-copy` hardware decoder and eliminates Transform wrapper overhead on desktop.
+
+### Changed
+- **Desktop Bottom Bar Cleanup**: Removed redundant subtitle, audio track, and fullscreen buttons from desktop bottom control bar. Subtitle and audio are inside Settings panel; fullscreen is on the top bar. Bottom bar now shows only: speed toggle, settings gear, and playlist toggle.
+- **Desktop Video Performance**: Removed unnecessary `Transform.scale`/`Transform.translate` compositing layers and `RepaintBoundary` wrapper on desktop, reducing rendering overhead.
+- **Proxy Settings Persistence**: All proxy settings (type, server, port, credentials, MTProto secret) are saved persistently via Hive and applied before TDLib goes online.
+
+### Fixed
+- **Black Screen on Desktop**: Fixed video not rendering on Windows desktop. Root cause: mobile overlay gradient blocking video surface + missing hardware decoder configuration.
+- **Android Aspect Ratio Silent Cycling**: Fixed aspect ratio button silently cycling through ratios on Android. Now shows a proper selection panel.
+- **Mobile UI on Desktop**: Fixed mobile video player overlays (seek bars, brightness indicators, gesture controls) appearing on desktop player.
+- **Proxy Debounced Save**: Fixed proxy settings writing to disk on every keystroke. Now debounced at 500ms to reduce I/O.
+- **Dev Script Cleanup**: Removed `scripts/patch_proxy_url.py` containing hardcoded developer paths.
+
 ## [Unreleased]
 
 ### Added

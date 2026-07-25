@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
+import 'dart:async';
 import '../../l10n/app_localizations.dart';
 
 import '../../services/storage_service.dart';
@@ -27,6 +28,7 @@ class _ProxySettingsScreenState extends ConsumerState<ProxySettingsScreen> {
   bool _autoFetch = false;
   bool _isFetching = false;
   List<Map<String, dynamic>> _fetchedProxies = [];
+  Timer? _saveDebounce;
   
   @override
   void initState() {
@@ -36,6 +38,9 @@ class _ProxySettingsScreenState extends ConsumerState<ProxySettingsScreen> {
   
   @override
   void dispose() {
+    _saveDebounce?.cancel();
+    // Flush any pending debounced save — write to disk now if needed
+    _saveSettings();
     _serverController.dispose();
     _portController.dispose();
     _usernameController.dispose();
@@ -72,6 +77,13 @@ class _ProxySettingsScreenState extends ConsumerState<ProxySettingsScreen> {
     storage.setMtprotoSecret(_mtprotoSecretController.text.trim());
     
     storage.setProxyAutoFetch(_autoFetch);
+  }
+
+  void _debouncedSave() {
+    _saveDebounce?.cancel();
+    _saveDebounce = Timer(const Duration(milliseconds: 500), () {
+      _saveSettings();
+    });
   }
 
   Future<void> _fetchMtprotoProxies() async {
@@ -160,20 +172,20 @@ class _ProxySettingsScreenState extends ConsumerState<ProxySettingsScreen> {
             controller: _serverController,
             decoration: InputDecoration(
               labelText: l10n.proxyServer,
-              hintText: 'e.g. 192.168.1.1',
+              border: const OutlineInputBorder(),
             ),
-            onChanged: (_) => _saveSettings(),
+            onChanged: (_) => _debouncedSave(),
           ),
           const SizedBox(height: 16),
           
           TextField(
             controller: _portController,
+            keyboardType: TextInputType.number,
             decoration: InputDecoration(
               labelText: l10n.proxyPort,
-              hintText: 'e.g. 1080',
+              border: const OutlineInputBorder(),
             ),
-            keyboardType: TextInputType.number,
-            onChanged: (_) => _saveSettings(),
+            onChanged: (_) => _debouncedSave(),
           ),
           const SizedBox(height: 16),
           
@@ -183,7 +195,7 @@ class _ProxySettingsScreenState extends ConsumerState<ProxySettingsScreen> {
               decoration: InputDecoration(
                 labelText: l10n.proxyUsername,
               ),
-              onChanged: (_) => _saveSettings(),
+              onChanged: (_) => _debouncedSave(),
             ),
             const SizedBox(height: 16),
             TextField(
@@ -192,15 +204,16 @@ class _ProxySettingsScreenState extends ConsumerState<ProxySettingsScreen> {
                 labelText: l10n.proxyPassword,
               ),
               obscureText: true,
-              onChanged: (_) => _saveSettings(),
+              onChanged: (_) => _debouncedSave(),
             ),
           ] else if (_proxyType == 'mtproto') ...[
             TextField(
               controller: _mtprotoSecretController,
               decoration: InputDecoration(
                 labelText: l10n.mtprotoSecret,
+                border: const OutlineInputBorder(),
               ),
-              onChanged: (_) => _saveSettings(),
+              onChanged: (_) => _debouncedSave(),
             ),
             const SizedBox(height: 24),
             SwitchListTile(

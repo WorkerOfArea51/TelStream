@@ -46,6 +46,7 @@ Available on **Android** and **Windows** — stream your Telegram channels on mo
 *   💬 **Auto-Download Subtitles**: One-tap auto-download of the first subtitle match with 16 languages supported.
 *   📝 **User-Added Channels**: Add your own Telegram channels/groups via More → My Channels.
 *   🖥️ **Desktop Support**: Full native desktop experience on Windows with custom window management, keyboard shortcuts, and mouse-driven controls.
+*   🔒 **Proxy Support**: Configure SOCKS5 or MTProto proxy for login — essential for regions where Telegram is banned. Auto-fetch MTProto proxy lists from public repositories.
 
 ---
 
