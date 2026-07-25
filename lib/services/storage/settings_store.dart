@@ -436,4 +436,54 @@ class SettingsStore {
     data['user_channels'] = channels;
     await save();
   }
+
+  // --- Proxy Settings ---
+  
+  bool getProxyEnabled() => data['proxy_enabled'] as bool? ?? false;
+  Future<void> setProxyEnabled(bool enabled) async {
+    data['proxy_enabled'] = enabled;
+    await save();
+  }
+
+  String getProxyType() => data['proxy_type'] as String? ?? 'socks5'; // 'socks5' or 'mtproto'
+  Future<void> setProxyType(String type) async {
+    data['proxy_type'] = type;
+    await save();
+  }
+
+  String getProxyServer() => data['proxy_server'] as String? ?? '';
+  Future<void> setProxyServer(String server) async {
+    data['proxy_server'] = server;
+    await save();
+  }
+
+  int getProxyPort() => data['proxy_port'] as int? ?? 1080;
+  Future<void> setProxyPort(int port) async {
+    data['proxy_port'] = port;
+    await save();
+  }
+
+  String getProxyUsername() => data['proxy_username'] as String? ?? '';
+  Future<void> setProxyUsername(String username) async {
+    data['proxy_username'] = username;
+    await save();
+  }
+
+  String getProxyPassword() => data['proxy_password'] as String? ?? '';
+  Future<void> setProxyPassword(String password) async {
+    data['proxy_password'] = password;
+    await save();
+  }
+
+  String getMtprotoSecret() => data['mtproto_secret'] as String? ?? '';
+  Future<void> setMtprotoSecret(String secret) async {
+    data['mtproto_secret'] = secret;
+    await save();
+  }
+
+  bool getProxyAutoFetch() => data['proxy_auto_fetch'] as bool? ?? false;
+  Future<void> setProxyAutoFetch(bool autoFetch) async {
+    data['proxy_auto_fetch'] = autoFetch;
+    await save();
+  }
 }

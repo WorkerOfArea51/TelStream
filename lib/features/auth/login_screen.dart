@@ -3,6 +3,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:country_picker/country_picker.dart' as cp;
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+
+import '../settings/proxy_settings_screen.dart';
 import '../../l10n/app_localizations.dart';
 import 'auth_controller.dart';
 
@@ -355,6 +358,25 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     color: Colors.white,
                     size: 28,
                   ),
+                ),
+              ),
+              const SizedBox(height: 32),
+              
+              // Proxy Settings Button
+              TextButton.icon(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const ProxySettingsScreen()),
+                  ).then((_) {
+                    // Re-initialize TDLib to apply new proxy settings
+                    controller.initializeTdlib();
+                  });
+                },
+                icon: const Icon(Icons.security, color: Colors.white70, size: 18),
+                label: Text(
+                  l10n.configureProxyBeforeLogin,
+                  style: const TextStyle(color: Colors.white70, fontSize: 14),
                 ),
               ),
             ],

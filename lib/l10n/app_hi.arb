@@ -730,5 +730,19 @@
   "githubIssuesDesc": "रिपॉजिटरी पर सार्वजनिक रूप से ट्रैक किया गया",
   "watchStreak": "स्ट्रीक देखें",
   "averageDaily": "औसत दैनिक",
-  "minutesShort": "मिन"
+  "minutesShort": "मिन",
+  "proxySettings": "Proxy Settings",
+  "proxyEnabled": "Enable Proxy",
+  "proxyRequiredInBannedRegions": "Required if Telegram is banned in your region",
+  "proxyType": "Proxy Type",
+  "socks5": "SOCKS5",
+  "mtproto": "MTProto",
+  "proxyServer": "Server IP/Hostname",
+  "proxyPort": "Port",
+  "proxyUsername": "Username (Optional)",
+  "proxyPassword": "Password (Optional)",
+  "mtprotoSecret": "Secret",
+  "autoFetchProxy": "Auto-fetch proxy list",
+  "fetchProxies": "Fetch Proxies",
+  "configureProxyBeforeLogin": "Configure Proxy"
 }

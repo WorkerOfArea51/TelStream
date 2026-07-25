@@ -811,5 +811,19 @@
   "allowsDynamicAudioAmplificationUpTo200ViaPlayerControlsAndSwipeGestures": "Allows dynamic audio amplification up to 200% via player controls and swipe gestures",
   "dynamicRangeCompressionDrc": "Dynamic Range Compression (DRC)",
   "balanceMusicAndDialogueLevelsToPreventSuddenVolumeSpikes": "Balance music and dialogue levels to prevent sudden volume spikes",
-  "preferredProvider": "Preferred Provider"
+  "preferredProvider": "Preferred Provider",
+  "proxySettings": "Proxy Settings",
+  "proxyEnabled": "Enable Proxy",
+  "proxyRequiredInBannedRegions": "Required if Telegram is banned in your region",
+  "proxyType": "Proxy Type",
+  "socks5": "SOCKS5",
+  "mtproto": "MTProto",
+  "proxyServer": "Server IP/Hostname",
+  "proxyPort": "Port",
+  "proxyUsername": "Username (Optional)",
+  "proxyPassword": "Password (Optional)",
+  "mtprotoSecret": "Secret",
+  "autoFetchProxy": "Auto-fetch proxy list",
+  "fetchProxies": "Fetch Proxies",
+  "configureProxyBeforeLogin": "Configure Proxy"
 }

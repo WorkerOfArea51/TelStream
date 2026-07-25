@@ -10,6 +10,7 @@ import 'video_settings_screen.dart';
 import 'tracker_settings_screen.dart';
 import 'diagnostics_screen.dart';
 import 'backup_manager_screen.dart';
+import 'proxy_settings_screen.dart';
 import 'storage_settings_screen.dart';
 import 'language_settings_screen.dart';
 import '../../l10n/app_localizations.dart';
@@ -151,6 +152,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     subtitle: l10n.chooseLanguage,
                     onTap: () => Navigator.push(context,
                       MaterialPageRoute(builder: (_) => const LanguageSettingsScreen())),
+                  ),
+                  const Divider(height: 1, indent: 56),
+                  M3AnimatedMenuTile(
+                    icon: Icons.security,
+                    title: l10n.proxySettings,
+                    subtitle: l10n.proxyRequiredInBannedRegions,
+                    onTap: () => Navigator.push(context,
+                      MaterialPageRoute(builder: (_) => const ProxySettingsScreen())),
                   ),
                 ],
               ),

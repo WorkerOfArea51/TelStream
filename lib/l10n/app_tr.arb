@@ -730,5 +730,19 @@
   "averageDaily": "Ortalama Günlük",
   "viewProfile": "Profili Görüntüle",
   "notLoaded": "Yüklenmedi",
-  "telegramSupportBotDesc": "Doğrudan @Fil3Stor3_bot'a rapor verin"
+  "telegramSupportBotDesc": "Doğrudan @Fil3Stor3_bot'a rapor verin",
+  "proxySettings": "Proxy Settings",
+  "proxyEnabled": "Enable Proxy",
+  "proxyRequiredInBannedRegions": "Required if Telegram is banned in your region",
+  "proxyType": "Proxy Type",
+  "socks5": "SOCKS5",
+  "mtproto": "MTProto",
+  "proxyServer": "Server IP/Hostname",
+  "proxyPort": "Port",
+  "proxyUsername": "Username (Optional)",
+  "proxyPassword": "Password (Optional)",
+  "mtprotoSecret": "Secret",
+  "autoFetchProxy": "Auto-fetch proxy list",
+  "fetchProxies": "Fetch Proxies",
+  "configureProxyBeforeLogin": "Configure Proxy"
 }

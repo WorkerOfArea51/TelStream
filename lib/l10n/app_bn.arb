@@ -741,5 +741,19 @@
   "settingsSubtitle": "সাধারণ প্রেফারেন্স, প্লেয়ার, ক্যাশ, স্টাইলিং",
   "checkForUpdateSubtitle": "অ্যাপ্লিকেশন আপডেটের জন্য চেক করুন",
   "aboutSubtitle": "ভার্সন ডিটেলস, লাইব্রেরি, যোগাযোগের তথ্য",
-  "days": "দিন"
+  "days": "দিন",
+  "proxySettings": "Proxy Settings",
+  "proxyEnabled": "Enable Proxy",
+  "proxyRequiredInBannedRegions": "Required if Telegram is banned in your region",
+  "proxyType": "Proxy Type",
+  "socks5": "SOCKS5",
+  "mtproto": "MTProto",
+  "proxyServer": "Server IP/Hostname",
+  "proxyPort": "Port",
+  "proxyUsername": "Username (Optional)",
+  "proxyPassword": "Password (Optional)",
+  "mtprotoSecret": "Secret",
+  "autoFetchProxy": "Auto-fetch proxy list",
+  "fetchProxies": "Fetch Proxies",
+  "configureProxyBeforeLogin": "Configure Proxy"
 }

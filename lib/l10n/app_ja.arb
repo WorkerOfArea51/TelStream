@@ -730,5 +730,19 @@
   "whatsNewTitle": "の新機能",
   "minutesShort": "分",
   "nDaysStreak": "{count} 日数",
-  "averageDaily": "毎日の平均"
+  "averageDaily": "毎日の平均",
+  "proxySettings": "Proxy Settings",
+  "proxyEnabled": "Enable Proxy",
+  "proxyRequiredInBannedRegions": "Required if Telegram is banned in your region",
+  "proxyType": "Proxy Type",
+  "socks5": "SOCKS5",
+  "mtproto": "MTProto",
+  "proxyServer": "Server IP/Hostname",
+  "proxyPort": "Port",
+  "proxyUsername": "Username (Optional)",
+  "proxyPassword": "Password (Optional)",
+  "mtprotoSecret": "Secret",
+  "autoFetchProxy": "Auto-fetch proxy list",
+  "fetchProxies": "Fetch Proxies",
+  "configureProxyBeforeLogin": "Configure Proxy"
 }

@@ -135,13 +135,81 @@ class TdlibService {
     List<String>? excludedPaths,
     double? limitMb,
     int? ttlDays,
+    bool proxyEnabled = false,
+    String proxyType = 'socks5',
+    String proxyServer = '',
+    int proxyPort = 1080,
+    String proxyUsername = '',
+    String proxyPassword = '',
+    String proxyMtprotoSecret = '',
   }) {
     if (_initFuture != null) return _initFuture!;
     return _initFuture = _initLock.synchronized(() async {
-      await _doInit(apiId, apiHash, excludedPaths: excludedPaths, limitMb: limitMb, ttlDays: ttlDays);
+      await _doInit(
+        apiId, 
+        apiHash, 
+        excludedPaths: excludedPaths, 
+        limitMb: limitMb, 
+        ttlDays: ttlDays,
+        proxyEnabled: proxyEnabled,
+        proxyType: proxyType,
+        proxyServer: proxyServer,
+        proxyPort: proxyPort,
+        proxyUsername: proxyUsername,
+        proxyPassword: proxyPassword,
+        proxyMtprotoSecret: proxyMtprotoSecret,
+      );
     }).whenComplete(() {
       _initFuture = null;
     });
+  }
+
+  /// Configure proxy for TDLib connection.
+  /// Must be called AFTER setTdlibParameters succeeds, BEFORE login starts.
+  /// TDLib requires proxy to be added before any network requests are made.
+  Future<void> configureProxy({
+    bool enabled = false,
+    String type = 'socks5',
+    String server = '',
+    int port = 1080,
+    String username = '',
+    String password = '',
+    String mtprotoSecret = '',
+  }) async {
+    if (!enabled || server.isEmpty) return;
+    
+    Log.i('Configuring TDLib proxy: type=$type, server=$server, port=$port');
+    
+    if (type == 'socks5') {
+      final response = await sendAsync(td.AddProxy(
+        server: server,
+        port: port,
+        enable: true,
+        type: td.ProxyTypeSocks5(
+          username: username,
+          password: password,
+        ),
+      ));
+      if (response is td.TdError) {
+        Log.e('Failed to add SOCKS5 proxy: ${response.message}');
+      } else {
+        Log.i('SOCKS5 proxy added successfully');
+      }
+    } else if (type == 'mtproto') {
+      final response = await sendAsync(td.AddProxy(
+        server: server,
+        port: port,
+        enable: true,
+        type: td.ProxyTypeMtproto(
+          secret: mtprotoSecret,
+        ),
+      ));
+      if (response is td.TdError) {
+        Log.e('Failed to add MTProto proxy: ${response.message}');
+      } else {
+        Log.i('MTProto proxy added successfully');
+      }
+    }
   }
 
   Future<void> _doInit(
@@ -150,6 +218,13 @@ class TdlibService {
     List<String>? excludedPaths,
     double? limitMb,
     int? ttlDays,
+    bool proxyEnabled = false,
+    String proxyType = 'socks5',
+    String proxyServer = '',
+    int proxyPort = 1080,
+    String proxyUsername = '',
+    String proxyPassword = '',
+    String proxyMtprotoSecret = '',
   }) async {
     if (_clientId != null) {
       try {
@@ -275,6 +350,17 @@ class TdlibService {
         await handleInitError(res);
       }
     }
+
+    // Configure proxy BEFORE going online — needed for banned regions
+    await configureProxy(
+      enabled: proxyEnabled,
+      type: proxyType,
+      server: proxyServer,
+      port: proxyPort,
+      username: proxyUsername,
+      password: proxyPassword,
+      mtprotoSecret: proxyMtprotoSecret,
+    );
 
     // Force TDLib online mode so it doesn't throttle background downloads
     send(const td.SetOption(name: 'online', value: td.OptionValueBoolean(value: true)));
