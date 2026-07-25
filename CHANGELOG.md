@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.12.1] - 2026-07-26
+
+### Fixed
+- **Tap to Switch Aspect Ratio**: Restored default fallback for `tap_to_switch_aspect_ratio` from `false` to `true`, fixing a regression where the gesture was disabled out of the box.
+- **Source Cleanup**: Removed unused `eq_temp.txt` developer scratch file.
+
 ## [2.12.0] - 2026-07-25
 
 ### Added
