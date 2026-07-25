@@ -1925,20 +1925,26 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
           autofocus: true,
           child: GestureDetector(
             onTap: _toggleControls,
-            onScaleStart: (d) => _gestureHandler.handleScaleStart(d, isLocked: _isLocked),
-      onScaleUpdate: (d) => _gestureHandler.handleScaleUpdate(
+            onScaleStart: (!widget.isDesktop && !_isLocked)
+                ? (d) => _gestureHandler.handleScaleStart(d, isLocked: _isLocked)
+                : null,
+      onScaleUpdate: (!widget.isDesktop && !_isLocked)
+                ? (d) => _gestureHandler.handleScaleUpdate(
         d, screenWidth, settings.gestures.pinchToZoom,
         settings.gestures.volumeGestures, settings.gestures.brightnessGestures,
         settings.gestures.horizontalSwipeToSeek, settings.gestures,
         ref.read(storageServiceProvider), isLocked: _isLocked,
-      ),
-      onScaleEnd: (d) => _gestureHandler.handleScaleEnd(d),
-      onDoubleTapDown: (details) => _handleDoubleTap(
+      ) : null,
+      onScaleEnd: (!widget.isDesktop)
+                ? (d) => _gestureHandler.handleScaleEnd(d)
+                : null,
+      onDoubleTapDown: (!widget.isDesktop)
+                ? (details) => _handleDoubleTap(
         details,
         screenWidth,
         settings.gestures.doubleTapSeekDuration,
-      ),
-      onLongPressStart: (details) {
+      ) : null,
+      onLongPressStart: (!widget.isDesktop) ? (details) {
         if (_isLocked || !settings.layout.dynamicSpeedOverlay) return;
         final speed = settings.gestures.longPressSpeed;
         if (settings.gestures.longPressVibration) {
@@ -1948,13 +1954,13 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
         widget.player.setRate(speed);
         setState(() {
         });
-      },
-      onLongPressEnd: (details) {
+      } : null,
+      onLongPressEnd: (!widget.isDesktop) ? (details) {
         if (!settings.layout.dynamicSpeedOverlay) return;
         widget.player.setRate(_preLongPressSpeed);
         setState(() {
         });
-      },
+      } : null,
       child: Stack(
         fit: StackFit.expand,
         children: [
@@ -1979,6 +1985,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
             ),
 
           if (!_isBlendingSubtitles) SubtitleOverlay(player: widget.player),
+          if (!widget.isDesktop) ...[
           if (_showLeftSeekOverlay)
             Positioned(
               left: 0,
@@ -2680,6 +2687,207 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
               left: 16,
               child: NerdStatsOverlay(nerdStats: _nerdStats),
             ),
+          ], // End of mobile-only overlays
+
+          // ─── DESKTOP-ONLY controls ───
+          if (widget.isDesktop) ...[
+            // Desktop gradient overlay (dark top + bottom only, no middle)
+            if (_showControls)
+              IgnorePointer(
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        Colors.black.withValues(alpha: 0.7),
+                        Colors.transparent,
+                        Colors.transparent,
+                        Colors.black.withValues(alpha: 0.7),
+                      ],
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      stops: const [0.0, 0.15, 0.85, 1.0],
+                    ),
+                  ),
+                ),
+              ),
+
+            // Desktop header bar (top)
+            if (_showControls)
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: Container(
+                  height: 48,
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [Colors.black87, Colors.transparent],
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.arrow_back, color: Colors.white, size: 22),
+                        onPressed: widget.onBack,
+                        padding: EdgeInsets.zero,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          widget.videoTitle,
+                          style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.closed_caption_outlined, color: Colors.white, size: 20),
+                        onPressed: () => _showTrackSelector(title: 'Subtitles', isSubtitle: true),
+                        padding: EdgeInsets.zero,
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.music_note_outlined, color: Colors.white, size: 20),
+                        onPressed: () => _showTrackSelector(title: 'Audio Tracks', isSubtitle: false),
+                        padding: EdgeInsets.zero,
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.playlist_play_outlined, color: Colors.white, size: 20),
+                        onPressed: _showQueueManagerSheet,
+                        padding: EdgeInsets.zero,
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.more_vert, color: Colors.white, size: 20),
+                        onPressed: () {
+                          _hideTimer?.cancel();
+                          setState(() { _showMoreOptionsPanel = true; _showControls = false; });
+                        },
+                        padding: EdgeInsets.zero,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+            // Desktop bottom bar (seekbar + controls)
+            if (_showControls)
+              Positioned(
+                bottom: 0,
+                left: 0,
+                right: 0,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [Colors.transparent, Colors.black87],
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                    ),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Seekbar
+                      PlayerSeekBar(
+                        player: widget.player,
+                        downloadedPrefixSize: widget.downloadedPrefixSize,
+                        expectedSize: widget.expectedSize,
+                        activeDownloadOffset: widget.activeDownloadOffset,
+                        activeDownloadedSize: widget.activeDownloadedSize,
+                        seekbarStyle: settings.layout.seekbarStyle,
+                        settingsAccent: settingsAccent,
+                        isPositionDownloaded: _isPositionDownloaded,
+                        throttledSeek: _throttledSeek,
+                        cancelHideTimer: () => _hideTimer?.cancel(),
+                        startHideTimer: _startHideTimer,
+                        clampSeekTarget: (target) => _clampSeekTarget(target, showMessage: false),
+                        onSeekPerformed: _performSeek,
+                        chapters: _chapters,
+                      ),
+                      const SizedBox(height: 6),
+                      // Playback controls row
+                      Row(
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.skip_previous_rounded, color: Colors.white70, size: 22),
+                            onPressed: widget.hasPrevEpisode ? widget.onPrevEpisode : null,
+                            padding: EdgeInsets.zero,
+                          ),
+                          const SizedBox(width: 12),
+                          StreamBuilder<bool>(
+                            stream: widget.player.stream.playing,
+                            builder: (context, snapshot) {
+                              final isPlaying = snapshot.data ?? widget.player.state.playing;
+                              return IconButton(
+                                icon: Icon(
+                                  isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                                  color: Colors.white,
+                                  size: 28,
+                                ),
+                                onPressed: widget.player.playOrPause,
+                                padding: EdgeInsets.zero,
+                              );
+                            },
+                          ),
+                          const SizedBox(width: 12),
+                          IconButton(
+                            icon: const Icon(Icons.skip_next_rounded, color: Colors.white70, size: 22),
+                            onPressed: widget.hasNextEpisode ? widget.onNextEpisode : null,
+                            padding: EdgeInsets.zero,
+                          ),
+                          // Time display
+                          StreamBuilder<Duration>(
+                            stream: widget.player.stream.position,
+                            builder: (context, snapshot) {
+                              final pos = snapshot.data ?? widget.player.state.position;
+                              final dur = widget.player.state.duration;
+                              final posStr = _formatDuration(pos);
+                              final durStr = _formatDuration(dur);
+                              return Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 12),
+                                child: Text(
+                                  '$posStr / $durStr',
+                                  style: const TextStyle(color: Colors.white70, fontSize: 13),
+                                ),
+                              );
+                            },
+                          ),
+                          const Spacer(),
+                          // Volume
+                          IconButton(
+                            icon: const Icon(Icons.volume_up, color: Colors.white70, size: 20),
+                            onPressed: _toggleMute,
+                            padding: EdgeInsets.zero,
+                          ),
+                          // Speed
+                          TextButton(
+                            onPressed: _showSpeedSelectorDialog,
+                            child: StreamBuilder<double>(
+                              stream: widget.player.stream.rate,
+                              builder: (context, snapshot) {
+                                final speed = snapshot.data ?? widget.player.state.rate;
+                                return Text(
+                                  '${speed.toStringAsFixed(2)}x',
+                                  style: const TextStyle(color: Colors.white70, fontSize: 12),
+                                );
+                              },
+                            ),
+                          ),
+                          // Fullscreen
+                          IconButton(
+                            icon: const Icon(Icons.fullscreen_rounded, color: Colors.white70, size: 22),
+                            onPressed: _toggleFullscreen,
+                            padding: EdgeInsets.zero,
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+          ],
 
           // Custom Track Selector Panel
           TrackSelectorPanel(
