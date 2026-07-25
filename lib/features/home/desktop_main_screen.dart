@@ -346,21 +346,7 @@ class _DesktopMainScreenState extends ConsumerState<DesktopMainScreen> with Tick
                 pipState: ref.watch(pipControllerProvider),
                 pipNotifier: ref.read(pipControllerProvider.notifier),
                 rightSideTools: [
-                  // Subtitle quick-access
-                  IconButton(
-                    icon: const Icon(Icons.closed_caption_outlined, size: 18, color: Colors.white70),
-                    tooltip: 'Subtitles',
-                    onPressed: () => _showControlPanelDialog(context, initialIndex: 2),
-                    padding: EdgeInsets.zero,
-                  ),
-                  // Audio track quick-access
-                  IconButton(
-                    icon: const Icon(Icons.music_note_outlined, size: 18, color: Colors.white70),
-                    tooltip: 'Audio Tracks',
-                    onPressed: () => _showControlPanelDialog(context, initialIndex: 1),
-                    padding: EdgeInsets.zero,
-                  ),
-                  // Speed indicator button
+                  // Speed indicator button (quick toggle — like PotPlayer)
                   if (ref.watch(activePlayerProvider) != null)
                     StreamBuilder<double>(
                       stream: ref.watch(activePlayerProvider)!.stream.rate,
@@ -384,12 +370,14 @@ class _DesktopMainScreenState extends ConsumerState<DesktopMainScreen> with Tick
                         );
                       },
                     ),
+                  // Settings gear (opens panel with Audio, Video, Subtitles, Playback tabs)
                   IconButton(
                     icon: const Icon(Icons.settings, size: 20, color: Colors.white70),
                     tooltip: 'Settings',
                     onPressed: () => _showControlPanelDialog(context),
                     padding: EdgeInsets.zero,
                   ),
+                  // Playlist toggle (opens/closes right episode panel)
                   IconButton(
                     icon: const Icon(Icons.menu, size: 20, color: Colors.white70),
                     tooltip: 'Playlist',
@@ -399,13 +387,6 @@ class _DesktopMainScreenState extends ConsumerState<DesktopMainScreen> with Tick
                         _isRightPanelOpen = !_isRightPanelOpen;
                       });
                     },
-                    padding: EdgeInsets.zero,
-                  ),
-                  // Fullscreen toggle
-                  IconButton(
-                    icon: Icon(_isFullScreen ? Icons.fullscreen_exit : Icons.fullscreen, size: 18, color: Colors.white70),
-                    tooltip: 'Fullscreen',
-                    onPressed: () => windowManager.setFullScreen(!_isFullScreen),
                     padding: EdgeInsets.zero,
                   ),
                 ],
