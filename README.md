@@ -63,7 +63,7 @@ We offer optimized **split-ABI** builds to keep application sizes minimal:
 ### Windows
 
 Download the Windows executable from the **[GitHub Releases Page](https://github.com/WorkerOfArea51/TelStream/releases)**:
-*   **`TelStream-windows-x64.zip`**: Extract and run `TelStream.exe`. No installer required — portable application.
+*   **Run `TelStream.exe`. No installer required — portable application.
 
 ## 🛠️ CI/CD Pipeline
 
