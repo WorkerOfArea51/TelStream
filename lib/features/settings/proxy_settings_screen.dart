@@ -23,7 +23,29 @@ class _ProxySettingsScreenState extends ConsumerState<ProxySettingsScreen> {
   }
 
   Future<void> _fetchPublic() async {
-    await ref.read(proxyManagerProvider.notifier).fetchPublicProxies();
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    final result = await ref.read(proxyManagerProvider.notifier).fetchPublicProxies();
+
+    // Show a snackbar with the outcome. Without this, the user has no
+    // way to know whether the fetch succeeded, failed, or is still
+    // running — see the user complaint "no error thrown nothing at all".
+    if (messenger != null && mounted) {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(result.summary),
+          duration: Duration(
+            seconds: result.success ? 3 : 6,
+          ),
+          behavior: SnackBarBehavior.floating,
+          action: result.success
+              ? null
+              : SnackBarAction(
+                  label: 'Retry',
+                  onPressed: _fetchPublic,
+                ),
+        ),
+      );
+    }
   }
 
   Future<void> _connectTo(String id) async {
@@ -312,14 +334,35 @@ class _ProxySettingsScreenState extends ConsumerState<ProxySettingsScreen> {
                   subtitle: proxyState.isPinging
                       ? Text('Pinging...', style: TextStyle(color: Colors.orange, fontSize: 12))
                       : Text('Test latency of all saved proxies', style: TextStyle(color: subColor, fontSize: 12)),
-                  onTap: proxyState.isPinging ? null : _pingAll,
+                  // Disable while pinging OR while fetching (pinging a
+                  // half-fetched list would give misleading results).
+                  onTap: (proxyState.isPinging || proxyState.isFetching) ? null : _pingAll,
                 ),
                 Divider(color: theme.dividerColor, height: 1, indent: 16, endIndent: 16),
                 ListTile(
-                  leading: Icon(Icons.cloud_download, color: settingsAccent),
+                  leading: proxyState.isFetching
+                      ? SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.5,
+                            valueColor: AlwaysStoppedAnimation(settingsAccent),
+                          ),
+                        )
+                      : Icon(Icons.cloud_download, color: settingsAccent),
                   title: Text('Fetch Public Proxies', style: TextStyle(color: textColor)),
-                  subtitle: Text('Get free SOCKS5/MTProto proxies', style: TextStyle(color: subColor, fontSize: 12)),
-                  onTap: _fetchPublic,
+                  subtitle: Text(
+                    proxyState.isFetching
+                        ? 'Fetching from public sources...'
+                        : 'Get free MTProto/SOCKS5/HTTP proxies (public lists)',
+                    style: TextStyle(
+                      color: proxyState.isFetching ? settingsAccent : subColor,
+                      fontSize: 12,
+                    ),
+                  ),
+                  // Disable the tap while fetching to prevent concurrent
+                  // fetches from racing and corrupting the proxy list.
+                  onTap: proxyState.isFetching ? null : _fetchPublic,
                 ),
                 Divider(color: theme.dividerColor, height: 1, indent: 16, endIndent: 16),
                 ListTile(
@@ -358,7 +401,7 @@ class _ProxySettingsScreenState extends ConsumerState<ProxySettingsScreen> {
                       Text('No proxies saved yet',
                         style: TextStyle(color: subColor, fontSize: 14)),
                       const SizedBox(height: 8),
-                      Text('Fetch public proxies or add one manually',
+                      Text('Fetch public MTProto/SOCKS5/HTTP proxies, or add manually',
                         style: TextStyle(color: subColor, fontSize: 12)),
                     ],
                   ),

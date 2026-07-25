@@ -15,7 +15,7 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$PlayerLayoutSettings {
 
- String get animeLayout; String get moviesLayout; String get webSeriesLayout; String get seekbarStyle; bool get dynamicSpeedOverlay; bool get showStatsForNerds;
+ String get animeLayout; String get moviesLayout; String get webSeriesLayout; Map<String, String> get customLayouts; String get seekbarStyle; bool get dynamicSpeedOverlay; bool get showStatsForNerds;
 /// Create a copy of PlayerLayoutSettings
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -28,16 +28,16 @@ $PlayerLayoutSettingsCopyWith<PlayerLayoutSettings> get copyWith => _$PlayerLayo
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is PlayerLayoutSettings&&(identical(other.animeLayout, animeLayout) || other.animeLayout == animeLayout)&&(identical(other.moviesLayout, moviesLayout) || other.moviesLayout == moviesLayout)&&(identical(other.webSeriesLayout, webSeriesLayout) || other.webSeriesLayout == webSeriesLayout)&&(identical(other.seekbarStyle, seekbarStyle) || other.seekbarStyle == seekbarStyle)&&(identical(other.dynamicSpeedOverlay, dynamicSpeedOverlay) || other.dynamicSpeedOverlay == dynamicSpeedOverlay)&&(identical(other.showStatsForNerds, showStatsForNerds) || other.showStatsForNerds == showStatsForNerds));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is PlayerLayoutSettings&&(identical(other.animeLayout, animeLayout) || other.animeLayout == animeLayout)&&(identical(other.moviesLayout, moviesLayout) || other.moviesLayout == moviesLayout)&&(identical(other.webSeriesLayout, webSeriesLayout) || other.webSeriesLayout == webSeriesLayout)&&const DeepCollectionEquality().equals(other.customLayouts, customLayouts)&&(identical(other.seekbarStyle, seekbarStyle) || other.seekbarStyle == seekbarStyle)&&(identical(other.dynamicSpeedOverlay, dynamicSpeedOverlay) || other.dynamicSpeedOverlay == dynamicSpeedOverlay)&&(identical(other.showStatsForNerds, showStatsForNerds) || other.showStatsForNerds == showStatsForNerds));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,animeLayout,moviesLayout,webSeriesLayout,seekbarStyle,dynamicSpeedOverlay,showStatsForNerds);
+int get hashCode => Object.hash(runtimeType,animeLayout,moviesLayout,webSeriesLayout,const DeepCollectionEquality().hash(customLayouts),seekbarStyle,dynamicSpeedOverlay,showStatsForNerds);
 
 @override
 String toString() {
-  return 'PlayerLayoutSettings(animeLayout: $animeLayout, moviesLayout: $moviesLayout, webSeriesLayout: $webSeriesLayout, seekbarStyle: $seekbarStyle, dynamicSpeedOverlay: $dynamicSpeedOverlay, showStatsForNerds: $showStatsForNerds)';
+  return 'PlayerLayoutSettings(animeLayout: $animeLayout, moviesLayout: $moviesLayout, webSeriesLayout: $webSeriesLayout, customLayouts: $customLayouts, seekbarStyle: $seekbarStyle, dynamicSpeedOverlay: $dynamicSpeedOverlay, showStatsForNerds: $showStatsForNerds)';
 }
 
 
@@ -48,7 +48,7 @@ abstract mixin class $PlayerLayoutSettingsCopyWith<$Res>  {
   factory $PlayerLayoutSettingsCopyWith(PlayerLayoutSettings value, $Res Function(PlayerLayoutSettings) _then) = _$PlayerLayoutSettingsCopyWithImpl;
 @useResult
 $Res call({
- String animeLayout, String moviesLayout, String webSeriesLayout, String seekbarStyle, bool dynamicSpeedOverlay, bool showStatsForNerds
+ String animeLayout, String moviesLayout, String webSeriesLayout, Map<String, String> customLayouts, String seekbarStyle, bool dynamicSpeedOverlay, bool showStatsForNerds
 });
 
 
@@ -65,12 +65,13 @@ class _$PlayerLayoutSettingsCopyWithImpl<$Res>
 
 /// Create a copy of PlayerLayoutSettings
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? animeLayout = null,Object? moviesLayout = null,Object? webSeriesLayout = null,Object? seekbarStyle = null,Object? dynamicSpeedOverlay = null,Object? showStatsForNerds = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? animeLayout = null,Object? moviesLayout = null,Object? webSeriesLayout = null,Object? customLayouts = null,Object? seekbarStyle = null,Object? dynamicSpeedOverlay = null,Object? showStatsForNerds = null,}) {
   return _then(_self.copyWith(
 animeLayout: null == animeLayout ? _self.animeLayout : animeLayout // ignore: cast_nullable_to_non_nullable
 as String,moviesLayout: null == moviesLayout ? _self.moviesLayout : moviesLayout // ignore: cast_nullable_to_non_nullable
 as String,webSeriesLayout: null == webSeriesLayout ? _self.webSeriesLayout : webSeriesLayout // ignore: cast_nullable_to_non_nullable
-as String,seekbarStyle: null == seekbarStyle ? _self.seekbarStyle : seekbarStyle // ignore: cast_nullable_to_non_nullable
+as String,customLayouts: null == customLayouts ? _self.customLayouts : customLayouts // ignore: cast_nullable_to_non_nullable
+as Map<String, String>,seekbarStyle: null == seekbarStyle ? _self.seekbarStyle : seekbarStyle // ignore: cast_nullable_to_non_nullable
 as String,dynamicSpeedOverlay: null == dynamicSpeedOverlay ? _self.dynamicSpeedOverlay : dynamicSpeedOverlay // ignore: cast_nullable_to_non_nullable
 as bool,showStatsForNerds: null == showStatsForNerds ? _self.showStatsForNerds : showStatsForNerds // ignore: cast_nullable_to_non_nullable
 as bool,
@@ -158,10 +159,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String animeLayout,  String moviesLayout,  String webSeriesLayout,  String seekbarStyle,  bool dynamicSpeedOverlay,  bool showStatsForNerds)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String animeLayout,  String moviesLayout,  String webSeriesLayout,  Map<String, String> customLayouts,  String seekbarStyle,  bool dynamicSpeedOverlay,  bool showStatsForNerds)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _PlayerLayoutSettings() when $default != null:
-return $default(_that.animeLayout,_that.moviesLayout,_that.webSeriesLayout,_that.seekbarStyle,_that.dynamicSpeedOverlay,_that.showStatsForNerds);case _:
+return $default(_that.animeLayout,_that.moviesLayout,_that.webSeriesLayout,_that.customLayouts,_that.seekbarStyle,_that.dynamicSpeedOverlay,_that.showStatsForNerds);case _:
   return orElse();
 
 }
@@ -179,10 +180,10 @@ return $default(_that.animeLayout,_that.moviesLayout,_that.webSeriesLayout,_that
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String animeLayout,  String moviesLayout,  String webSeriesLayout,  String seekbarStyle,  bool dynamicSpeedOverlay,  bool showStatsForNerds)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String animeLayout,  String moviesLayout,  String webSeriesLayout,  Map<String, String> customLayouts,  String seekbarStyle,  bool dynamicSpeedOverlay,  bool showStatsForNerds)  $default,) {final _that = this;
 switch (_that) {
 case _PlayerLayoutSettings():
-return $default(_that.animeLayout,_that.moviesLayout,_that.webSeriesLayout,_that.seekbarStyle,_that.dynamicSpeedOverlay,_that.showStatsForNerds);case _:
+return $default(_that.animeLayout,_that.moviesLayout,_that.webSeriesLayout,_that.customLayouts,_that.seekbarStyle,_that.dynamicSpeedOverlay,_that.showStatsForNerds);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -199,10 +200,10 @@ return $default(_that.animeLayout,_that.moviesLayout,_that.webSeriesLayout,_that
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String animeLayout,  String moviesLayout,  String webSeriesLayout,  String seekbarStyle,  bool dynamicSpeedOverlay,  bool showStatsForNerds)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String animeLayout,  String moviesLayout,  String webSeriesLayout,  Map<String, String> customLayouts,  String seekbarStyle,  bool dynamicSpeedOverlay,  bool showStatsForNerds)?  $default,) {final _that = this;
 switch (_that) {
 case _PlayerLayoutSettings() when $default != null:
-return $default(_that.animeLayout,_that.moviesLayout,_that.webSeriesLayout,_that.seekbarStyle,_that.dynamicSpeedOverlay,_that.showStatsForNerds);case _:
+return $default(_that.animeLayout,_that.moviesLayout,_that.webSeriesLayout,_that.customLayouts,_that.seekbarStyle,_that.dynamicSpeedOverlay,_that.showStatsForNerds);case _:
   return null;
 
 }
@@ -214,12 +215,19 @@ return $default(_that.animeLayout,_that.moviesLayout,_that.webSeriesLayout,_that
 @JsonSerializable()
 
 class _PlayerLayoutSettings implements PlayerLayoutSettings {
-  const _PlayerLayoutSettings({this.animeLayout = 'Grid', this.moviesLayout = 'Grid', this.webSeriesLayout = 'Grid', this.seekbarStyle = 'Standard', this.dynamicSpeedOverlay = true, this.showStatsForNerds = false});
+  const _PlayerLayoutSettings({this.animeLayout = 'Grid', this.moviesLayout = 'Grid', this.webSeriesLayout = 'Grid', final  Map<String, String> customLayouts = const {}, this.seekbarStyle = 'Standard', this.dynamicSpeedOverlay = true, this.showStatsForNerds = false}): _customLayouts = customLayouts;
   factory _PlayerLayoutSettings.fromJson(Map<String, dynamic> json) => _$PlayerLayoutSettingsFromJson(json);
 
 @override@JsonKey() final  String animeLayout;
 @override@JsonKey() final  String moviesLayout;
 @override@JsonKey() final  String webSeriesLayout;
+ final  Map<String, String> _customLayouts;
+@override@JsonKey() Map<String, String> get customLayouts {
+  if (_customLayouts is EqualUnmodifiableMapView) return _customLayouts;
+  // ignore: implicit_dynamic_type
+  return EqualUnmodifiableMapView(_customLayouts);
+}
+
 @override@JsonKey() final  String seekbarStyle;
 @override@JsonKey() final  bool dynamicSpeedOverlay;
 @override@JsonKey() final  bool showStatsForNerds;
@@ -237,16 +245,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _PlayerLayoutSettings&&(identical(other.animeLayout, animeLayout) || other.animeLayout == animeLayout)&&(identical(other.moviesLayout, moviesLayout) || other.moviesLayout == moviesLayout)&&(identical(other.webSeriesLayout, webSeriesLayout) || other.webSeriesLayout == webSeriesLayout)&&(identical(other.seekbarStyle, seekbarStyle) || other.seekbarStyle == seekbarStyle)&&(identical(other.dynamicSpeedOverlay, dynamicSpeedOverlay) || other.dynamicSpeedOverlay == dynamicSpeedOverlay)&&(identical(other.showStatsForNerds, showStatsForNerds) || other.showStatsForNerds == showStatsForNerds));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _PlayerLayoutSettings&&(identical(other.animeLayout, animeLayout) || other.animeLayout == animeLayout)&&(identical(other.moviesLayout, moviesLayout) || other.moviesLayout == moviesLayout)&&(identical(other.webSeriesLayout, webSeriesLayout) || other.webSeriesLayout == webSeriesLayout)&&const DeepCollectionEquality().equals(other._customLayouts, _customLayouts)&&(identical(other.seekbarStyle, seekbarStyle) || other.seekbarStyle == seekbarStyle)&&(identical(other.dynamicSpeedOverlay, dynamicSpeedOverlay) || other.dynamicSpeedOverlay == dynamicSpeedOverlay)&&(identical(other.showStatsForNerds, showStatsForNerds) || other.showStatsForNerds == showStatsForNerds));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,animeLayout,moviesLayout,webSeriesLayout,seekbarStyle,dynamicSpeedOverlay,showStatsForNerds);
+int get hashCode => Object.hash(runtimeType,animeLayout,moviesLayout,webSeriesLayout,const DeepCollectionEquality().hash(_customLayouts),seekbarStyle,dynamicSpeedOverlay,showStatsForNerds);
 
 @override
 String toString() {
-  return 'PlayerLayoutSettings(animeLayout: $animeLayout, moviesLayout: $moviesLayout, webSeriesLayout: $webSeriesLayout, seekbarStyle: $seekbarStyle, dynamicSpeedOverlay: $dynamicSpeedOverlay, showStatsForNerds: $showStatsForNerds)';
+  return 'PlayerLayoutSettings(animeLayout: $animeLayout, moviesLayout: $moviesLayout, webSeriesLayout: $webSeriesLayout, customLayouts: $customLayouts, seekbarStyle: $seekbarStyle, dynamicSpeedOverlay: $dynamicSpeedOverlay, showStatsForNerds: $showStatsForNerds)';
 }
 
 
@@ -257,7 +265,7 @@ abstract mixin class _$PlayerLayoutSettingsCopyWith<$Res> implements $PlayerLayo
   factory _$PlayerLayoutSettingsCopyWith(_PlayerLayoutSettings value, $Res Function(_PlayerLayoutSettings) _then) = __$PlayerLayoutSettingsCopyWithImpl;
 @override @useResult
 $Res call({
- String animeLayout, String moviesLayout, String webSeriesLayout, String seekbarStyle, bool dynamicSpeedOverlay, bool showStatsForNerds
+ String animeLayout, String moviesLayout, String webSeriesLayout, Map<String, String> customLayouts, String seekbarStyle, bool dynamicSpeedOverlay, bool showStatsForNerds
 });
 
 
@@ -274,12 +282,13 @@ class __$PlayerLayoutSettingsCopyWithImpl<$Res>
 
 /// Create a copy of PlayerLayoutSettings
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? animeLayout = null,Object? moviesLayout = null,Object? webSeriesLayout = null,Object? seekbarStyle = null,Object? dynamicSpeedOverlay = null,Object? showStatsForNerds = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? animeLayout = null,Object? moviesLayout = null,Object? webSeriesLayout = null,Object? customLayouts = null,Object? seekbarStyle = null,Object? dynamicSpeedOverlay = null,Object? showStatsForNerds = null,}) {
   return _then(_PlayerLayoutSettings(
 animeLayout: null == animeLayout ? _self.animeLayout : animeLayout // ignore: cast_nullable_to_non_nullable
 as String,moviesLayout: null == moviesLayout ? _self.moviesLayout : moviesLayout // ignore: cast_nullable_to_non_nullable
 as String,webSeriesLayout: null == webSeriesLayout ? _self.webSeriesLayout : webSeriesLayout // ignore: cast_nullable_to_non_nullable
-as String,seekbarStyle: null == seekbarStyle ? _self.seekbarStyle : seekbarStyle // ignore: cast_nullable_to_non_nullable
+as String,customLayouts: null == customLayouts ? _self._customLayouts : customLayouts // ignore: cast_nullable_to_non_nullable
+as Map<String, String>,seekbarStyle: null == seekbarStyle ? _self.seekbarStyle : seekbarStyle // ignore: cast_nullable_to_non_nullable
 as String,dynamicSpeedOverlay: null == dynamicSpeedOverlay ? _self.dynamicSpeedOverlay : dynamicSpeedOverlay // ignore: cast_nullable_to_non_nullable
 as bool,showStatsForNerds: null == showStatsForNerds ? _self.showStatsForNerds : showStatsForNerds // ignore: cast_nullable_to_non_nullable
 as bool,

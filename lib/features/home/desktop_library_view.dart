@@ -4,6 +4,7 @@ import '../../core/utils/responsive_utils.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../l10n/app_localizations.dart';
 import 'package:tdlib/td_api.dart' as td;
+import '../../core/utils/poster_thumbnail_extractor.dart';
 
 import '../../core/constants.dart';
 import '../../models/anime_models.dart';
@@ -400,13 +401,9 @@ class _DesktopPosterCardState extends ConsumerState<DesktopPosterCard> {
 
     if (widget.series.seasons.isNotEmpty) {
       final latestPoster = widget.series.seasons.first.posterMessage;
-      if (latestPoster.content is td.MessagePhoto) {
-        final photo = latestPoster.content as td.MessagePhoto;
-        if (photo.photo.sizes.isNotEmpty) {
-          posterFile = photo.photo.sizes.last.photo;
-        }
-        minithumbnail = photo.photo.minithumbnail;
-      }
+      final extracted = extractPosterThumbnail(latestPoster);
+      posterFile = extracted.file;
+      minithumbnail = extracted.minithumbnail;
     }
 
     return MouseRegion(
@@ -527,13 +524,9 @@ class _DesktopListItemState extends ConsumerState<DesktopListItem> {
 
     if (widget.series.seasons.isNotEmpty) {
       final latestPoster = widget.series.seasons.first.posterMessage;
-      if (latestPoster.content is td.MessagePhoto) {
-        final photo = latestPoster.content as td.MessagePhoto;
-        if (photo.photo.sizes.isNotEmpty) {
-          posterFile = photo.photo.sizes.last.photo;
-        }
-        minithumbnail = photo.photo.minithumbnail;
-      }
+      final extracted = extractPosterThumbnail(latestPoster);
+      posterFile = extracted.file;
+      minithumbnail = extracted.minithumbnail;
     }
 
     return MouseRegion(

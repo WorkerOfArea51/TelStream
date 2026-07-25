@@ -12,6 +12,7 @@ abstract class PlayerLayoutSettings with _$PlayerLayoutSettings {
     @Default('Grid') String animeLayout,
     @Default('Grid') String moviesLayout,
     @Default('Grid') String webSeriesLayout,
+    @Default({}) Map<String, String> customLayouts, // Map of lowercased category title to layout string
     @Default('Standard') String seekbarStyle,
     @Default(true) bool dynamicSpeedOverlay,
     @Default(false) bool showStatsForNerds,
@@ -103,7 +104,8 @@ abstract class VideoSettings with _$VideoSettings {
   }) = _VideoSettings;
 
   String getLayoutForCategory(String categoryTitle) {
-    switch (categoryTitle.toLowerCase()) {
+    final key = categoryTitle.toLowerCase();
+    switch (key) {
       case 'anime':
         return layout.animeLayout;
       case 'movies':
@@ -111,12 +113,14 @@ abstract class VideoSettings with _$VideoSettings {
       case 'web series':
         return layout.webSeriesLayout;
       default:
-        return 'Grid';
+        // Fallback for user channels: look up in the map, default to Grid
+        return layout.customLayouts[key] ?? 'Grid';
     }
   }
 
   VideoSettings copyWithLayoutForCategory(String categoryTitle, String newLayout) {
-    switch (categoryTitle.toLowerCase()) {
+    final key = categoryTitle.toLowerCase();
+    switch (key) {
       case 'anime':
         return copyWith(layout: layout.copyWith(animeLayout: newLayout));
       case 'movies':
@@ -124,7 +128,11 @@ abstract class VideoSettings with _$VideoSettings {
       case 'web series':
         return copyWith(layout: layout.copyWith(webSeriesLayout: newLayout));
       default:
-        return this;
+        // For custom categories, we MUST create a new map instance so that
+        // freezed/Riverpod detect the state change and trigger UI re-renders.
+        final updatedMap = Map<String, String>.from(layout.customLayouts);
+        updatedMap[key] = newLayout;
+        return copyWith(layout: layout.copyWith(customLayouts: updatedMap));
     }
   }
 
@@ -135,6 +143,10 @@ abstract class VideoSettings with _$VideoSettings {
         animeLayout: json['animeLayout'] ?? json['libraryLayout'] ?? 'Grid',
         moviesLayout: json['moviesLayout'] ?? json['libraryLayout'] ?? 'Grid',
         webSeriesLayout: json['webSeriesLayout'] ?? json['libraryLayout'] ?? 'Grid',
+        customLayouts: (json['customLayouts'] as Map<String, dynamic>?)?.map(
+              (k, v) => MapEntry(k, v as String),
+            ) ??
+            {},
         seekbarStyle: json['seekbarStyle'] ?? 'Standard',
         dynamicSpeedOverlay: json['dynamicSpeedOverlay'] ?? true,
         showStatsForNerds: json['showStatsForNerds'] ?? false,
@@ -193,6 +205,7 @@ abstract class VideoSettings with _$VideoSettings {
       'animeLayout': layout.animeLayout,
       'moviesLayout': layout.moviesLayout,
       'webSeriesLayout': layout.webSeriesLayout,
+      'customLayouts': layout.customLayouts,
       'seekbarStyle': layout.seekbarStyle,
       'dynamicSpeedOverlay': layout.dynamicSpeedOverlay,
       'showStatsForNerds': layout.showStatsForNerds,

@@ -12,6 +12,11 @@ _PlayerLayoutSettings _$PlayerLayoutSettingsFromJson(
   animeLayout: json['animeLayout'] as String? ?? 'Grid',
   moviesLayout: json['moviesLayout'] as String? ?? 'Grid',
   webSeriesLayout: json['webSeriesLayout'] as String? ?? 'Grid',
+  customLayouts:
+      (json['customLayouts'] as Map<String, dynamic>?)?.map(
+        (k, e) => MapEntry(k, e as String),
+      ) ??
+      const {},
   seekbarStyle: json['seekbarStyle'] as String? ?? 'Standard',
   dynamicSpeedOverlay: json['dynamicSpeedOverlay'] as bool? ?? true,
   showStatsForNerds: json['showStatsForNerds'] as bool? ?? false,
@@ -23,6 +28,7 @@ Map<String, dynamic> _$PlayerLayoutSettingsToJson(
   'animeLayout': instance.animeLayout,
   'moviesLayout': instance.moviesLayout,
   'webSeriesLayout': instance.webSeriesLayout,
+  'customLayouts': instance.customLayouts,
   'seekbarStyle': instance.seekbarStyle,
   'dynamicSpeedOverlay': instance.dynamicSpeedOverlay,
   'showStatsForNerds': instance.showStatsForNerds,

@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'dart:io';
 import 'package:tdlib/td_api.dart' as td;
+import '../../core/utils/poster_thumbnail_extractor.dart';
 import '../../core/constants.dart';
 import '../../models/anime_models.dart';
 import '../../services/storage_service.dart';
@@ -836,15 +837,9 @@ class _LibraryGridItemState extends ConsumerState<_LibraryGridItem> {
         ? widget.series.seasons.first.posterMessage
         : null;
 
-    td.File? posterFile;
-    td.Minithumbnail? minithumbnail;
-    if (latestPoster != null && latestPoster.content is td.MessagePhoto) {
-      final photo = latestPoster.content as td.MessagePhoto;
-      if (photo.photo.sizes.isNotEmpty) {
-        posterFile = photo.photo.sizes.last.photo;
-      }
-      minithumbnail = photo.photo.minithumbnail;
-    }
+    final extracted = extractPosterThumbnail(latestPoster);
+    final posterFile = extracted.file;
+    final minithumbnail = extracted.minithumbnail;
 
     return RepaintBoundary(
       child: GestureDetector(
@@ -1060,16 +1055,9 @@ class _FeaturedCarouselState extends ConsumerState<FeaturedCarousel> {
                   ? series.seasons.first.posterMessage
                   : null;
 
-              td.File? posterFile;
-              td.Minithumbnail? minithumbnail;
-              if (latestPoster != null &&
-                  latestPoster.content is td.MessagePhoto) {
-                final photo = latestPoster.content as td.MessagePhoto;
-                if (photo.photo.sizes.isNotEmpty) {
-                  posterFile = photo.photo.sizes.last.photo;
-                }
-                minithumbnail = photo.photo.minithumbnail;
-              }
+              final extracted = extractPosterThumbnail(latestPoster);
+              final posterFile = extracted.file;
+              final minithumbnail = extracted.minithumbnail;
 
               return AnimatedBuilder(
                 animation: _pageController,
@@ -1351,13 +1339,9 @@ class ContinueWatchingShelf extends StatelessWidget {
               td.Minithumbnail? minithumbnail;
               if (matchedSeries != null && matchedSeries.seasons.isNotEmpty) {
                 final latestPoster = matchedSeries.seasons.first.posterMessage;
-                if (latestPoster.content is td.MessagePhoto) {
-                  final photo = latestPoster.content as td.MessagePhoto;
-                  if (photo.photo.sizes.isNotEmpty) {
-                    posterFile = photo.photo.sizes.last.photo;
-                  }
-                  minithumbnail = photo.photo.minithumbnail;
-                }
+                final extracted = extractPosterThumbnail(latestPoster);
+                posterFile = extracted.file;
+                minithumbnail = extracted.minithumbnail;
               }
 
               return RepaintBoundary(
@@ -1570,15 +1554,9 @@ class _LibraryCompactItemState extends ConsumerState<_LibraryCompactItem> {
         ? widget.series.seasons.first.posterMessage
         : null;
 
-    td.File? posterFile;
-    td.Minithumbnail? minithumbnail;
-    if (latestPoster != null && latestPoster.content is td.MessagePhoto) {
-      final photo = latestPoster.content as td.MessagePhoto;
-      if (photo.photo.sizes.isNotEmpty) {
-        posterFile = photo.photo.sizes.last.photo;
-      }
-      minithumbnail = photo.photo.minithumbnail;
-    }
+    final extracted = extractPosterThumbnail(latestPoster);
+    final posterFile = extracted.file;
+    final minithumbnail = extracted.minithumbnail;
 
     return RepaintBoundary(
       child: GestureDetector(
@@ -1699,15 +1677,9 @@ class _LibraryListItemState extends ConsumerState<_LibraryListItem> {
         ? widget.series.seasons.first.posterMessage
         : null;
 
-    td.File? posterFile;
-    td.Minithumbnail? minithumbnail;
-    if (latestPoster != null && latestPoster.content is td.MessagePhoto) {
-      final photo = latestPoster.content as td.MessagePhoto;
-      if (photo.photo.sizes.isNotEmpty) {
-        posterFile = photo.photo.sizes.last.photo;
-      }
-      minithumbnail = photo.photo.minithumbnail;
-    }
+    final extracted = extractPosterThumbnail(latestPoster);
+    final posterFile = extracted.file;
+    final minithumbnail = extracted.minithumbnail;
 
     return RepaintBoundary(
       child: GestureDetector(

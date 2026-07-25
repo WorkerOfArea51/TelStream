@@ -2,7 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../l10n/app_localizations.dart';
-import 'package:tdlib/td_api.dart' as td;
+import '../../core/utils/poster_thumbnail_extractor.dart';
 import '../../models/anime_models.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/td_thumbnail.dart';
@@ -320,15 +320,9 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
             final season = series.seasons.first; // Navigate to first season by default
             final heroTag = '${heroPrefix}_${series.coreName}_$index';
 
-            td.File? posterFile;
-            td.Minithumbnail? minithumbnail;
-            if (season.posterMessage.content is td.MessagePhoto) {
-              final photo = season.posterMessage.content as td.MessagePhoto;
-              if (photo.photo.sizes.isNotEmpty) {
-                posterFile = photo.photo.sizes.last.photo;
-              }
-              minithumbnail = photo.photo.minithumbnail;
-            }
+            final extracted = extractPosterThumbnail(season.posterMessage);
+            final posterFile = extracted.file;
+            final minithumbnail = extracted.minithumbnail;
 
             return SizedBox(
               width: (MediaQuery.of(context).size.width - 32 - 20) / 3,

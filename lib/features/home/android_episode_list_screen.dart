@@ -4,6 +4,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:tdlib/td_api.dart' as td;
+import '../../core/utils/poster_thumbnail_extractor.dart';
 
 import '../../models/anime_models.dart';
 import '../player/pip_manager.dart';
@@ -496,15 +497,9 @@ class _AndroidEpisodeListScreenState extends ConsumerState<AndroidEpisodeListScr
     final effectiveHeroTag =
         widget.heroTag ?? 'hero_poster_grid_${widget.series.coreName}';
 
-    td.File? posterFile;
-    td.Minithumbnail? minithumbnail;
-    if (selectedSeason.posterMessage.content is td.MessagePhoto) {
-      final photo = selectedSeason.posterMessage.content as td.MessagePhoto;
-      if (photo.photo.sizes.isNotEmpty) {
-        posterFile = photo.photo.sizes.last.photo;
-      }
-      minithumbnail = photo.photo.minithumbnail;
-    }
+    final extracted = extractPosterThumbnail(selectedSeason.posterMessage);
+    final posterFile = extracted.file;
+    final minithumbnail = extracted.minithumbnail;
 
     final theme = Theme.of(context);
     final customTheme = theme.extension<AppThemeExtension>();

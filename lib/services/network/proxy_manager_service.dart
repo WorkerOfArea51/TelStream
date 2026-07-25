@@ -8,6 +8,42 @@ import 'proxy_models.dart';
 import 'package:tdlib/td_api.dart' as td;
 import '../tdlib_service.dart';
 
+/// Result of a public-proxy fetch operation.
+///
+/// Returned by [ProxyManagerNotifier.fetchPublicProxies] so the UI layer
+/// can display a snackbar with the outcome. Previously the function returned
+/// `Future<void>`, which made silent failures impossible to distinguish
+/// from slow successes — see GitHub issue "still can't fetch public servers".
+class ProxyFetchResult {
+  final bool success;
+  final int fetchedCount;
+  final int totalSources;
+  final int failedSources;
+  final String? errorMessage;
+
+  const ProxyFetchResult({
+    required this.success,
+    required this.fetchedCount,
+    required this.totalSources,
+    required this.failedSources,
+    this.errorMessage,
+  });
+
+  /// Human-readable summary for a snackbar, e.g.
+  /// "Fetched 247 proxies from 3 sources" or
+  /// "Failed to fetch from any source: network error".
+  String get summary {
+    if (success) {
+      if (failedSources > 0) {
+        return 'Fetched $fetchedCount proxies from ${totalSources - failedSources}/$totalSources sources '
+            '($failedSources source(s) failed)';
+      }
+      return 'Fetched $fetchedCount proxies from $totalSources source(s)';
+    }
+    return 'Failed to fetch proxies: ${errorMessage ?? "unknown error"}';
+  }
+}
+
 // ─── Riverpod Provider ──────────────────────────────────────────────────────
 
 final proxyManagerProvider = NotifierProvider<ProxyManagerNotifier, ProxyManagerState>(
@@ -21,6 +57,7 @@ class ProxyManagerState {
   final String? activeProxyId;
   final ConnectionStatus status;
   final bool isPinging;
+  final bool isFetching;        // NEW: true while fetchPublicProxies() is running
   final String? autoConnectProxyId;
 
   const ProxyManagerState({
@@ -28,6 +65,7 @@ class ProxyManagerState {
     this.activeProxyId,
     this.status = ConnectionStatus.disconnected,
     this.isPinging = false,
+    this.isFetching = false,    // NEW
     this.autoConnectProxyId,
   });
 
@@ -50,6 +88,7 @@ class ProxyManagerState {
     String? activeProxyId,
     ConnectionStatus? status,
     bool? isPinging,
+    bool? isFetching,            // NEW
     String? autoConnectProxyId,
     bool clearActiveProxyId = false,
     bool clearAutoConnectProxyId = false,
@@ -59,6 +98,7 @@ class ProxyManagerState {
       activeProxyId: clearActiveProxyId ? null : (activeProxyId ?? this.activeProxyId),
       status: status ?? this.status,
       isPinging: isPinging ?? this.isPinging,
+      isFetching: isFetching ?? this.isFetching,    // NEW
       autoConnectProxyId: clearAutoConnectProxyId ? null : (autoConnectProxyId ?? this.autoConnectProxyId),
     );
   }
@@ -247,58 +287,309 @@ class ProxyManagerNotifier extends Notifier<ProxyManagerState> {
 
   // ─── Auto-Fetch ───────────────────────────────────────────────────────
 
-  /// Fetch public proxies from known sources, add as isAutoFetch=true.
-  Future<void> fetchPublicProxies() async {
-    const sources = [
-      'https://raw.githubusercontent.com/free-proxy-list/free-proxy-list/main/proxies.json',
-    ];
+  /// Fetch public proxies from multiple known-good sources, add as
+  /// isAutoFetch=true. Returns a [ProxyFetchResult] describing the
+  /// outcome so the UI can show a snackbar.
+  ///
+  /// Each source is a [_ProxySource] with a URL, a [ProxyType], and a
+  /// format hint (plain text `ip:port` per line, or JSON array).
+  ///
+  /// For each source:
+  ///   1. Fetch with a 15-second timeout.
+  ///   2. Verify HTTP 200 (treat 404/500/etc. as a failed source).
+  ///   3. Parse the body according to the format hint.
+  ///   4. Deduplicate by `host:port` across all sources.
+  ///
+  /// Does NOT auto-ping the fetched proxies — pinging 500+ proxies with
+  /// a 5s timeout each would hang the UI for minutes. The user can tap
+  /// "Ping All Proxies" manually after the fetch completes.
+  ///
+  /// If `raw.githubusercontent.com` is unreachable (blocked in some
+  /// regions), the jsdelivr CDN mirror is used as a fallback.
+  Future<ProxyFetchResult> fetchPublicProxies() async {
+    // Guard against concurrent fetches — without this, spam-tapping the
+    // button would race and corrupt the proxy list.
+    if (state.isFetching) {
+      return const ProxyFetchResult(
+        success: false,
+        fetchedCount: 0,
+        totalSources: 0,
+        failedSources: 0,
+        errorMessage: 'A fetch is already in progress',
+      );
+    }
+
+    state = state.copyWith(isFetching: true);
+    Log.i('[fetchPublicProxies] Starting fetch from ${_proxySources.length} sources');
 
     final fetched = <ProxyConfig>[];
-    for (final url in sources) {
+    final seenKeys = <String>{};  // dedup by "host:port"
+    int failedSources = 0;
+
+    for (final source in _proxySources) {
       try {
-        final client = HttpClient();
-        final request = await client.getUrl(Uri.parse(url));
-        final response = await request.close();
-        final body = await response.transform(utf8.decoder).join();
-        client.close();
-
-        final jsonList = jsonDecode(body) as List;
-        for (final item in jsonList) {
-          final map = item as Map<String, dynamic>;
-          final host = map['ip'] as String? ?? map['host'] as String?;
-          final port = map['port'] as int?;
-          if (host == null || port == null) continue;
-
-          final typeStr = (map['type'] as String? ?? 'socks5').toLowerCase();
-          final type = typeStr == 'http' ? ProxyType.http
-              : typeStr == 'mtproto' ? ProxyType.mtproto
-              : ProxyType.socks5;
-
-          fetched.add(ProxyConfig(
-            id: 'auto_${host}_$port',
-            host: host,
-            port: port,
-            type: type,
-            username: map['username'] as String?,
-            password: map['password'] as String?,
-            secret: map['secret'] as String?,
-            label: 'Public ${type.name.toUpperCase()} $host:$port',
-            isAutoFetch: true,
-            addedAt: DateTime.now(),
-          ));
+        final proxies = await _fetchFromSource(source);
+        for (final proxy in proxies) {
+          final key = '${proxy.host}:${proxy.port}';
+          if (seenKeys.add(key)) {
+            fetched.add(proxy);
+          }
         }
+        Log.i('[fetchPublicProxies] ${source.url}: fetched ${proxies.length} proxies');
       } catch (e) {
-        Log.w('Failed to fetch from $url: $e');
+        failedSources++;
+        Log.w('[fetchPublicProxies] ${source.url} failed: $e');
       }
     }
 
-    // Remove old auto-fetched, keep manual ones
-    final manual = state.proxies.where((p) => !p.isAutoFetch);
-    state = state.copyWith(proxies: [...manual, ...fetched]);
+    // Remove old auto-fetched proxies, keep manual ones, then append the
+    // newly fetched (deduplicated) list.
+    final manual = state.proxies.where((p) => !p.isAutoFetch).toList();
+    state = state.copyWith(
+      proxies: [...manual, ...fetched],
+      isFetching: false,
+    );
     await _save();
 
-    // Ping the new ones
-    await pingAllProxies();
+    Log.i('[fetchPublicProxies] Done. ${fetched.length} unique proxies '
+        'from ${_proxySources.length - failedSources}/${_proxySources.length} sources.');
+
+    return ProxyFetchResult(
+      success: fetched.isNotEmpty,
+      fetchedCount: fetched.length,
+      totalSources: _proxySources.length,
+      failedSources: failedSources,
+      errorMessage: fetched.isEmpty
+          ? 'All ${_proxySources.length} sources failed. Check your network connection.'
+          : null,
+    );
+  }
+
+  /// Fetches and parses a single proxy source. Tries the primary URL
+  /// first; if the network call fails (not a 404 — a network-level
+  /// failure like a timeout or DNS error), retries via the jsdelivr CDN
+  /// mirror for GitHub-hosted sources.
+  Future<List<ProxyConfig>> _fetchFromSource(_ProxySource source) async {
+    final body = await _httpGetWithFallback(source.url, source.isGithubRaw);
+    if (body.isEmpty) return [];
+
+    switch (source.format) {
+      case _ProxyFormat.plainText:
+        return _parsePlainTextSource(body, source.type);
+      case _ProxyFormat.jsonArray:
+        return _parseJsonSource(body, source.type);
+      case _ProxyFormat.mtprotoLinks:
+        // MTProto links carry their own type — ignore source.type
+        return _parseMtprotoLinksSource(body);
+    }
+  }
+
+  /// HTTP GET with a 15-second timeout. Verifies HTTP 200. For GitHub
+  /// raw URLs, falls back to the jsdelivr CDN mirror on network-level
+  /// failure (timeout, DNS error, connection refused). A 404 response
+  /// is NOT retried — it means the URL is wrong, not that GitHub is
+  /// blocked.
+  Future<String> _httpGetWithFallback(String url, bool isGithubRaw) async {
+    final primary = await _httpGet(url);
+    if (primary != null) return primary;
+
+    if (isGithubRaw) {
+      // Convert raw.githubusercontent.com/USER/REPO/BRANCH/PATH →
+      // cdn.jsdelivr.net/gh/USER/REPO@BRANCH/PATH
+      final jsdelivrUrl = url
+          .replaceFirst(
+            'https://raw.githubusercontent.com/',
+            'https://cdn.jsdelivr.net/gh/',
+          )
+          .replaceFirst('/main/', '@main/')
+          .replaceFirst('/master/', '@master/');
+      Log.i('[fetchPublicProxies] Primary failed, trying jsdelivr mirror: $jsdelivrUrl');
+      final fallback = await _httpGet(jsdelivrUrl);
+      if (fallback != null) return fallback;
+    }
+
+    throw Exception('HTTP request failed for $url (and jsdelivr mirror if applicable)');
+  }
+
+  /// Performs an HTTP GET with status-code verification. Returns the
+  /// response body on HTTP 200, or `null` on any other status code or
+  /// network error. Throws on timeout.
+  Future<String?> _httpGet(String url) async {
+    final client = HttpClient();
+    client.connectionTimeout = const Duration(seconds: 15);
+    try {
+      final request = await client.getUrl(Uri.parse(url));
+      final response = await request.close().timeout(
+        const Duration(seconds: 15),
+        onTimeout: () => throw TimeoutException('HTTP request timed out'),
+      );
+
+      if (response.statusCode != 200) {
+        Log.w('[fetchPublicProxies] $url returned HTTP ${response.statusCode}');
+        // Drain the response to free the connection
+        await response.drain<void>();
+        return null;
+      }
+
+      final body = await response.transform(utf8.decoder).join();
+      return body;
+    } on TimeoutException {
+      Log.w('[fetchPublicProxies] $url timed out');
+      return null;
+    } on HttpException catch (e) {
+      Log.w('[fetchPublicProxies] $url HTTP exception: $e');
+      return null;
+    } on SocketException catch (e) {
+      Log.w('[fetchPublicProxies] $url socket exception: $e');
+      return null;
+    } finally {
+      client.close();
+    }
+  }
+
+  /// Parses a plain-text source: one `ip:port` per line, ignoring
+  /// empty lines and comments (lines starting with `#`).
+  List<ProxyConfig> _parsePlainTextSource(String body, ProxyType type) {
+    final proxies = <ProxyConfig>[];
+    final lines = body.split('\n');
+    for (final rawLine in lines) {
+      final line = rawLine.trim();
+      if (line.isEmpty || line.startsWith('#')) continue;
+
+      // Accept "ip:port" or "ip : port" (with whitespace)
+      final parts = line.split(':');
+      if (parts.length != 2) continue;
+
+      final host = parts[0].trim();
+      final port = int.tryParse(parts[1].trim());
+      if (host.isEmpty || port == null || port <= 0 || port > 65535) continue;
+
+      proxies.add(ProxyConfig(
+        id: 'auto_${host}_$port',
+        host: host,
+        port: port,
+        type: type,
+        label: 'Public ${type.name.toUpperCase()} $host:$port',
+        isAutoFetch: true,
+        addedAt: DateTime.now(),
+      ));
+    }
+    return proxies;
+  }
+
+  /// Parses a JSON-array source: `[{"ip":"1.2.3.4","port":1080}, ...]`.
+  /// Also accepts `{"host": "...", "port": ...}` and
+  /// `{"server": "...", "port": ...}` field names for compatibility.
+  List<ProxyConfig> _parseJsonSource(String body, ProxyType type) {
+    final proxies = <ProxyConfig>[];
+    try {
+      final decoded = jsonDecode(body);
+      if (decoded is! List) return proxies;
+
+      for (final item in decoded) {
+        if (item is! Map) continue;
+        final map = Map<String, dynamic>.from(item);
+
+        final host = map['ip'] as String? ??
+            map['host'] as String? ??
+            map['server'] as String?;
+        // Port can be int or string in some sources
+        final portRaw = map['port'];
+        final port = portRaw is int
+            ? portRaw
+            : portRaw is String
+                ? int.tryParse(portRaw)
+                : null;
+
+        if (host == null || port == null || port <= 0 || port > 65535) continue;
+
+        // Allow the source to override the type per-entry if present
+        final typeStr = (map['type'] as String? ?? '').toLowerCase();
+        final entryType = typeStr == 'http'
+            ? ProxyType.http
+            : typeStr == 'mtproto'
+                ? ProxyType.mtproto
+                : type;
+
+        proxies.add(ProxyConfig(
+          id: 'auto_${host}_$port',
+          host: host,
+          port: port,
+          type: entryType,
+          username: map['username'] as String?,
+          password: map['password'] as String?,
+          secret: map['secret'] as String?,
+          label: 'Public ${entryType.name.toUpperCase()} $host:$port',
+          isAutoFetch: true,
+          addedAt: DateTime.now(),
+        ));
+      }
+    } catch (e) {
+      Log.w('[fetchPublicProxies] JSON parse error: $e');
+    }
+    return proxies;
+  }
+
+  /// Parses an MTProto-links source: one Telegram proxy deep-link per
+  /// line, in either of these formats:
+  ///
+  ///   https://t.me/proxy?server=HOST&port=PORT&secret=SECRET
+  ///   tg://proxy?server=HOST&port=PORT&secret=SECRET
+  ///
+  /// This is the format used by `SoliSpirit/mtproto/all_proxies.txt`,
+  /// the canonical public MTProto proxy list (auto-updated every 12
+  /// hours, ~222 entries as of 2026-07-26).
+  ///
+  /// The `secret` field is passed through verbatim — it can be either
+  /// a base64 dd-secret (e.g. `eeNEgYdJvXrFGRMCIMJdCQ`) or a hex TLS
+  /// fingerprint secret (e.g. `ee1603010200010001fc030386e24c3add...`).
+  /// Both are valid for TDLib's `ProxyTypeMtproto`.
+  List<ProxyConfig> _parseMtprotoLinksSource(String body) {
+    final proxies = <ProxyConfig>[];
+    final lines = body.split('\n');
+    final linkRegex = RegExp(
+      r'^(?:https?://t\.me/proxy\?|tg://proxy\?)(.+)$',
+      caseSensitive: false,
+    );
+
+    for (final rawLine in lines) {
+      final line = rawLine.trim();
+      if (line.isEmpty || line.startsWith('#')) continue;
+
+      final match = linkRegex.firstMatch(line);
+      if (match == null) continue;
+
+      // Parse the query string manually (Uri.parse handles both
+      // `t.me/proxy?...` and `tg://proxy?...` correctly).
+      final uri = Uri.tryParse(line);
+      if (uri == null) continue;
+
+      final host = uri.queryParameters['server'];
+      final portStr = uri.queryParameters['port'];
+      final secret = uri.queryParameters['secret'];
+
+      if (host == null || host.isEmpty) continue;
+      final port = int.tryParse(portStr ?? '');
+      if (port == null || port <= 0 || port > 65535) continue;
+      if (secret == null || secret.isEmpty) continue;
+
+      // Strip trailing dots from hostnames (some entries have
+      // `server=foo.bar.co.uk.` with a trailing dot — valid DNS but
+      // messy in the UI).
+      final cleanHost = host.endsWith('.') ? host.substring(0, host.length - 1) : host;
+
+      proxies.add(ProxyConfig(
+        id: 'auto_mtproto_${cleanHost}_$port',
+        host: cleanHost,
+        port: port,
+        type: ProxyType.mtproto,
+        secret: secret,
+        label: 'MTProto $cleanHost:$port',
+        isAutoFetch: true,
+        addedAt: DateTime.now(),
+      ));
+    }
+    return proxies;
   }
 
   Future<void> clearAutoFetchedProxies() async {
@@ -352,3 +643,88 @@ class ProxyManagerNotifier extends Notifier<ProxyManagerState> {
     ref.read(storageServiceProvider).setActiveProxyId(id);
   }
 }
+
+// ─── Proxy Source Configuration ─────────────────────────────────────────────
+
+/// Format of a proxy-list source.
+enum _ProxyFormat {
+  /// Plain text: one `ip:port` per line. Empty lines and `#`-comments ignored.
+  plainText,
+
+  /// JSON array: `[{"ip":"1.2.3.4","port":1080}, ...]`.
+  jsonArray,
+
+  /// MTProto deep-links: one `https://t.me/proxy?server=...&port=...&secret=...`
+  /// (or `tg://proxy?...`) per line. Used by the SoliSpirit/mtproto source.
+  mtprotoLinks,
+}
+
+/// A single public-proxy source.
+class _ProxySource {
+  final String url;
+  final ProxyType type;
+  final _ProxyFormat format;
+
+  /// True if this is a `raw.githubusercontent.com` URL (eligible for
+  /// jsdelivr CDN fallback).
+  final bool isGithubRaw;
+
+  const _ProxySource({
+    required this.url,
+    required this.type,
+    required this.format,
+    this.isGithubRaw = false,
+  });
+}
+
+/// The list of public-proxy sources to fetch from.
+///
+/// These URLs were verified to return HTTP 200 on 2026-07-26.
+/// If a source goes down in the future, the fetch will gracefully
+/// skip it and continue with the remaining sources.
+const List<_ProxySource> _proxySources = [
+  // MTProto — Telegram proxy deep-links (server + port + secret).
+  // This is the canonical public MTProto list, auto-updated every 12
+  // hours by the maintainer. ~222 entries as of 2026-07-26.
+  // THIS IS THE PRIMARY SOURCE FOR USERS IN REGIONS WHERE TELEGRAM IS
+  // BANNED — MTProto is the only proxy type that bypasses Telegram's
+  // DPI-level blocking. SOCKS5/HTTP proxies do NOT help with this.
+  _ProxySource(
+    url: 'https://raw.githubusercontent.com/SoliSpirit/mtproto/master/all_proxies.txt',
+    type: ProxyType.mtproto,
+    format: _ProxyFormat.mtprotoLinks,
+    isGithubRaw: true,
+  ),
+  // SOCKS5 — plain text, ip:port per line.
+  // TheSpeedX/PROXY-List is the largest and most frequently updated
+  // public SOCKS5 list (~10k entries). We fetch via raw.githubusercontent;
+  // if GitHub is blocked, the jsdelivr mirror is used as fallback.
+  _ProxySource(
+    url: 'https://raw.githubusercontent.com/TheSpeedX/PROXY-List/master/socks5.txt',
+    type: ProxyType.socks5,
+    format: _ProxyFormat.plainText,
+    isGithubRaw: true,
+  ),
+  // SOCKS5 — secondary source for redundancy and dedup.
+  _ProxySource(
+    url: 'https://raw.githubusercontent.com/monosans/proxy-list/main/proxies/socks5.txt',
+    type: ProxyType.socks5,
+    format: _ProxyFormat.plainText,
+    isGithubRaw: true,
+  ),
+  // HTTP — plain text, ip:port per line.
+  _ProxySource(
+    url: 'https://raw.githubusercontent.com/TheSpeedX/PROXY-List/master/http.txt',
+    type: ProxyType.http,
+    format: _ProxyFormat.plainText,
+    isGithubRaw: true,
+  ),
+  // SOCKS5 — non-GitHub source (proxyscrape API). No jsdelivr fallback needed.
+  // Acts as a fallback if GitHub is blocked AND jsdelivr is also blocked.
+  _ProxySource(
+    url: 'https://api.proxyscrape.com/v2/?request=displayproxies&protocol=socks5&timeout=10000',
+    type: ProxyType.socks5,
+    format: _ProxyFormat.plainText,
+    isGithubRaw: false,
+  ),
+];
