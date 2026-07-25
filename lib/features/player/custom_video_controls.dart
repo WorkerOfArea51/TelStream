@@ -1734,7 +1734,9 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
 
 
   void _handleAspectRatioButtonTap() {
-    if (_tapToSwitchRatio) {
+    // On desktop, always show the aspect ratio panel — desktop users expect a selection UI
+    // On mobile, respect the tapToSwitchRatio setting for quick cycling
+    if (_tapToSwitchRatio && !widget.isDesktop) {
       _cycleAspectRatio();
     } else {
       _showAspectRatioPanel();
@@ -1929,95 +1931,6 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
 
     final subtitleConfig = const SubtitleViewConfiguration(visible: false);
 
-    if (widget.isDesktop) {
-      return Shortcuts(
-        shortcuts: {
-          LogicalKeySet(LogicalKeyboardKey.space): const _PlayPauseIntent(),
-          LogicalKeySet(LogicalKeyboardKey.arrowLeft): const _SeekBackwardIntent(),
-          LogicalKeySet(LogicalKeyboardKey.arrowRight): const _SeekForwardIntent(),
-          LogicalKeySet(LogicalKeyboardKey.keyF): const _FullscreenIntent(),
-          LogicalKeySet(LogicalKeyboardKey.keyM): const _MuteIntent(),
-        },
-        child: Actions(
-          actions: {
-            _PlayPauseIntent: CallbackAction<_PlayPauseIntent>(onInvoke: (_) => widget.player.playOrPause()),
-            _SeekBackwardIntent: CallbackAction<_SeekBackwardIntent>(onInvoke: (_) => _performSeek(widget.player.state.position - const Duration(seconds: 5))),
-            _SeekForwardIntent: CallbackAction<_SeekForwardIntent>(onInvoke: (_) => _performSeek(widget.player.state.position + const Duration(seconds: 5))),
-            _FullscreenIntent: CallbackAction<_FullscreenIntent>(onInvoke: (_) => _toggleFullscreen()),
-            _MuteIntent: CallbackAction<_MuteIntent>(onInvoke: (_) => _toggleMute()),
-          },
-          child: Focus(
-            autofocus: true,
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                VideoLayer(
-                  controller: widget.controller,
-                  fitNotifier: _fitNotifier,
-                  customAspectRatioNotifier: _customAspectRatioNotifier,
-                  scaleNotifier: _scaleNotifier,
-                  panNotifier: _panNotifier,
-                  subtitleConfig: subtitleConfig,
-                  isBuffering: _isBuffering,
-                  customBuffering: widget.customBuffering,
-                ),
-                if (_showControls)
-                  GestureDetector(
-                    onTap: () {
-                      if (widget.player.state.playing) {
-                        widget.player.pause();
-                      } else {
-                        widget.player.play();
-                      }
-                      _startHideTimer();
-                    },
-                    child: Container(color: Colors.transparent),
-                  ),
-                AutoNextOverlay(
-                  showAutoNextCountdown: _showAutoNextCountdown,
-                  autoNextSlideIn: _autoNextSlideIn,
-                  autoNextSecondsRemaining: _autoNextSecondsRemaining,
-                  showControls: _showControls,
-                  onCancelAutoNext: _onCancelAutoNext,
-                  onPlayNow: () {
-                    _cancelAutoNextCountdown();
-                    if (widget.onNextEpisode != null) {
-                      widget.onNextEpisode!();
-                    }
-                  },
-                ),
-                if (_toastShowing)
-                  Positioned(
-                    top: 20,
-                    left: 0,
-                    right: 0,
-                    child: Center(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.7),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          _toastMessage,
-                          style: const TextStyle(color: Colors.white, fontSize: 14),
-                        ),
-                      ),
-                    ),
-                  ),
-                if (!_isBlendingSubtitles) SubtitleOverlay(player: widget.player),
-                if (settings.layout.showStatsForNerds && _nerdStats.isNotEmpty)
-                  Positioned(
-                    top: 10,
-                    left: 10,
-                    child: NerdStatsOverlay(nerdStats: _nerdStats),
-                  ),
-              ],
-            ),
-          ),
-        ),
-      );
-    }
 
     return Shortcuts(
       shortcuts: {

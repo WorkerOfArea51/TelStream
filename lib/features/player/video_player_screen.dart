@@ -1431,12 +1431,26 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
           }
         } else {
           String safeMode = hwDecMode;
-          // Sanitize Android-only decoders and problematic PC decoders
+          // Sanitize Android-only decoders and map to platform-appropriate HW decoders
           // - mediacodec-copy is Android-only, doesn't exist on PC
-          // - auto/auto-copy (d3d11va) causes macroblocking on TDLib streams
-          if (safeMode == 'auto' || safeMode == 'auto-copy' || 
-              safeMode == 'mediacodec-copy' || safeMode == 'mediacodec') {
-            safeMode = 'no'; // Default to software decoding on PC for flawless playback
+          // - auto/auto-copy causes macroblocking on TDLib streams via d3d11va (direct GPU render)
+          // - Use d3d11va-copy on Windows: GPU decodes + copies frames to CPU RAM
+          //   Avoids macroblocking AND avoids black screen, while still using GPU for decode speed
+          // - Use vaapi-copy on Linux/macOS: same approach for those platforms
+          if (Platform.isWindows) {
+            if (safeMode == 'auto' || safeMode == 'auto-copy' || safeMode == 'd3d11va') {
+              safeMode = 'd3d11va-copy';
+            } else if (safeMode == 'mediacodec-copy' || safeMode == 'mediacodec') {
+              safeMode = 'd3d11va-copy';
+            }
+          } else if (Platform.isLinux || Platform.isMacOS) {
+            if (safeMode == 'auto' || safeMode == 'auto-copy') {
+              safeMode = 'vaapi-copy';
+            } else if (safeMode == 'mediacodec-copy' || safeMode == 'mediacodec') {
+              safeMode = 'vaapi-copy';
+            } else if (safeMode == 'd3d11va' || safeMode == 'd3d11va-copy') {
+              safeMode = 'vaapi-copy';
+            }
           }
           nativePlayer.setProperty('hwdec', safeMode);
           Log.i('Set hardware decoder mode to $safeMode on player init (PC)');

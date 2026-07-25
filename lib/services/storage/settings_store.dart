@@ -74,7 +74,7 @@ class SettingsStore {
     await save();
   }
 
-  bool getTapToSwitchAspectRatio() => data['tap_to_switch_aspect_ratio'] as bool? ?? true;
+  bool getTapToSwitchAspectRatio() => data['tap_to_switch_aspect_ratio'] as bool? ?? false;
   Future<void> setTapToSwitchAspectRatio(bool value) async {
     data['tap_to_switch_aspect_ratio'] = value;
     await save();
