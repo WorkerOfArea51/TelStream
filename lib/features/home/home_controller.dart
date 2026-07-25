@@ -480,7 +480,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
     }
 
     // 2. Cache miss fallback: Load from local DB (occurs on absolute first launch ever)
-    final tdlibService = ref.read(tdlibServiceProvider);
+
     
     // Stagger startup requests to prevent concurrent connection sessions to TDLib (runs asynchronously)
     if (category.isMovie) {

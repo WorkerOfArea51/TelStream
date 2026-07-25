@@ -769,7 +769,7 @@ class _AndroidLibraryViewState extends ConsumerState<AndroidLibraryView>
             if (hasFetchError) ...[
               const SizedBox(height: 8),
               Text(
-                fetchError ?? '',
+                fetchError,
                 style: TextStyle(color: subTextColor.withValues(alpha: 0.7), fontSize: 12),
                 textAlign: TextAlign.center,
                 maxLines: 3,

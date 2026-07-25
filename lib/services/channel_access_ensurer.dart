@@ -180,9 +180,8 @@ class ChannelAccessEnsurer {
     // Step 3: Check membership status. For channels, chat.memberCount > 0
     // and the user's own status tells us if they are a member.
     bool isMember = false;
-    final supergroupType = type as td.ChatTypeSupergroup;
     try {
-      final supergroupRes = await _send(td.GetSupergroup(supergroupId: supergroupType.supergroupId));
+      final supergroupRes = await _send(td.GetSupergroup(supergroupId: type.supergroupId));
       if (supergroupRes is td.Supergroup) {
         final status = supergroupRes.status;
         isMember = status is! td.ChatMemberStatusLeft &&
