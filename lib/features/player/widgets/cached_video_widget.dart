@@ -46,8 +46,8 @@ class _CachedVideoWidgetState extends State<CachedVideoWidget> {
         ? videoWidth / videoHeight 
         : 16.0 / 9.0;
 
-    final isDesktop = Platform.isWindows || Platform.isLinux || Platform.isMacOS;
-
+    // Build the video widget once — desktop/mobile differentiation is handled
+    // in build() where RepaintBoundary is skipped on desktop
     _cachedWidget = Center(
       child: AspectRatio(
         aspectRatio: widget.customAspectRatio ?? fallbackRatio,
@@ -57,30 +57,10 @@ class _CachedVideoWidgetState extends State<CachedVideoWidget> {
           controls: NoVideoControls,
           fit: widget.customAspectRatio != null ? BoxFit.fill : widget.fit,
           subtitleViewConfiguration: widget.subtitleConfig,
-          wakelock: false, // Let WakelockPlus handle it
+          wakelock: false,
         ),
       ),
     );
-
-    // On desktop (Windows/Linux/macOS), do NOT wrap in RepaintBoundary.
-    // RepaintBoundary creates an offscreen compositing layer that isolates
-    // the D3D11 video texture from Flutter's main rendering tree, causing
-    // black screen on Windows. On mobile, RepaintBoundary improves performance.
-    if (isDesktop) {
-      _cachedWidget = Center(
-        child: AspectRatio(
-          aspectRatio: widget.customAspectRatio ?? fallbackRatio,
-          child: Video(
-            key: ValueKey(widget.controller),
-            controller: widget.controller,
-            controls: NoVideoControls,
-            fit: widget.customAspectRatio != null ? BoxFit.fill : widget.fit,
-            subtitleViewConfiguration: widget.subtitleConfig,
-            wakelock: false,
-          ),
-        ),
-      );
-    }
   }
 
   @override

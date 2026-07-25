@@ -2689,117 +2689,117 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
             ),
           ], // End of mobile-only overlays
 
-          // Custom Track Selector Panel
-          TrackSelectorPanel(
-            key: _trackPanelKey,
-            player: widget.player,
-            trackCodecs: _trackCodecs,
-            currentAudioDelay: _audioDelay,
-            onAudioDelayChanged: (val) {
-              if (mounted) {
-                setState(() => _audioDelay = val);
-              }
-            },
-            onTrackSelected: _handleTrackSelection,
-            onPickLocalSubtitle: _pickLocalSubtitleFile,
-            onOpenSubtitleDownloader: _showSubtitleDownloaderDialog,
-            onVisibilityChanged: () => setState(() {}),
-          ),
-
-          // Custom Aspect Ratio Panel Background Cover
-          if (_showRatioPanel)
-            GestureDetector(
-              onTap: () => setState(() => _showRatioPanel = false),
-              child: Container(color: Colors.black26),
-            ),
-          AnimatedPositioned(
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeInOut,
-            left: isPortrait ? 0 : null,
-            right: isPortrait ? 0 : (_showRatioPanel ? 0 : -400),
-            top: isPortrait ? null : 0,
-            bottom: isPortrait ? (_showRatioPanel ? 0 : -800) : 0,
-            width: isPortrait ? null : 380,
-            child: AspectRatioPanel(
-              onClose: _closeAspectRatioPanel,
-              currentFit: _fitNotifier.value,
-              customAspectRatio: _customAspectRatioNotifier.value,
-              onSelectRatio: _applyAspectRatioString,
-              rememberRatio: _rememberRatio,
-              onToggleRememberRatio: (val) {
-                setState(() {
-                  _rememberRatio = val;
-                });
-                ref.read(storageServiceProvider).setRememberAspectRatio(val);
-                if (val) {
-                  ref.read(storageServiceProvider).setSavedAspectRatio(_currentAspectRatioString);
+          // Mobile-only panels (Track, Aspect Ratio, Chapters, Speed Selector, More Options)
+          // Desktop has its own control panel dialog instead of these overlay panels
+          if (!widget.isDesktop) ...[
+            TrackSelectorPanel(
+              key: _trackPanelKey,
+              player: widget.player,
+              trackCodecs: _trackCodecs,
+              currentAudioDelay: _audioDelay,
+              onAudioDelayChanged: (val) {
+                if (mounted) {
+                  setState(() => _audioDelay = val);
                 }
               },
-              tapToSwitchRatio: _tapToSwitchRatio,
-              onToggleTapToSwitch: (val) {
+              onTrackSelected: _handleTrackSelection,
+              onPickLocalSubtitle: _pickLocalSubtitleFile,
+              onOpenSubtitleDownloader: _showSubtitleDownloaderDialog,
+              onVisibilityChanged: () => setState(() {}),
+            ),
+
+            if (_showRatioPanel)
+              GestureDetector(
+                onTap: () => setState(() => _showRatioPanel = false),
+                child: Container(color: Colors.black26),
+              ),
+            AnimatedPositioned(
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeInOut,
+              left: isPortrait ? 0 : null,
+              right: isPortrait ? 0 : (_showRatioPanel ? 0 : -400),
+              top: isPortrait ? null : 0,
+              bottom: isPortrait ? (_showRatioPanel ? 0 : -800) : 0,
+              width: isPortrait ? null : 380,
+              child: AspectRatioPanel(
+                onClose: _closeAspectRatioPanel,
+                currentFit: _fitNotifier.value,
+                customAspectRatio: _customAspectRatioNotifier.value,
+                onSelectRatio: _applyAspectRatioString,
+                rememberRatio: _rememberRatio,
+                onToggleRememberRatio: (val) {
+                  setState(() {
+                    _rememberRatio = val;
+                  });
+                  ref.read(storageServiceProvider).setRememberAspectRatio(val);
+                  if (val) {
+                    ref.read(storageServiceProvider).setSavedAspectRatio(_currentAspectRatioString);
+                  }
+                },
+                tapToSwitchRatio: _tapToSwitchRatio,
+                onToggleTapToSwitch: (val) {
+                  setState(() {
+                    _tapToSwitchRatio = val;
+                  });
+                  ref.read(storageServiceProvider).setTapToSwitchAspectRatio(val);
+                },
+              ),
+            ),
+
+            ChaptersPanel(
+              key: _chaptersPanelKey,
+              player: widget.player,
+              chapters: _chapters,
+              onVisibilityChanged: () {
+                if (!mounted) return;
                 setState(() {
-                  _tapToSwitchRatio = val;
+                  _showControls = !(_chaptersPanelKey.currentState?.isVisible ?? false);
                 });
-                ref.read(storageServiceProvider).setTapToSwitchAspectRatio(val);
+              },
+              onChapterSelected: (position, displayTitle) {
+                final safeTarget = _clampSeekTarget(position, showMessage: false);
+                _performSeek(safeTarget);
+                setState(() {
+                });
+                Future.delayed(const Duration(milliseconds: 1000), () {
+                });
               },
             ),
-          ),
 
-                    ChaptersPanel(
-            key: _chaptersPanelKey,
-            player: widget.player,
-            chapters: _chapters,
-            onVisibilityChanged: () {
-              if (!mounted) return;
-              setState(() {
-                _showControls = !(_chaptersPanelKey.currentState?.isVisible ?? false);
-              });
-            },
-            onChapterSelected: (position, displayTitle) {
-              final safeTarget = _clampSeekTarget(position, showMessage: false);
-              _performSeek(safeTarget);
-              setState(() {
-              });
-              Future.delayed(const Duration(milliseconds: 1000), () {
-              });
-            },
-          ),
-
-          // Custom Speed Selector Panel Background Cover
-          SpeedSelectorPanel(
-            key: _speedPanelKey,
-            player: widget.player,
-            onVisibilityChanged: () {
-              setState(() {
-                _showControls = !(_speedPanelKey.currentState?.isVisible ?? false);
-              });
-            },
-            onSpeedChanged: (speed) {
-              _adjustSyncForSpeed(speed);
-            },
-          ),
-
-          // Custom More Options Panel Background Cover
-          if (_showMoreOptionsPanel)
-            GestureDetector(
-              onTap: () => setState(() => _showMoreOptionsPanel = false),
-              child: Container(color: Colors.black26),
-            ),
-          AnimatedPositioned(
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeInOut,
-            left: isPortrait ? 0 : null,
-            right: isPortrait ? 0 : (_showMoreOptionsPanel ? 0 : -400),
-            top: isPortrait ? null : 0,
-            bottom: isPortrait ? (_showMoreOptionsPanel ? 0 : -800) : 0,
-            width: isPortrait ? null : 380,
-            child: MoreOptionsPanel(
+            SpeedSelectorPanel(
+              key: _speedPanelKey,
               player: widget.player,
-              quickActionRow: _buildQuickActionRow(),
-              onClose: () => setState(() => _showMoreOptionsPanel = false),
-              onShowToast: _showSkipToast,
+              onVisibilityChanged: () {
+                setState(() {
+                  _showControls = !(_speedPanelKey.currentState?.isVisible ?? false);
+                });
+              },
+              onSpeedChanged: (speed) {
+                _adjustSyncForSpeed(speed);
+              },
             ),
-          ),
+
+            if (_showMoreOptionsPanel)
+              GestureDetector(
+                onTap: () => setState(() => _showMoreOptionsPanel = false),
+                child: Container(color: Colors.black26),
+              ),
+            AnimatedPositioned(
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeInOut,
+              left: isPortrait ? 0 : null,
+              right: isPortrait ? 0 : (_showMoreOptionsPanel ? 0 : -400),
+              top: isPortrait ? null : 0,
+              bottom: isPortrait ? (_showMoreOptionsPanel ? 0 : -800) : 0,
+              width: isPortrait ? null : 380,
+              child: MoreOptionsPanel(
+                player: widget.player,
+                quickActionRow: _buildQuickActionRow(),
+                onClose: () => setState(() => _showMoreOptionsPanel = false),
+                onShowToast: _showSkipToast,
+              ),
+            ),
+          ], // End of mobile-only panels
         ],
       ),
     ),
