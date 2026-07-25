@@ -1198,6 +1198,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
   }
 
   void _toggleControls() {
+    if (widget.isDesktop) return; // Desktop controls are handled by DesktopMainScreen
     if (!mounted) return;
     if ((_trackPanelKey.currentState?.isVisible ?? false) ||
         _showRatioPanel ||
@@ -1976,16 +1977,15 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
               customBuffering: widget.customBuffering,
             ),
 
-          // Simulated Brightness
+          if (!_isBlendingSubtitles) SubtitleOverlay(player: widget.player),
+          if (!widget.isDesktop) ...[
+          // Simulated Brightness (mobile only)
           if (!_isPhysicalBrightnessSupported && _currentBrightness < 1.0)
             IgnorePointer(
               child: Container(
                 color: Colors.black.withValues(alpha: 1.0 - _currentBrightness),
               ),
             ),
-
-          if (!_isBlendingSubtitles) SubtitleOverlay(player: widget.player),
-          if (!widget.isDesktop) ...[
           if (_showLeftSeekOverlay)
             Positioned(
               left: 0,

@@ -346,26 +346,67 @@ class _DesktopMainScreenState extends ConsumerState<DesktopMainScreen> with Tick
                 pipState: ref.watch(pipControllerProvider),
                 pipNotifier: ref.read(pipControllerProvider.notifier),
                 rightSideTools: [
+                  // Subtitle quick-access
                   IconButton(
-                    icon: const Icon(Icons.search, size: 20),
-                    onPressed: () {
-                      setState(() {
-                        _currentRightPanelView = 'search';
-                        _isRightPanelOpen = true;
-                      });
-                    },
+                    icon: const Icon(Icons.closed_caption_outlined, size: 18, color: Colors.white70),
+                    tooltip: 'Subtitles',
+                    onPressed: () => _showControlPanelDialog(context, initialIndex: 2),
+                    padding: EdgeInsets.zero,
                   ),
+                  // Audio track quick-access
                   IconButton(
-                    icon: const Icon(Icons.settings, size: 20),
+                    icon: const Icon(Icons.music_note_outlined, size: 18, color: Colors.white70),
+                    tooltip: 'Audio Tracks',
+                    onPressed: () => _showControlPanelDialog(context, initialIndex: 1),
+                    padding: EdgeInsets.zero,
+                  ),
+                  // Speed indicator button
+                  if (ref.watch(activePlayerProvider) != null)
+                    StreamBuilder<double>(
+                      stream: ref.watch(activePlayerProvider)!.stream.rate,
+                      builder: (context, snapshot) {
+                        final speed = snapshot.data ?? ref.watch(activePlayerProvider)!.state.rate;
+                        return TextButton(
+                          onPressed: () {
+                            final speeds = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0];
+                            final currentIndex = speeds.indexOf(speed);
+                            final nextSpeed = speeds[(currentIndex + 1) % speeds.length];
+                            ref.read(activePlayerProvider)!.setRate(nextSpeed);
+                          },
+                          style: TextButton.styleFrom(
+                            minimumSize: const Size(40, 24),
+                            padding: const EdgeInsets.symmetric(horizontal: 6),
+                          ),
+                          child: Text(
+                            '${speed.toStringAsFixed(speed == 1.0 ? 0 : 2)}x',
+                            style: const TextStyle(color: Colors.white70, fontSize: 12),
+                          ),
+                        );
+                      },
+                    ),
+                  IconButton(
+                    icon: const Icon(Icons.settings, size: 20, color: Colors.white70),
+                    tooltip: 'Settings',
                     onPressed: () => _showControlPanelDialog(context),
+                    padding: EdgeInsets.zero,
                   ),
                   IconButton(
-                    icon: const Icon(Icons.menu, size: 20),
+                    icon: const Icon(Icons.menu, size: 20, color: Colors.white70),
+                    tooltip: 'Playlist',
                     onPressed: () {
                       setState(() {
+                        _currentRightPanelView = 'episodes';
                         _isRightPanelOpen = !_isRightPanelOpen;
                       });
                     },
+                    padding: EdgeInsets.zero,
+                  ),
+                  // Fullscreen toggle
+                  IconButton(
+                    icon: Icon(_isFullScreen ? Icons.fullscreen_exit : Icons.fullscreen, size: 18, color: Colors.white70),
+                    tooltip: 'Fullscreen',
+                    onPressed: () => windowManager.setFullScreen(!_isFullScreen),
+                    padding: EdgeInsets.zero,
                   ),
                 ],
               ),

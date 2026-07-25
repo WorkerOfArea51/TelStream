@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:telstream/features/player/widgets/cached_video_widget.dart';
@@ -42,23 +41,16 @@ class VideoLayer extends StatelessWidget {
             panNotifier,
           ]),
           builder: (context, _) {
-            final isDesktop = Platform.isWindows || Platform.isMacOS || Platform.isLinux;
-            final videoWidget = CachedVideoWidget(
-              controller: controller,
-              fit: fitNotifier.value,
-              customAspectRatio: customAspectRatioNotifier.value,
-              subtitleConfig: subtitleConfig,
-            );
-
-            if (isDesktop) {
-              return videoWidget;
-            }
-
             return Transform.translate(
               offset: panNotifier.value,
               child: Transform.scale(
                 scale: scaleNotifier.value,
-                child: videoWidget,
+                child: CachedVideoWidget(
+                  controller: controller,
+                  fit: fitNotifier.value,
+                  customAspectRatio: customAspectRatioNotifier.value,
+                  subtitleConfig: subtitleConfig,
+                ),
               ),
             );
           },
