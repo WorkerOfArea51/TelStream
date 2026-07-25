@@ -3,7 +3,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:country_picker/country_picker.dart' as cp;
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 import '../settings/proxy_settings_screen.dart';
 import '../../l10n/app_localizations.dart';
