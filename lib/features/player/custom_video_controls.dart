@@ -1734,13 +1734,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
 
 
   void _handleAspectRatioButtonTap() {
-    // On desktop, always show the aspect ratio panel — desktop users expect a selection UI
-    // On mobile, respect the tapToSwitchRatio setting for quick cycling
-    if (_tapToSwitchRatio && !widget.isDesktop) {
-      _cycleAspectRatio();
-    } else {
-      _showAspectRatioPanel();
-    }
+    _showAspectRatioPanel();
   }
 
   void _cycleAspectRatio() {
@@ -2454,14 +2448,15 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                                         },
                                       ),
                                     ),
-                                    IconButton(
-                                      icon: const Icon(
-                                        Icons.fit_screen_outlined,
-                                        color: Colors.white,
+                                    if (!Platform.isWindows && !Platform.isLinux && !Platform.isMacOS)
+                                      IconButton(
+                                        icon: const Icon(
+                                          Icons.fit_screen_outlined,
+                                          color: Colors.white,
+                                        ),
+                                        iconSize: 24,
+                                        onPressed: _handleAspectRatioButtonTap,
                                       ),
-                                      iconSize: 24,
-                                      onPressed: _handleAspectRatioButtonTap,
-                                    ),
                                   ],
                                 ),
                               ],
@@ -2628,14 +2623,15 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                                           },
                                         ),
                                       ),
-                                      IconButton(
-                                        icon: const Icon(
-                                          Icons.fit_screen_outlined,
-                                          color: Colors.white,
+                                      if (!Platform.isWindows && !Platform.isLinux && !Platform.isMacOS)
+                                        IconButton(
+                                          icon: const Icon(
+                                            Icons.fit_screen_outlined,
+                                            color: Colors.white,
+                                          ),
+                                          iconSize: 24,
+                                          onPressed: _handleAspectRatioButtonTap,
                                         ),
-                                        iconSize: 24,
-                                        onPressed: _handleAspectRatioButtonTap,
-                                      ),
                                     ],
                                   ),
                                 ),
