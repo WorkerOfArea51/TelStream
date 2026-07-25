@@ -1,5 +1,6 @@
 import 'json_file_persistence.dart';
 import 'dart:io';
+import '../network/proxy_models.dart';
 
 class SettingsStore {
   final JsonFilePersistence _persistence;
@@ -437,53 +438,22 @@ class SettingsStore {
     await save();
   }
 
-  // --- Proxy Settings ---
+  // --- Proxies ---
   
-  bool getProxyEnabled() => data['proxy_enabled'] as bool? ?? false;
-  Future<void> setProxyEnabled(bool enabled) async {
-    data['proxy_enabled'] = enabled;
+  List<ProxyConfig> getProxyList() {
+    final raw = data['proxy_list'];
+    if (raw is! List) return [];
+    return raw.whereType<Map>().map((item) =>
+        ProxyConfig.fromJson(Map<String, dynamic>.from(item))).toList();
+  }
+  Future<void> saveProxyList(List<ProxyConfig> proxies) async {
+    data['proxy_list'] = proxies.map((p) => p.toJson()).toList();
     await save();
   }
-
-  String getProxyType() => data['proxy_type'] as String? ?? 'socks5'; // 'socks5' or 'mtproto'
-  Future<void> setProxyType(String type) async {
-    data['proxy_type'] = type;
-    await save();
-  }
-
-  String getProxyServer() => data['proxy_server'] as String? ?? '';
-  Future<void> setProxyServer(String server) async {
-    data['proxy_server'] = server;
-    await save();
-  }
-
-  int getProxyPort() => data['proxy_port'] as int? ?? 1080;
-  Future<void> setProxyPort(int port) async {
-    data['proxy_port'] = port;
-    await save();
-  }
-
-  String getProxyUsername() => data['proxy_username'] as String? ?? '';
-  Future<void> setProxyUsername(String username) async {
-    data['proxy_username'] = username;
-    await save();
-  }
-
-  String getProxyPassword() => data['proxy_password'] as String? ?? '';
-  Future<void> setProxyPassword(String password) async {
-    data['proxy_password'] = password;
-    await save();
-  }
-
-  String getMtprotoSecret() => data['mtproto_secret'] as String? ?? '';
-  Future<void> setMtprotoSecret(String secret) async {
-    data['mtproto_secret'] = secret;
-    await save();
-  }
-
-  bool getProxyAutoFetch() => data['proxy_auto_fetch'] as bool? ?? false;
-  Future<void> setProxyAutoFetch(bool autoFetch) async {
-    data['proxy_auto_fetch'] = autoFetch;
+  
+  String getActiveProxyId() => data['active_proxy_id'] as String? ?? '';
+  Future<void> setActiveProxyId(String id) async {
+    data['active_proxy_id'] = id;
     await save();
   }
 }

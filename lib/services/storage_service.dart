@@ -10,6 +10,7 @@ import 'storage/watch_history_store.dart';
 import 'storage/settings_store.dart';
 import 'storage/download_store.dart';
 import 'storage/secure_token_store.dart';
+import 'network/proxy_models.dart';
 
 final storageServiceProvider = Provider<StorageService>((ref) {
   return StorageService();
@@ -208,23 +209,11 @@ class StorageService {
   }
   bool isUserChannel(int channelId) => getUserChannels().any((c) => c.channelId == channelId);
 
-  // --- Proxy Settings ---
-  bool getProxyEnabled() => settings.getProxyEnabled();
-  Future<void> setProxyEnabled(bool enabled) => settings.setProxyEnabled(enabled);
-  String getProxyType() => settings.getProxyType();
-  Future<void> setProxyType(String type) => settings.setProxyType(type);
-  String getProxyServer() => settings.getProxyServer();
-  Future<void> setProxyServer(String server) => settings.setProxyServer(server);
-  int getProxyPort() => settings.getProxyPort();
-  Future<void> setProxyPort(int port) => settings.setProxyPort(port);
-  String getProxyUsername() => settings.getProxyUsername();
-  Future<void> setProxyUsername(String username) => settings.setProxyUsername(username);
-  String getProxyPassword() => settings.getProxyPassword();
-  Future<void> setProxyPassword(String password) => settings.setProxyPassword(password);
-  String getMtprotoSecret() => settings.getMtprotoSecret();
-  Future<void> setMtprotoSecret(String secret) => settings.setMtprotoSecret(secret);
-  bool getProxyAutoFetch() => settings.getProxyAutoFetch();
-  Future<void> setProxyAutoFetch(bool autoFetch) => settings.setProxyAutoFetch(autoFetch);
+  // --- Proxies ---
+  List<ProxyConfig> getProxyList() => settings.getProxyList();
+  Future<void> saveProxyList(List<ProxyConfig> proxies) => settings.saveProxyList(proxies);
+  String getActiveProxyId() => settings.getActiveProxyId();
+  Future<void> setActiveProxyId(String id) => settings.setActiveProxyId(id);
 
   // --- Delegate to SecureTokenStore ---
   String? getAnilistToken() => secureTokens.getAnilistToken();

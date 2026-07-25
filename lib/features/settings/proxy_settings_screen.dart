@@ -1,11 +1,9 @@
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:http/http.dart' as http;
-import 'dart:async';
-import '../../l10n/app_localizations.dart';
-
-import '../../services/storage_service.dart';
-import '../../core/logger.dart';
+import '../../services/network/proxy_manager_service.dart';
+import '../../services/network/proxy_models.dart';
+import '../../core/theme/app_theme.dart';
 
 class ProxySettingsScreen extends ConsumerStatefulWidget {
   const ProxySettingsScreen({super.key});
@@ -15,293 +13,447 @@ class ProxySettingsScreen extends ConsumerStatefulWidget {
 }
 
 class _ProxySettingsScreenState extends ConsumerState<ProxySettingsScreen> {
-  bool _proxyEnabled = false;
-  String _proxyType = 'socks5';
-  
-  final _serverController = TextEditingController();
-  final _portController = TextEditingController();
-  final _usernameController = TextEditingController();
-  final _passwordController = TextEditingController();
-  final _mtprotoSecretController = TextEditingController();
-  
-  bool _autoFetch = false;
-  bool _isFetching = false;
-  List<Map<String, dynamic>> _fetchedProxies = [];
-  Timer? _saveDebounce;
-  
-  @override
-  void initState() {
-    super.initState();
-    _loadSettings();
-  }
-  
-  @override
-  void dispose() {
-    _saveDebounce?.cancel();
-    // Flush any pending debounced save — write to disk now if needed
-    _saveSettings();
-    _serverController.dispose();
-    _portController.dispose();
-    _usernameController.dispose();
-    _passwordController.dispose();
-    _mtprotoSecretController.dispose();
-    super.dispose();
+
+  Future<void> _pingAll() async {
+    await ref.read(proxyManagerProvider.notifier).pingAllProxies();
   }
 
-  void _loadSettings() {
-    final storage = ref.read(storageServiceProvider);
-    setState(() {
-      _proxyEnabled = storage.getProxyEnabled();
-      _proxyType = storage.getProxyType();
-      
-      _serverController.text = storage.getProxyServer();
-      _portController.text = storage.getProxyPort().toString();
-      _usernameController.text = storage.getProxyUsername();
-      _passwordController.text = storage.getProxyPassword();
-      _mtprotoSecretController.text = storage.getMtprotoSecret();
-      
-      _autoFetch = storage.getProxyAutoFetch();
-    });
+  Future<void> _autoConnect() async {
+    await ref.read(proxyManagerProvider.notifier).autoConnect();
   }
 
-  void _saveSettings() {
-    final storage = ref.read(storageServiceProvider);
-    storage.setProxyEnabled(_proxyEnabled);
-    storage.setProxyType(_proxyType);
-    
-    storage.setProxyServer(_serverController.text.trim());
-    storage.setProxyPort(int.tryParse(_portController.text.trim()) ?? 1080);
-    storage.setProxyUsername(_usernameController.text.trim());
-    storage.setProxyPassword(_passwordController.text.trim());
-    storage.setMtprotoSecret(_mtprotoSecretController.text.trim());
-    
-    storage.setProxyAutoFetch(_autoFetch);
+  Future<void> _fetchPublic() async {
+    await ref.read(proxyManagerProvider.notifier).fetchPublicProxies();
   }
 
-  void _debouncedSave() {
-    _saveDebounce?.cancel();
-    _saveDebounce = Timer(const Duration(milliseconds: 500), () {
-      _saveSettings();
-    });
+  Future<void> _connectTo(String id) async {
+    await ref.read(proxyManagerProvider.notifier).connectToProxy(id);
   }
 
-  Future<void> _fetchMtprotoProxies() async {
-    setState(() => _isFetching = true);
-    try {
-      // The SoliSpirit/mtproto repo provides proxies as a plain text file
-      // on the 'master' branch, NOT as JSON on 'main'.
-      // Format: https://t.me/proxy?server=HOST&port=PORT&secret=SECRET
-      final response = await http.get(
-        Uri.parse('https://raw.githubusercontent.com/SoliSpirit/mtproto/master/all_proxies.txt'),
-      );
-      if (response.statusCode == 200) {
-        final lines = response.body.trim().split('\n');
-        final proxies = <Map<String, dynamic>>[];
-        
-        for (final line in lines) {
-          if (line.isEmpty || !line.contains('t.me/proxy')) continue;
-          
-          // Parse t.me/proxy URL format
-          // Example: https://t.me/proxy?server=webcam.shirbooni.co.uk&port=144&secret=ee160301...
-          try {
-            final uri = Uri.parse(line.trim());
-            final server = uri.queryParameters['server'] ?? '';
-            final portStr = uri.queryParameters['port'] ?? '443';
-            final secret = uri.queryParameters['secret'] ?? '';
-            final port = int.tryParse(portStr) ?? 443;
-            
-            if (server.isNotEmpty && secret.isNotEmpty) {
-              proxies.add({
-                'server': server,
-                'port': port,
-                'secret': secret,
-              });
-            }
-          } catch (e) {
-            // Skip malformed lines
-            continue;
-          }
-        }
-        
-        setState(() {
-          _fetchedProxies = proxies;
-        });
-        
-        if (proxies.isEmpty && mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('No proxies found. The list may be temporarily empty.')),
-          );
-        }
-      } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Failed to fetch proxy list (HTTP ${response.statusCode})')),
-          );
-        }
-      }
-    } catch (e) {
-      Log.e('Failed to fetch MTProto proxies: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to fetch proxy list: $e')),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isFetching = false);
-      }
+  Future<void> _disconnect() async {
+    await ref.read(proxyManagerProvider.notifier).disconnect();
+  }
+
+  Future<void> _removeProxy(String id) async {
+    await ref.read(proxyManagerProvider.notifier).removeProxy(id);
+  }
+
+  void _showAddProxyDialog() {
+    final hostController = TextEditingController();
+    final portController = TextEditingController();
+    final usernameController = TextEditingController();
+    final passwordController = TextEditingController();
+    final labelController = TextEditingController();
+    ProxyType selectedType = ProxyType.socks5;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: const Text('Add Proxy'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: labelController,
+                  decoration: const InputDecoration(
+                    labelText: 'Label (e.g. "My VPN")',
+                    isDense: true,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: hostController,
+                  decoration: const InputDecoration(
+                    labelText: 'Host (e.g. 1.2.3.4)',
+                    isDense: true,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: portController,
+                  decoration: const InputDecoration(
+                    labelText: 'Port (e.g. 1080)',
+                    isDense: true,
+                  ),
+                  keyboardType: TextInputType.number,
+                ),
+                const SizedBox(height: 8),
+                DropdownButton<ProxyType>(
+                  value: selectedType,
+                  isExpanded: true,
+                  items: ProxyType.values.map((t) => DropdownMenuItem(
+                    value: t,
+                    child: Text(t.name.toUpperCase()),
+                  )).toList(),
+                  onChanged: (v) {
+                    if (v != null) setDialogState(() => selectedType = v);
+                  },
+                ),
+                if (selectedType == ProxyType.socks5 || selectedType == ProxyType.http) ...[
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: usernameController,
+                    decoration: const InputDecoration(
+                      labelText: 'Username (optional)',
+                      isDense: true,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: passwordController,
+                    decoration: const InputDecoration(
+                      labelText: 'Password (optional)',
+                      isDense: true,
+                    ),
+                    obscureText: true,
+                  ),
+                ],
+                if (selectedType == ProxyType.mtproto) ...[
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: passwordController,
+                    decoration: const InputDecoration(
+                      labelText: 'Secret',
+                      isDense: true,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                final host = hostController.text.trim();
+                final port = int.tryParse(portController.text.trim()) ?? 0;
+                if (host.isEmpty || port <= 0) return;
+
+                final proxy = ProxyConfig(
+                  id: 'manual_${DateTime.now().millisecondsSinceEpoch}',
+                  host: host,
+                  port: port,
+                  type: selectedType,
+                  username: usernameController.text.trim(),
+                  password: passwordController.text.trim(),
+                  label: labelController.text.trim(),
+                  addedAt: DateTime.now(),
+                );
+
+                ref.read(proxyManagerProvider.notifier).addProxy(proxy);
+                Navigator.pop(ctx);
+              },
+              child: const Text('Add'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Color _latencyColor(int? ms) {
+    if (ms == null) return Colors.grey;
+    if (ms < 100) return Colors.green;
+    if (ms < 300) return Colors.orange;
+    return Colors.red;
+  }
+
+  String _latencyLabel(int? ms) {
+    if (ms == null) return '—';
+    return '$ms ms';
+  }
+
+  IconData _statusIcon(ConnectionStatus status) {
+    switch (status) {
+      case ConnectionStatus.connected:
+        return Icons.check_circle;
+      case ConnectionStatus.connecting:
+        return Icons.sync;
+      case ConnectionStatus.failed:
+        return Icons.error;
+      case ConnectionStatus.disconnected:
+        return Icons.cloud_off;
     }
   }
 
-  void _applyProxy(Map<String, dynamic> proxyData) {
-    setState(() {
-      _serverController.text = proxyData['server']?.toString() ?? '';
-      _portController.text = proxyData['port']?.toString() ?? '443';
-      _mtprotoSecretController.text = proxyData['secret']?.toString() ?? '';
-      _proxyEnabled = true;
-    });
-    _saveSettings();
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Proxy applied successfully')),
-    );
+  Color _statusColor(ConnectionStatus status) {
+    switch (status) {
+      case ConnectionStatus.connected:
+        return Colors.green;
+      case ConnectionStatus.connecting:
+        return Colors.orange;
+      case ConnectionStatus.failed:
+        return Colors.red;
+      case ConnectionStatus.disconnected:
+        return Colors.grey;
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    
+    final proxyState = ref.watch(proxyManagerProvider);
+    final theme = Theme.of(context);
+    final customTheme = theme.extension<AppThemeExtension>();
+    final settingsAccent = customTheme?.settingsAccent ?? theme.primaryColor;
+    final isDark = theme.brightness == Brightness.dark;
+    final textColor = isDark ? Colors.white : Colors.black87;
+    final subColor = isDark ? Colors.white54 : Colors.black54;
+
     return Scaffold(
+      backgroundColor: customTheme?.settingsBackground ?? theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        title: Text(l10n.proxySettings),
+        title: Text('Proxy Settings', style: TextStyle(
+          color: textColor, fontWeight: FontWeight.bold,
+        )),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        iconTheme: IconThemeData(color: textColor),
       ),
       body: ListView(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(16),
         children: [
-          SwitchListTile(
-            title: Text(l10n.proxyEnabled),
-            subtitle: Text(l10n.proxyRequiredInBannedRegions),
-            value: _proxyEnabled,
-            onChanged: (val) {
-              setState(() => _proxyEnabled = val);
-              _saveSettings();
-            },
-          ),
-          const Divider(),
-          
-          ListTile(
-            title: Text(l10n.proxyType),
-            trailing: DropdownButton<String>(
-              value: _proxyType,
-              items: [
-                DropdownMenuItem(value: 'socks5', child: Text(l10n.socks5)),
-                DropdownMenuItem(value: 'mtproto', child: Text(l10n.mtproto)),
-              ],
-              onChanged: (val) {
-                if (val != null) {
-                  setState(() => _proxyType = val);
-                  _saveSettings();
-                }
-              },
-            ),
-          ),
-          
-          TextField(
-            controller: _serverController,
-            decoration: InputDecoration(
-              labelText: l10n.proxyServer,
-              border: const OutlineInputBorder(),
-            ),
-            onChanged: (_) => _debouncedSave(),
-          ),
-          const SizedBox(height: 16),
-          
-          TextField(
-            controller: _portController,
-            keyboardType: TextInputType.number,
-            decoration: InputDecoration(
-              labelText: l10n.proxyPort,
-              border: const OutlineInputBorder(),
-            ),
-            onChanged: (_) => _debouncedSave(),
-          ),
-          const SizedBox(height: 16),
-          
-          if (_proxyType == 'socks5') ...[
-            TextField(
-              controller: _usernameController,
-              decoration: InputDecoration(
-                labelText: l10n.proxyUsername,
+          // ─── Connection Status Card ────────────────────────────────────
+          _buildSectionHeader('Connection Status', settingsAccent),
+          Card(
+            elevation: 0,
+            color: theme.cardColor,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+              side: BorderSide(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.08),
+                width: 1,
               ),
-              onChanged: (_) => _debouncedSave(),
             ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _passwordController,
-              decoration: InputDecoration(
-                labelText: l10n.proxyPassword,
-              ),
-              obscureText: true,
-              onChanged: (_) => _debouncedSave(),
-            ),
-          ] else if (_proxyType == 'mtproto') ...[
-            TextField(
-              controller: _mtprotoSecretController,
-              decoration: InputDecoration(
-                labelText: l10n.mtprotoSecret,
-                border: const OutlineInputBorder(),
-              ),
-              onChanged: (_) => _debouncedSave(),
-            ),
-            const SizedBox(height: 24),
-            SwitchListTile(
-              title: Text(l10n.autoFetchProxy),
-              value: _autoFetch,
-              onChanged: (val) {
-                setState(() => _autoFetch = val);
-                _saveSettings();
-                if (val && _fetchedProxies.isEmpty) {
-                  _fetchMtprotoProxies();
-                }
-              },
-            ),
-            if (_autoFetch) ...[
-              ElevatedButton.icon(
-                onPressed: _isFetching ? null : _fetchMtprotoProxies,
-                icon: _isFetching 
-                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                    : const Icon(Icons.refresh),
-                label: Text(l10n.fetchProxies),
-              ),
-              const SizedBox(height: 16),
-              if (_fetchedProxies.isNotEmpty) ...[
-                const Text('Available Proxies:', style: TextStyle(fontWeight: FontWeight.bold)),
-                const SizedBox(height: 8),
-                Container(
-                  decoration: BoxDecoration(
-                    border: Border.all(color: Colors.grey.withValues(alpha: 0.3)),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  height: 200,
-                  child: ListView.builder(
-                    itemCount: _fetchedProxies.length,
-                    itemBuilder: (context, index) {
-                      final proxy = _fetchedProxies[index];
-                      return ListTile(
-                        dense: true,
-                        title: Text('${proxy['server']}:${proxy['port']}'),
-                        subtitle: Text(proxy['secret']?.toString() ?? '', maxLines: 1, overflow: TextOverflow.ellipsis),
-                        trailing: ElevatedButton(
-                          onPressed: () => _applyProxy(proxy),
-                          child: const Text('Use'),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      Icon(_statusIcon(proxyState.status),
+                          color: _statusColor(proxyState.status), size: 32),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              proxyState.status == ConnectionStatus.connected
+                                  ? 'Connected via ${proxyState.activeProxy?.shortDescription ?? "proxy"}'
+                                  : proxyState.status == ConnectionStatus.disconnected
+                                      ? 'Direct connection (no proxy)'
+                                      : proxyState.status == ConnectionStatus.connecting
+                                          ? 'Connecting...'
+                                          : 'Connection failed',
+                              style: TextStyle(
+                                color: textColor,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 15,
+                              ),
+                            ),
+                            if (proxyState.activeProxy != null && proxyState.activeProxy!.latencyMs != null)
+                              Text(
+                                'Latency: ${proxyState.activeProxy!.latencyMs} ms',
+                                style: TextStyle(color: subColor, fontSize: 12),
+                              ),
+                          ],
                         ),
-                      );
-                    },
+                      ),
+                    ],
                   ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: _autoConnect,
+                          child: const Text('Auto-Connect'),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: proxyState.status == ConnectionStatus.connected
+                              ? _disconnect : null,
+                          child: const Text('Disconnect'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 24),
+
+          // ─── Actions ────────────────────────────────────────────────────
+          _buildSectionHeader('Actions', settingsAccent),
+          Card(
+            elevation: 0,
+            color: theme.cardColor,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+              side: BorderSide(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.08),
+                width: 1,
+              ),
+            ),
+            child: Column(
+              children: [
+                ListTile(
+                  leading: Icon(Icons.network_check, color: settingsAccent),
+                  title: Text('Ping All Proxies', style: TextStyle(color: textColor)),
+                  subtitle: proxyState.isPinging
+                      ? Text('Pinging...', style: TextStyle(color: Colors.orange, fontSize: 12))
+                      : Text('Test latency of all saved proxies', style: TextStyle(color: subColor, fontSize: 12)),
+                  onTap: proxyState.isPinging ? null : _pingAll,
+                ),
+                Divider(color: theme.dividerColor, height: 1, indent: 16, endIndent: 16),
+                ListTile(
+                  leading: Icon(Icons.cloud_download, color: settingsAccent),
+                  title: Text('Fetch Public Proxies', style: TextStyle(color: textColor)),
+                  subtitle: Text('Get free SOCKS5/MTProto proxies', style: TextStyle(color: subColor, fontSize: 12)),
+                  onTap: _fetchPublic,
+                ),
+                Divider(color: theme.dividerColor, height: 1, indent: 16, endIndent: 16),
+                ListTile(
+                  leading: Icon(Icons.add_circle_outline, color: settingsAccent),
+                  title: Text('Add Manual Proxy', style: TextStyle(color: textColor)),
+                  subtitle: Text('Add your own SOCKS5/HTTP/MTProto proxy', style: TextStyle(color: subColor, fontSize: 12)),
+                  onTap: _showAddProxyDialog,
                 ),
               ],
-            ],
-          ],
+            ),
+          ),
+
+          const SizedBox(height: 24),
+
+          // ─── Proxy List ─────────────────────────────────────────────────
+          _buildSectionHeader('Saved Proxies (${proxyState.proxies.length})', settingsAccent),
+
+          if (proxyState.proxies.isEmpty)
+            Card(
+              elevation: 0,
+              color: theme.cardColor,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+                side: BorderSide(
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.08),
+                  width: 1,
+                ),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Center(
+                  child: Column(
+                    children: [
+                      Icon(Icons.cloud_off, size: 48, color: Colors.grey),
+                      const SizedBox(height: 12),
+                      Text('No proxies saved yet',
+                        style: TextStyle(color: subColor, fontSize: 14)),
+                      const SizedBox(height: 8),
+                      Text('Fetch public proxies or add one manually',
+                        style: TextStyle(color: subColor, fontSize: 12)),
+                    ],
+                  ),
+                ),
+              ),
+            )
+          else
+            ...proxyState.sortedProxies.map((proxy) => Card(
+              elevation: 0,
+              color: theme.cardColor,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+                side: BorderSide(
+                  color: proxy.id == proxyState.activeProxyId
+                      ? settingsAccent
+                      : theme.colorScheme.onSurface.withValues(alpha: 0.08),
+                  width: proxy.id == proxyState.activeProxyId ? 2 : 1,
+                ),
+              ),
+              child: ListTile(
+                leading: Icon(
+                  proxy.isAlive ? Icons.check_circle : Icons.cancel,
+                  color: proxy.isAlive ? Colors.green : Colors.red,
+                  size: 24,
+                ),
+                title: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        proxy.label.isNotEmpty ? proxy.label : proxy.shortDescription,
+                        style: TextStyle(color: textColor, fontWeight: FontWeight.w500),
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: _latencyColor(proxy.latencyMs).withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: _latencyColor(proxy.latencyMs),
+                          width: 1,
+                        ),
+                      ),
+                      child: Text(
+                        _latencyLabel(proxy.latencyMs),
+                        style: TextStyle(
+                          color: _latencyColor(proxy.latencyMs),
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                subtitle: Text(
+                  '${proxy.type.name.toUpperCase()} | ${proxy.host}:${proxy.port}'
+                  '${proxy.isAutoFetch ? " | Auto-fetched" : ""}',
+                  style: TextStyle(color: subColor, fontSize: 11),
+                ),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (proxy.id != proxyState.activeProxyId)
+                      IconButton(
+                        icon: const Icon(Icons.power_settings_new, size: 20),
+                        color: proxy.isAlive ? settingsAccent : Colors.grey,
+                        onPressed: proxy.isAlive ? () => _connectTo(proxy.id) : null,
+                        tooltip: 'Connect',
+                      ),
+                    IconButton(
+                      icon: const Icon(Icons.delete_outline, size: 20),
+                      color: Colors.redAccent,
+                      onPressed: () => _removeProxy(proxy.id),
+                      tooltip: 'Remove',
+                    ),
+                  ],
+                ),
+              ),
+            )),
         ],
+      ),
+    );
+  }
+
+  Widget _buildSectionHeader(String title, Color accent) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 4, bottom: 8),
+      child: Text(
+        title.toUpperCase(),
+        style: TextStyle(
+          color: accent,
+          fontSize: 13,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 1.2,
+        ),
       ),
     );
   }

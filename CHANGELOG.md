@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.12.0] - 2026-07-25
+
+### Added
+- **Proxy Latency Manager**: Replaced basic proxy support with an advanced multi-proxy system featuring latency ping testing, auto-fetch from public proxy lists, and intelligent auto-reconnect to the fastest responsive proxy.
+- **Proxy UI Overhaul**: Upgraded the proxy settings UI to display all saved proxies as selectable cards with live latency badges.
+
 ## [2.11.0] - 2025-07-25
 
 ### Added

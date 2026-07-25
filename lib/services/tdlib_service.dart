@@ -35,16 +35,6 @@ class TdlibService {
   // late Pointer<Utf8> Function(double timeout) _nativeReceive;
   bool _libInitialized = false;
   
-  // Stored proxy configuration for auto-reconnect on connection loss
-  bool _proxyEnabled = false;
-  String _proxyType = 'socks5';
-  String _proxyServer = '';
-  int _proxyPort = 1080;
-  String _proxyUsername = '';
-  String _proxyPassword = '';
-  String _proxyMtprotoSecret = '';
-  StreamSubscription<td.TdObject>? _proxyReconnectSub;
-  
   final _updatesController = StreamController<td.TdObject>.broadcast();
   Stream<td.TdObject> get updates => _updatesController.stream;
 
@@ -145,13 +135,6 @@ class TdlibService {
     List<String>? excludedPaths,
     double? limitMb,
     int? ttlDays,
-    bool proxyEnabled = false,
-    String proxyType = 'socks5',
-    String proxyServer = '',
-    int proxyPort = 1080,
-    String proxyUsername = '',
-    String proxyPassword = '',
-    String proxyMtprotoSecret = '',
   }) {
     if (_initFuture != null) return _initFuture!;
     return _initFuture = _initLock.synchronized(() async {
@@ -161,66 +144,12 @@ class TdlibService {
         excludedPaths: excludedPaths, 
         limitMb: limitMb, 
         ttlDays: ttlDays,
-        proxyEnabled: proxyEnabled,
-        proxyType: proxyType,
-        proxyServer: proxyServer,
-        proxyPort: proxyPort,
-        proxyUsername: proxyUsername,
-        proxyPassword: proxyPassword,
-        proxyMtprotoSecret: proxyMtprotoSecret,
       );
     }).whenComplete(() {
       _initFuture = null;
     });
   }
 
-  /// Configure proxy for TDLib connection.
-  /// Must be called AFTER setTdlibParameters succeeds, BEFORE login starts.
-  /// TDLib requires proxy to be added before any network requests are made.
-  Future<void> configureProxy({
-    bool enabled = false,
-    String type = 'socks5',
-    String server = '',
-    int port = 1080,
-    String username = '',
-    String password = '',
-    String mtprotoSecret = '',
-  }) async {
-    if (!enabled || server.isEmpty) return;
-    
-    Log.i('Configuring TDLib proxy: type=$type, server=$server, port=$port');
-    
-    if (type == 'socks5') {
-      final response = await sendAsync(td.AddProxy(
-        server: server,
-        port: port,
-        enable: true,
-        type: td.ProxyTypeSocks5(
-          username: username,
-          password: password,
-        ),
-      ));
-      if (response is td.TdError) {
-        Log.e('Failed to add SOCKS5 proxy: ${response.message}');
-      } else {
-        Log.i('SOCKS5 proxy added successfully');
-      }
-    } else if (type == 'mtproto') {
-      final response = await sendAsync(td.AddProxy(
-        server: server,
-        port: port,
-        enable: true,
-        type: td.ProxyTypeMtproto(
-          secret: mtprotoSecret,
-        ),
-      ));
-      if (response is td.TdError) {
-        Log.e('Failed to add MTProto proxy: ${response.message}');
-      } else {
-        Log.i('MTProto proxy added successfully');
-      }
-    }
-  }
 
   Future<void> _doInit(
     int apiId,
@@ -228,23 +157,7 @@ class TdlibService {
     List<String>? excludedPaths,
     double? limitMb,
     int? ttlDays,
-    bool proxyEnabled = false,
-    String proxyType = 'socks5',
-    String proxyServer = '',
-    int proxyPort = 1080,
-    String proxyUsername = '',
-    String proxyPassword = '',
-    String proxyMtprotoSecret = '',
   }) async {
-    // Store proxy config for auto-reconnect
-    _proxyEnabled = proxyEnabled;
-    _proxyType = proxyType;
-    _proxyServer = proxyServer;
-    _proxyPort = proxyPort;
-    _proxyUsername = proxyUsername;
-    _proxyPassword = proxyPassword;
-    _proxyMtprotoSecret = proxyMtprotoSecret;
-
     if (_clientId != null) {
       try {
         tdSend(_clientId!, const td.Close());
@@ -370,44 +283,12 @@ class TdlibService {
       }
     }
 
-    // Configure proxy BEFORE going online — needed for banned regions
-    await configureProxy(
-      enabled: proxyEnabled,
-      type: proxyType,
-      server: proxyServer,
-      port: proxyPort,
-      username: proxyUsername,
-      password: proxyPassword,
-      mtprotoSecret: proxyMtprotoSecret,
-    );
-
     // Force TDLib online mode so it doesn't throttle background downloads
     send(const td.SetOption(name: 'online', value: td.OptionValueBoolean(value: true)));
     _startOnlineHeartbeat();
 
     // Monitor connection state — re-add proxy on reconnect to ensure
     // auto-reconnection works when proxy becomes temporarily unavailable
-    _proxyReconnectSub?.cancel();
-    _proxyReconnectSub = updates.listen((event) {
-      if (_proxyEnabled && _proxyServer.isNotEmpty) {
-        if (event is td.UpdateConnectionState) {
-          final state = event.state;
-          // On "connecting" state, re-apply proxy to ensure TDLib uses it
-          if (state is td.ConnectionStateConnecting) {
-            Log.i('TDLib reconnecting — re-applying proxy config');
-            configureProxy(
-              enabled: true,
-              type: _proxyType,
-              server: _proxyServer,
-              port: _proxyPort,
-              username: _proxyUsername,
-              password: _proxyPassword,
-              mtprotoSecret: _proxyMtprotoSecret,
-            );
-          }
-        }
-      }
-    });
 
     if (needsMigration) {
       await storage.write(key: 'tdlib_db_migrated', value: 'true');
@@ -903,7 +784,6 @@ class TdlibService {
 
   Future<void> destroy() async {
       _isDestroyed = true;
-      _proxyReconnectSub?.cancel();
       _onlineHeartbeat?.cancel();
       _initPruneTimer?.cancel();
       _isolateReceivePort?.close();

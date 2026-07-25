@@ -77,14 +77,7 @@ class AuthController extends Notifier<AuthState> {
       excludedPaths: excludedPaths,
       limitMb: limitMb,
       ttlDays: ttlDays,
-      // Proxy settings — read from persistent storage
-      proxyEnabled: storage.getProxyEnabled(),
-      proxyType: storage.getProxyType(),
-      proxyServer: storage.getProxyServer(),
-      proxyPort: storage.getProxyPort(),
-      proxyUsername: storage.getProxyUsername(),
-      proxyPassword: storage.getProxyPassword(),
-      proxyMtprotoSecret: storage.getMtprotoSecret(),
+
     ).catchError((e) {
       state = state.copyWith(step: AuthStep.error, errorMessage: e.toString());
     });
