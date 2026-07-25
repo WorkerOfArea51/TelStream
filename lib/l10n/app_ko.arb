@@ -107,7 +107,7 @@
   "subtitles": "자막",
   "failedToDelete": "파일 삭제 실패: {error}",
   "playbackSettings": "재생 설정",
-  "retry": "다시 해 보다",
+  "retry": "Retry",
   "fileDeleted": "파일이 삭제되었습니다.",
   "loading": "로드 중...",
   "seasonMetadataCleared": "시즌 메타데이터 캐시가 삭제되었습니다.",
@@ -744,5 +744,6 @@
   "mtprotoSecret": "시크릿",
   "autoFetchProxy": "프록시 목록 자동 가져오기",
   "fetchProxies": "프록시 가져오기",
-  "configureProxyBeforeLogin": "프록시 구성"
+  "configureProxyBeforeLogin": "프록시 구성",
+  "failedToLoadContent": "Failed to load channel content"
 }

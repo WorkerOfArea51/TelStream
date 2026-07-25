@@ -109,7 +109,7 @@
   "audioSettings": "Cài đặt âm thanh",
   "failedToDelete": "Không thể xóa tập tin: {error}",
   "videoSettings": "Cài đặt video",
-  "retry": "Thử lại",
+  "retry": "Retry",
   "deleteDownloadConfirm": "Bạn có chắc chắn muốn xóa \"{name}\" từ thiết bị của bạn? Việc này không thể hoàn tác được.",
   "loading": "Đang tải...",
   "error": "Lỗi: {message}",
@@ -744,5 +744,6 @@
   "mtprotoSecret": "Mã bí mật",
   "autoFetchProxy": "Tự động lấy danh sách proxy",
   "fetchProxies": "Lấy Proxy",
-  "configureProxyBeforeLogin": "Cấu hình Proxy"
+  "configureProxyBeforeLogin": "Cấu hình Proxy",
+  "failedToLoadContent": "Failed to load channel content"
 }

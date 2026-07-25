@@ -60,6 +60,13 @@ class UserChannel {
     icon: json['icon'] as String? ?? 'custom',
     addedAt: DateTime.tryParse(json['addedAt'] as String? ?? '') ?? DateTime.now(),
   );
+
+  /// Returns true if this channel is tagged as a movie channel.
+  /// Used to set [ChannelCategory.isMovie] when constructing a category
+  /// for this user channel. The series parser uses this flag to apply
+  /// movie-specific title normalisation (movies are treated as single-season
+  /// series with one episode).
+  bool get isMovie => icon == 'movie';
 }
 
 class Constants {
@@ -82,21 +89,17 @@ class Constants {
   }
 
   static const String changelog = '''
-### ✨ What's New in v2.11.0
+### ✨ What's New in v2.12.2
 
-#### 🔒 New Features
-* **Proxy Support**: Configure SOCKS5 or MTProto proxy for login in banned regions! Go to Settings → Proxy Settings or tap "Configure Proxy" on the login screen. Includes auto-fetch of MTProto proxy lists.
-* **Clean Desktop Player**: PotPlayer-style desktop video player with clean bottom bar (no mobile UI leaking through).
-
-#### 🎨 UI/UX Improvements
-* **Aspect Ratio Panel**: Android now shows a proper selection panel when tapping the aspect ratio icon (no more silent cycling).
-* **Desktop Bottom Bar**: Removed redundant buttons (subtitle, audio, fullscreen) — they're already in Settings panel and top bar.
+#### 🚀 New Features & Improvements
+* **Smart Proxy Manager**: Added Proxy Latency Manager with auto-reconnection and latency checking for optimal streaming.
+* **Auto-Fetch MTProto**: Fixed and improved auto-fetching of MTProto proxy lists.
+* **Proxy Localization**: Added full proxy settings translations across all 20 supported languages.
 
 #### 🔧 Bug Fixes
-* Fixed video black screen on Windows desktop
-* Fixed mobile overlays appearing on desktop player
-* Fixed aspect ratio silent cycling on Android
-* Fixed proxy settings saving on every keystroke (now debounced)
+* **Channel Library Fix**: Fixed an issue where newly added public channels remained stuck on the "Your library is empty" screen. The app now properly joins the channel in the background to sync history reliably.
+* **UI Error Feedback**: Added clear error messages and a "Retry" button when channel fetching fails.
+* **Movie Channels**: Fixed parsing for single-episode movie channels.
 ''';
 
   // Telegram API Credentials from secrets.dart

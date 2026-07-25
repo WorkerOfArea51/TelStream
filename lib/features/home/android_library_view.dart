@@ -726,42 +726,80 @@ class _AndroidLibraryViewState extends ConsumerState<AndroidLibraryView>
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final subTextColor = isDark ? Colors.white70 : Colors.black54;
+
+    // Read the controller's last fetch error. When non-null, the channel
+    // was accessed but no messages could be fetched (transient network /
+    // TDLib issue). We show a more specific error message + retry CTA
+    // instead of the generic "library is empty" message.
+    final HomeController controller = ref.read(provider.notifier);
+    final String? fetchError = controller.lastFetchError;
+    final bool hasFetchError = !_showFavoritesOnly && fetchError != null;
+
     // Return Tachiyomi styled empty layout with beautiful kaomoji
-    final kaomoji = _showFavoritesOnly ? '(・_・;)' : '(・○・;)';
+    final kaomoji = _showFavoritesOnly
+        ? '(・_・;)'
+        : (hasFetchError ? '(╥﹏╥)' : '(・○・;)');
     final message = _showFavoritesOnly
         ? AppLocalizations.of(context)!.noMarkedItemsInCategory
-        : AppLocalizations.of(context)!.libraryEmpty;
+        : (hasFetchError
+            ? (AppLocalizations.of(context)!.failedToLoadContent)
+            : AppLocalizations.of(context)!.libraryEmpty);
 
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(
-            kaomoji,
-            style: TextStyle(
-              fontSize: 48,
-              color: theme.primaryColor,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 16),
-          Text(message, style: TextStyle(color: subTextColor, fontSize: 16)),
-          const SizedBox(height: 16),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: theme.primaryColor.withValues(alpha: 0.1),
-              foregroundColor: theme.primaryColor,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
-                side: BorderSide(color: theme.primaryColor, width: 1),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Text(
+              kaomoji,
+              style: TextStyle(
+                fontSize: 48,
+                color: theme.primaryColor,
+                fontWeight: FontWeight.bold,
               ),
             ),
-            onPressed: () {
-              ref.invalidate(provider);
-            },
-            child: Text(AppLocalizations.of(context)!.refreshLibrary),
-          ),
-        ],
+            const SizedBox(height: 16),
+            Text(
+              message,
+              style: TextStyle(color: subTextColor, fontSize: 16),
+              textAlign: TextAlign.center,
+            ),
+            if (hasFetchError) ...[
+              const SizedBox(height: 8),
+              Text(
+                fetchError ?? '',
+                style: TextStyle(color: subTextColor.withValues(alpha: 0.7), fontSize: 12),
+                textAlign: TextAlign.center,
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+            const SizedBox(height: 16),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: theme.primaryColor.withValues(alpha: 0.1),
+                foregroundColor: theme.primaryColor,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                  side: BorderSide(color: theme.primaryColor, width: 1),
+                ),
+              ),
+              onPressed: () {
+                // Invalidate the provider to rebuild the controller from
+                // scratch. This clears _lastFetchError, _emptyFetchCount,
+                // and re-runs _fetchInitial() with a fresh state.
+                ref.invalidate(provider);
+              },
+              child: Text(
+                hasFetchError
+                    ? (AppLocalizations.of(context)!.retry)
+                    : (AppLocalizations.of(context)!.refreshLibrary),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

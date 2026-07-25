@@ -825,5 +825,6 @@
   "mtprotoSecret": "Secret",
   "autoFetchProxy": "Auto-fetch proxy list",
   "fetchProxies": "Fetch Proxies",
-  "configureProxyBeforeLogin": "Configure Proxy"
+  "configureProxyBeforeLogin": "Configure Proxy",
+  "failedToLoadContent": "Failed to load channel content"
 }

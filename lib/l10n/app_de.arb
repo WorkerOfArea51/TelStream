@@ -105,7 +105,7 @@
   "audioSettings": "Audioeinstellungen",
   "videoSettings": "Videoeinstellungen",
   "connectionError": "Verbindungsfehler",
-  "retry": "Wiederholen",
+  "retry": "Retry",
   "loading": "Laden...",
   "error": "Fehler: {message}",
   "saveError": "Speichern fehlgeschlagen: {error}",
@@ -744,5 +744,6 @@
   "mtprotoSecret": "Secret",
   "autoFetchProxy": "Proxy-Liste automatisch abrufen",
   "fetchProxies": "Proxies abrufen",
-  "configureProxyBeforeLogin": "Proxy konfigurieren"
+  "configureProxyBeforeLogin": "Proxy konfigurieren",
+  "failedToLoadContent": "Failed to load channel content"
 }

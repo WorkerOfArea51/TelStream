@@ -109,7 +109,7 @@
   "videoSettings": "视频设置",
   "noSubtitlesFound": "找不到可自动下载的字幕。",
   "deleteDownloadConfirm": "您确定要删除“{name}“从您的设备？此操作无法撤消。",
-  "retry": "重试",
+  "retry": "Retry",
   "autoDownloadFirst": "先自动下载",
   "failedToDelete": "删除文件失败： {error}",
   "error": "错误： {message}",
@@ -744,5 +744,6 @@
   "mtprotoSecret": "密钥",
   "autoFetchProxy": "自动获取代理列表",
   "fetchProxies": "获取代理",
-  "configureProxyBeforeLogin": "配置代理"
+  "configureProxyBeforeLogin": "配置代理",
+  "failedToLoadContent": "Failed to load channel content"
 }

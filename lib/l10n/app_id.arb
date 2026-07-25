@@ -112,7 +112,7 @@
   "videoSettings": "Pengaturan Video",
   "failedToDelete": "Gagal menghapus file: {error}",
   "connectionError": "Kesalahan Koneksi",
-  "retry": "Mencoba kembali",
+  "retry": "Retry",
   "loading": "Memuat...",
   "error": "Kesalahan: {message}",
   "activeQueue": "Aktif / Antrian",
@@ -744,5 +744,6 @@
   "mtprotoSecret": "Secret",
   "autoFetchProxy": "Ambil daftar proxy secara otomatis",
   "fetchProxies": "Ambil Proxy",
-  "configureProxyBeforeLogin": "Konfigurasi Proxy"
+  "configureProxyBeforeLogin": "Konfigurasi Proxy",
+  "failedToLoadContent": "Failed to load channel content"
 }

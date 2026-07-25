@@ -113,7 +113,7 @@
   "deleteDownload": "Usuń pobieranie",
   "autoDownloadFirst": "Najpierw pobierz automatycznie",
   "loading": "Załadunek...",
-  "retry": "Spróbować ponownie",
+  "retry": "Retry",
   "connectionError": "Błąd połączenia",
   "error": "Błąd: {message}",
   "searchError": "Nie udało się wyszukać: {error}",
@@ -744,5 +744,6 @@
   "mtprotoSecret": "Sekret",
   "autoFetchProxy": "Automatycznie pobierz listę proxy",
   "fetchProxies": "Pobierz proxy",
-  "configureProxyBeforeLogin": "Konfiguruj proxy"
+  "configureProxyBeforeLogin": "Konfiguruj proxy",
+  "failedToLoadContent": "Failed to load channel content"
 }

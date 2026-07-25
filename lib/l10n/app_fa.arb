@@ -109,7 +109,7 @@
   "videoSettings": "تنظیمات ویدیو",
   "noSubtitlesFound": "هیچ زیرنویسی برای دانلود خودکار یافت نشد.",
   "connectionError": "خطای اتصال",
-  "retry": "دوباره امتحان کنید",
+  "retry": "Retry",
   "fileDeleted": "فایل با موفقیت حذف شد",
   "failedToDelete": "فایل حذف نشد: {error}",
   "playbackSettings": "تنظیمات پخش",
@@ -744,5 +744,6 @@
   "mtprotoSecret": "کد سکرت",
   "autoFetchProxy": "دریافت خودکار لیست پروکسی",
   "fetchProxies": "دریافت پروکسی",
-  "configureProxyBeforeLogin": "تنظیم پروکسی"
+  "configureProxyBeforeLogin": "تنظیم پروکسی",
+  "failedToLoadContent": "Failed to load channel content"
 }

@@ -112,7 +112,7 @@
   "fileDeleted": "ファイルは正常に削除されました",
   "autoDownloadFirst": "最初に自動ダウンロード",
   "error": "エラー： {message}",
-  "retry": "リトライ",
+  "retry": "Retry",
   "loading": "読み込み中...",
   "audioSettings": "オーディオ設定",
   "deleteDownload": "ダウンロードの削除",
@@ -744,5 +744,6 @@
   "mtprotoSecret": "シークレット",
   "autoFetchProxy": "プロキシリストを自動取得",
   "fetchProxies": "プロキシを取得",
-  "configureProxyBeforeLogin": "プロキシを設定"
+  "configureProxyBeforeLogin": "プロキシを設定",
+  "failedToLoadContent": "Failed to load channel content"
 }

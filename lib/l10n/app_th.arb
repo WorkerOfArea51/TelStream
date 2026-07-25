@@ -111,7 +111,7 @@
   "autoDownloadFirst": "ดาวน์โหลดอัตโนมัติก่อน",
   "deleteDownload": "ลบการดาวน์โหลด",
   "noSubtitlesFound": "ไม่พบคำบรรยายสำหรับการดาวน์โหลดอัตโนมัติ",
-  "retry": "ลองอีกครั้ง",
+  "retry": "Retry",
   "loading": "กำลังโหลด...",
   "error": "ข้อผิดพลาด: {message}",
   "audioSettings": "การตั้งค่าเสียง",
@@ -744,5 +744,6 @@
   "mtprotoSecret": "รหัสลับ",
   "autoFetchProxy": "ดึงรายการพร็อกซีอัตโนมัติ",
   "fetchProxies": "ดึงพร็อกซี",
-  "configureProxyBeforeLogin": "ตั้งค่าพร็อกซี"
+  "configureProxyBeforeLogin": "ตั้งค่าพร็อกซี",
+  "failedToLoadContent": "Failed to load channel content"
 }

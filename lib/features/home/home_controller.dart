@@ -12,6 +12,7 @@ import '../../core/utils/title_normalizer.dart';
 import '../../services/series_parser.dart';
 import '../../services/release_year_service.dart';
 import '../../services/search_sort_engine.dart';
+import '../../services/channel_access_ensurer.dart';
 
 
 import '../../models/anime_models.dart';
@@ -34,6 +35,11 @@ class ConnectionStateNotifier extends Notifier<ConnectionStatus> { @override Con
 final connectionStateProvider = NotifierProvider<ConnectionStateNotifier, ConnectionStatus>(ConnectionStateNotifier.new);
 class IsSyncingNotifier extends Notifier<bool> { @override bool build() => false; }
 final isSyncingProvider = NotifierProvider<IsSyncingNotifier, bool>(IsSyncingNotifier.new);
+
+/// Provides a [ChannelAccessEnsurer] instance scoped to the [TdlibService].
+final channelAccessEnsurerProvider = Provider<ChannelAccessEnsurer>((ref) {
+  return ChannelAccessEnsurer(ref.read(tdlibServiceProvider));
+});
 
 enum SortOrder { newest, oldest, aToZ, zToA }
 
@@ -144,6 +150,13 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
   Timer? _releaseYearsTimer;
   Timer? _cacheWriteDebounce;
   bool _isDisposed = false;
+
+  /// Set to a descriptive error message when the most recent fetch failed
+  /// due to an access or network issue (as opposed to the channel genuinely
+  /// having no messages). When non-null, the UI shows a retry CTA instead
+  /// of the generic "library is empty" message.
+  String? _lastFetchError;
+  String? get lastFetchError => _lastFetchError;
 
   void _scheduleCatalogCacheWrite() {
     _cacheWriteDebounce?.cancel();
@@ -476,66 +489,39 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
       await Future.delayed(const Duration(milliseconds: 3000));
     }
     
-    // Helper to send request with a safety timeout to prevent hanging
-    Future<td.TdObject> sendWithTimeout(td.TdFunction request) {
-      return tdlibService.sendAsync(request).timeout(
-        const Duration(seconds: 10),
-        onTimeout: () => td.TdError(code: 408, message: "Request Timeout"),
-      );
-    }
+
     
-    // Ensure TDLib has loaded the chat (needed for user-added channels 
-    // that aren't in the main chat list yet)
-    try {
-      await sendWithTimeout(td.OpenChat(chatId: category.channelId));
-    } catch (_) {
-      // OpenChat may fail if chat is already open â€” that's OK
-    }
-    
-    td.TdObject chatRes = await sendWithTimeout(td.GetChat(chatId: category.channelId));
-    if (chatRes is td.TdError) {
-      try {
-        await sendWithTimeout(const td.LoadChats(chatList: td.ChatListMain(), limit: 100));
-        chatRes = await sendWithTimeout(td.GetChat(chatId: category.channelId));
-      } catch (_) {}
-      
-      if (chatRes is td.TdError) {
-        try {
-          await sendWithTimeout(td.CheckChatInviteLink(inviteLink: category.inviteLink));
-          chatRes = await sendWithTimeout(td.GetChat(chatId: category.channelId));
-        } catch (_) {}
-      }
-      
-      if (chatRes is td.TdError) {
-        try {
-          final joinRes = await sendWithTimeout(td.JoinChatByInviteLink(inviteLink: category.inviteLink));
-          if (joinRes is td.Chat) {
-            chatRes = joinRes;
-          } else {
-            chatRes = await sendWithTimeout(td.GetChat(chatId: category.channelId));
-          }
-        } catch (_) {}
-      }
-      
-      int retries = 0;
-      // Resilient polling loop: allow up to 30 seconds for TDLib to sync the chat from the network on a slow PC
-      while (chatRes is td.TdError && retries < 30 && !_isDisposed) {
-        await Future.delayed(const Duration(seconds: 1));
-        chatRes = await sendWithTimeout(td.GetChat(chatId: category.channelId));
-        retries++;
-      }
+    // Ensure TelStream can access the channel: open the chat, join if not
+    // a member, and verify GetChat succeeds. This replaces the previous
+    // broken fallback chain that relied on CheckChatInviteLink /
+    // JoinChatByInviteLink (which only work for t.me/+xxx links).
+    //
+    // For user-added channels (especially public channels added via
+    // @username), joining is REQUIRED for reliable GetChatHistory access.
+    // OpenChat alone is insufficient — it does not make the user a member.
+    final ensurer = ref.read(channelAccessEnsurerProvider);
+    final accessResult = await ensurer.ensureAccess(
+      chatId: category.channelId,
+      inviteLink: category.inviteLink,
+    );
+
+    if (!accessResult.success) {
+      throw Exception(accessResult.errorMessage ??
+          'Failed to access channel ${category.channelId}');
     }
 
-    if (chatRes is td.TdError) {
-      throw Exception("GetChat fallback failed/timed out during initial load after 60s: ${chatRes.message} (Code: ${chatRes.code})");
+    if (accessResult.resolvedTitle != null &&
+        accessResult.resolvedTitle!.isNotEmpty) {
+      _resolvedChatTitle = accessResult.resolvedTitle!;
     }
 
-    if (chatRes is td.Chat) {
-      _resolvedChatTitle = chatRes.title;
-    }
+    Log.i('[_fetchInitial] Channel access ensured for "${category.title}": '
+        'isMember=${accessResult.isMember}, '
+        'title="$_resolvedChatTitle"');
 
     _rawMessages.clear();
     _rawMessageIds.clear();
+    _lastFetchError = null;
     int iterations = 0;
     int currentFromId = 0;
     while (_hasMore && iterations < 200 && !_isDisposed && _rawMessages.length < _maxMessagesPerChat) {
@@ -583,7 +569,22 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
     
     _allSeries = await _parseMessages(_rawMessages);
     _cacheLoadComplete = !_hasMore;
-    Log.i('[_fetchInitial] Completed for category: ${category.title}, found ${_allSeries.length} series');
+
+    // If we fetched zero messages despite successful channel access,
+    // record a diagnostic error so the UI can show a retry CTA instead
+    // of a misleading "library is empty" message.
+    if (_rawMessages.isEmpty) {
+      _lastFetchError = 'Channel accessed successfully but no messages '
+          'were returned. The channel may be empty, or TDLib may need '
+          'more time to sync history from the network.';
+      Log.w('[_fetchInitial] No messages fetched for "${category.title}" '
+          'despite successful access. _hasMore=$_hasMore');
+    } else {
+      _lastFetchError = null;
+    }
+
+    Log.i('[_fetchInitial] Completed for category: ${category.title}, '
+        'found ${_allSeries.length} series');
     return await _applySearchAndSort(_allSeries);
   }
 
@@ -619,6 +620,13 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
     Log.i('[_syncFromNetwork] Starting background sync execution for category: ${category.title}');
 
     ref.read(isSyncingProvider.notifier).state = true;
+
+    // Reset retry counters so that manual refresh (triggerManualSync) and
+    // automatic retries get a fresh chance. Previously _emptyFetchCount
+    // accumulated across invocations, causing pull-to-refresh to give up
+    // immediately after a single failed sync.
+    _emptyFetchCount = null;
+    _lastFetchError = null;
     DateTime? lastSyncDuringPlayback;
     try {
       final tdlibService = ref.read(tdlibServiceProvider);
@@ -665,19 +673,27 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
             if (!_hasMore) {
               break; // Truly reached the end of history
             }
-            // Temporary network / cache delay, wait a bit and try again
-            // But don't retry forever â€” max 5 empty responses
+            // Temporary network / cache delay, wait and try again.
+            // Cold TDLib cache (first access to a channel) can take
+            // 30-60 seconds to sync history from the Telegram network,
+            // so we allow up to 10 retries with 5-second delays
+            // (total: 50 seconds of patience).
             _emptyFetchCount = (_emptyFetchCount ?? 0) + 1;
-            if ((_emptyFetchCount ?? 0) >= 5) {
-              Log.w('Sync: 5 consecutive empty fetches, stopping sync for ${category.title}');
+            if ((_emptyFetchCount ?? 0) >= 10) {
+              Log.w('Sync: 10 consecutive empty fetches, stopping sync '
+                  'for ${category.title}');
               _hasMore = false;
+              _lastFetchError = 'Failed to fetch channel content after '
+                  '10 retries. The channel may be empty, or there may be '
+                  'a network issue.';
               break;
             }
-            await Future.delayed(const Duration(seconds: 3));
+            await Future.delayed(const Duration(seconds: 5));
             continue;
           }
           
           _emptyFetchCount = 0;
+          _lastFetchError = null;
           await _mutationLock.synchronized(() async {
             for (final msg in networkMessages) {
               

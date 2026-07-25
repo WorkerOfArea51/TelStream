@@ -105,7 +105,7 @@
   "audioSettings": "Configuración de audio",
   "videoSettings": "Configuración de vídeo",
   "connectionError": "Error de conexión",
-  "retry": "Rever",
+  "retry": "Reintentar",
   "loading": "Cargando...",
   "pendingResolution": "Pendiente: {link}",
   "saveError": "No se pudo guardar: {error}",
@@ -744,5 +744,6 @@
   "mtprotoSecret": "Secreto",
   "autoFetchProxy": "Obtener lista de proxies automáticamente",
   "fetchProxies": "Obtener proxies",
-  "configureProxyBeforeLogin": "Configurar proxy"
+  "configureProxyBeforeLogin": "Configurar proxy",
+  "failedToLoadContent": "No se pudo cargar el contenido del canal"
 }

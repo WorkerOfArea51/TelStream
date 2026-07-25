@@ -111,7 +111,7 @@
   "connectionError": "संपर्क त्रुटि",
   "autoDownloadFirst": "पहले स्वतः डाउनलोड करें",
   "failedToDelete": "फ़ाइल हटाने में विफल: {error}",
-  "retry": "पुन: प्रयास करें",
+  "retry": "Retry",
   "loading": "लोड हो रहा है...",
   "error": "गलती: {message}",
   "saveError": "सहेजने में विफल: {error}",
@@ -744,5 +744,6 @@
   "mtprotoSecret": "सीक्रेट कोड",
   "autoFetchProxy": "प्रॉक्सि लिस्ट स्वतः प्राप्त करें",
   "fetchProxies": "प्रॉक्सि प्राप्त करें",
-  "configureProxyBeforeLogin": "प्रॉक्सि कॉन्फ़िगर करें"
+  "configureProxyBeforeLogin": "प्रॉक्सि कॉन्फ़िगर करें",
+  "failedToLoadContent": "Failed to load channel content"
 }

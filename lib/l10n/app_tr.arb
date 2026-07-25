@@ -106,7 +106,7 @@
   "audioSettings": "Ses Ayarları",
   "clearSeasonMetadataConfirm": "Bu, önbelleğe alınmış tüm sezon meta verilerini (posterler, oyuncular, olay örgüsü) silecektir. Uygulama, her sezonu bir sonraki açışınızda TMDB'den yeniden getirilecektir. Ayarlarınız ve izleme geçmişiniz ETKİLENMEYECEKTİR.",
   "clearSeasonMetadataSubtitle": "Önbelleğe alınmış sezon posterlerini, oyuncuları ve olay örgüsünü silin. Uygulama bir sonraki ziyaretinizde TMDB'den yeniden getirilecektir.",
-  "retry": "Yeniden dene",
+  "retry": "Retry",
   "loading": "Yükleniyor...",
   "failedToDelete": "Dosya silinemedi: {error}",
   "connectionError": "Bağlantı Hatası",
@@ -744,5 +744,6 @@
   "mtprotoSecret": "Gizli Anahtar",
   "autoFetchProxy": "Proxy listesini otomatik olarak getir",
   "fetchProxies": "Proxy'leri Getir",
-  "configureProxyBeforeLogin": "Proxy'yi Yapılandır"
+  "configureProxyBeforeLogin": "Proxy'yi Yapılandır",
+  "failedToLoadContent": "Failed to load channel content"
 }

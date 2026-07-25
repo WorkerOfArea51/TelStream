@@ -107,7 +107,7 @@
   "fileDeleted": "Arquivo excluído com sucesso",
   "noSubtitlesFound": "Nenhuma legenda encontrada para download automático.",
   "audioSettings": "Configurações de áudio",
-  "retry": "Tentar novamente",
+  "retry": "Retry",
   "loading": "Carregando...",
   "error": "Erro: {message}",
   "deleteError": "Falha ao excluir: {error}",
@@ -744,5 +744,6 @@
   "mtprotoSecret": "Segredo",
   "autoFetchProxy": "Buscar lista de proxies automaticamente",
   "fetchProxies": "Buscar proxies",
-  "configureProxyBeforeLogin": "Configurar proxy"
+  "configureProxyBeforeLogin": "Configurar proxy",
+  "failedToLoadContent": "Failed to load channel content"
 }

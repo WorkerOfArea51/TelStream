@@ -111,7 +111,7 @@
   "deleteDownload": "Elimina download",
   "subtitles": "Sottotitoli",
   "loading": "Caricamento...",
-  "retry": "Riprova",
+  "retry": "Retry",
   "error": "Errore: {message}",
   "loadError": "Impossibile caricare: {error}",
   "videoSettings": "Impostazioni video",
@@ -744,5 +744,6 @@
   "mtprotoSecret": "Segreto",
   "autoFetchProxy": "Recupera automaticamente lista proxy",
   "fetchProxies": "Recupera proxy",
-  "configureProxyBeforeLogin": "Configura proxy"
+  "configureProxyBeforeLogin": "Configura proxy",
+  "failedToLoadContent": "Failed to load channel content"
 }

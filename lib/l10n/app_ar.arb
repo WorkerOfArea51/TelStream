@@ -114,7 +114,7 @@
   "audioSettings": "إعدادات الصوت",
   "videoSettings": "إعدادات الفيديو",
   "connectionError": "خطأ في الاتصال",
-  "retry": "أعد المحاولة",
+  "retry": "Retry",
   "loading": "تحميل...",
   "error": "خطأ: {message}",
   "saveError": "فشل الحفظ: {error}",
@@ -755,5 +755,6 @@
   "mtprotoSecret": "المفتاح السري",
   "autoFetchProxy": "جلب قائمة البروكسي تلقائياً",
   "fetchProxies": "جلب البروكسي",
-  "configureProxyBeforeLogin": "إعداد البروكسي"
+  "configureProxyBeforeLogin": "إعداد البروكسي",
+  "failedToLoadContent": "Failed to load channel content"
 }

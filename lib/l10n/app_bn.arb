@@ -114,7 +114,7 @@
   "audioSettings": "অডিও সেটিংস",
   "videoSettings": "ভিডিও সেটিংস",
   "connectionError": "সংযোগ ত্রুটি",
-  "retry": "আবার চেষ্টা করুন",
+  "retry": "Retry",
   "loading": "লোড হচ্ছে...",
   "error": "ত্রুটি: {message}",
   "saveError": "সংরক্ষণ করতে ব্যর্থ হয়েছে: {error}",
@@ -755,5 +755,6 @@
   "mtprotoSecret": "সিক্রেট কোড",
   "autoFetchProxy": "প্রক্সি তালিকা স্বয়ংক্রিয়ভাবে আনুন",
   "fetchProxies": "প্রক্সি আনুন",
-  "configureProxyBeforeLogin": "প্রক্সি কনফিগার করুন"
+  "configureProxyBeforeLogin": "প্রক্সি কনফিগার করুন",
+  "failedToLoadContent": "Failed to load channel content"
 }

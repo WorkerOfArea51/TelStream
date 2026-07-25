@@ -70,11 +70,14 @@ class _UserChannelsHomeScreenState extends ConsumerState<UserChannelsHomeScreen>
             'custom': Icons.folder_outlined,
           }[channel.icon] ?? Icons.folder_outlined;
 
-          // Convert UserChannel to ChannelCategory so AndroidLibraryView can use it
+          // Convert UserChannel to ChannelCategory so AndroidLibraryView can use it.
+          // isMovie is derived from the channel's icon tag so the series parser
+          // applies the correct title-normalisation logic.
           final category = ChannelCategory(
             title: channel.title,
             channelId: channel.channelId,
             inviteLink: channel.inviteLink ?? '',
+            isMovie: channel.isMovie,
           );
 
           return Card(

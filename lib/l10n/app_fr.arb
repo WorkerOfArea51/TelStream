@@ -112,7 +112,7 @@
   "audioSettings": "Paramètres audio",
   "videoSettings": "Paramètres vidéo",
   "error": "Erreur: {message}",
-  "retry": "Réessayer",
+  "retry": "Retry",
   "deleteError": "Échec de la suppression : {error}",
   "saveError": "Échec de l'enregistrement : {error}",
   "uploadError": "Échec du téléchargement : {error}",
@@ -744,5 +744,6 @@
   "mtprotoSecret": "Secret",
   "autoFetchProxy": "Récupérer automatiquement la liste de proxies",
   "fetchProxies": "Récupérer les proxies",
-  "configureProxyBeforeLogin": "Configurer le proxy"
+  "configureProxyBeforeLogin": "Configurer le proxy",
+  "failedToLoadContent": "Failed to load channel content"
 }

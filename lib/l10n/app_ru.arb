@@ -105,7 +105,7 @@
   "subtitles": "Субтитры",
   "audioSettings": "Настройки звука",
   "english": "Английский",
-  "retry": "Повторить попытку",
+  "retry": "Retry",
   "fileDeleted": "Файл успешно удален",
   "deleteDownloadConfirm": "Вы уверены, что хотите удалить \"{name}\" с вашего устройства? Это действие нельзя отменить.",
   "playbackSettings": "Настройки воспроизведения",
@@ -744,5 +744,6 @@
   "mtprotoSecret": "Секрет",
   "autoFetchProxy": "Автоматически получать список прокси",
   "fetchProxies": "Получить прокси",
-  "configureProxyBeforeLogin": "Настроить прокси"
+  "configureProxyBeforeLogin": "Настроить прокси",
+  "failedToLoadContent": "Failed to load channel content"
 }

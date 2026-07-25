@@ -107,7 +107,7 @@
   "deleteDownloadConfirm": "Ви впевнені, що хочете видалити \"{name}\" з вашого пристрою? Цю дію неможливо скасувати.",
   "fileDeleted": "Файл успішно видалено",
   "noSubtitlesFound": "Не знайдено субтитрів для автоматичного завантаження.",
-  "retry": "Повторіть спробу",
+  "retry": "Retry",
   "playbackSettings": "Налаштування відтворення",
   "audioSettings": "Параметри звуку",
   "videoSettings": "Налаштування відео",
@@ -744,5 +744,6 @@
   "mtprotoSecret": "Секрет",
   "autoFetchProxy": "Автоматично отримувати список прокси",
   "fetchProxies": "Отримати прокси",
-  "configureProxyBeforeLogin": "Налаштувати прокси"
+  "configureProxyBeforeLogin": "Налаштувати прокси",
+  "failedToLoadContent": "Failed to load channel content"
 }
