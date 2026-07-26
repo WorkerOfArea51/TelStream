@@ -419,7 +419,7 @@ class ProxyManagerNotifier extends Notifier<ProxyManagerState> {
     // which is the de-facto canonical SOCKS5/HTTP list repo (txt format).
     final sources = <String>{
       'https://raw.githubusercontent.com/SoliSpirit/mtproto/main/list',
-      'https://raw.githubusercontent.com/TheSpeedX/PROXY-List/main/socks5.txt',
+      'https://raw.githubusercontent.com/TheSpeedX/PROXY-List/master/socks5.txt',
     }.toList();
 
     final fetched = <ProxyConfig>[];
