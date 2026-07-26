@@ -101,6 +101,7 @@ abstract class VideoSettings with _$VideoSettings {
     @Default(false) bool rememberSpeed,
     @Default(false) bool wifiOnlyDownloads,
     @Default('auto') String hardwareDecoderMode,
+    @Default(50) int? proxyPingLimit,
   }) = _VideoSettings;
 
   String getLayoutForCategory(String categoryTitle) {
@@ -197,6 +198,7 @@ abstract class VideoSettings with _$VideoSettings {
       rememberSpeed: json['rememberSpeed'] ?? false,
       wifiOnlyDownloads: json['wifiOnlyDownloads'] ?? false,
       hardwareDecoderMode: hardwareDecoderMode,
+      proxyPingLimit: json.containsKey('proxyPingLimit') ? json['proxyPingLimit'] as int? : 50,
     );
   }
 
@@ -251,6 +253,7 @@ abstract class VideoSettings with _$VideoSettings {
       'progressSyncMode': progressSyncMode,
       'rememberSpeed': rememberSpeed,
       'wifiOnlyDownloads': wifiOnlyDownloads,
+      'proxyPingLimit': proxyPingLimit,
     };
   }
 }
@@ -317,6 +320,10 @@ class VideoSettingsNotifier extends Notifier<VideoSettings> {
     final storage = ref.read(storageServiceProvider);
     storage.updateVideoSettingsBatch(state.toFlatJson(), state.layout.animeLayout, state.layout.moviesLayout, state.layout.webSeriesLayout);
     storage.setHardwareDecoderMode(state.hardwareDecoderMode);
+  }
+
+  void setProxyPingLimit(int? limit) {
+    updateSettings(state.copyWith(proxyPingLimit: limit));
   }
 }
 

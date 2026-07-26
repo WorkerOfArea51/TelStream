@@ -16,6 +16,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../services/network/proxy_manager_service.dart';
 import '../../services/network/proxy_models.dart';
 import '../../core/theme/app_theme.dart';
+import 'settings_provider.dart';
 
 class ProxySettingsScreen extends ConsumerStatefulWidget {
   const ProxySettingsScreen({super.key});
@@ -24,11 +25,10 @@ class ProxySettingsScreen extends ConsumerStatefulWidget {
 }
 
 class _ProxySettingsScreenState extends ConsumerState<ProxySettingsScreen> {
-  bool _fullScan = false;
   bool _showAll = false;
 
-  Future<void> _pingAll() async =>
-    ref.read(proxyManagerProvider.notifier).pingAllProxies(maxCount: _fullScan ? null : 50);
+  Future<void> _pingAll(int? limit) async =>
+    ref.read(proxyManagerProvider.notifier).pingAllProxies(maxCount: limit);
 
   void _cancelPing() => ref.read(proxyManagerProvider.notifier).cancelPing();
 
@@ -159,6 +159,8 @@ class _ProxySettingsScreenState extends ConsumerState<ProxySettingsScreen> {
   @override
   Widget build(BuildContext context) {
     final proxyState = ref.watch(proxyManagerProvider);
+    final videoSettings = ref.watch(videoSettingsProvider);
+    final pingLimit = videoSettings.proxyPingLimit;
     final theme = Theme.of(context);
     final customTheme = theme.extension<AppThemeExtension>();
     final accent = customTheme?.settingsAccent ?? theme.primaryColor;
@@ -210,6 +212,21 @@ class _ProxySettingsScreenState extends ConsumerState<ProxySettingsScreen> {
             side: BorderSide(color: theme.colorScheme.onSurface.withValues(alpha: 0.08))),
           child: Column(children: [
             // ─── Ping (cancel + progress + scan mode) ───────
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: SegmentedButton<int?>(
+                segments: const [
+                  ButtonSegment<int?>(value: 10, label: Text('10')),
+                  ButtonSegment<int?>(value: 25, label: Text('25')),
+                  ButtonSegment<int?>(value: 50, label: Text('50')),
+                  ButtonSegment<int?>(value: null, label: Text('All')),
+                ],
+                selected: {pingLimit},
+                onSelectionChanged: (Set<int?> newSelection) {
+                  ref.read(videoSettingsProvider.notifier).setProxyPingLimit(newSelection.first);
+                },
+              ),
+            ),
             ListTile(
               leading: proxyState.isPinging
                 ? SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2.5,
@@ -218,18 +235,12 @@ class _ProxySettingsScreenState extends ConsumerState<ProxySettingsScreen> {
               title: Text('Ping Proxies', style: TextStyle(color: textColor)),
               subtitle: proxyState.isPinging
                 ? Text('$aliveCount/$totalCount alive', style: TextStyle(color: Colors.orange, fontSize: 12))
-                : Text(_fullScan ? 'Full scan: ALL proxies (slower)' : 'Quick ping: top 50 (~5 sec)',
+                : Text(pingLimit == null ? 'Full scan: ALL proxies (slower)' : 'Quick ping: top $pingLimit',
                     style: TextStyle(color: subColor, fontSize: 12)),
-              // CHANGED: tap to cancel when pinging, tap to start when idle
-              onTap: proxyState.isPinging ? _cancelPing : (proxyState.isFetching ? null : _pingAll),
+              onTap: proxyState.isPinging ? _cancelPing : (proxyState.isFetching ? null : () => _pingAll(pingLimit)),
               trailing: proxyState.isPinging
-                ? TextButton(onPressed: _cancelPing, child: Text('Cancel', style: TextStyle(color: Colors.redAccent)))
-                : PopupMenuButton<bool>(icon: Icon(Icons.more_vert, color: subColor),
-                    onSelected: (isFull) { setState(() => _fullScan = isFull); _pingAll(); },
-                    itemBuilder: (_) => [
-                      const PopupMenuItem(value: false, child: Text('Quick Ping (top 50)')),
-                      const PopupMenuItem(value: true, child: Text('Full Scan (all proxies)')),
-                    ]),
+                ? TextButton(onPressed: _cancelPing, child: const Text('Cancel', style: TextStyle(color: Colors.redAccent)))
+                : null,
             ),
             Divider(color: theme.dividerColor, height: 1, indent: 16, endIndent: 16),
             // ─── Fetch (loading indicator + disabled during fetch) ──
