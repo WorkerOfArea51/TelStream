@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../services/network/proxy_manager_service.dart';
@@ -14,8 +13,25 @@ class ProxySettingsScreen extends ConsumerStatefulWidget {
 
 class _ProxySettingsScreenState extends ConsumerState<ProxySettingsScreen> {
 
+  /// Whether the user wants a full scan (all proxies) instead of
+  /// a quick ping (top 50). Defaults to false for speed.
+  bool _fullScan = false;
+
+  /// Track how many proxies have been pinged so far for progress display.
+  int _pingedCount = 0;
+
   Future<void> _pingAll() async {
-    await ref.read(proxyManagerProvider.notifier).pingAllProxies();
+    _pingedCount = 0;
+    // Quick ping = top 50 proxies, Full scan = all
+    final result = await ref.read(proxyManagerProvider.notifier).pingAllProxies(
+      maxCount: _fullScan ? null : 50,
+    );
+    _pingedCount = result.length;
+  }
+
+  /// Cancel the current ping operation.
+  void _cancelPing() {
+    ref.read(proxyManagerProvider.notifier).cancelPing();
   }
 
   Future<void> _autoConnect() async {
@@ -26,23 +42,15 @@ class _ProxySettingsScreenState extends ConsumerState<ProxySettingsScreen> {
     final messenger = ScaffoldMessenger.maybeOf(context);
     final result = await ref.read(proxyManagerProvider.notifier).fetchPublicProxies();
 
-    // Show a snackbar with the outcome. Without this, the user has no
-    // way to know whether the fetch succeeded, failed, or is still
-    // running — see the user complaint "no error thrown nothing at all".
     if (messenger != null && mounted) {
       messenger.showSnackBar(
         SnackBar(
           content: Text(result.summary),
-          duration: Duration(
-            seconds: result.success ? 3 : 6,
-          ),
+          duration: Duration(seconds: result.success ? 3 : 6),
           behavior: SnackBarBehavior.floating,
           action: result.success
               ? null
-              : SnackBarAction(
-                  label: 'Retry',
-                  onPressed: _fetchPublic,
-                ),
+              : SnackBarAction(label: 'Retry', onPressed: _fetchPublic),
         ),
       );
     }
@@ -65,6 +73,7 @@ class _ProxySettingsScreenState extends ConsumerState<ProxySettingsScreen> {
     final portController = TextEditingController();
     final usernameController = TextEditingController();
     final passwordController = TextEditingController();
+    final secretController = TextEditingController();
     final labelController = TextEditingController();
     ProxyType selectedType = ProxyType.socks5;
 
@@ -135,7 +144,7 @@ class _ProxySettingsScreenState extends ConsumerState<ProxySettingsScreen> {
                 if (selectedType == ProxyType.mtproto) ...[
                   const SizedBox(height: 8),
                   TextField(
-                    controller: passwordController,
+                    controller: secretController,
                     decoration: const InputDecoration(
                       labelText: 'Secret',
                       isDense: true,
@@ -163,6 +172,9 @@ class _ProxySettingsScreenState extends ConsumerState<ProxySettingsScreen> {
                   type: selectedType,
                   username: usernameController.text.trim(),
                   password: passwordController.text.trim(),
+                  secret: selectedType == ProxyType.mtproto
+                      ? secretController.text.trim()
+                      : null,
                   label: labelController.text.trim(),
                   addedAt: DateTime.now(),
                 );
@@ -225,6 +237,10 @@ class _ProxySettingsScreenState extends ConsumerState<ProxySettingsScreen> {
     final isDark = theme.brightness == Brightness.dark;
     final textColor = isDark ? Colors.white : Colors.black87;
     final subColor = isDark ? Colors.white54 : Colors.black54;
+
+    // Count alive proxies for progress display
+    final aliveCount = proxyState.proxies.where((p) => p.confirmedAlive).length;
+    final totalCount = proxyState.proxies.length;
 
     return Scaffold(
       backgroundColor: customTheme?.settingsBackground ?? theme.scaffoldBackgroundColor,
@@ -328,22 +344,68 @@ class _ProxySettingsScreenState extends ConsumerState<ProxySettingsScreen> {
             ),
             child: Column(
               children: [
+                // ─── Ping All Proxies (with cancel + progress + scan mode) ──
                 ListTile(
                   leading: Icon(Icons.network_check, color: settingsAccent),
-                  title: Text('Ping All Proxies', style: TextStyle(color: textColor)),
+                  title: proxyState.isPinging
+                      ? Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            SizedBox(
+                              width: 16, height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation(settingsAccent),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Text('Pinging...', style: TextStyle(color: textColor)),
+                          ],
+                        )
+                      : Text('Ping Proxies', style: TextStyle(color: textColor)),
                   subtitle: proxyState.isPinging
-                      ? Text('Pinging...', style: TextStyle(color: Colors.orange, fontSize: 12))
-                      : Text('Test latency of all saved proxies', style: TextStyle(color: subColor, fontSize: 12)),
-                  // Disable while pinging OR while fetching (pinging a
-                  // half-fetched list would give misleading results).
-                  onTap: (proxyState.isPinging || proxyState.isFetching) ? null : _pingAll,
+                      ? Text(
+                          '$aliveCount/$totalCount alive',
+                          style: TextStyle(color: Colors.orange, fontSize: 12),
+                        )
+                      : Text(
+                          _fullScan
+                              ? 'Full scan: test ALL proxies (slower)'
+                              : 'Quick ping: test top 50 proxies (~5 sec)',
+                          style: TextStyle(color: subColor, fontSize: 12),
+                        ),
+                  // When pinging: tap = CANCEL. When idle: tap = start ping.
+                  onTap: proxyState.isPinging
+                      ? _cancelPing
+                      : (proxyState.isFetching ? null : _pingAll),
+                  trailing: proxyState.isPinging
+                      ? TextButton(
+                          onPressed: _cancelPing,
+                          child: Text('Cancel', style: TextStyle(color: Colors.redAccent)),
+                        )
+                      : PopupMenuButton<bool>(
+                          icon: Icon(Icons.more_vert, color: subColor),
+                          onSelected: (isFull) {
+                            setState(() => _fullScan = isFull);
+                            _pingAll();
+                          },
+                          itemBuilder: (_) => [
+                            const PopupMenuItem(
+                              value: false,
+                              child: Text('Quick Ping (top 50)'),
+                            ),
+                            const PopupMenuItem(
+                              value: true,
+                              child: Text('Full Scan (all proxies)'),
+                            ),
+                          ],
+                        ),
                 ),
                 Divider(color: theme.dividerColor, height: 1, indent: 16, endIndent: 16),
                 ListTile(
                   leading: proxyState.isFetching
                       ? SizedBox(
-                          width: 24,
-                          height: 24,
+                          width: 24, height: 24,
                           child: CircularProgressIndicator(
                             strokeWidth: 2.5,
                             valueColor: AlwaysStoppedAnimation(settingsAccent),
@@ -360,15 +422,14 @@ class _ProxySettingsScreenState extends ConsumerState<ProxySettingsScreen> {
                       fontSize: 12,
                     ),
                   ),
-                  // Disable the tap while fetching to prevent concurrent
-                  // fetches from racing and corrupting the proxy list.
                   onTap: proxyState.isFetching ? null : _fetchPublic,
                 ),
                 Divider(color: theme.dividerColor, height: 1, indent: 16, endIndent: 16),
                 ListTile(
                   leading: Icon(Icons.add_circle_outline, color: settingsAccent),
                   title: Text('Add Manual Proxy', style: TextStyle(color: textColor)),
-                  subtitle: Text('Add your own SOCKS5/HTTP/MTProto proxy', style: TextStyle(color: subColor, fontSize: 12)),
+                  subtitle: Text('Add your own SOCKS5/HTTP/MTProto proxy',
+                    style: TextStyle(color: subColor, fontSize: 12)),
                   onTap: _showAddProxyDialog,
                 ),
               ],
@@ -377,8 +438,11 @@ class _ProxySettingsScreenState extends ConsumerState<ProxySettingsScreen> {
 
           const SizedBox(height: 24),
 
-          // ─── Proxy List ─────────────────────────────────────────────────
-          _buildSectionHeader('Saved Proxies (${proxyState.proxies.length})', settingsAccent),
+          // ─── Proxy List (limited to top 10 + expand) ────────────────────
+          _buildSectionHeader(
+            'Saved Proxies ($totalCount) — $aliveCount alive',
+            settingsAccent,
+          ),
 
           if (proxyState.proxies.isEmpty)
             Card(
@@ -409,7 +473,8 @@ class _ProxySettingsScreenState extends ConsumerState<ProxySettingsScreen> {
               ),
             )
           else
-            ...proxyState.sortedProxies.map((proxy) => Card(
+            // ─── Show only top 10 alive proxies by default ────────────────
+            ..._getDisplayProxies(proxyState).map((proxy) => Card(
               elevation: 0,
               color: theme.cardColor,
               shape: RoundedRectangleBorder(
@@ -423,8 +488,8 @@ class _ProxySettingsScreenState extends ConsumerState<ProxySettingsScreen> {
               ),
               child: ListTile(
                 leading: Icon(
-                  proxy.isAlive ? Icons.check_circle : Icons.cancel,
-                  color: proxy.isAlive ? Colors.green : Colors.red,
+                  proxy.isAlive == true ? Icons.check_circle : proxy.isAlive == false ? Icons.cancel : Icons.help_outline,
+                  color: proxy.isAlive == true ? Colors.green : proxy.isAlive == false ? Colors.red : Colors.grey,
                   size: 24,
                 ),
                 title: Row(
@@ -464,11 +529,14 @@ class _ProxySettingsScreenState extends ConsumerState<ProxySettingsScreen> {
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    if (proxy.id != proxyState.activeProxyId)
+                    // ─── Allow manual switch even during pinging ────────────
+                    // Previously: proxy.isAlive ? ... : null (disabled for dead)
+                    // Now: always enabled for alive proxies, even during ping
+                    if (proxy.id != proxyState.activeProxyId && proxy.confirmedAlive)
                       IconButton(
                         icon: const Icon(Icons.power_settings_new, size: 20),
-                        color: proxy.isAlive ? settingsAccent : Colors.grey,
-                        onPressed: proxy.isAlive ? () => _connectTo(proxy.id) : null,
+                        color: settingsAccent,
+                        onPressed: () => _connectTo(proxy.id),
                         tooltip: 'Connect',
                       ),
                     IconButton(
@@ -481,9 +549,44 @@ class _ProxySettingsScreenState extends ConsumerState<ProxySettingsScreen> {
                 ),
               ),
             )),
+
+          // ─── "Show more" button if list is truncated ─────────────────────
+          if (totalCount > 10 && !_showAll)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: OutlinedButton(
+                onPressed: () => setState(() => _showAll = true),
+                child: Text('Show all $totalCount proxies'),
+              ),
+            ),
+          if (_showAll && totalCount > 10)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: OutlinedButton(
+                onPressed: () => setState(() => _showAll = false),
+                child: const Text('Show top 10 only'),
+              ),
+            ),
         ],
       ),
     );
+  }
+
+  bool _showAll = false;
+
+  /// Returns the list of proxies to display in the UI.
+  /// By default, shows top 10 alive proxies (sorted by latency).
+  /// When _showAll is true, shows all proxies.
+  List<ProxyConfig> _getDisplayProxies(ProxyManagerState proxyState) {
+    if (_showAll) return proxyState.sortedProxies;
+
+    // Show top 10 alive proxies first, then fill remaining slots with dead
+    final alive = proxyState.sortedProxies.where((p) => p.confirmedAlive).take(10).toList();
+    if (alive.length < 10) {
+      final dead = proxyState.sortedProxies.where((p) => !p.confirmedAlive).take(10 - alive.length).toList();
+      return [...alive, ...dead];
+    }
+    return alive;
   }
 
   Widget _buildSectionHeader(String title, Color accent) {

@@ -21,7 +21,12 @@ class ProxyConfig {
   // Latency metadata — populated by ping testing
   int? latencyMs;             // Last measured latency in milliseconds
   DateTime? lastPingAt;       // When the last ping was performed
-  bool isAlive;               // Whether the proxy responded to the last ping
+
+  /// Three-state alive status:
+  ///   true  = pinged and responded (green icon)
+  ///   false = pinged and failed (red icon)
+  ///   null  = not yet tested (grey/neutral icon)
+  bool? isAlive;
 
   ProxyConfig({
     required this.id,
@@ -36,23 +41,30 @@ class ProxyConfig {
     required this.addedAt,
     this.latencyMs,
     this.lastPingAt,
-    this.isAlive = false,
+    this.isAlive,  // null by default = untested
   });
 
   ProxyConfig copyWith({
+    String? id,
+    String? host,
+    int? port,
+    ProxyType? type,
+    String? username,
+    String? password,
+    String? secret,
+    String? label,
     int? latencyMs,
     DateTime? lastPingAt,
     bool? isAlive,
-    String? label,
   }) {
     return ProxyConfig(
-      id: id,
-      host: host,
-      port: port,
-      type: type,
-      username: username,
-      password: password,
-      secret: secret,
+      id: id ?? this.id,
+      host: host ?? this.host,
+      port: port ?? this.port,
+      type: type ?? this.type,
+      username: username ?? this.username,
+      password: password ?? this.password,
+      secret: secret ?? this.secret,
       label: label ?? this.label,
       isAutoFetch: isAutoFetch,
       addedAt: addedAt,
@@ -61,6 +73,13 @@ class ProxyConfig {
       isAlive: isAlive ?? this.isAlive,
     );
   }
+
+  /// Whether this proxy has been tested (pinged) at least once.
+  bool get hasBeenTested => isAlive != null;
+
+  /// Whether this proxy is confirmed alive (pinged and responded).
+  /// Returns false if untested (isAlive == null).
+  bool get confirmedAlive => isAlive == true;
 
   Map<String, dynamic> toJson() => {
     'id': id,
@@ -96,7 +115,8 @@ class ProxyConfig {
     lastPingAt: json['lastPingAt'] != null
         ? DateTime.tryParse(json['lastPingAt'] as String)
         : null,
-    isAlive: json['isAlive'] as bool? ?? false,
+    // Handle both old (bool) and new (bool?) serialization
+    isAlive: json['isAlive'] as bool?,
   );
 
   /// Short description like "SOCKS5 1.2.3.4:1080" for display.

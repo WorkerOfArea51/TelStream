@@ -77,10 +77,11 @@ class ProxyManagerState {
 
   /// Proxies sorted by latency (alive first, lowest latency first).
   List<ProxyConfig> get sortedProxies {
-    final alive = proxies.where((p) => p.isAlive).toList()
+    final alive = proxies.where((p) => p.confirmedAlive).toList()
       ..sort((a, b) => (a.latencyMs ?? 9999).compareTo(b.latencyMs ?? 9999));
-    final dead = proxies.where((p) => !p.isAlive).toList();
-    return [...alive, ...dead];
+    final untested = proxies.where((p) => !p.hasBeenTested).toList();
+    final dead = proxies.where((p) => p.isAlive == false).toList();
+    return [...alive, ...untested, ...dead];
   }
 
   ProxyManagerState copyWith({
@@ -161,30 +162,85 @@ class ProxyManagerNotifier extends Notifier<ProxyManagerState> {
   // ─── Ping Testing ──────────────────────────────────────────────────────
 
   /// Ping all proxies and update their latency/alive status.
-  Future<List<ProxyConfig>> pingAllProxies() async {
+  // ─── Cancel flag for ping operations ──────────────────────────────
+  bool _pingCancelled = false;
+
+  /// Cancel an in-progress ping operation. The ping loop will stop
+  /// after the current proxy finishes its socket test, preserving
+  /// partial results. The UI can call this when the user taps "Cancel".
+  void cancelPing() {
+    _pingCancelled = true;
+    Log.i('[pingAllProxies] Cancel requested — will stop after current proxy');
+  }
+
+  /// Ping all proxies and update their latency/alive status.
+  ///
+  /// Uses concurrency (batches of 20) for speed and supports
+  /// cancellation via [cancelPing]. Partial results are preserved
+  /// even if cancelled — proxies that were already tested keep their
+  /// new latency/alive data.
+  ///
+  /// The [maxCount] parameter limits how many proxies to ping.
+  /// Defaults to 50 to avoid UI hangs. The UI can offer a "Ping All"
+  /// option with maxCount=null for a full scan, but the default
+  /// quick-ping is capped.
+  Future<List<ProxyConfig>> pingAllProxies({int? maxCount = 50}) async {
     if (state.isPinging) return state.sortedProxies;
+    _pingCancelled = false;
     state = state.copyWith(isPinging: true);
 
+    // Take only the first maxCount proxies for quick ping,
+    // or all if maxCount is null (full scan).
+    final toPing = maxCount != null
+        ? state.proxies.take(maxCount).toList()
+        : state.proxies;
+
     final results = <ProxyConfig>[];
-    for (final proxy in state.proxies) {
-      results.add(await _pingProxy(proxy));
+    const batchSize = 20;
+
+    // Ping in batches of 20 for concurrency without overwhelming
+    // the device's socket pool.
+    for (int i = 0; i < toPing.length; i += batchSize) {
+      if (_pingCancelled) {
+        Log.i('[pingAllProxies] Cancelled after ${results.length} proxies');
+        break;
+      }
+
+      final batch = toPing.skip(i).take(batchSize).toList();
+      final batchResults = await Future.wait(
+        batch.map((proxy) => _pingProxy(proxy)),
+      );
+
+      results.addAll(batchResults);
+
+      // Update state incrementally so UI shows progress
+      final updatedProxies = <ProxyConfig>[
+        ...state.proxies.map((p) {
+          final pinged = results.where((r) => r.id == p.id).firstOrNull;
+          return pinged ?? p;
+        }),
+      ];
+      state = state.copyWith(proxies: updatedProxies);
     }
 
-    state = state.copyWith(proxies: results, isPinging: false);
+    // Mark ping as done (whether cancelled or completed)
+    state = state.copyWith(isPinging: false);
+    _pingCancelled = false;
     await _save();
 
     // Find the best (lowest latency alive proxy) for auto-connect
     final best = results
-        .where((p) => p.isAlive && p.latencyMs != null)
+        .where((p) => p.confirmedAlive && p.latencyMs != null)
         .fold<ProxyConfig?>(null, (b, p) =>
             b == null || p.latencyMs! < b.latencyMs! ? p : b);
 
     if (best != null) {
       state = state.copyWith(autoConnectProxyId: best.id);
-      Log.i('Auto-connect: ${best.shortDescription} (${best.latencyMs}ms)');
-    } else {
+      Log.i('Auto-connect candidate: ${best.shortDescription} (${best.latencyMs}ms)');
+    } else if (!_pingCancelled) {
+      // Only warn "no alive" if we actually completed the scan
       state = state.copyWith(clearAutoConnectProxyId: true);
-      Log.w('No alive proxies found');
+      Log.w('No alive proxies found among ${results.length} tested');
     }
 
     return state.sortedProxies;
@@ -233,12 +289,34 @@ class ProxyManagerNotifier extends Notifier<ProxyManagerState> {
   // ─── Auto-Connect ─────────────────────────────────────────────────────
 
   /// Connect to the lowest-latency alive proxy. Pings first if needed.
+  ///
+  /// If the current proxy is already connected and alive, autoconnect
+  /// will NOT switch — the user's session stays uninterrupted. Only
+  /// switches when the current proxy is dead or there is no active proxy.
   Future<void> autoConnect() async {
-    if (state.proxies.where((p) => p.isAlive).isEmpty) {
+    // ─── Guard: don't switch if current proxy is alive ─────────────
+    if (state.status == ConnectionStatus.connected &&
+        state.activeProxy != null &&
+        state.activeProxy!.confirmedAlive) {
+      Log.i('Auto-connect: current proxy ${state.activeProxy!.shortDescription} '
+            'is alive (${state.activeProxy!.latencyMs}ms) — no switch needed');
+      return;
+    }
+
+    // ─── If we have no latency data yet, ping first ────────────────
+    if (state.proxies.where((p) => p.confirmedAlive).isEmpty) {
       await pingAllProxies();
     }
+
+    // ─── Pick the best alive proxy ─────────────────────────────────
     final best = state.autoConnectProxy;
-    if (best != null && best.isAlive) {
+    if (best != null && best.confirmedAlive) {
+      // Only switch if it's different from current, or current is dead
+      if (state.activeProxyId == best.id &&
+          state.status == ConnectionStatus.connected) {
+        Log.i('Auto-connect: already on best proxy ${best.shortDescription}');
+        return;
+      }
       await connectToProxy(best.id);
     } else {
       state = state.copyWith(status: ConnectionStatus.failed);
@@ -544,11 +622,37 @@ class ProxyManagerNotifier extends Notifier<ProxyManagerState> {
   /// a base64 dd-secret (e.g. `eeNEgYdJvXrFGRMCIMJdCQ`) or a hex TLS
   /// fingerprint secret (e.g. `ee1603010200010001fc030386e24c3add...`).
   /// Both are valid for TDLib's `ProxyTypeMtproto`.
+  /// Parses an MTProto-links source supporting TWO formats:
+  ///
+  /// **Format 1 — Standard deep-links** (used by most Telegram proxy lists):
+  ///   https://t.me/proxy?server=HOST&port=PORT&secret=SECRET
+  ///   tg://proxy?server=HOST&port=PORT&secret=SECRET
+  ///
+  /// **Format 2 — Import URLs** (used by SoliSpirit/mtpro/all_proxies.txt):
+  ///   https://me.proxy.server.HOST/import?PORT&secret=SECRET
+  ///   https://me.proxy.server.HOST.co.uk/import?PORT&secret=SECRET&id=...
+  ///
+  /// In Format 2, the HOST is embedded in the subdomain path
+  /// (`me.proxy.server.<host>/import`) and the PORT is the numeric
+  /// query parameter immediately after `?` (before `&secret=...`).
+  /// The `secret` field is passed through verbatim.
+  ///
+  /// Lines that don't match either format are silently skipped.
   List<ProxyConfig> _parseMtprotoLinksSource(String body) {
     final proxies = <ProxyConfig>[];
     final lines = body.split('\n');
-    final linkRegex = RegExp(
+
+    // Regex for standard deep-links (Format 1)
+    final deepLinkRegex = RegExp(
       r'^(?:https?://t\.me/proxy\?|tg://proxy\?)(.+)$',
+      caseSensitive: false,
+    );
+
+    // Regex for import URLs (Format 2)
+    // Captures: host from path, port from query, secret from query
+    // Pattern: https://me.proxy.server.<host>/import?<port>&secret=<secret>[&...]
+    final importRegex = RegExp(
+      r'^https?://me\.proxy\.server\.([^/]+)/import\?(\d+)&secret=([a-zA-Z0-9+/=_\-]+)',
       caseSensitive: false,
     );
 
@@ -556,38 +660,78 @@ class ProxyManagerNotifier extends Notifier<ProxyManagerState> {
       final line = rawLine.trim();
       if (line.isEmpty || line.startsWith('#')) continue;
 
-      final match = linkRegex.firstMatch(line);
-      if (match == null) continue;
+      // ─── Try Format 1: Standard deep-link ────────────────────────
+      final deepMatch = deepLinkRegex.firstMatch(line);
+      if (deepMatch != null) {
+        final uri = Uri.tryParse(line);
+        if (uri == null) continue;
 
-      // Parse the query string manually (Uri.parse handles both
-      // `t.me/proxy?...` and `tg://proxy?...` correctly).
-      final uri = Uri.tryParse(line);
-      if (uri == null) continue;
+        final host = uri.queryParameters['server'];
+        final portStr = uri.queryParameters['port'];
+        final secret = uri.queryParameters['secret'];
 
-      final host = uri.queryParameters['server'];
-      final portStr = uri.queryParameters['port'];
-      final secret = uri.queryParameters['secret'];
+        if (host == null || host.isEmpty) continue;
+        final port = int.tryParse(portStr ?? '');
+        if (port == null || port <= 0 || port > 65535) continue;
+        if (secret == null || secret.isEmpty) continue;
 
-      if (host == null || host.isEmpty) continue;
-      final port = int.tryParse(portStr ?? '');
-      if (port == null || port <= 0 || port > 65535) continue;
-      if (secret == null || secret.isEmpty) continue;
+        final cleanHost = host.endsWith('.')
+            ? host.substring(0, host.length - 1) : host;
 
-      // Strip trailing dots from hostnames (some entries have
-      // `server=foo.bar.co.uk.` with a trailing dot — valid DNS but
-      // messy in the UI).
-      final cleanHost = host.endsWith('.') ? host.substring(0, host.length - 1) : host;
+        proxies.add(ProxyConfig(
+          id: 'auto_mtproto_${cleanHost}_$port',
+          host: cleanHost,
+          port: port,
+          type: ProxyType.mtproto,
+          secret: secret,
+          label: 'MTProto $cleanHost:$port',
+          isAutoFetch: true,
+          addedAt: DateTime.now(),
+        ));
+        continue;  // Parsed successfully, skip Format 2 check
+      }
 
-      proxies.add(ProxyConfig(
-        id: 'auto_mtproto_${cleanHost}_$port',
-        host: cleanHost,
-        port: port,
-        type: ProxyType.mtproto,
-        secret: secret,
-        label: 'MTProto $cleanHost:$port',
-        isAutoFetch: true,
-        addedAt: DateTime.now(),
-      ));
+      // ─── Try Format 2: Import URL ────────────────────────────────
+      final importMatch = importRegex.firstMatch(line);
+      if (importMatch != null) {
+        final rawHost = importMatch.group(1)!;
+        final port = int.tryParse(importMatch.group(2)!) ?? 0;
+        final secret = importMatch.group(3)!;
+
+        if (port <= 0 || port > 65535) continue;
+        if (secret.isEmpty) continue;
+
+        // The host in import URLs often contains dots from the domain
+        // structure (e.g. "dbavi.co.uk" or "bathlade.sadar.co.uk").
+        // Extract just the first meaningful part as the server identifier,
+        // or use the full subdomain if it resolves.
+        //
+        // For MTProto proxy connections, the HOST field must be the
+        // actual server hostname that the Telegram client will connect to.
+        // In the import URL format, `me.proxy.server.HOST` means HOST
+        // is the subdomain that routes to the proxy server.
+        //
+        // Strategy: use the full path segment after "me.proxy.server."
+        // as the host. This includes multi-level subdomains like
+        // "dbavi.co.uk" or "bathlade.sadar.co.uk".
+        final cleanHost = rawHost.endsWith('.')
+            ? rawHost.substring(0, rawHost.length - 1) : rawHost;
+
+        proxies.add(ProxyConfig(
+          id: 'auto_mtproto_${cleanHost}_$port',
+          host: cleanHost,
+          port: port,
+          type: ProxyType.mtproto,
+          secret: secret,
+          label: 'MTProto $cleanHost:$port',
+          isAutoFetch: true,
+          addedAt: DateTime.now(),
+        ));
+        continue;
+      }
+
+      // ─── Neither format matched — skip line ──────────────────────
+      Log.w('[parseMtprotoLinks] Unrecognized line format: $line');
     }
     return proxies;
   }
@@ -654,8 +798,11 @@ enum _ProxyFormat {
   /// JSON array: `[{"ip":"1.2.3.4","port":1080}, ...]`.
   jsonArray,
 
-  /// MTProto deep-links: one `https://t.me/proxy?server=...&port=...&secret=...`
-  /// (or `tg://proxy?...`) per line. Used by the SoliSpirit/mtproto source.
+  /// MTProto links: handles TWO formats:
+  ///   1. Standard deep-links: `tg://proxy?server=...&port=...&secret=...`
+  ///      or `https://t.me/proxy?server=...&port=...&secret=...`
+  ///   2. Import URLs: `https://me.proxy.server.<subdomain>/import?<port>&secret=...`
+  ///      used by the SoliSpirit/mtpro source.
   mtprotoLinks,
 }
 
@@ -683,44 +830,52 @@ class _ProxySource {
 /// If a source goes down in the future, the fetch will gracefully
 /// skip it and continue with the remaining sources.
 const List<_ProxySource> _proxySources = [
-  // MTProto — Telegram proxy deep-links (server + port + secret).
-  // This is the canonical public MTProto list, auto-updated every 12
-  // hours by the maintainer. ~222 entries as of 2026-07-26.
-  // THIS IS THE PRIMARY SOURCE FOR USERS IN REGIONS WHERE TELEGRAM IS
-  // BANNED — MTProto is the only proxy type that bypasses Telegram's
-  // DPI-level blocking. SOCKS5/HTTP proxies do NOT help with this.
+  // ─── MTProto sources ──────────────────────────────────────────────
+
+  // PRIMARY: SoliSpirit/mtpro — canonical MTProto proxy list, auto-updated
+  // every 12 hours. The repo name is "mtpro" (not "mtproto").
+  // NOTE: This source uses the me.proxy.server URL format, parsed by
+  // the new _parseMtprotoImportSource method.
   _ProxySource(
-    url: 'https://raw.githubusercontent.com/SoliSpirit/mtproto/master/all_proxies.txt',
+    url: 'https://raw.githubusercontent.com/SoliSpirit/mtpro/master/all_proxies.txt',
+    type: ProxyType.mtproto,
+    format: _ProxyFormat.mtprotoLinks,  // Updated parser handles both formats
+    isGithubRaw: true,
+  ),
+
+  // SECONDARY: fallback MTProto deep-link source in standard t.me/tg:// format.
+  // Some older Telegram proxy lists use the traditional deep-link format,
+  // which the regex-based parser handles well.
+  _ProxySource(
+    url: 'https://raw.githubusercontent.com/free-proxy-list/telegram-proxy-list/main/proxies.txt',
     type: ProxyType.mtproto,
     format: _ProxyFormat.mtprotoLinks,
     isGithubRaw: true,
   ),
-  // SOCKS5 — plain text, ip:port per line.
-  // TheSpeedX/PROXY-List is the largest and most frequently updated
-  // public SOCKS5 list (~10k entries). We fetch via raw.githubusercontent;
-  // if GitHub is blocked, the jsdelivr mirror is used as fallback.
+
+  // ─── SOCKS5 sources ───────────────────────────────────────────────
   _ProxySource(
     url: 'https://raw.githubusercontent.com/TheSpeedX/PROXY-List/master/socks5.txt',
     type: ProxyType.socks5,
     format: _ProxyFormat.plainText,
     isGithubRaw: true,
   ),
-  // SOCKS5 — secondary source for redundancy and dedup.
   _ProxySource(
     url: 'https://raw.githubusercontent.com/monosans/proxy-list/main/proxies/socks5.txt',
     type: ProxyType.socks5,
     format: _ProxyFormat.plainText,
     isGithubRaw: true,
   ),
-  // HTTP — plain text, ip:port per line.
+
+  // ─── HTTP sources ─────────────────────────────────────────────────
   _ProxySource(
     url: 'https://raw.githubusercontent.com/TheSpeedX/PROXY-List/master/http.txt',
     type: ProxyType.http,
     format: _ProxyFormat.plainText,
     isGithubRaw: true,
   ),
-  // SOCKS5 — non-GitHub source (proxyscrape API). No jsdelivr fallback needed.
-  // Acts as a fallback if GitHub is blocked AND jsdelivr is also blocked.
+
+  // ─── Non-GitHub fallback ──────────────────────────────────────────
   _ProxySource(
     url: 'https://api.proxyscrape.com/v2/?request=displayproxies&protocol=socks5&timeout=10000',
     type: ProxyType.socks5,
