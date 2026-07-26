@@ -4,10 +4,10 @@ import 'package:tdlib/td_api.dart' as td;
 import '../../core/constants.dart';
 import '../../services/tdlib_service.dart';
 import '../../services/storage_service.dart';
+import '../../services/network/proxy_manager_service.dart';  // [Bug #2 FIX] Added import
 import '../settings/settings_provider.dart';
 import '../../services/sync_service.dart';
 import '../../core/logger.dart';
-import '../../services/network/proxy_manager_service.dart';
 import 'package:synchronized/synchronized.dart';
 
 enum AuthStep { loading, waitingForNumber, waitingForCode, waitingForPassword, authenticated, error }
@@ -72,16 +72,18 @@ class AuthController extends Notifier<AuthState> {
     final double? limitMb = settings.cache.cacheLimitMb == -1 ? null : settings.cache.cacheLimitMb.toDouble();
     final int? ttlDays = settings.cache.cacheTtlDays == -1 ? null : settings.cache.cacheTtlDays;
 
+    // [Bug #2 FIX] Added .then() callback to restore saved proxy AFTER TDLib init
+    // completes, BEFORE TDLib attempts its first network connection.
+    // TDLib processes commands in-order: SetTdlibParameters → AddProxy → connect.
     ref.read(tdlibServiceProvider).init(
       Constants.apiId, 
       Constants.apiHash,
       excludedPaths: excludedPaths,
       limitMb: limitMb,
       ttlDays: ttlDays,
-
     ).then((_) {
       // Restore saved proxy BEFORE TDLib's first network connection
-      Log.i('TDLib init complete --- restoring saved proxy');
+      Log.i('TDLib init complete — restoring saved proxy');
       ref.read(proxyManagerProvider.notifier).restoreSavedProxy();
     }).catchError((e) {
       state = state.copyWith(step: AuthStep.error, errorMessage: e.toString());
