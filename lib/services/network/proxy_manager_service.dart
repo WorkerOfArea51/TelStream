@@ -56,10 +56,11 @@ class ProxyManagerState {
   final bool isPinging;
   final bool isFetching;          // NEW
   final String? autoConnectProxyId;
+  final int? tdlibProxyId;
 
   const ProxyManagerState({this.proxies = const [], this.activeProxyId,
     this.status = ConnectionStatus.disconnected, this.isPinging = false,
-    this.isFetching = false, this.autoConnectProxyId});
+    this.isFetching = false, this.autoConnectProxyId, this.tdlibProxyId});
 
   ProxyConfig? get activeProxy => _firstWhereOrNull(proxies, (p) => p.id == activeProxyId);
   ProxyConfig? get autoConnectProxy => _firstWhereOrNull(proxies, (p) => p.id == autoConnectProxyId);
@@ -75,8 +76,8 @@ class ProxyManagerState {
 
   ProxyManagerState copyWith({List<ProxyConfig>? proxies, String? activeProxyId,
     ConnectionStatus? status, bool? isPinging, bool? isFetching,
-    String? autoConnectProxyId, bool clearActiveProxyId = false,
-    bool clearAutoConnectProxyId = false}) =>
+    String? autoConnectProxyId, int? tdlibProxyId, bool clearActiveProxyId = false,
+    bool clearAutoConnectProxyId = false, bool clearTdlibProxyId = false}) =>
     ProxyManagerState(
       proxies: proxies ?? this.proxies,
       activeProxyId: clearActiveProxyId ? null : (activeProxyId ?? this.activeProxyId),
@@ -84,6 +85,7 @@ class ProxyManagerState {
       isPinging: isPinging ?? this.isPinging,
       isFetching: isFetching ?? this.isFetching,
       autoConnectProxyId: clearAutoConnectProxyId ? null : (autoConnectProxyId ?? this.autoConnectProxyId),
+      tdlibProxyId: clearTdlibProxyId ? null : (tdlibProxyId ?? this.tdlibProxyId),
     );
 
   static T? _firstWhereOrNull<T>(Iterable<T> items, bool Function(T) test) {
@@ -103,8 +105,30 @@ class ProxyManagerNotifier extends Notifier<ProxyManagerState> {
     return ProxyManagerState(
       proxies: savedProxies,
       activeProxyId: activeId.isNotEmpty ? activeId : null,
-      status: activeId.isNotEmpty ? ConnectionStatus.connected : ConnectionStatus.disconnected,
+      status: ConnectionStatus.disconnected,
     );
+  }
+
+  Future<void> restoreSavedProxy() async {
+    if (state.activeProxyId == null) {
+      Log.i('No saved proxy to restore');
+      return;
+    }
+    
+    final proxy = state.activeProxy;
+    if (proxy == null) return;
+
+    // Ping first to verify proxy still alive
+    final pingResult = await _pingProxy(proxy);
+    if (!pingResult.confirmedAlive) {
+      // Don't clear saved ID --- proxy might come back later
+      state = state.copyWith(status: ConnectionStatus.failed);
+      return;
+    }
+    
+    // Apply to TDLib
+    final tdlibProxyId = await _applyProxyToTdlib(proxy);
+    state = state.copyWith(status: ConnectionStatus.connected, tdlibProxyId: tdlibProxyId);
   }
 
   // ─── CRUD ──────────────────────────────────────────────────────────────
@@ -186,8 +210,9 @@ class ProxyManagerNotifier extends Notifier<ProxyManagerState> {
         final response = await socket.first.timeout(const Duration(seconds: 5));
         final elapsed = DateTime.now().difference(start).inMilliseconds;
         socket.destroy();
+        final isAlive = response.length >= 2 && response[0] == 0x05 && response[1] == 0x00;
         return proxy.copyWith(latencyMs: elapsed, lastPingAt: DateTime.now(),
-          isAlive: response.isNotEmpty && response[0] == 0x05);
+          isAlive: isAlive);
       } else {
         final elapsed = DateTime.now().difference(start).inMilliseconds;
         socket.destroy();
@@ -226,7 +251,15 @@ class ProxyManagerNotifier extends Notifier<ProxyManagerState> {
     state = state.copyWith(proxies: state.proxies.map((p) => p.id == proxyId ? result : p).toList());
     if (result.isAlive != true) { state = state.copyWith(status: ConnectionStatus.failed); return; }
     state = state.copyWith(activeProxyId: proxyId, status: ConnectionStatus.connected);
-    await _save(); await _saveActiveProxyId(proxyId); await _applyProxyToTdlib(result);
+    await _save(); await _saveActiveProxyId(proxyId); 
+    
+    if (state.tdlibProxyId != null) {
+      await _enableExistingTdlibProxy(state.tdlibProxyId!);
+    } else {
+      final tdlibProxyId = await _applyProxyToTdlib(result);
+      state = state.copyWith(tdlibProxyId: tdlibProxyId);
+    }
+    
     Log.i('Connected: ${proxy.shortDescription} (${result.latencyMs}ms)');
   }
 
@@ -398,13 +431,17 @@ class ProxyManagerNotifier extends Notifier<ProxyManagerState> {
   }
 
   Future<void> clearAutoFetchedProxies() async {
+    final activeProxy = state.activeProxy;
+    if (activeProxy != null && activeProxy.isAutoFetch) {
+      await disconnect();
+    }
     state = state.copyWith(proxies: state.proxies.where((p) => !p.isAutoFetch).toList());
     await _save();
   }
 
   // ─── TDLib ────────────────────────────────────────────────────────────
 
-  Future<void> _applyProxyToTdlib(ProxyConfig proxy) async {
+  Future<int?> _applyProxyToTdlib(ProxyConfig proxy) async {
     final tdlibService = ref.read(tdlibServiceProvider);
     td.ProxyType tdProxy;
     if (proxy.type == ProxyType.socks5) {
@@ -414,7 +451,15 @@ class ProxyManagerNotifier extends Notifier<ProxyManagerState> {
     } else {
       tdProxy = td.ProxyTypeHttp(username: proxy.username ?? '', password: proxy.password ?? '', httpOnly: false);
     }
-    await tdlibService.sendAsync(td.AddProxy(server: proxy.host, port: proxy.port, enable: true, type: tdProxy));
+    final result = await tdlibService.sendAsync(td.AddProxy(server: proxy.host, port: proxy.port, enable: true, type: tdProxy));
+    if (result is td.Proxy) {
+      return result.id;
+    }
+    return null;
+  }
+
+  Future<void> _enableExistingTdlibProxy(int proxyId) async {
+    await ref.read(tdlibServiceProvider).sendAsync(td.EnableProxy(proxyId: proxyId));
   }
 
   Future<void> _removeProxyFromTdlib() async {
@@ -438,8 +483,8 @@ class _ProxySource {
 
 const _proxySources = [
   // MTProto — PRIMARY source for bypassing Telegram DPI censorship
-  _ProxySource(url: 'https://raw.githubusercontent.com/SoliSpirit/mtpro/master/all_proxies.txt',
-    type: ProxyType.mtproto, format: _ProxyFormat.mtprotoLinks, isGithubRaw: true),
+  _ProxySource(url: 'https://raw.githubusercontent.com/SoliSpirit/mtproto/main/list',
+    type: ProxyType.mtproto, format: _ProxyFormat.plainText, isGithubRaw: true),
   // SOCKS5
   _ProxySource(url: 'https://raw.githubusercontent.com/TheSpeedX/PROXY-List/master/socks5.txt',
     type: ProxyType.socks5, format: _ProxyFormat.plainText, isGithubRaw: true),

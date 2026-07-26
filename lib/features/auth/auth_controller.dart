@@ -7,6 +7,7 @@ import '../../services/storage_service.dart';
 import '../settings/settings_provider.dart';
 import '../../services/sync_service.dart';
 import '../../core/logger.dart';
+import '../../services/network/proxy_manager_service.dart';
 import 'package:synchronized/synchronized.dart';
 
 enum AuthStep { loading, waitingForNumber, waitingForCode, waitingForPassword, authenticated, error }
@@ -78,7 +79,11 @@ class AuthController extends Notifier<AuthState> {
       limitMb: limitMb,
       ttlDays: ttlDays,
 
-    ).catchError((e) {
+    ).then((_) {
+      // Restore saved proxy BEFORE TDLib's first network connection
+      Log.i('TDLib init complete --- restoring saved proxy');
+      ref.read(proxyManagerProvider.notifier).restoreSavedProxy();
+    }).catchError((e) {
       state = state.copyWith(step: AuthStep.error, errorMessage: e.toString());
     });
   }

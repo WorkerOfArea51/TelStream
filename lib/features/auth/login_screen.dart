@@ -7,6 +7,7 @@ import 'package:country_picker/country_picker.dart' as cp;
 import '../settings/proxy_settings_screen.dart';
 import '../../l10n/app_localizations.dart';
 import 'auth_controller.dart';
+import '../../services/network/proxy_manager_service.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -368,8 +369,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     context,
                     MaterialPageRoute(builder: (_) => const ProxySettingsScreen()),
                   ).then((_) {
-                    // Re-initialize TDLib to apply new proxy settings
-                    controller.initializeTdlib();
+                    // Just apply the new proxy to the existing TDLib client
+                    ref.read(proxyManagerProvider.notifier).restoreSavedProxy();
                   });
                 },
                 icon: const Icon(Icons.security, color: Colors.white70, size: 18),
