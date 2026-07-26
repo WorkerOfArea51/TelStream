@@ -418,7 +418,7 @@ class ProxyManagerNotifier extends Notifier<ProxyManagerState> {
     // NOTE: The previous free-proxy-list URL did not exist; using TheSpeedX
     // which is the de-facto canonical SOCKS5/HTTP list repo (txt format).
     final sources = <String>{
-      'https://raw.githubusercontent.com/SoliSpirit/mtproto/main/list',
+      'https://raw.githubusercontent.com/SoliSpirit/mtproto/master/all_proxies.txt',
       'https://raw.githubusercontent.com/TheSpeedX/PROXY-List/master/socks5.txt',
     }.toList();
 
@@ -527,6 +527,31 @@ class ProxyManagerNotifier extends Notifier<ProxyManagerState> {
     for (final line in lines) {
       final trimmed = line.trim();
       if (trimmed.isEmpty || trimmed.startsWith('#')) continue;
+
+      // Handle Telegram proxy links (e.g., https://t.me/proxy?server=...&port=...&secret=...)
+      if (trimmed.startsWith('tg://proxy?') || trimmed.startsWith('https://t.me/proxy?')) {
+        final uri = Uri.tryParse(trimmed.replaceFirst('https://t.me/proxy?', 'tg://proxy?'));
+        if (uri != null) {
+          final server = uri.queryParameters['server'];
+          final portStr = uri.queryParameters['port'];
+          final secret = uri.queryParameters['secret'];
+          final port = int.tryParse(portStr ?? '');
+          
+          if (server != null && port != null && secret != null) {
+            out.add(ProxyConfig(
+              id: 'auto_${server}_$port',
+              host: server,
+              port: port,
+              type: ProxyType.mtproto,
+              secret: secret,
+              label: 'Public MTPROTO $server:$port',
+              isAutoFetch: true,
+              addedAt: DateTime.now(),
+            ));
+          }
+        }
+        continue;
+      }
 
       final parts = trimmed.split(':');
       if (parts.length < 2) continue;
