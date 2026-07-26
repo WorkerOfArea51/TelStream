@@ -417,7 +417,7 @@ class ProxyManagerNotifier extends Notifier<ProxyManagerState> {
     // [Bug #5 FIX] SoliSpirit MTProto + a verified-working SOCKS5 source.
     // NOTE: The previous free-proxy-list URL did not exist; using TheSpeedX
     // which is the de-facto canonical SOCKS5/HTTP list repo (txt format).
-    const sources = <String>{
+    final sources = <String>{
       'https://raw.githubusercontent.com/SoliSpirit/mtproto/main/list',
       'https://raw.githubusercontent.com/TheSpeedX/PROXY-List/main/socks5.txt',
     }.toList();
