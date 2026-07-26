@@ -101,6 +101,10 @@ class ProxyConfig {
 
   /// Short description like "SOCKS5 1.2.3.4:1080" for display.
   String get shortDescription => '${type.name.toUpperCase()} $host:$port';
+
+  // Three-state alive logic
+  bool get confirmedAlive => isAlive == true && lastPingAt != null;
+  bool get hasBeenTested => lastPingAt != null;
 }
 
 /// Overall connection state for the proxy manager.

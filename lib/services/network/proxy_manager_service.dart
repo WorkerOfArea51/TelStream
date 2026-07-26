@@ -8,6 +8,25 @@ import 'proxy_models.dart';
 import 'package:tdlib/td_api.dart' as td;
 import '../tdlib_service.dart';
 
+// ─── Fetch Result ────────────────────────────────────────────────────────────
+
+class ProxyFetchResult {
+  final bool success;
+  final int fetchedCount;
+  final int totalSources;
+  final int failedSources;
+  final String? errorMessage;
+  const ProxyFetchResult({required this.success, required this.fetchedCount,
+    required this.totalSources, required this.failedSources, this.errorMessage});
+  String get summary {
+    if (success) {
+      if (failedSources > 0) return 'Fetched $fetchedCount proxies from ${totalSources - failedSources}/$totalSources sources ($failedSources failed)';
+      return 'Fetched $fetchedCount proxies from $totalSources source(s)';
+    }
+    return 'Failed: ${errorMessage ?? "unknown error"}';
+  }
+}
+
 // ─── Riverpod Provider ──────────────────────────────────────────────────────
 
 final proxyManagerProvider = NotifierProvider<ProxyManagerNotifier, ProxyManagerState>(
@@ -21,6 +40,7 @@ class ProxyManagerState {
   final String? activeProxyId;
   final ConnectionStatus status;
   final bool isPinging;
+  final bool isFetching;
   final String? autoConnectProxyId;
   final int? tdlibProxyId;  // [Bug #4] Cache TDLib-assigned proxy ID for EnableProxy
 
@@ -29,6 +49,7 @@ class ProxyManagerState {
     this.activeProxyId,
     this.status = ConnectionStatus.disconnected,
     this.isPinging = false,
+    this.isFetching = false,
     this.autoConnectProxyId,
     this.tdlibProxyId,
   });
@@ -52,6 +73,7 @@ class ProxyManagerState {
     String? activeProxyId,
     ConnectionStatus? status,
     bool? isPinging,
+    bool? isFetching,
     String? autoConnectProxyId,
     int? tdlibProxyId,
     bool clearActiveProxyId = false,
@@ -63,6 +85,7 @@ class ProxyManagerState {
       activeProxyId: clearActiveProxyId ? null : (activeProxyId ?? this.activeProxyId),
       status: status ?? this.status,
       isPinging: isPinging ?? this.isPinging,
+      isFetching: isFetching ?? this.isFetching,
       autoConnectProxyId: clearAutoConnectProxyId ? null : (autoConnectProxyId ?? this.autoConnectProxyId),
       tdlibProxyId: clearTdlibProxyId ? null : (tdlibProxyId ?? this.tdlibProxyId),
     );
@@ -171,29 +194,54 @@ class ProxyManagerNotifier extends Notifier<ProxyManagerState> {
 
   // ─── Ping Testing ──────────────────────────────────────────────────────
 
+  bool _pingCancelled = false;
+
+  void cancelPing() {
+    _pingCancelled = true;
+    Log.i('[ping] Cancel requested');
+  }
+
   /// Ping all proxies and update their latency/alive status.
-  Future<List<ProxyConfig>> pingAllProxies() async {
+  Future<List<ProxyConfig>> pingAllProxies({int? maxCount = 50}) async {
     if (state.isPinging) return state.sortedProxies;
+    _pingCancelled = false;
     state = state.copyWith(isPinging: true);
 
+    final toPing = maxCount != null ? state.proxies.take(maxCount).toList() : state.proxies;
     final results = <ProxyConfig>[];
-    for (final proxy in state.proxies) {
-      results.add(await _pingProxy(proxy));
+    const batchSize = 20;
+
+    for (int i = 0; i < toPing.length; i += batchSize) {
+      if (_pingCancelled) {
+        Log.i('[ping] Cancelled after ${results.length}');
+        break;
+      }
+      final batch = toPing.skip(i).take(batchSize).toList();
+      final batchResults = await Future.wait(batch.map((p) => _pingProxy(p)));
+      results.addAll(batchResults);
+
+      state = state.copyWith(
+        proxies: state.proxies.map((p) {
+          final pinged = results.where((r) => r.id == p.id).firstOrNull;
+          return pinged ?? p;
+        }).toList(),
+      );
     }
 
-    state = state.copyWith(proxies: results, isPinging: false);
+    state = state.copyWith(isPinging: false);
+    _pingCancelled = false;
     await _save();
 
     // Find the best (lowest latency alive proxy) for auto-connect
     final best = results
-        .where((p) => p.isAlive && p.latencyMs != null)
+        .where((p) => p.confirmedAlive && p.latencyMs != null)
         .fold<ProxyConfig?>(null, (b, p) =>
             b == null || p.latencyMs! < b.latencyMs! ? p : b);
 
     if (best != null) {
       state = state.copyWith(autoConnectProxyId: best.id);
       Log.i('Auto-connect: ${best.shortDescription} (${best.latencyMs}ms)');
-    } else {
+    } else if (!_pingCancelled) {
       state = state.copyWith(clearAutoConnectProxyId: true);
       Log.w('No alive proxies found');
     }
@@ -321,7 +369,14 @@ class ProxyManagerNotifier extends Notifier<ProxyManagerState> {
   // ─── Auto-Fetch ───────────────────────────────────────────────────────
 
   /// Fetch public proxies from known sources, add as isAutoFetch=true.
-  Future<void> fetchPublicProxies() async {
+  Future<ProxyFetchResult> fetchPublicProxies() async {
+    if (state.isFetching) {
+      return const ProxyFetchResult(
+        success: false, fetchedCount: 0, totalSources: 0, failedSources: 0, errorMessage: 'Fetch already in progress'
+      );
+    }
+    state = state.copyWith(isFetching: true);
+
     // [Bug #5 FIX] Added SoliSpirit/mtproto as primary source
     // (Telegram-specific MTProto proxies advertised in changelog).
     const sources = [
@@ -332,6 +387,7 @@ class ProxyManagerNotifier extends Notifier<ProxyManagerState> {
     ];
 
     final fetched = <ProxyConfig>[];
+    int failedSources = 0;
     for (final url in sources) {
       try {
         final client = HttpClient();
@@ -405,16 +461,21 @@ class ProxyManagerNotifier extends Notifier<ProxyManagerState> {
         }
       } catch (e) {
         Log.w('Failed to fetch from $url: $e');
+        failedSources++;
       }
     }
 
     // Remove old auto-fetched, keep manual ones
     final manual = state.proxies.where((p) => !p.isAutoFetch);
-    state = state.copyWith(proxies: [...manual, ...fetched]);
+    state = state.copyWith(proxies: [...manual, ...fetched], isFetching: false);
     await _save();
 
-    // Ping the new ones
-    await pingAllProxies();
+    return ProxyFetchResult(
+      success: true,
+      fetchedCount: fetched.length,
+      totalSources: sources.length,
+      failedSources: failedSources,
+    );
   }
 
   // [Bug #7 FIX] Disconnect active proxy if it's auto-fetched before clearing
