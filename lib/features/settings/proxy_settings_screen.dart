@@ -41,7 +41,7 @@ class _ProxySettingsScreenState extends ConsumerState<ProxySettingsScreen> {
     final result = await ref.read(proxyManagerProvider.notifier).fetchPublicProxies();
     if (messenger != null && mounted) {
       messenger.showSnackBar(SnackBar(
-        content: Text(result.summary),
+        content: Text(result.summary, style: TextStyle(color: result.success ? Colors.greenAccent : Colors.redAccent, fontSize: 12)),
         duration: Duration(seconds: result.success ? 3 : 6),
         behavior: SnackBarBehavior.floating,
         action: result.success ? null : SnackBarAction(label: 'Retry', onPressed: _fetchPublic),

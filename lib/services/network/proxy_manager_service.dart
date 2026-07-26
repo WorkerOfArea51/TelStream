@@ -16,14 +16,29 @@ class ProxyFetchResult {
   final int totalSources;
   final int failedSources;
   final String? errorMessage;
-  const ProxyFetchResult({required this.success, required this.fetchedCount,
-    required this.totalSources, required this.failedSources, this.errorMessage});
+  const ProxyFetchResult({
+    required this.success,
+    required this.fetchedCount,
+    required this.totalSources,
+    required this.failedSources,
+    this.errorMessage,
+  });
+
   String get summary {
-    if (success) {
-      if (failedSources > 0) return 'Fetched $fetchedCount proxies from ${totalSources - failedSources}/$totalSources sources ($failedSources failed)';
-      return 'Fetched $fetchedCount proxies from $totalSources source(s)';
+    if (!success) {
+      return 'Failed: ${errorMessage ?? "unknown error"}';
     }
-    return 'Failed: ${errorMessage ?? "unknown error"}';
+    if (fetchedCount == 0) {
+      // All sources responded but yielded zero parseable proxies.
+      final failed = failedSources > 0
+          ? ' ($failedSources source(s) errored)'
+          : '';
+      return 'No proxies found — sources may be offline or format changed$failed';
+    }
+    if (failedSources > 0) {
+      return 'Fetched $fetchedCount proxies from ${totalSources - failedSources}/$totalSources sources ($failedSources failed)';
+    }
+    return 'Fetched $fetchedCount proxies from $totalSources source(s)';
   }
 }
 
@@ -390,91 +405,60 @@ class ProxyManagerNotifier extends Notifier<ProxyManagerState> {
   Future<ProxyFetchResult> fetchPublicProxies() async {
     if (state.isFetching) {
       return const ProxyFetchResult(
-        success: false, fetchedCount: 0, totalSources: 0, failedSources: 0, errorMessage: 'Fetch already in progress'
+        success: false,
+        fetchedCount: 0,
+        totalSources: 0,
+        failedSources: 0,
+        errorMessage: 'Fetch already in progress',
       );
     }
     state = state.copyWith(isFetching: true);
 
-    // [Bug #5 FIX] Added SoliSpirit/mtproto as primary source
-    // (Telegram-specific MTProto proxies advertised in changelog).
-    const sources = [
-      // Telegram-specific MTProto proxies
+    // [Bug #5 FIX] SoliSpirit MTProto + a verified-working SOCKS5 source.
+    // NOTE: The previous free-proxy-list URL did not exist; using TheSpeedX
+    // which is the de-facto canonical SOCKS5/HTTP list repo (txt format).
+    const sources = <String>{
       'https://raw.githubusercontent.com/SoliSpirit/mtproto/main/list',
-      // Generic SOCKS5 proxies
-      'https://raw.githubusercontent.com/free-proxy-list/free-proxy-list/main/proxies.json',
-    ];
+      'https://raw.githubusercontent.com/TheSpeedX/PROXY-List/main/socks5.txt',
+    }.toList();
 
     final fetched = <ProxyConfig>[];
     int failedSources = 0;
+
     for (final url in sources) {
       try {
         final client = HttpClient();
         final request = await client.getUrl(Uri.parse(url));
         final response = await request.close();
+
+        // [Fix #2] Surface non-2xx responses as real failures.
+        if (response.statusCode < 200 || response.statusCode >= 300) {
+          Log.w('Source $url returned HTTP ${response.statusCode}');
+          failedSources++;
+          client.close();
+          continue;
+        }
+
         final body = await response.transform(utf8.decoder).join();
         client.close();
 
-        final uri = Uri.parse(url);
-        // [Bug #5 FIX] Detect format: MTProto list is plain text (server:port:secret),
-        // generic proxy lists are JSON.
-        final isPlainText = uri.path.contains('list') || uri.path.contains('mtproto');
+        // [Fix #1] Format detection by file extension, not path substring.
+        // .json  → JSON array
+        // .txt   → plain text (host:port or host:port:secret)
+        // anything else → sniff by trying JSON first, fall back to plain text.
+        final isJson = url.endsWith('.json');
+        final isPlainText = url.endsWith('.txt') || url.endsWith('/list');
 
-        if (isPlainText) {
-          // Parse SoliSpirit plain text format: each line is host:port:secret
-          // The secret may contain colons (dd-prefix), so everything after
-          // the second colon is the secret.
-          final lines = body.split('\n');
-          for (final line in lines) {
-            final trimmed = line.trim();
-            if (trimmed.isEmpty || trimmed.startsWith('#')) continue;
-
-            final parts = trimmed.split(':');
-            if (parts.length < 3) continue;
-
-            final host = parts[0];
-            final port = int.tryParse(parts[1]);
-            if (port == null) continue;
-
-            // Everything after host:port is the secret (may contain colons)
-            final secret = parts.sublist(2).join(':');
-
-            fetched.add(ProxyConfig(
-              id: 'auto_${host}_$port',
-              host: host,
-              port: port,
-              type: ProxyType.mtproto,
-              secret: secret,
-              label: 'Public MTPROTO $host:$port',
-              isAutoFetch: true,
-              addedAt: DateTime.now(),
-            ));
-          }
+        if (isJson) {
+          _parseJsonProxyList(body, fetched);
+        } else if (isPlainText) {
+          _parsePlainTextProxyList(body, url, fetched);
         } else {
-          // Parse JSON format (free-proxy-list)
-          final jsonList = jsonDecode(body) as List;
-          for (final item in jsonList) {
-            final map = item as Map<String, dynamic>;
-            final host = map['ip'] as String? ?? map['host'] as String?;
-            final port = map['port'] as int?;
-            if (host == null || port == null) continue;
-
-            final typeStr = (map['type'] as String? ?? 'socks5').toLowerCase();
-            final type = typeStr == 'http' ? ProxyType.http
-                : typeStr == 'mtproto' ? ProxyType.mtproto
-                : ProxyType.socks5;
-
-            fetched.add(ProxyConfig(
-              id: 'auto_${host}_$port',
-              host: host,
-              port: port,
-              type: type,
-              username: map['username'] as String?,
-              password: map['password'] as String?,
-              secret: map['secret'] as String?,
-              label: 'Public ${type.name.toUpperCase()} $host:$port',
-              isAutoFetch: true,
-              addedAt: DateTime.now(),
-            ));
+          // Sniff: try JSON first, fall back to plain text on failure.
+          try {
+            _parseJsonProxyList(body, fetched);
+          } catch (_) {
+            _parsePlainTextProxyList(body, url, fetched);
           }
         }
       } catch (e) {
@@ -483,17 +467,101 @@ class ProxyManagerNotifier extends Notifier<ProxyManagerState> {
       }
     }
 
-    // Remove old auto-fetched, keep manual ones
+    // Remove old auto-fetched, keep manual ones.
     final manual = state.proxies.where((p) => !p.isAutoFetch);
-    state = state.copyWith(proxies: [...manual, ...fetched], isFetching: false);
+    state = state.copyWith(
+      proxies: [...manual, ...fetched],
+      isFetching: false,
+    );
     await _save();
 
     return ProxyFetchResult(
-      success: true,
+      // [Fix #3] success requires at least one proxy OR zero failures.
+      // 0 proxies + 0 failures = sources are stale, surface as not-success.
+      success: fetched.isNotEmpty || failedSources == 0,
       fetchedCount: fetched.length,
       totalSources: sources.length,
       failedSources: failedSources,
     );
+  }
+
+  /// Parse a JSON array of proxy objects. Throws on malformed JSON so the
+  /// caller can fall back to plain-text parsing.
+  void _parseJsonProxyList(String body, List<ProxyConfig> out) {
+    final jsonList = jsonDecode(body) as List;
+    for (final item in jsonList) {
+      final map = item as Map<String, dynamic>;
+      final host = map['ip'] as String? ?? map['host'] as String?;
+      final port = map['port'] as int?;
+      if (host == null || port == null) continue;
+
+      final typeStr = (map['type'] as String? ?? 'socks5').toLowerCase();
+      final type = typeStr == 'http'
+          ? ProxyType.http
+          : typeStr == 'mtproto'
+              ? ProxyType.mtproto
+              : ProxyType.socks5;
+
+      out.add(ProxyConfig(
+        id: 'auto_${host}_$port',
+        host: host,
+        port: port,
+        type: type,
+        username: map['username'] as String?,
+        password: map['password'] as String?,
+        secret: map['secret'] as String?,
+        label: 'Public ${type.name.toUpperCase()} $host:$port',
+        isAutoFetch: true,
+        addedAt: DateTime.now(),
+      ));
+    }
+  }
+
+  /// Parse plain-text proxy lists. Two line formats are supported:
+  ///   host:port            → SOCKS5 (or MTProto if URL contains 'mtproto')
+  ///   host:port:secret     → MTProto (secret may contain colons)
+  void _parsePlainTextProxyList(String body, String sourceUrl, List<ProxyConfig> out) {
+    final isMtprotoSource = sourceUrl.contains('mtproto');
+    final lines = body.split('\n');
+
+    for (final line in lines) {
+      final trimmed = line.trim();
+      if (trimmed.isEmpty || trimmed.startsWith('#')) continue;
+
+      final parts = trimmed.split(':');
+      if (parts.length < 2) continue;
+
+      final host = parts[0];
+      final port = int.tryParse(parts[1]);
+      if (port == null) continue;
+
+      // Three-part line (host:port:secret) is always MTProto regardless of source.
+      if (parts.length >= 3) {
+        final secret = parts.sublist(2).join(':');
+        out.add(ProxyConfig(
+          id: 'auto_${host}_$port',
+          host: host,
+          port: port,
+          type: ProxyType.mtproto,
+          secret: secret,
+          label: 'Public MTPROTO $host:$port',
+          isAutoFetch: true,
+          addedAt: DateTime.now(),
+        ));
+      } else {
+        // Two-part line (host:port): type inferred from source.
+        final type = isMtprotoSource ? ProxyType.mtproto : ProxyType.socks5;
+        out.add(ProxyConfig(
+          id: 'auto_${host}_$port',
+          host: host,
+          port: port,
+          type: type,
+          label: 'Public ${type.name.toUpperCase()} $host:$port',
+          isAutoFetch: true,
+          addedAt: DateTime.now(),
+        ));
+      }
+    }
   }
 
   // [Bug #7 FIX] Disconnect active proxy if it's auto-fetched before clearing
