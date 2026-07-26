@@ -17,16 +17,11 @@ class _ProxySettingsScreenState extends ConsumerState<ProxySettingsScreen> {
   /// a quick ping (top 50). Defaults to false for speed.
   bool _fullScan = false;
 
-  /// Track how many proxies have been pinged so far for progress display.
-  int _pingedCount = 0;
-
   Future<void> _pingAll() async {
-    _pingedCount = 0;
     // Quick ping = top 50 proxies, Full scan = all
-    final result = await ref.read(proxyManagerProvider.notifier).pingAllProxies(
+    await ref.read(proxyManagerProvider.notifier).pingAllProxies(
       maxCount: _fullScan ? null : 50,
     );
-    _pingedCount = result.length;
   }
 
   /// Cancel the current ping operation.

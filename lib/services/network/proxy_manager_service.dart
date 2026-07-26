@@ -337,7 +337,7 @@ class ProxyManagerNotifier extends Notifier<ProxyManagerState> {
       proxies: state.proxies.map((p) => p.id == proxyId ? result : p).toList(),
     );
 
-    if (!result.isAlive) {
+    if (!result.confirmedAlive) {
       state = state.copyWith(status: ConnectionStatus.failed);
       return;
     }
