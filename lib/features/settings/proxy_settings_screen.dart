@@ -166,10 +166,10 @@ class _ProxySettingsScreenState extends ConsumerState<ProxySettingsScreen> {
                   port: port,
                   type: selectedType,
                   username: usernameController.text.trim(),
-                  password: passwordController.text.trim(),
+                  password: selectedType == ProxyType.mtproto
+                      ? null : passwordController.text.trim(),  // ← FIXED
                   secret: selectedType == ProxyType.mtproto
-                      ? secretController.text.trim()
-                      : null,
+                      ? secretController.text.trim() : null,    // ← FIXED
                   label: labelController.text.trim(),
                   addedAt: DateTime.now(),
                 );
@@ -212,15 +212,24 @@ class _ProxySettingsScreenState extends ConsumerState<ProxySettingsScreen> {
 
   Color _statusColor(ConnectionStatus status) {
     switch (status) {
-      case ConnectionStatus.connected:
-        return Colors.green;
-      case ConnectionStatus.connecting:
-        return Colors.orange;
-      case ConnectionStatus.failed:
-        return Colors.red;
-      case ConnectionStatus.disconnected:
-        return Colors.grey;
+      case ConnectionStatus.connected: return Colors.green;
+      case ConnectionStatus.connecting: return Colors.orange;
+      case ConnectionStatus.failed: return Colors.red;
+      case ConnectionStatus.disconnected: return Colors.grey;
     }
+  }
+
+  // ─── Three-state icon for proxy alive status ──────────────────────
+  IconData _proxyIcon(ProxyConfig proxy) {
+    if (proxy.isAlive == true) return Icons.check_circle;
+    if (proxy.isAlive == false) return Icons.cancel;
+    return Icons.help_outline;   // untested = grey question mark
+  }
+
+  Color _proxyIconColor(ProxyConfig proxy) {
+    if (proxy.isAlive == true) return Colors.green;
+    if (proxy.isAlive == false) return Colors.red;
+    return Colors.grey;          // untested
   }
 
   @override
@@ -482,11 +491,7 @@ class _ProxySettingsScreenState extends ConsumerState<ProxySettingsScreen> {
                 ),
               ),
               child: ListTile(
-                leading: Icon(
-                  proxy.isAlive == true ? Icons.check_circle : proxy.isAlive == false ? Icons.cancel : Icons.help_outline,
-                  color: proxy.isAlive == true ? Colors.green : proxy.isAlive == false ? Colors.red : Colors.grey,
-                  size: 24,
-                ),
+                leading: Icon(_proxyIcon(proxy), color: _proxyIconColor(proxy), size: 24),
                 title: Row(
                   children: [
                     Expanded(
