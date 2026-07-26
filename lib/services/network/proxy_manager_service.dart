@@ -172,6 +172,7 @@ class ProxyManagerNotifier extends Notifier<ProxyManagerState> {
 
   Future<void> removeProxy(String proxyId) async {
     final wasActive = state.activeProxyId == proxyId;
+    final oldTdlibProxyId = state.tdlibProxyId;
     state = state.copyWith(
       proxies: state.proxies.where((p) => p.id != proxyId).toList(),
       clearActiveProxyId: wasActive,
@@ -181,7 +182,11 @@ class ProxyManagerNotifier extends Notifier<ProxyManagerState> {
     await _save();
     if (wasActive) {
       await _saveActiveProxyId('');
-      await _removeProxyFromTdlib();
+      if (oldTdlibProxyId != null) {
+        await _deleteProxyFromTdlib(oldTdlibProxyId);
+      } else {
+        await _disableProxyInTdlib();
+      }
     }
   }
 
@@ -339,13 +344,21 @@ class ProxyManagerNotifier extends Notifier<ProxyManagerState> {
     await _save();
     await _saveActiveProxyId(proxyId);
 
-    // [Bug #4 FIX] If we already have a cached TDLib proxy ID, use EnableProxy
-    // instead of AddProxy. This prevents duplicate proxy entries in TDLib.
-    if (state.tdlibProxyId != null) {
+    // [Bug #4 FIX + Identity verification]
+    // If we already have a cached TDLib proxy ID AND it's for the same proxy,
+    // use EnableProxy instead of AddProxy. This prevents duplicate proxy entries.
+    if (state.tdlibProxyId != null &&
+        state.activeProxy?.host == proxy.host &&
+        state.activeProxy?.port == proxy.port &&
+        state.activeProxy?.type == proxy.type) {
       await _enableExistingTdlibProxy(state.tdlibProxyId!);
       Log.i('Re-connected (EnableProxy): ${proxy.shortDescription} (${result.latencyMs}ms)');
     } else {
-      // First connection — AddProxy and cache the returned ID
+      // Different proxy — clean up the old entry if it exists
+      if (state.tdlibProxyId != null) {
+        await _deleteProxyFromTdlib(state.tdlibProxyId!);
+      }
+      // First connection or new proxy — AddProxy and cache the returned ID
       final tdlibId = await _applyProxyToTdlib(result);
       if (tdlibId != null) {
         state = state.copyWith(tdlibProxyId: tdlibId);
@@ -356,13 +369,18 @@ class ProxyManagerNotifier extends Notifier<ProxyManagerState> {
 
   /// Disconnect — go direct/no proxy.
   Future<void> disconnect() async {
+    if (state.tdlibProxyId != null) {
+      await _deleteProxyFromTdlib(state.tdlibProxyId!);
+    } else {
+      await _disableProxyInTdlib();
+    }
+    
     state = state.copyWith(
       clearActiveProxyId: true,
       clearTdlibProxyId: true,  // [Bug #4] Clear cached TDLib ID on disconnect
       status: ConnectionStatus.disconnected,
     );
     await _saveActiveProxyId('');
-    await _removeProxyFromTdlib();
     Log.i('Disconnected — using direct connection');
   }
 
@@ -536,9 +554,15 @@ class ProxyManagerNotifier extends Notifier<ProxyManagerState> {
     Log.i('Enabled existing TDLib proxy ID: $proxyId');
   }
 
-  Future<void> _removeProxyFromTdlib() async {
+  Future<void> _disableProxyInTdlib() async {
     final tdlibService = ref.read(tdlibServiceProvider);
     await tdlibService.sendAsync(const td.DisableProxy());
+  }
+
+  Future<void> _deleteProxyFromTdlib(int proxyId) async {
+    final tdlibService = ref.read(tdlibServiceProvider);
+    await tdlibService.sendAsync(td.RemoveProxy(proxyId: proxyId));
+    Log.i('Removed old TDLib proxy ID: $proxyId from registry');
   }
 
   // ─── Persistence ──────────────────────────────────────────────────────
