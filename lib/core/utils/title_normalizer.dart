@@ -17,6 +17,31 @@ class TitleNormalizer {
     caseSensitive: false,
   );
 
+  /// Comprehensive release-name token regex. Matches quality / codec / audio /
+  /// streaming-source / language / release-group tokens commonly found in
+  /// scene release filenames. Used to clean titles for grouping AND display.
+  static final releaseTokenRegex = RegExp(
+    r'\b(?:'
+    r'2160p|1080p|720p|480p|360p|1440p|4k|uhd|'
+    r'hdr10plus|hdr10|hdr|dolbyvision|dv|'
+    r'bluray|brrip|bdrip|dvdrip|webrip|web-dl|webdl|web|'
+    r'remastered|proper|repack|hybrid|imax|atmos|'
+    r'x264|x265|h264|h265|hevc|avc|av1|vp9|'
+    r'10bit|10-bit|8bit|8-bit|'
+    r'aac|ac3|ddp|ddpa|ddp5|ddpa5|opus|flac|mp3|'
+    r'5\.1|7\.1|2\.0|2ch|6ch|8ch|'
+    r'amzn|nf|netflix|disney|atvp|hmax|hulu|'
+    r'ds4k|sd4k|'
+    r'esub|esubs|sub|subs|'
+    r'\d+kbps|'
+    r'hindi|english|tamil|telugu|korean|japanese|chinese|spanish|french|german|'
+    r'dual|multi|'
+    r'repack|proper|extended|uncut|theatrical|'
+    r'~\w+' // release group prefix like ~Godfather
+    r')\b',
+    caseSensitive: false,
+  );
+
   static String normalizeSeriesName(String name, {bool isMovie = false}) {
     var normalized = name.trim();
 
@@ -52,16 +77,15 @@ class TitleNormalizer {
     // If it's a movie, we should strip quality tags out so they can group properly!
     if (isMovie) {
       // For movies, let's aggressively strip known quality tags anywhere in the string
-      normalized = normalized.replaceAll(RegExp(r'\b(1080p|720p|480p|2160p|4K|UHD|HDR|BluRay|BRRip|DVDRip|WEBRip|WEB-DL|x264|x265|HEVC|AVC|10bit|10-bit|AAC|AC3|DDP|DDPA|5\.1|7\.1|DS4K|ESub|Org)\b', caseSensitive: false), '');
+      normalized = normalized.replaceAll(releaseTokenRegex, ' ');
       
-      // Also match up to the year if present, ignoring everything after the year
-      final yearMatch = RegExp(r'^(.+?)(?:\b(19\d{2}|20\d{2})\b)').firstMatch(normalized);
+      // Capture everything up to (and including) the year, dropping any
+      // opening parenthesis that immediately precedes the year.
+      final yearMatch = RegExp(r'^\s*([^(]+?)\s*\(?\s*(19\d{2}|20\d{2})\b').firstMatch(normalized);
       if (yearMatch != null) {
-        String base = yearMatch.group(1)!.trim();
-        if (yearMatch.group(2) != null) {
-          base += ' ${yearMatch.group(2)}';
-        }
-        normalized = base;
+        final name = yearMatch.group(1)!.trim();
+        final year = yearMatch.group(2)!;
+        normalized = '$name $year';
       }
       
       // Remove all brackets just to be safe
@@ -166,6 +190,26 @@ class TitleNormalizer {
     }
 
     return fileName;
+  }
+
+  static String cleanDisplayTitle(String raw) {
+    var t = raw;
+    // Strip file extension.
+    t = t.replaceAll(RegExp(r'\.(mkv|mp4|avi|mov|webm|flv|wmv|ts|m4v|3gp)$', caseSensitive: false), '');
+    // Replace dots/underscores with spaces.
+    t = t.replaceAll(RegExp(r'[._]'), ' ');
+    // Remove square-bracketed content (release group, codec info, etc.).
+    t = t.replaceAll(RegExp(r'\[[^\]]*\]'), ' ');
+    // Remove parenthesized content UNLESS it's exactly a 4-digit year (e.g. preserve "(2026)").
+    t = t.replaceAll(RegExp(r'\((?!\d{4}\))[^)]*\)'), ' ');
+    // Strip all known release-name tokens.
+    t = t.replaceAll(releaseTokenRegex, ' ');
+    // Collapse multiple spaces.
+    t = t.replaceAll(RegExp(r'\s+'), ' ').trim();
+    // Strip leading/trailing punctuation.
+    t = t.replaceAll(RegExp(r'^[-—–:|,\s]+'), '');
+    t = t.replaceAll(RegExp(r'[-—–:|,\s]+$'), '');
+    return t;
   }
 
   static int? parseEpisodeNumber(td.Message ep) {

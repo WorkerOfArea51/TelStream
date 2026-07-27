@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.13.3] - 2026-07-27
+
+### Fixed
+- **Library Organization & Movie Grouping**: Overhauled the parsing engine to properly group multi-quality/multi-part movies under a single title instead of cluttering the library. Movies (videos without "S01E01" style naming) now aggregate correctly across different formats and qualities into a unified entry.
+- **Aggressive Display Title Cleaning**: Substantially expanded the title cleaning logic to strip scene release tokens (e.g. 1080p, x265, HEVC, BluRay, web-dl, dual-audio, language tags) so UI displays clean, descriptive names.
+- **Smart Year Detection**: Fixed a regex bug where titles containing years (e.g., "Batman 2022") were sometimes truncated incorrectly or left with stray parentheses.
+- **Isolated Video Display Name**: Standalone videos now display an ultra-clean version of their filename in the UI rather than an ugly raw filename with underscores and `.mkv` extensions.
+- **Episode Title Preservation**: When episode names include descriptive titles (e.g. "Episode 5 - Vegeta Attacks"), the UI now successfully extracts "Vegeta Attacks" rather than showing the fallback "Episode 5".
+- **Emoji Preservation**: Emojis intentionally included at the start of filenames by uploaders (e.g., 🎬, ✨) are now fully preserved and rendered cleanly in episode lists rather than breaking alignment.
+
 ## [2.13.1] - 2026-07-27
 
 ### Fixed

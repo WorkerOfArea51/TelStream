@@ -23,6 +23,7 @@ import 'home_controller.dart';
 import '../../core/utils/title_normalizer.dart';
 import '../../services/storage_service.dart';
 import '../../services/download_service.dart';
+import '../../core/widgets/aligned_name_text.dart';
 import '../../services/tdlib_service.dart';
 
 import '../../core/widgets/shimmer_card.dart';
@@ -1427,8 +1428,8 @@ class _EpisodeCardItemState extends ConsumerState<_EpisodeCardItem> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        epTitle,
+                      AlignedNameText(
+                        text: epTitle,
                         style: TextStyle(
                           color: Theme.of(context).colorScheme.onSurface,
                           fontWeight: FontWeight.bold,

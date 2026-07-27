@@ -162,6 +162,12 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
   String? _lastFetchError;
   String? get lastFetchError => _lastFetchError;
 
+  /// Bump this when the cache format or grouping logic changes in a way that
+  /// invalidates previously-cached catalogs. The cache file is namespaced by
+  /// this version, so old caches are simply ignored (and will be re-fetched
+  /// from TDLib's local DB on next launch).
+  static const int _catalogCacheVersion = 4;
+
   void _scheduleCatalogCacheWrite() {
     _cacheWriteDebounce?.cancel();
     _cacheWriteDebounce = Timer(const Duration(seconds: 5), () {
@@ -177,7 +183,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
       try {
         final directory = await getAppDirectory();
         for (final cat in Constants.categories) {
-          final cachePath = '${directory.path}/catalog_cache_${cat.channelId}.json';
+          final cachePath = '${directory.path}/catalog_cache_v${_catalogCacheVersion}_${cat.channelId}.json';
           final file = File(cachePath);
           try {
             if (await file.exists()) {
@@ -448,7 +454,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
     // 1. Try loading catalog cache FIRST (instant return, no network or stagger delay)
     try {
       final directory = await getAppDirectory();
-      final cachePath = '${directory.path}/catalog_cache_${category.channelId}.json';
+      final cachePath = '${directory.path}/catalog_cache_v${_catalogCacheVersion}_${category.channelId}.json';
       final file = File(cachePath);
       if (await file.exists()) {
         final content = await file.readAsString();
@@ -626,7 +632,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
   Future<void> _saveCatalogCache() async {
     try {
       final directory = await getAppDirectory();
-      final cachePath = '${directory.path}/catalog_cache_${category.channelId}.json';
+      final cachePath = '${directory.path}/catalog_cache_v${_catalogCacheVersion}_${category.channelId}.json';
       final file = File(cachePath);
       
       final content = await Isolate.run(() {

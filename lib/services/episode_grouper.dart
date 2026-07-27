@@ -12,19 +12,41 @@ class EpisodeGrouper {
   );
 
   /// Extracts a descriptive episode title from the filename.
+  /// Tries to return just the text AFTER the episode-number marker
+  /// (e.g. for "Series - EP 05 - Vegeta Attacks", returns "Vegeta Attacks").
+  /// Preserves leading emojis (🎬📥✨ etc.) as part of the title.
   static String _buildEpisodeTitle(td.Message msg, int epNum) {
-    String rawTitle = TitleNormalizer.getMessageFileName(msg);
-    // Remove extension
-    String title = rawTitle.replaceAll(RegExp(r'\.[A-Za-z0-9]+$'), '');
-    
-    // Remove common quality/codec tags
-    title = title.replaceAll(RegExp(r'\b(1080p|720p|480p|2160p|4K|UHD|HDR|BluRay|BRRip|DVDRip|WEBRip|WEB-DL|x264|x265|HEVC|AVC|10bit|10-bit|AAC|AC3|DDP|DDPA|5\.1|7\.1|DS4K|ESub|Org)\b', caseSensitive: false), '');
-    
-    // Clean up empty brackets and trailing hyphens/spaces
-    title = title.replaceAll(RegExp(r'\[\s*\]|\(\s*\)'), '');
-    title = title.replaceAll(RegExp(r'[-—–_.\s]+$'), '');
-    
-    return title.trim().isNotEmpty ? title.trim() : 'Episode $epNum';
+    final rawTitle = TitleNormalizer.getMessageFileName(msg);
+    var title = TitleNormalizer.cleanDisplayTitle(rawTitle);
+
+    if (title.isEmpty) return 'Episode $epNum';
+
+    // Preserve leading emojis before extraction (they're part of the user's
+    // intended naming style — see the separate emoji-preservation fix).
+    final leadingEmojiMatch = RegExp(r'^(\p{Extended_Pictographic}(\p{Extended_Pictographic}|\s)*)', unicode: true).firstMatch(title);
+    final leadingEmoji = leadingEmojiMatch?.group(1) ?? '';
+    var workingTitle = leadingEmoji.isEmpty ? title : title.substring(leadingEmoji.length).trim();
+
+    // Try to extract the descriptive name that appears AFTER an episode-number marker.
+    final epMarkerRegex = RegExp(
+      r'(?:s\d{1,2}\s*[ex]\s*\d{1,3}|ep(?:isode)?\.?\s*\d{1,3}|e\d{1,3}|\b\d{1,3}\b)'
+      r'[\s\-—–_:|.]*'
+      r'(.+)$',
+      caseSensitive: false,
+    );
+    final epMarkerMatch = epMarkerRegex.firstMatch(workingTitle);
+    if (epMarkerMatch != null) {
+      final descriptive = epMarkerMatch.group(1)!.trim();
+      if (descriptive.isNotEmpty) {
+        return '$leadingEmoji$descriptive'.trim();
+      }
+    }
+
+    // No episode-number marker found, or descriptive part is empty.
+    // Return the cleaned full title with the leading emoji prepended.
+    return '$leadingEmoji$workingTitle'.trim().isNotEmpty
+        ? '$leadingEmoji$workingTitle'.trim()
+        : 'Episode $epNum';
   }
 
   static List<Episode> groupEpisodes(List<td.Message> messages) {
@@ -74,12 +96,9 @@ class EpisodeGrouper {
       final msgs = entry.value;
       final sources = msgs.map(_createSource).toList();
       
-      // Use the first message to build the title
-      String rawTitle = TitleNormalizer.getMessageFileName(msgs.first);
-      final cleanTitle = rawTitle
-          .replaceAll(RegExp(r'\.(mkv|mp4|avi|webm|mov|flv|wmv|ts|m4v|3gp)$', caseSensitive: false), '')
-          .replaceAll('_', ' ')
-          .trim();
+      // Clean the title aggressively — strip all release-name noise.
+      final rawTitle = TitleNormalizer.getMessageFileName(msgs.first);
+      final cleanTitle = TitleNormalizer.cleanDisplayTitle(rawTitle);
 
       results.add(Episode(
         title: cleanTitle.isNotEmpty ? cleanTitle : 'Video ${msgs.first.id}',

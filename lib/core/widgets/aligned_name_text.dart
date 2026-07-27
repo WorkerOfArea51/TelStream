@@ -19,7 +19,8 @@ class AlignedNameText extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final emojiRegex = RegExp(
-      r'^([🎬📽🎥📺🎞🎭🏁🔥⭐✨🍿]+)\s*(.*)$',
+      r'^(\p{Extended_Pictographic}(\p{Extended_Pictographic}|\s)*)\s*(.*)$',
+      unicode: true,
     );
     final match = emojiRegex.firstMatch(text);
 

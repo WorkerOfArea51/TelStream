@@ -1,5 +1,7 @@
 import 'package:tdlib/td_api.dart' as td;
 import '../models/anime_models.dart';
+import '../models/episode.dart';
+import '../models/video_source.dart';
 import '../core/utils/title_normalizer.dart';
 import 'episode_grouper.dart';
 
@@ -128,9 +130,18 @@ class SeriesParser {
       final epBaseName = TitleNormalizer.normalizeSeriesName(epTitle, isMovie: isMovie);
       final epKey = epBaseName.toLowerCase().replaceAll(RegExp(r'[^\p{L}\p{N}]', unicode: true), '');
 
-      // Try to find an existing series this orphan episode belongs to
+      // Try to find an existing series this orphan episode belongs to.
       String? matchedExistingKey;
-      if (!isMovie) {
+
+      // Pass 1: EXACT key match (preferred — works for both movies and series).
+      if (seriesMap.containsKey(epKey)) {
+        matchedExistingKey = epKey;
+      }
+
+      // Pass 2: prefix/substring match (only if no exact match).
+      // For series, this catches "Series S2" matching "Series".
+      // For movies, this catches slight naming variations.
+      if (matchedExistingKey == null) {
         for (final existingKey in seriesMap.keys) {
           final cleanExisting = existingKey.toLowerCase();
           final cleanEp = epKey.toLowerCase();
@@ -156,15 +167,15 @@ class SeriesParser {
       }
 
       if (matchedExistingKey != null) {
-        // Add this episode to the existing series' latest posterDetails
-        final targetPd = posterDetails.lastWhere(
-          (pd) => pd['matchedKey'] == matchedExistingKey,
-          orElse: () => <String, dynamic>{}, // Should not happen since seriesMap only has keys from posterDetails
-        );
-        if (targetPd.isNotEmpty) {
+        // Add this episode to the existing series' latest posterDetails entry
+        // (so it gets included in the next groupEpisodes call).
+        final matchingPds = posterDetails.where((pd) => pd['matchedKey'] == matchedExistingKey).toList();
+        if (matchingPds.isNotEmpty) {
+          // Pick the LATEST posterDetails entry for this series (most recent season).
+          final targetPd = matchingPds.last;
           (targetPd['episodesList'] as List<td.Message>).add(ep);
         } else {
-          // Fallback if somehow not found
+          // Fallback: create a standalone poster entry under the existing series key.
           final standalonePoster = {
             'message': ep,
             'fullTitle': epTitle,
@@ -222,6 +233,83 @@ class SeriesParser {
     }
   }
 
+  _mergeMovieSeasonsByTitle(seriesList, isMovie);
+
   return seriesList;
 }
+
+  static void _mergeMovieSeasonsByTitle(List<AnimeSeries> seriesList, bool isMovie) {
+    if (!isMovie) return; // Only merge for movies.
+
+    for (final series in seriesList) {
+      if (series.seasons.length <= 1) continue; // Nothing to merge.
+
+      // Collect ALL episodes across all seasons, preserving order.
+      final allEpisodes = <Episode>[];
+      final firstPosterMessage = series.seasons.first.posterMessage;
+      final firstFullTitle = series.seasons.first.fullTitle;
+
+      for (final season in series.seasons) {
+        allEpisodes.addAll(season.episodes);
+      }
+
+      // Group by cleaned title.
+      final groups = <String, List<Episode>>{};
+      final order = <String>[]; // Preserve first-seen order.
+      for (final ep in allEpisodes) {
+        final cleaned = _cleanMovieTitleForGrouping(ep.title);
+        if (!groups.containsKey(cleaned)) {
+          groups[cleaned] = <Episode>[];
+          order.add(cleaned);
+        }
+        groups[cleaned]!.add(ep);
+      }
+
+      // Merge each group into a single Episode.
+      final mergedEpisodes = <Episode>[];
+      for (final key in order) {
+        final group = groups[key]!;
+        if (group.length == 1) {
+          mergedEpisodes.add(group.first);
+          continue;
+        }
+
+        // Combine all sources, dedup by messageId, preserve order.
+        final seenIds = <int>{};
+        final combinedSources = <VideoSource>[];
+        for (final ep in group) {
+          for (final src in ep.sources) {
+            if (!seenIds.contains(src.messageId)) {
+              seenIds.add(src.messageId);
+              combinedSources.add(src);
+            }
+          }
+        }
+
+        // Use the title from the highest-quality source's original Episode
+        // (or just the first Episode's title, which we'll clean in R4-CRITICAL-4).
+        final title = TitleNormalizer.cleanDisplayTitle(group.first.title);
+
+        mergedEpisodes.add(Episode(
+          title: title,
+          sources: combinedSources,
+          isMetadataExtracted: group.any((e) => e.isMetadataExtracted),
+          episodeNumber: null, // Movies don't have episode numbers.
+        ));
+      }
+
+      // Replace the series' seasons with a single season containing merged episodes.
+      series.seasons.clear();
+      series.seasons.add(AnimeSeason(
+        fullTitle: firstFullTitle,
+        seasonName: 'Movie',
+        posterMessage: firstPosterMessage,
+        episodes: mergedEpisodes,
+      ));
+    }
+  }
+
+  static String _cleanMovieTitleForGrouping(String title) {
+    return TitleNormalizer.cleanDisplayTitle(title).toLowerCase();
+  }
 }
