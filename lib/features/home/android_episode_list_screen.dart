@@ -30,6 +30,7 @@ import 'package:visibility_detector/visibility_detector.dart';
 import '../../services/firebase_metadata_service.dart';
 import '../../core/constants.dart';
 import 'widgets/admin_override_dialog.dart';
+import 'widgets/quality_picker_sheet.dart';
 
 class AndroidEpisodeListScreen extends ConsumerStatefulWidget {
   final AnimeSeason season;
@@ -1091,22 +1092,42 @@ class _EpisodeCardItemState extends ConsumerState<_EpisodeCardItem> {
     if (task == null) {
       trailingWidget = IconButton(
         icon: Icon(Icons.download, color: settingsAccent, size: 22),
-        onPressed: () {
-          ref
-              .read(downloadControllerProvider.notifier)
-              .startDownload(
-                fileId!,
-                fileTitle,
-                messageId: epMsg.id,
-                chatId: epMsg.chatId,
-              );
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Starting download: $fileTitle'),
-              backgroundColor: theme.primaryColor,
-              duration: const Duration(seconds: 2),
-            ),
-          );
+        onPressed: () async {
+          if (widget.ep.sources.length > 1) {
+            final selected = await QualityPickerSheet.show(context, widget.ep, fileTitle);
+            if (selected == null) return;
+            
+            int? selectedFileId;
+            if (selected.message.content is td.MessageVideo) {
+              selectedFileId = (selected.message.content as td.MessageVideo).video.video.id;
+            } else if (selected.message.content is td.MessageDocument) {
+              selectedFileId = (selected.message.content as td.MessageDocument).document.document.id;
+            }
+            if (selectedFileId == null) return;
+            
+            ref.read(downloadControllerProvider.notifier).startDownload(
+              selectedFileId,
+              fileTitle,
+              messageId: selected.message.id,
+              chatId: selected.message.chatId,
+            );
+          } else {
+            ref.read(downloadControllerProvider.notifier).startDownload(
+              fileId!,
+              fileTitle,
+              messageId: epMsg.id,
+              chatId: epMsg.chatId,
+            );
+          }
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Starting download: $fileTitle'),
+                backgroundColor: theme.primaryColor,
+                duration: const Duration(seconds: 2),
+              ),
+            );
+          }
         },
       );
     } else if (!task.isCompleted) {
