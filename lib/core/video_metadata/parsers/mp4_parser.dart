@@ -24,12 +24,12 @@ class Mp4Parser {
           int size = view.getUint32(0);
           int headerSize = 8;
           if (size == 1) {
-            // 64-bit size â€” read next 8 bytes after the type.
+            // 64-bit size — read next 8 bytes after the type.
             if (boxStart + 16 > suffix.length) continue;  // truncated, try next match
             size = view.getUint64(8);
             headerSize = 16;
           } else if (size == 0) {
-            // Box extends to EOF â€” use what we have.
+            // Box extends to EOF — use what we have.
             size = suffix.length - boxStart;
           }
           
@@ -40,11 +40,11 @@ class Mp4Parser {
           // Parse the moov box content.
           final result = _parseMoov(moovData);
           if (result != null) return result;
-          // If _parseMoov returned null, the moov box was malformed â€” try next match.
+          // If _parseMoov returned null, the moov box was malformed — try next match.
         }
       }
     } catch (e) {
-      // Ignore â€” return null
+      // Ignore — return null
     }
     return null;
   }

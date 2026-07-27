@@ -1121,7 +1121,7 @@ class _EpisodeCardItemState extends ConsumerState<_EpisodeCardItem> {
       final m = duration.inMinutes.remainder(60).toString().padLeft(2, '0');
       final s = duration.inSeconds.remainder(60).toString().padLeft(2, '0');
       final durStr = h > 0 ? '$h:$m:$s' : '$m:$s';
-      metadata = '$durStr â€¢ $sizeMb MB';
+      metadata = '$durStr • $sizeMb MB';
     } else {
       metadata = '$sizeMb MB';
     }
@@ -1439,7 +1439,7 @@ class _EpisodeCardItemState extends ConsumerState<_EpisodeCardItem> {
                             const SizedBox(width: 4),
                           ],
                           Text(
-                            isDownloaded ? '$metadata â€¢ Downloaded' : metadata,
+                            isDownloaded ? '$metadata • Downloaded' : metadata,
                             style: TextStyle(
                               color: isDark ? Colors.white30 : Colors.black38,
                               fontSize: 10,

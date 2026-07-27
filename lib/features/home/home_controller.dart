@@ -534,7 +534,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
       iterations++;
       final localMessages = await _fetchMessages(fromId: currentFromId, onlyLocal: true);
       if (localMessages.isEmpty) {
-        // Local DB is empty (new channel) â€” try network fetch for initial data
+        // Local DB is empty (new channel) — try network fetch for initial data
         if (iterations == 1 && _rawMessages.isEmpty) {
           Log.i('Local DB empty for ${category.title}, fetching from network...');
           final networkMessages = await _fetchMessages(fromId: 0, onlyLocal: false);

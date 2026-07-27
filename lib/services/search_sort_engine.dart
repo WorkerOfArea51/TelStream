@@ -86,8 +86,8 @@ class SeasonSortKey implements Comparable<SeasonSortKey> {
     } else if (lowerForSeason.trim() == 'season s' || lowerForSeason.trim() == 's') {
       sNum = 2; // S suffix usually represents second season / sequel
       explicit = true;
-    } else if (RegExp(r'^(?:âˆš\s*a|root\s*a|root\s*alpha)$', caseSensitive: false).hasMatch(lowerForSeason)) {
-      sNum = 2; // Root A / âˆšA is the second season of Tokyo Ghoul
+    } else if (RegExp(r'^(?:√\s*a|root\s*a|root\s*alpha)$', caseSensitive: false).hasMatch(lowerForSeason)) {
+      sNum = 2; // Root A / √A is the second season of Tokyo Ghoul
       explicit = true;
     } else {
       // 1. Look for Roman numerals first

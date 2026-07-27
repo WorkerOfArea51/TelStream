@@ -337,7 +337,7 @@ class _VideoSettingsScreenState extends ConsumerState<VideoSettingsScreen> {
                   subtitle: Text(
                     storage.getOpenSubtitlesApiKey().isEmpty
                         ? 'Not configured (Search will be public/limited)'
-                        : 'â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢${storage.getOpenSubtitlesApiKey().length > 4 ? storage.getOpenSubtitlesApiKey().substring(storage.getOpenSubtitlesApiKey().length - 4) : ""}',
+                        : '••••••••${storage.getOpenSubtitlesApiKey().length > 4 ? storage.getOpenSubtitlesApiKey().substring(storage.getOpenSubtitlesApiKey().length - 4) : ""}',
                     style: TextStyle(color: isDark ? Colors.white54 : Colors.black54, fontSize: 12),
                   ),
                   trailing: const Icon(Icons.edit, size: 20),
@@ -360,7 +360,7 @@ class _VideoSettingsScreenState extends ConsumerState<VideoSettingsScreen> {
                   subtitle: Text(
                     storage.getSubdlApiKey().isEmpty
                         ? 'Not configured (Required for SubDL search)'
-                        : 'â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢${storage.getSubdlApiKey().length > 4 ? storage.getSubdlApiKey().substring(storage.getSubdlApiKey().length - 4) : ""}',
+                        : '••••••••${storage.getSubdlApiKey().length > 4 ? storage.getSubdlApiKey().substring(storage.getSubdlApiKey().length - 4) : ""}',
                     style: TextStyle(color: isDark ? Colors.white54 : Colors.black54, fontSize: 12),
                   ),
                   trailing: const Icon(Icons.edit, size: 20),

@@ -306,7 +306,7 @@ class PipController extends Notifier<PipVideoState?> {
     }
   }
 
-  /// Switches the current player's media to [newSource] in-place â€” no Navigator
+  /// Switches the current player's media to [newSource] in-place — no Navigator
   /// rebuild, no Player disposal. Preserves the current playback position by
   /// capturing it before the swap and seeking after the new media is loaded.
   /// 

@@ -89,7 +89,7 @@ class Constants {
   }
 
   static const String changelog = '''
-### âœ¨ What's New in v2.12.2
+### ✨ What's New in v2.12.2
 
 #### ðŸš€ New Features & Improvements
 * **Smart Proxy Manager**: Added Proxy Latency Manager with auto-reconnection and latency checking for optimal streaming.
