@@ -5,7 +5,10 @@ import '../core/utils/title_normalizer.dart';
 import '../core/utils/td_message_helpers.dart';
 
 class EpisodeGrouper {
-  static final _denylist = RegExp(r'\b(recap|pv|special|ova|ncop|nced)\b', caseSensitive: false);
+  static final _denylist = RegExp(
+    r'\b(recap|preview|special|ova|ona|pv|ncop|nced|op|ed|tva|bd|dvd|web[._-]?dl)\b',
+    caseSensitive: false,
+  );
 
   static List<Episode> groupEpisodes(List<td.Message> messages) {
     final Map<int, List<td.Message>> epMap = {};
@@ -51,16 +54,27 @@ class EpisodeGrouper {
         title: cleanTitle.isNotEmpty ? cleanTitle : 'Video ${msg.id}',
         sources: [source],
         isMetadataExtracted: false,
-        episodeNumber: TitleNormalizer.parseEpisodeNumber(msg),
+        // Isolated messages must NEVER carry an episode number — they're either
+        // unparseable OR denylisted. Tagging them with a number would sort them
+        // ahead of legitimate numbered episodes.
+        episodeNumber: null,
       ));
     }
 
     // Sort all results. Grouped episodes first (by number), then isolated ones (by message ID)
     results.sort((a, b) {
-      final numA = a.episodeNumber ?? 9999;
-      final numB = b.episodeNumber ?? 9999;
-      if (numA != numB) return numA.compareTo(numB);
-      
+      final numA = a.episodeNumber;
+      final numB = b.episodeNumber;
+      // Grouped episodes (with a number) always come before isolated ones.
+      if (numA != null && numB != null) {
+        final cmp = numA.compareTo(numB);
+        if (cmp != 0) return cmp;
+      } else if (numA != null && numB == null) {
+        return -1;
+      } else if (numA == null && numB != null) {
+        return 1;
+      }
+      // Tie-break by messageId (ascending = oldest first).
       final msgA = a.messageId ?? 0;
       final msgB = b.messageId ?? 0;
       return msgA.compareTo(msgB);

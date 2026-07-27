@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.13.0] - 2026-07-27
+
+### Added
+- **Multi-Quality Video Support**: Episodes grouped from multiple Telegram messages now display as a single episode with selectable qualities. Quality is detected from container metadata (MP4 moov/tkhd, MKV EBML), not from filenames — works even when the developer uploads as Telegram documents without quality tags in the filename.
+- **In-Player Quality Switching**: Switch quality without leaving the player. Playback position is preserved across switches via direct `player.open` + `player.seek`.
+- **Quality Picker Sheet**: Modal bottom sheet with Auto / explicit quality options, file size display, Refresh (cache clear + re-extract), Play and Download actions.
+- **Persistent Metadata Cache**: Quality metadata cached on disk via `flutter_secure_storage` with a 1-hour TTL for failed extractions, preventing redundant requests on messages that can't be parsed.
+- **Concurrency-Limited Extraction**: `Pool(3)` from `package:pool` limits concurrent metadata extraction requests with FLOOD_WAIT exponential backoff retry.
+- **Suffix Fetch for moov-at-end MP4s**: When the moov atom isn't in the first 2 MB (common for streaming-optimized MP4s), the extractor fetches the last 2 MB and scans for the moov signature.
+- **Episode Grouper Denylist**: Opening/ending themes, recaps, previews, specials, OVA/ONA, NCOP/NCED, BD/DVD/Web-DL rips are excluded from episode grouping.
+- **Settings**: New toggles for "Show Quality Badges in Library", "Enable In-Player Quality Switch", "Single Episode Download Quality", "Batch Download Quality (Series/Seasons)".
+
+### Fixed
+- **Round 1 Audit Fixes**: Removed forbidden `extractQuality` filename-based quality detection, replaced `json_serializable` with `fromFlatJson`/`toFlatJson`, removed `9999` sentinel, added denylist, added persistent cache, added concurrency limit.
+- **Round 2 Audit Fixes**: Added Auto option to QualityPickerSheet, position-preserving quality switch in player, batch download quality setting.
+- **Round 3 Audit Fixes**: Completed denylist (`ona|op|ed|tva|bd|dvd|web-dl`), removed final `9999` sentinel, stabilized episode key in `MetadataExtractionNotifier`, fixed suffix-fetch API call, debounced `VisibilityDetector` extraction, replaced fragile `VideoMetadataCache` null/unknown contract with explicit result type, shared `HttpClient` for range fetches, short-circuit on small files in suffix fetch, wait-for-ready before seek in quality switch, fixed `_downloadAllEpisodes` to use `batchDownloadQuality`, removed duplicate settings tile, added `prefetchEpisode` / `invalidate` / `invalidateAll` APIs.
+
 ## [2.12.1] - 2026-07-26
 
 ### Fixed

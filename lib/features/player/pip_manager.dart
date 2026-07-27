@@ -115,6 +115,19 @@ class ActivePlayerNotifier extends Notifier<Player?> {
 final activePlayerProvider = NotifierProvider<ActivePlayerNotifier, Player?>(ActivePlayerNotifier.new);
 
 class PipController extends Notifier<PipVideoState?> {
+  /// Waits up to 2 seconds for the player to report a non-zero duration
+  /// (i.e. the new media has been parsed by MPV). Falls back to a fixed
+  /// 100ms delay if the duration stream doesn't emit in time.
+  Future<void> _waitForPlayerReady(Player player) async {
+    final deadline = DateTime.now().add(const Duration(seconds: 2));
+    while (DateTime.now().isBefore(deadline)) {
+      if (player.state.duration.inMilliseconds > 0) return;
+      await Future.delayed(const Duration(milliseconds: 50));
+    }
+    // Timeout — best-effort seek.
+    await Future.delayed(const Duration(milliseconds: 100));
+  }
+
   bool isTransitioning = false;
   
   Player? get activePlayer => ref.read(activePlayerProvider);
@@ -293,7 +306,7 @@ class PipController extends Notifier<PipVideoState?> {
     }
   }
 
-  /// Switches the current player's media to [newSource] in-place — no Navigator
+  /// Switches the current player's media to [newSource] in-place â€” no Navigator
   /// rebuild, no Player disposal. Preserves the current playback position by
   /// capturing it before the swap and seeking after the new media is loaded.
   /// 
@@ -328,7 +341,7 @@ class PipController extends Notifier<PipVideoState?> {
     );
     
     // 3. Build the new proxy URL for the new source.
-    final proxy = ref.read(streamingProxyServiceProvider).requireValue;
+    final proxy = await ref.read(streamingProxyServiceProvider.future);
     final tdlib = ref.read(tdlibServiceProvider);
     final tdMsg = await tdlib.getMessage(newSource.chatId, newSource.messageId);
     if (tdMsg == null) return position;
@@ -347,9 +360,9 @@ class PipController extends Notifier<PipVideoState?> {
     //    loads the media without auto-playing, so we can seek first.
     await player.open(Media(newUrl, httpHeaders: proxy.getAuthHeaders()), play: false);
     
-    // 5. Seek to the captured position.
+    // 5. Wait for the new media to be loaded enough to seek, then seek.
     if (position > 0) {
-      await Future.delayed(const Duration(milliseconds: 100));
+      await _waitForPlayerReady(player);
       await player.seek(Duration(seconds: position));
     }
     

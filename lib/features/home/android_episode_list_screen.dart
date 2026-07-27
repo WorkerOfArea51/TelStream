@@ -168,7 +168,7 @@ class _AndroidEpisodeListScreenState extends ConsumerState<AndroidEpisodeListScr
 
   Future<void> _downloadAllEpisodes(AnimeSeason season) async {
     final settings = ref.read(videoSettingsProvider);
-    String qualityRule = settings.defaultDownloadQuality;
+    String qualityRule = settings.batchDownloadQuality;
 
     if (qualityRule == 'Ask Each Time') {
       final selectedRule = await showDialog<String>(
@@ -192,6 +192,28 @@ class _AndroidEpisodeListScreenState extends ConsumerState<AndroidEpisodeListScr
               child: const Padding(
                 padding: EdgeInsets.symmetric(vertical: 8.0),
                 child: Text('Lowest Quality'),
+              ),
+            ),
+            const Divider(height: 1),
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(context, '2160p'),
+              child: const Padding(
+                padding: EdgeInsets.symmetric(vertical: 8.0),
+                child: Text('Prefer 2160p (fallback: highest)'),
+              ),
+            ),
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(context, '1080p'),
+              child: const Padding(
+                padding: EdgeInsets.symmetric(vertical: 8.0),
+                child: Text('Prefer 1080p (fallback: highest)'),
+              ),
+            ),
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(context, '720p'),
+              child: const Padding(
+                padding: EdgeInsets.symmetric(vertical: 8.0),
+                child: Text('Prefer 720p (fallback: lowest)'),
               ),
             ),
           ],
@@ -219,9 +241,28 @@ class _AndroidEpisodeListScreenState extends ConsumerState<AndroidEpisodeListScr
           return b.fileSizeBytes.compareTo(a.fileSizeBytes);
         });
 
-      VideoSource targetSource = qualityRule == 'Lowest Quality' 
-          ? sortedSources.last 
-          : sortedSources.first;
+      VideoSource targetSource;
+      switch (qualityRule) {
+        case 'Lowest Quality':
+          targetSource = sortedSources.last;
+          break;
+        case '2160p':
+        case '1440p':
+        case '1080p':
+        case '720p':
+        case '480p':
+        case '360p':
+          final exact = sortedSources.firstWhere(
+            (s) => s.qualityLabel == qualityRule,
+            orElse: () => sortedSources.first, // fallback: highest
+          );
+          targetSource = exact;
+          break;
+        case 'Highest Quality':
+        default:
+          targetSource = sortedSources.first;
+          break;
+      }
 
       final msg = await tdlib.getMessage(targetSource.chatId, targetSource.messageId);
       if (msg == null) continue;
@@ -1012,6 +1053,7 @@ class _EpisodeCardItem extends ConsumerStatefulWidget {
 
 class _EpisodeCardItemState extends ConsumerState<_EpisodeCardItem> {
   bool _isTapped = false;
+  bool _metadataRequested = false;
   bool _isGlowing = false;
   Timer? _glowTimer;
 
@@ -1077,7 +1119,7 @@ class _EpisodeCardItemState extends ConsumerState<_EpisodeCardItem> {
       final m = duration.inMinutes.remainder(60).toString().padLeft(2, '0');
       final s = duration.inSeconds.remainder(60).toString().padLeft(2, '0');
       final durStr = h > 0 ? '$h:$m:$s' : '$m:$s';
-      metadata = '$durStr • $sizeMb MB';
+      metadata = '$durStr â€¢ $sizeMb MB';
     } else {
       metadata = '$sizeMb MB';
     }
@@ -1222,9 +1264,14 @@ class _EpisodeCardItemState extends ConsumerState<_EpisodeCardItem> {
       child: VisibilityDetector(
         key: Key('episode_${widget.ep.title}_$epMsgId'),
         onVisibilityChanged: (info) {
-          if (info.visibleFraction > 0) {
-            ref.read(metadataExtractionServiceProvider.notifier)
-               .extractMetadataForEpisode(widget.ep);
+          if (info.visibleFraction > 0 && !_metadataRequested) {
+            _metadataRequested = true;
+            // Defer to next frame so a fast scroll-past doesn't trigger work.
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (!mounted) return;
+              ref.read(metadataExtractionServiceProvider.notifier)
+                 .extractMetadataForEpisode(widget.ep);
+            });
           }
         },
         child: Consumer(
@@ -1389,7 +1436,7 @@ class _EpisodeCardItemState extends ConsumerState<_EpisodeCardItem> {
                             const SizedBox(width: 4),
                           ],
                           Text(
-                            isDownloaded ? '$metadata • Downloaded' : metadata,
+                            isDownloaded ? '$metadata â€¢ Downloaded' : metadata,
                             style: TextStyle(
                               color: isDark ? Colors.white30 : Colors.black38,
                               fontSize: 10,

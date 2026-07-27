@@ -1,3 +1,4 @@
+import '../../../services/metadata_extraction_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../models/episode.dart';
@@ -101,14 +102,22 @@ class _QualityPickerSheetState extends ConsumerState<QualityPickerSheet> {
               ),
               IconButton(
                 icon: const Icon(Icons.refresh, size: 20),
-                onPressed: () {
+                onPressed: () async {
                   for (final s in sources) {
-                    VideoMetadataCache.clearForMessage(s.messageId);
+                    await VideoMetadataCache.clearForMessage(s.messageId);
                   }
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Cache cleared. Pull to refresh episode list to re-extract.')),
-                  );
-                  Navigator.pop(context, QualityPickerResult(action: QualityPickerAction.cancel));
+                  // Fire re-extraction immediately — don't make the user scroll.
+                  ref.read(metadataExtractionServiceProvider.notifier)
+                      .extractMetadataForEpisode(widget.episode);
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Cache cleared. Re-extracting metadata...'),
+                        duration: Duration(seconds: 2),
+                      ),
+                    );
+                    Navigator.pop(context, QualityPickerResult(action: QualityPickerAction.cancel));
+                  }
                 },
                 tooltip: 'Clear Metadata Cache',
               ),
@@ -176,7 +185,7 @@ class _QualityPickerSheetState extends ConsumerState<QualityPickerSheet> {
                   onPressed: () {
                     Navigator.pop(context, QualityPickerResult(
                       action: QualityPickerAction.download,
-                      source: _isAuto ? sources.first : _selectedSource,
+                      source: _isAuto ? widget.episode.defaultSource : _selectedSource,
                     ));
                   },
                   icon: const Icon(Icons.download),
@@ -189,7 +198,7 @@ class _QualityPickerSheetState extends ConsumerState<QualityPickerSheet> {
                   onPressed: () {
                     Navigator.pop(context, QualityPickerResult(
                       action: QualityPickerAction.play,
-                      source: _isAuto ? sources.first : _selectedSource,
+                      source: _isAuto ? widget.episode.defaultSource : _selectedSource,
                     ));
                   },
                   icon: const Icon(Icons.play_arrow),

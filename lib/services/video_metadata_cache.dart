@@ -3,6 +3,26 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../core/logger.dart';
 import '../core/video_metadata/video_metadata.dart';
 
+
+/// Result type for [VideoMetadataCache.get]. Callers MUST pattern-match
+/// against this — never against the value being null/unknown.
+sealed class VideoMetadataCacheResult {
+  const VideoMetadataCacheResult();
+}
+
+class CachedMetadata extends VideoMetadataCacheResult {
+  final VideoMetadata metadata;
+  const CachedMetadata(this.metadata);
+}
+
+class CachedFailure extends VideoMetadataCacheResult {
+  const CachedFailure();
+}
+
+class CacheMiss extends VideoMetadataCacheResult {
+  const CacheMiss();
+}
+
 class VideoMetadataCache {
   static const String _keyPrefix = 'meta_cache_';
   static const _storage = FlutterSecureStorage();
@@ -10,34 +30,33 @@ class VideoMetadataCache {
 
   static String _getKey(int messageId) => '$_keyPrefix$messageId';
 
-  static Future<VideoMetadata?> get(int messageId) async {
+  static Future<VideoMetadataCacheResult> get(int messageId) async {
     try {
       final str = await _storage.read(key: _getKey(messageId));
-      if (str == null) return null;
+      if (str == null) return const CacheMiss();
 
       final Map<String, dynamic> data = jsonDecode(str);
-      
-      // Check for cached failure
+
       if (data['isFailure'] == true) {
         final timestamp = DateTime.fromMillisecondsSinceEpoch(data['timestamp'] as int);
         if (DateTime.now().difference(timestamp) < _failureTtl) {
-          // Still within failure TTL, return unknown
-          return VideoMetadata.unknown();
+          return const CachedFailure();
         } else {
-          // Failure expired, clear it and allow retry
           await _storage.delete(key: _getKey(messageId));
-          return null;
+          return const CacheMiss();
         }
       }
 
-      // Valid metadata
       if (data['metadata'] != null) {
-        return VideoMetadata.fromFlatJson(data['metadata'] as Map<String, dynamic>);
+        return CachedMetadata(
+          VideoMetadata.fromFlatJson(data['metadata'] as Map<String, dynamic>),
+        );
       }
+      return const CacheMiss();
     } catch (e, st) {
       Log.e('Failed to read VideoMetadataCache for $messageId', e, st);
+      return const CacheMiss();
     }
-    return null;
   }
 
   static Future<void> save(int messageId, VideoMetadata metadata) async {

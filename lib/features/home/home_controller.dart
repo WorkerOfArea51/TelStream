@@ -987,11 +987,19 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
                 episodeNumber: TitleNormalizer.parseEpisodeNumber(msg),
               ));
               s.seasons[i].episodes.sort((a, b) {
-                if (a.messageId == null || b.messageId == null) return 0;
-                final numA = a.episodeNumber ?? 9999;
-                final numB = b.episodeNumber ?? 9999;
-                if (numA != numB) return numA.compareTo(numB);
-                return a.messageId!.compareTo(b.messageId!);
+                final numA = a.episodeNumber;
+                final numB = b.episodeNumber;
+                if (numA != null && numB != null) {
+                  final cmp = numA.compareTo(numB);
+                  if (cmp != 0) return cmp;
+                } else if (numA != null && numB == null) {
+                  return -1;
+                } else if (numA == null && numB != null) {
+                  return 1;
+                }
+                final msgA = a.messageId ?? 0;
+                final msgB = b.messageId ?? 0;
+                return msgA.compareTo(msgB);
               });
               return true;
             }
@@ -1097,11 +1105,19 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
             }
             // Re-sort episodes in case the filename/caption changed
             season.episodes.sort((a, b) {
-              if (a.messageId == null || b.messageId == null) return 0;
-              final numA = a.episodeNumber ?? 9999;
-              final numB = b.episodeNumber ?? 9999;
-              if (numA != numB) return numA.compareTo(numB);
-              return a.messageId!.compareTo(b.messageId!);
+              final numA = a.episodeNumber;
+              final numB = b.episodeNumber;
+              if (numA != null && numB != null) {
+                final cmp = numA.compareTo(numB);
+                if (cmp != 0) return cmp;
+              } else if (numA != null && numB == null) {
+                return -1;
+              } else if (numA == null && numB != null) {
+                return 1;
+              }
+              final msgA = a.messageId ?? 0;
+              final msgB = b.messageId ?? 0;
+              return msgA.compareTo(msgB);
             });
             found = true;
           break;

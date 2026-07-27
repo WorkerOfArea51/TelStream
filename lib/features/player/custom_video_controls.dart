@@ -1923,7 +1923,9 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     final currentItem = (pipState != null && pipState.currentIndex >= 0 && pipState.currentIndex < pipState.queue.length)
         ? pipState.queue[pipState.currentIndex]
         : null;
-    final hasMultipleQualities = currentItem?.episode?.sources != null && currentItem!.episode!.sources.length > 1 && ref.read(videoSettingsProvider).showQualityBadges;
+    final hasMultipleQualities =
+        currentItem?.episode?.hasMultipleQualities == true &&
+        ref.read(videoSettingsProvider).showQualityBadges;
 
 
     return Shortcuts(

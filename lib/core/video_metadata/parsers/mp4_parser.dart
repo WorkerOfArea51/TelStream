@@ -24,12 +24,12 @@ class Mp4Parser {
           int size = view.getUint32(0);
           int headerSize = 8;
           if (size == 1) {
-            // 64-bit size — read next 8 bytes after the type.
+            // 64-bit size â€” read next 8 bytes after the type.
             if (boxStart + 16 > suffix.length) continue;  // truncated, try next match
             size = view.getUint64(8);
             headerSize = 16;
           } else if (size == 0) {
-            // Box extends to EOF — use what we have.
+            // Box extends to EOF â€” use what we have.
             size = suffix.length - boxStart;
           }
           
@@ -40,19 +40,19 @@ class Mp4Parser {
           // Parse the moov box content.
           final result = _parseMoov(moovData);
           if (result != null) return result;
-          // If _parseMoov returned null, the moov box was malformed — try next match.
+          // If _parseMoov returned null, the moov box was malformed â€” try next match.
         }
       }
     } catch (e) {
-      // Ignore — return null
+      // Ignore â€” return null
     }
     return null;
   }
 
   static Future<VideoMetadata?> parse(Uint8List data) async {
+    bool foundFtyp = false;
     try {
       int offset = 0;
-      bool foundFtyp = false;
       
       while (offset < data.length - 8) {
         final view = ByteData.view(data.buffer, data.offsetInBytes + offset);
@@ -81,18 +81,25 @@ class Mp4Parser {
           if (offset + size <= data.length) {
             offset += size;
           } else {
-            // moov is probably at the end of the file, outside our prefix
+            // The current box extends past our prefix buffer. If we've seen
+            // ftyp, the moov is almost certainly at the end of the file —
+            // signal that to the caller via the typed exception so they can
+            // fetch the suffix. Otherwise just return null (not an MP4).
             if (foundFtyp) {
               throw Exception('moov_not_found');
-            } else {
-              return null;
             }
+            return null;
           }
         }
       }
     } catch (e) {
       if (e.toString().contains('moov_not_found')) rethrow;
       // Ignore other errors parsing prefix
+    }
+    // If we walked every box in the prefix and saw ftyp but no moov, the moov
+    // is at the end of the file. Signal that to the caller.
+    if (foundFtyp) {
+      throw Exception('moov_not_found');
     }
     return null;
   }

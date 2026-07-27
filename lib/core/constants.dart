@@ -89,14 +89,14 @@ class Constants {
   }
 
   static const String changelog = '''
-### ✨ What's New in v2.12.2
+### âœ¨ What's New in v2.12.2
 
-#### 🚀 New Features & Improvements
+#### ðŸš€ New Features & Improvements
 * **Smart Proxy Manager**: Added Proxy Latency Manager with auto-reconnection and latency checking for optimal streaming.
 * **Auto-Fetch MTProto**: Fixed and improved auto-fetching of MTProto proxy lists.
 * **Proxy Localization**: Added full proxy settings translations across all 20 supported languages.
 
-#### 🔧 Bug Fixes
+#### ðŸ”§ Bug Fixes
 * **Channel Library Fix**: Fixed an issue where newly added public channels remained stuck on the "Your library is empty" screen. The app now properly joins the channel in the background to sync history reliably.
 * **UI Error Feedback**: Added clear error messages and a "Retry" button when channel fetching fails.
 * **Movie Channels**: Fixed parsing for single-episode movie channels.

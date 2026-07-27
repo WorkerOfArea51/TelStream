@@ -5,6 +5,21 @@ import '../streaming_proxy_service.dart';
 import '../../core/logger.dart';
 
 class TdlibRangeFetch {
+  static HttpClient? _sharedClient;
+  static HttpClient _client() {
+    _sharedClient ??= HttpClient()
+      ..connectionTimeout = const Duration(seconds: 10)
+      ..idleTimeout = const Duration(seconds: 30);
+    return _sharedClient!;
+  }
+
+  /// Closes the shared client. Call when the app is shutting down or when
+  /// the proxy URL changes (e.g. user changed proxy settings).
+  static void resetClient() {
+    _sharedClient?.close(force: true);
+    _sharedClient = null;
+  }
+
   static Future<Uint8List?> fetchPrefix(
     td.Message message,
     StreamingProxyService proxyService, {
@@ -40,8 +55,7 @@ class TdlibRangeFetch {
       final url = proxyService.getProxyUrl(tdFile.id);
       final headers = proxyService.getAuthHeaders();
       
-      client = HttpClient();
-      client.connectionTimeout = const Duration(seconds: 10);
+      client = _client();
       
       final request = await client.getUrl(Uri.parse(url));
       headers.forEach((key, value) {
@@ -68,7 +82,8 @@ class TdlibRangeFetch {
     } catch (e, st) {
       Log.e('Proxy range request failed for file ${tdFile.id}', e, st);
     } finally {
-      client?.close(force: true);
+      // Don't close the shared client — it's reused for the next call.
+      // Just close the request/response, which HttpClient handles automatically.
     }
 
     return null;
@@ -89,7 +104,11 @@ class TdlibRangeFetch {
     if (tdFile == null || tdFile.expectedSize <= 0) return null;
 
     final totalSize = tdFile.expectedSize;
-    final startByte = (totalSize - bytes) > 0 ? (totalSize - bytes) : 0;
+    // If the whole file fits in our fetch window, the prefix already contained
+    // everything — fetching the suffix would just repeat the same request.
+    if (totalSize <= bytes) return null;
+
+    final startByte = totalSize - bytes;
     
     // Check if fully downloaded locally
     if (tdFile.local.isDownloadingCompleted && tdFile.local.path.isNotEmpty) {
@@ -113,8 +132,7 @@ class TdlibRangeFetch {
       final url = proxyService.getProxyUrl(tdFile.id);
       final headers = proxyService.getAuthHeaders();
       
-      client = HttpClient();
-      client.connectionTimeout = const Duration(seconds: 10);
+      client = _client();
       
       final request = await client.getUrl(Uri.parse(url));
       headers.forEach((key, value) {
@@ -141,7 +159,8 @@ class TdlibRangeFetch {
     } catch (e, st) {
       Log.e('Proxy range suffix request failed for file ${tdFile.id}', e, st);
     } finally {
-      client?.close(force: true);
+      // Don't close the shared client — it's reused for the next call.
+      // Just close the request/response, which HttpClient handles automatically.
     }
 
     return null;

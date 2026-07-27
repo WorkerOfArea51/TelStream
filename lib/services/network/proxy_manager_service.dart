@@ -78,7 +78,14 @@ class ProxyManagerState {
   /// Proxies sorted by latency (alive first, lowest latency first).
   List<ProxyConfig> get sortedProxies {
     final alive = proxies.where((p) => p.isAlive).toList()
-      ..sort((a, b) => (a.latencyMs ?? 9999).compareTo(b.latencyMs ?? 9999));
+      ..sort((a, b) {
+        final latA = a.latencyMs;
+        final latB = b.latencyMs;
+        if (latA != null && latB != null) return latA.compareTo(latB);
+        if (latA != null && latB == null) return -1;
+        if (latA == null && latB != null) return 1;
+        return 0;
+      });
     final dead = proxies.where((p) => !p.isAlive).toList();
     return [...alive, ...dead];
   }
