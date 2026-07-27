@@ -3,7 +3,7 @@ import 'package:tdlib/td_api.dart' as td;
 import '../models/episode.dart';
 import '../models/video_source.dart';
 import 'network/tdlib_range_fetch.dart';
-import 'tdlib_service.dart';
+
 import 'streaming_proxy_service.dart';
 import '../core/video_metadata/video_metadata_extractor.dart';
 import '../core/logger.dart';
@@ -30,11 +30,9 @@ class MetadataExtractionNotifier extends Notifier<Map<int, Episode>> {
     // Skip if already extracting or extracted
     if (state[episodeId]?.isMetadataExtracted == true) return;
     
-    final tdlib = ref.read(tdlibServiceProvider);
     final proxy = await ref.read(streamingProxyServiceProvider.future);
 
     final updatedSources = <VideoSource>[];
-    bool changed = false;
 
     for (final source in episode.sources) {
       if (source.width == 0 || source.height == 0) {
@@ -57,7 +55,6 @@ class MetadataExtractionNotifier extends Notifier<Map<int, Episode>> {
                 width: meta.width,
                 height: meta.height,
               ));
-              changed = true;
               continue;
             }
           }

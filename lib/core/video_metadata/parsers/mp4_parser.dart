@@ -37,8 +37,8 @@ class Mp4Parser {
           }
         }
       }
-    } catch (e, st) {
-      print('MP4 Parser Error: $e\n$st');
+    } catch (e) {
+      // Ignore errors parsing prefix
     }
     return null;
   }
@@ -198,7 +198,6 @@ class Mp4Parser {
 
       if (type == 'hdlr') {
         if (size >= headerSize + 12) {
-          final v = ByteData.view(mdia.buffer, mdia.offsetInBytes + offset + headerSize);
           String handlerType = String.fromCharCodes(mdia.sublist(offset + headerSize + 8, offset + headerSize + 12));
           if (handlerType == 'vide') {
             isVideo = true;
@@ -284,11 +283,17 @@ class Mp4Parser {
           if (entryCount > 0 && size >= headerSize + 16) {
              // Read the first sample entry
              String sampleType = String.fromCharCodes(stbl.sublist(offset + headerSize + 12, offset + headerSize + 16));
-             if (sampleType == 'avc1') codecHint = 'h264';
-             else if (sampleType == 'hev1' || sampleType == 'hvc1') codecHint = 'hevc';
-             else if (sampleType == 'vp09') codecHint = 'vp9';
-             else if (sampleType == 'av01') codecHint = 'av1';
-             else codecHint = sampleType;
+            if (sampleType == 'avc1') {
+              codecHint = 'h264';
+            } else if (sampleType == 'hev1' || sampleType == 'hvc1') {
+              codecHint = 'hevc';
+            } else if (sampleType == 'vp09') {
+              codecHint = 'vp9';
+            } else if (sampleType == 'av01') {
+              codecHint = 'av1';
+            } else {
+              codecHint = sampleType;
+            }
           }
         }
       }

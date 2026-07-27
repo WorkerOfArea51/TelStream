@@ -58,7 +58,6 @@ class AnimeSeason {
       episodes: (json['episodes'] as List).map((e) {
         // Fallback for old cache format (where 'episodes' were flat td.Message jsons)
         if (e is Map<String, dynamic> && e.containsKey('@type') && (e['@type'] == 'message' || e['@type'] == 'messageVideo' || e['@type'] == 'messageDocument')) {
-          final msg = parseMessage(e);
           return Episode(title: 'Unknown', sources: [], isMetadataExtracted: false); // We'll handle proper migration in Phase 10
         }
         return Episode.fromJson(e as Map<String, dynamic>);
