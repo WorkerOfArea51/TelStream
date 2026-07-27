@@ -27,9 +27,9 @@ class MetadataExtractionNotifier extends Notifier<Map<int, Episode>> {
     Episode episode,
   ) async {
     final defaultSource = episode.defaultSource;
-    if (defaultSource == null || defaultSource.messageId == null) return;
+    if (defaultSource == null) return;
     
-    final episodeId = defaultSource.messageId!;
+    final episodeId = defaultSource.messageId;
     if (state[episodeId]?.isMetadataExtracted == true) return;
     
     final proxy = await ref.read(streamingProxyServiceProvider.future);

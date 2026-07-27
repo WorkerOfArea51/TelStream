@@ -920,7 +920,7 @@ class _AndroidEpisodeListScreenState extends ConsumerState<AndroidEpisodeListScr
                 onTap: () async {
                   final msgId = ep.defaultSource?.messageId;
                   if (msgId == null) return;
-                  int duration = ep.defaultSource?.metadata?.durationMillis != null ? (ep.defaultSource!.metadata!.durationMillis! ~/ 1000) : 0;
+                  int duration = (ep.defaultSource?.metadata?.durationMillis ?? 0) ~/ 1000;
                   if (duration <= 0) {
                     duration = storage.getVideoDuration(msgId);
                   }
@@ -1069,7 +1069,7 @@ class _EpisodeCardItemState extends ConsumerState<_EpisodeCardItem> {
     fileTitle = widget.ep.title;
     fileId = 1; // mock
     final durationMillis = widget.ep.defaultSource?.metadata?.durationMillis ?? 0;
-    final sizeMb = ((widget.ep.defaultSource?.fileSizeBytes ?? 0) / 1024 / 1024).toStringAsFixed(1);
+    final sizeMb = (widget.ep.defaultSource!.fileSizeBytes / 1024 / 1024).toStringAsFixed(1);
     
     if (durationMillis > 0) {
       final duration = Duration(milliseconds: durationMillis);
@@ -1082,44 +1082,14 @@ class _EpisodeCardItemState extends ConsumerState<_EpisodeCardItem> {
       metadata = '$sizeMb MB';
     }
 
-    if (fileId == null) {
-      return Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: Theme.of(context).cardColor,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: Theme.of(context).colorScheme.error.withValues(alpha: 0.3),
-          ),
-        ),
-        child: Row(
-          children: [
-            const Icon(Icons.error_outline, color: Colors.orangeAccent),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                'Episode ${widget.index + 1} — unsupported media type',
-                style: TextStyle(
-                  color: Theme.of(context).brightness == Brightness.dark
-                      ? Colors.white70
-                      : Colors.black54,
-                  fontSize: 13,
-                ),
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
+    // removed dead code
     // Clean up episode title: Remove potential numerical prefix (e.g., "01. ", "1 - ")
     final epTitle = fileTitle.replaceFirst(RegExp(r'^\d+\s*[\.\-]\s*'), '');
 
     final downloadTasks = ref.watch(downloadControllerProvider);
     DownloadTask? task;
     for (final t in downloadTasks.values) {
-      if (t.messageId == (epMsgId ?? 0) || t.fileId == fileId) {
+      if (t.messageId == epMsgId || t.fileId == fileId) {
         task = t;
         break;
       }
@@ -1139,8 +1109,7 @@ class _EpisodeCardItemState extends ConsumerState<_EpisodeCardItem> {
             if (selected == null) return;
             
             int selectedFileId = 0;
-            if (selectedFileId == null) return;
-            
+
             ref.read(downloadControllerProvider.notifier).startDownload(
               selectedFileId,
               fileTitle,
@@ -1151,7 +1120,7 @@ class _EpisodeCardItemState extends ConsumerState<_EpisodeCardItem> {
             ref.read(downloadControllerProvider.notifier).startDownload(
               fileId!,
               fileTitle,
-              messageId: (epMsgId ?? 0),
+              messageId: epMsgId,
               chatId: widget.ep.defaultSource?.chatId ?? 0,
             );
           }
@@ -1208,9 +1177,9 @@ class _EpisodeCardItemState extends ConsumerState<_EpisodeCardItem> {
     final isDownloaded =
         task != null && task.isCompleted && task.localPath != null;
     final storage = ref.read(storageServiceProvider);
-    final savedPos = storage.getWatchPosition((epMsgId ?? 0));
+    final savedPos = storage.getWatchPosition(epMsgId);
     int duration = 0;
-    duration = widget.ep.defaultSource?.metadata?.durationMillis != null ? (widget.ep.defaultSource!.metadata!.durationMillis! ~/ 1000) : storage.getVideoDuration((epMsgId ?? 0));
+    duration = ((widget.ep.defaultSource?.metadata?.durationMillis ?? 0) > 0) ? (widget.ep.defaultSource!.metadata!.durationMillis ~/ 1000) : storage.getVideoDuration(epMsgId);
     final double progressValue = (duration > 0)
         ? (savedPos / duration).clamp(0.0, 1.0)
         : 0.0;
@@ -1225,7 +1194,7 @@ class _EpisodeCardItemState extends ConsumerState<_EpisodeCardItem> {
             .read(pipControllerProvider.notifier)
             .playVideo(
               context,
-              messageId: (epMsgId ?? 0),
+              messageId: epMsgId,
               videoFileId: fileId!,
               videoTitle: '${widget.series.coreName} - $fileTitle',
               episodeList: widget.season.episodes,
@@ -1238,7 +1207,7 @@ class _EpisodeCardItemState extends ConsumerState<_EpisodeCardItem> {
         widget.onLongPress(context, widget.ep, widget.index, fileTitle);
       },
       child: VisibilityDetector(
-        key: Key('episode_${widget.ep.title}_${(epMsgId ?? 0)}'),
+        key: Key('episode_${widget.ep.title}_$epMsgId'),
         onVisibilityChanged: (info) {
           if (info.visibleFraction > 0) {
             ref.read(metadataExtractionServiceProvider.notifier)
@@ -1248,7 +1217,7 @@ class _EpisodeCardItemState extends ConsumerState<_EpisodeCardItem> {
         child: Consumer(
         builder: (context, ref, child) {
           final pipState = ref.watch(pipControllerProvider);
-          final isCurrentlyPlaying = (pipState != null && pipState.messageId == (epMsgId ?? 0));
+          final isCurrentlyPlaying = (pipState != null && pipState.messageId == epMsgId);
           final shouldGlow = _isGlowing || isCurrentlyPlaying;
 
           return AnimatedScale(

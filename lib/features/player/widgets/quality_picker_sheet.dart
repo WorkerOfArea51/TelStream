@@ -14,8 +14,6 @@ class QualityPickerSheet extends StatelessWidget {
     required this.onSourceSelected,
   });
 
-  @override
-  
   static Future<VideoSource?> showSheet(BuildContext context, Episode episode, String fileTitle, {VideoSource? currentSource}) {
     if (Theme.of(context).platform == TargetPlatform.windows || Theme.of(context).platform == TargetPlatform.linux || Theme.of(context).platform == TargetPlatform.macOS) {
       return showDialog<VideoSource>(
@@ -47,7 +45,7 @@ class QualityPickerSheet extends StatelessWidget {
       if (hA != hB) {
         return hB.compareTo(hA);
       }
-      return (b.fileSizeBytes ?? 0).compareTo(a.fileSizeBytes ?? 0);
+      return b.fileSizeBytes.compareTo(a.fileSizeBytes);
     });
 
     return Container(
@@ -74,8 +72,8 @@ class QualityPickerSheet extends StatelessWidget {
                 final isSelected = source.messageId == currentSource.messageId;
                 
                 String label = (source.metadata?.height ?? 0) > 0 ? '${source.metadata!.height}p' : source.qualityLabel;
-                if (source.fileSizeBytes != null && source.fileSizeBytes! > 0) {
-                  final sizeMb = source.fileSizeBytes! / (1024 * 1024);
+                if (source.fileSizeBytes > 0) {
+                  final sizeMb = source.fileSizeBytes / (1024 * 1024);
                   label += ' (${sizeMb.toStringAsFixed(1)} MB)';
                 }
 

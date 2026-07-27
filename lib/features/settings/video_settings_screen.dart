@@ -615,7 +615,7 @@ class _VideoSettingsScreenState extends ConsumerState<VideoSettingsScreen> {
                   title: Text('Enable In-Player Quality Switch', style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
                   subtitle: Text('Show quality options directly in player', style: TextStyle(color: isDark ? Colors.white54 : Colors.black54, fontSize: 12)),
                   value: settings.enableInPlayerQualitySwitch,
-                  activeColor: theme.colorScheme.primary,
+                  activeThumbColor: theme.colorScheme.primary,
                   onChanged: (bool value) {
                     notifier.updateSettings(settings.copyWith(enableInPlayerQualitySwitch: value));
                   },
@@ -625,7 +625,7 @@ class _VideoSettingsScreenState extends ConsumerState<VideoSettingsScreen> {
                   title: Text('Show Quality Badges in Library', style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
                   subtitle: Text('Display available resolutions on episodes', style: TextStyle(color: isDark ? Colors.white54 : Colors.black54, fontSize: 12)),
                   value: settings.showQualityBadges,
-                  activeColor: theme.colorScheme.primary,
+                  activeThumbColor: theme.colorScheme.primary,
                   onChanged: (bool value) {
                     notifier.updateSettings(settings.copyWith(showQualityBadges: value));
                   },
