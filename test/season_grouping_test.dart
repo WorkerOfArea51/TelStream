@@ -39,6 +39,10 @@ class FakeMessage implements td.Message {
   @override
   final int id;
   @override
+  final int chatId = 12345;
+  @override
+  final int date = 1600000000;
+  @override
   final td.MessageContent content;
 
   FakeMessage({required this.id, required this.content});

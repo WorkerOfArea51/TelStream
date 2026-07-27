@@ -5,6 +5,7 @@ class Mp4Parser {
   static Future<VideoMetadata?> parse(Uint8List data) async {
     try {
       int offset = 0;
+      bool foundFtyp = false;
       
       while (offset < data.length - 8) {
         final view = ByteData.view(data.buffer, data.offsetInBytes + offset);
@@ -22,6 +23,7 @@ class Mp4Parser {
         }
         
         if (offset + headerSize > data.length) return null;
+        if (type == 'ftyp') foundFtyp = true;
         
         if (type == 'moov') {
           // Parse moov box
@@ -33,7 +35,8 @@ class Mp4Parser {
             offset += size;
           } else {
             // moov is probably at the end of the file, outside our prefix
-            throw Exception('moov_not_found');
+            if (foundFtyp) throw Exception('moov_not_found');
+            else return null;
           }
         }
       }
@@ -46,6 +49,7 @@ class Mp4Parser {
 
   static VideoMetadata? _parseMoov(Uint8List moov) {
     int offset = 0;
+      bool foundFtyp = false;
     int? durationMillis;
     int? width;
     int? height;
@@ -115,6 +119,7 @@ class Mp4Parser {
 
   static Map<String, dynamic>? _parseTrak(Uint8List trak) {
     int offset = 0;
+      bool foundFtyp = false;
     int? width;
     int? height;
     bool isVideo = false;
@@ -178,6 +183,7 @@ class Mp4Parser {
 
   static Map<String, dynamic>? _parseMdia(Uint8List mdia) {
     int offset = 0;
+      bool foundFtyp = false;
     bool isVideo = false;
     String? codecHint;
 
@@ -223,6 +229,7 @@ class Mp4Parser {
   
   static Map<String, dynamic>? _parseMinf(Uint8List minf) {
     int offset = 0;
+      bool foundFtyp = false;
     String? codecHint;
 
     while (offset < minf.length - 8) {
@@ -259,6 +266,7 @@ class Mp4Parser {
   
   static Map<String, dynamic>? _parseStbl(Uint8List stbl) {
     int offset = 0;
+      bool foundFtyp = false;
     String? codecHint;
 
     while (offset < stbl.length - 8) {
