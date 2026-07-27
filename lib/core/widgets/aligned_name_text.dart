@@ -18,6 +18,7 @@ class AlignedNameText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // ignore: valid_regexps
     final emojiRegex = RegExp(
       r'^(\p{Extended_Pictographic}(\p{Extended_Pictographic}|\s)*)\s*(.*)$',
       unicode: true,
