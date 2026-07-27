@@ -22,11 +22,13 @@ import '../../services/streaming_proxy_service.dart';
 import '../../services/tracker_service.dart';
 import 'utils/player_filter_service.dart';
 
+import '../../models/episode.dart';
+
 class VideoPlayerScreen extends ConsumerStatefulWidget {
   final int messageId;
   final int videoFileId;
   final String videoTitle;
-  final List<td.Message>? episodeList;
+  final List<Episode>? episodeList;
   final int? currentEpisodeIndex;
   final String seriesName;
   final bool isPip;

@@ -1196,7 +1196,7 @@ class _EpisodeCardItemState extends ConsumerState<_EpisodeCardItem> {
               messageId: epMsg.id,
               videoFileId: fileId!,
               videoTitle: '${widget.series.coreName} - $fileTitle',
-              episodeList: widget.season.episodes.map((e) => e.message!).toList(),
+              episodeList: widget.season.episodes,
               currentEpisodeIndex: widget.index,
               seriesName: widget.series.coreName,
               networkUrl: isDownloaded ? task?.localPath : null,

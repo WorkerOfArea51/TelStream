@@ -6,6 +6,8 @@ import 'dart:ui';
 import 'package:telstream/features/player/widgets/subtitle_overlay.dart';
 import 'package:telstream/features/player/widgets/video_layer.dart';
 import 'package:flutter/material.dart';
+import '../home/widgets/quality_picker_sheet.dart';
+import 'pip_manager.dart';
 
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -1905,6 +1907,12 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
 
     final subtitleConfig = const SubtitleViewConfiguration(visible: false);
 
+    final pipState = ref.watch(pipControllerProvider);
+    final currentItem = (pipState != null && pipState.currentIndex >= 0 && pipState.currentIndex < pipState.queue.length)
+        ? pipState.queue[pipState.currentIndex]
+        : null;
+    final hasMultipleQualities = currentItem?.episode?.sources != null && currentItem!.episode!.sources.length > 1;
+
 
     return Shortcuts(
       shortcuts: {
@@ -2234,6 +2242,38 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                   });
                 },
                 settingsAccent: settingsAccent,
+                hasMultipleQualities: hasMultipleQualities,
+                onShowQualities: () async {
+                  if (currentItem == null || currentItem.episode == null) return;
+                  final selectedSource = await QualityPickerSheet.show(
+                    context,
+                    currentItem.episode!,
+                    widget.videoTitle,
+                  );
+                  
+                  if (selectedSource != null && mounted) {
+                    final newSourceMessageId = selectedSource.message.id;
+                    if (newSourceMessageId == currentItem.messageId) return; // Same quality
+                    
+                    // Transfer current position to the new quality
+                    final position = widget.player.state.position.inSeconds;
+                    if (position > 0) {
+                      final storage = ref.read(storageServiceProvider);
+                      storage.saveWatchPosition(currentItem.messageId, position);
+                      storage.saveWatchPosition(newSourceMessageId, position);
+                      
+                      final duration = widget.player.state.duration.inSeconds;
+                      if (duration > 0) {
+                        storage.saveVideoDuration(newSourceMessageId, duration);
+                      }
+                    }
+                    
+                    // Tell PipManager to switch quality (updates queue and pushReplacement)
+                    if (context.mounted) {
+                      ref.read(pipControllerProvider.notifier).switchQuality(context, selectedSource);
+                    }
+                  }
+                },
               ),
             ),
 

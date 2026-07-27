@@ -436,7 +436,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                                                         messageId: msgId,
                                                         videoFileId: fileId,
                                                         videoTitle: '$seriesName - ${epFileName.isNotEmpty ? epFileName : episodeTitle}',
-                                                        episodeList: targetSeason.episodes.map((e) => e.message).whereType<td.Message>().toList(),
+                                                        episodeList: targetSeason.episodes,
                                                         currentEpisodeIndex: epIdx,
                                                         seriesName: seriesName,
                                                       );

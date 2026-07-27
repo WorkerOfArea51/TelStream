@@ -14,6 +14,8 @@ class PlayerHeaderBar extends StatelessWidget {
   final VoidCallback onShowQueue;
   final VoidCallback onShowMoreOptions;
   final Color settingsAccent;
+  final bool hasMultipleQualities;
+  final VoidCallback onShowQualities;
 
   const PlayerHeaderBar({
     super.key,
@@ -28,6 +30,8 @@ class PlayerHeaderBar extends StatelessWidget {
     required this.onShowQueue,
     required this.onShowMoreOptions,
     required this.settingsAccent,
+    this.hasMultipleQualities = false,
+    required this.onShowQualities,
   });
 
   @override
@@ -100,6 +104,22 @@ class PlayerHeaderBar extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 16),
+
+                // Quality Settings Button
+                if (hasMultipleQualities) ...[
+                  Material3ExpressiveContainer(
+                    shape: ExpressiveShape.squircle,
+                    size: 38,
+                    onTap: onShowQualities,
+                    inactiveColor: Colors.white.withValues(alpha: 0.12),
+                    child: const Icon(
+                      Icons.settings_outlined,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                ],
 
                 // Music Audio Tracks Button
                 Material3ExpressiveContainer(

@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tdlib/td_api.dart' as td;
 import 'package:media_kit/media_kit.dart';
 import 'video_player_screen.dart';
+import '../../models/episode.dart';
+import '../../models/video_source.dart';
 
 class PlayQueueItem {
   final int messageId;
@@ -12,6 +14,8 @@ class PlayQueueItem {
   final String seriesName;
   final String? networkUrl;
   final td.Message? message;
+  final Episode? episode;
+  final int selectedSourceIndex;
 
   PlayQueueItem({
     required this.messageId,
@@ -20,6 +24,8 @@ class PlayQueueItem {
     required this.seriesName,
     this.networkUrl,
     this.message,
+    this.episode,
+    this.selectedSourceIndex = 0,
   });
 
   PlayQueueItem copyWith({
@@ -29,6 +35,8 @@ class PlayQueueItem {
     String? seriesName,
     String? networkUrl,
     td.Message? message,
+    Episode? episode,
+    int? selectedSourceIndex,
   }) {
     return PlayQueueItem(
       messageId: messageId ?? this.messageId,
@@ -37,6 +45,8 @@ class PlayQueueItem {
       seriesName: seriesName ?? this.seriesName,
       networkUrl: networkUrl ?? this.networkUrl,
       message: message ?? this.message,
+      episode: episode ?? this.episode,
+      selectedSourceIndex: selectedSourceIndex ?? this.selectedSourceIndex,
     );
   }
 }
@@ -45,7 +55,7 @@ class PipVideoState {
   final int messageId;
   final int videoFileId;
   final String videoTitle;
-  final List<td.Message>? episodeList;
+  final List<Episode>? episodeList;
   final int? currentEpisodeIndex;
   final String seriesName;
   final bool isPip;
@@ -70,7 +80,7 @@ class PipVideoState {
     int? messageId,
     int? videoFileId,
     String? videoTitle,
-    List<td.Message>? episodeList,
+    List<Episode>? episodeList,
     int? currentEpisodeIndex,
     String? seriesName,
     bool? isPip,
@@ -138,7 +148,7 @@ class PipController extends Notifier<PipVideoState?> {
     required int messageId,
     required int videoFileId,
     String videoTitle = '',
-    List<td.Message>? episodeList,
+    List<Episode>? episodeList,
     int? currentEpisodeIndex,
     String seriesName = '',
     String? networkUrl,
@@ -164,22 +174,24 @@ class PipController extends Notifier<PipVideoState?> {
         int? fileId;
         String title = 'Episode ${i + 1}';
         
-        if (msg.content is td.MessageVideo) {
-          final v = msg.content as td.MessageVideo;
+        if (msg.message != null && msg.message!.content is td.MessageVideo) {
+          final v = msg.message!.content as td.MessageVideo;
           fileId = v.video.video.id;
           title = v.video.fileName;
-        } else if (msg.content is td.MessageDocument) {
-          final d = msg.content as td.MessageDocument;
+        } else if (msg.message != null && msg.message!.content is td.MessageDocument) {
+          final d = msg.message!.content as td.MessageDocument;
           fileId = d.document.document.id;
           title = d.document.fileName;
         }
 
         initialQueue.add(PlayQueueItem(
-          messageId: msg.id,
+          messageId: msg.message?.id ?? 0,
           videoFileId: fileId ?? 0,
           videoTitle: '$seriesName - $title',
           seriesName: seriesName,
-          message: msg,
+          message: msg.message,
+          episode: msg,
+          selectedSourceIndex: 0,
         ));
       }
       initialIndex = currentEpisodeIndex;
@@ -260,8 +272,8 @@ class PipController extends Notifier<PipVideoState?> {
 
     // Reconstruct episodeList parameter for compatibility
     final reconstructedEpisodes = currentState.queue
-        .map((e) => e.message)
-        .whereType<td.Message>()
+        .map((e) => e.episode)
+        .whereType<Episode>()
         .toList();
 
     final route = MaterialPageRoute(
@@ -290,6 +302,36 @@ class PipController extends Notifier<PipVideoState?> {
         isTransitioning = false;
       });
     }
+  }
+
+  void switchQuality(BuildContext context, VideoSource selectedSource) {
+    final currentState = state;
+    if (currentState == null) return;
+    
+    final currentItem = currentState.queue[currentState.currentIndex];
+    final selectedIndex = currentItem.episode?.sources.indexOf(selectedSource) ?? 0;
+    
+    int newFileId = 0;
+    if (selectedSource.message.content is td.MessageVideo) {
+      newFileId = (selectedSource.message.content as td.MessageVideo).video.video.id;
+    } else if (selectedSource.message.content is td.MessageDocument) {
+      newFileId = (selectedSource.message.content as td.MessageDocument).document.document.id;
+    }
+
+    final updatedItem = currentItem.copyWith(
+      messageId: selectedSource.message.id,
+      videoFileId: newFileId,
+      message: selectedSource.message,
+      selectedSourceIndex: selectedIndex,
+    );
+    
+    final newQueue = List<PlayQueueItem>.from(currentState.queue);
+    newQueue[currentState.currentIndex] = updatedItem;
+    
+    state = currentState.copyWith(queue: newQueue);
+    
+    // Reload player with the new quality
+    playQueueIndex(context, currentState.currentIndex);
   }
 
   void addToQueue(PlayQueueItem item) {
