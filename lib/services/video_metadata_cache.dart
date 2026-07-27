@@ -64,6 +64,15 @@ class VideoMetadataCache {
     }
   }
 
+  
+  static Future<void> clearForMessage(int messageId) async {
+    try {
+      await _storage.delete(key: _getKey(messageId));
+    } catch (e, st) {
+      Log.e('Failed to clear VideoMetadataCache for $messageId', e, st);
+    }
+  }
+
   static Future<void> clearAll() async {
     try {
       final all = await _storage.readAll();

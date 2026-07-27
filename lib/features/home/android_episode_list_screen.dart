@@ -1104,30 +1104,43 @@ class _EpisodeCardItemState extends ConsumerState<_EpisodeCardItem> {
       trailingWidget = IconButton(
         icon: Icon(Icons.download, color: settingsAccent, size: 22),
         onPressed: () async {
-          if (widget.ep.sources.length > 1) {
-            final selected = await QualityPickerSheet.showSheet(context, widget.ep, fileTitle);
-            if (selected == null) return;
-            
-            int selectedFileId = 0;
+          VideoSource? sourceToDownload;
 
-            ref.read(downloadControllerProvider.notifier).startDownload(
-              selectedFileId,
-              fileTitle,
-              messageId: selected.messageId,
-              chatId: selected.chatId,
-            );
+          if (widget.ep.sources.length > 1) {
+            final settings = ref.read(videoSettingsProvider);
+            final defaultQuality = settings.defaultDownloadQuality;
+            
+            if (defaultQuality != 'Ask Each Time') {
+              // Try to find the exact matching quality
+              try {
+                sourceToDownload = widget.ep.sources.firstWhere((s) => s.qualityLabel == defaultQuality);
+              } catch (_) {
+                // If not found, we fallback to asking
+              }
+            }
+
+            if (sourceToDownload == null) {
+              final result = await QualityPickerSheet.showSheet(context, widget.ep, fileTitle);
+              if (result == null || result.action == QualityPickerAction.cancel || result.source == null) return;
+              sourceToDownload = result.source;
+            }
           } else {
-            ref.read(downloadControllerProvider.notifier).startDownload(
-              fileId!,
-              fileTitle,
-              messageId: epMsgId,
-              chatId: widget.ep.defaultSource?.chatId ?? 0,
-            );
+            sourceToDownload = widget.ep.defaultSource;
           }
+
+          if (sourceToDownload == null) return;
+
+          ref.read(downloadControllerProvider.notifier).startDownload(
+            0, // fallback fileId for sources, usually 0 is fine
+            fileTitle,
+            messageId: sourceToDownload.messageId,
+            chatId: sourceToDownload.chatId,
+          );
+
           if (context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text('Starting download: $fileTitle'),
+                content: Text('Starting download: $fileTitle (${sourceToDownload.qualityLabel})'),
                 backgroundColor: theme.primaryColor,
                 duration: const Duration(seconds: 2),
               ),
@@ -1384,29 +1397,31 @@ class _EpisodeCardItemState extends ConsumerState<_EpisodeCardItem> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 6),
-                      Wrap(
-                        spacing: 4,
-                        runSpacing: 4,
-                        children: widget.ep.sources.map((src) {
-                          return Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: settingsAccent.withValues(alpha: 0.2),
-                              borderRadius: BorderRadius.circular(4),
-                              border: Border.all(color: settingsAccent.withValues(alpha: 0.5), width: 0.5),
-                            ),
-                            child: Text(
-                              (src.metadata?.height ?? 0) > 0 ? '${src.metadata!.height}p' : src.qualityLabel,
-                              style: TextStyle(
-                                fontSize: 9,
-                                fontWeight: FontWeight.bold,
-                                color: settingsAccent,
+                      if (ref.read(videoSettingsProvider).showQualityBadges) ...[
+                        const SizedBox(height: 6),
+                        Wrap(
+                          spacing: 4,
+                          runSpacing: 4,
+                          children: widget.ep.sources.map((src) {
+                            return Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: settingsAccent.withValues(alpha: 0.2),
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(color: settingsAccent.withValues(alpha: 0.5), width: 0.5),
                               ),
-                            ),
-                          );
-                        }).toList(),
-                      ),
+                              child: Text(
+                                (src.metadata?.height ?? 0) > 0 ? '${src.metadata!.height}p' : src.qualityLabel,
+                                style: TextStyle(
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.bold,
+                                  color: settingsAccent,
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ],
                     ],
                   ),
                 ),

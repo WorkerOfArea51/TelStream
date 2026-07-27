@@ -1,105 +1,272 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../models/episode.dart';
 import '../../../models/video_source.dart';
+import '../../../services/video_metadata_cache.dart';
 
-class QualityPickerSheet extends StatelessWidget {
+enum QualityPickerAction { play, download, cancel }
+
+class QualityPickerResult {
+  final VideoSource? source;
+  final QualityPickerAction action;
+
+  QualityPickerResult({this.source, required this.action});
+}
+
+class QualityPickerSheet extends ConsumerStatefulWidget {
   final Episode episode;
-  final VideoSource currentSource;
-  final ValueChanged<VideoSource> onSourceSelected;
+  final String title;
+  final VideoSource? currentSource;
 
   const QualityPickerSheet({
     super.key,
     required this.episode,
-    required this.currentSource,
-    required this.onSourceSelected,
+    required this.title,
+    this.currentSource,
   });
 
-  static Future<VideoSource?> showSheet(BuildContext context, Episode episode, String fileTitle, {VideoSource? currentSource}) {
-    if (Theme.of(context).platform == TargetPlatform.windows || Theme.of(context).platform == TargetPlatform.linux || Theme.of(context).platform == TargetPlatform.macOS) {
-      return showDialog<VideoSource>(
-        context: context,
-        builder: (context) => Dialog(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 400),
-            child: QualityPickerSheet(episode: episode, currentSource: currentSource ?? episode.sources.first, onSourceSelected: (s) => Navigator.pop(context, s)),
-          ),
-        ),
-      );
-    }
-
-    return showModalBottomSheet<VideoSource>(
+  static Future<QualityPickerResult?> showSheet(
+    BuildContext context,
+    Episode episode,
+    String title, {
+    VideoSource? currentSource,
+  }) {
+    return showModalBottomSheet<QualityPickerResult>(
       context: context,
-      backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      builder: (context) => QualityPickerSheet(episode: episode, currentSource: currentSource ?? episode.sources.first, onSourceSelected: (s) => Navigator.pop(context, s)),
+      backgroundColor: Colors.transparent,
+      builder: (context) => QualityPickerSheet(
+        episode: episode,
+        title: title,
+        currentSource: currentSource,
+      ),
     );
+  }
+
+  @override
+  ConsumerState<QualityPickerSheet> createState() => _QualityPickerSheetState();
+}
+
+class _QualityPickerSheetState extends ConsumerState<QualityPickerSheet> {
+  VideoSource? _selectedSource;
+  bool _isAuto = true;
+
+  String _formatBytes(int bytes) {
+    if (bytes <= 0) return "0 B";
+    const suffixes = ["B", "KB", "MB", "GB", "TB"];
+    var i = 0;
+    double d = bytes.toDouble();
+    while (d > 1024 && i < suffixes.length - 1) {
+      d /= 1024;
+      i++;
+    }
+    return '${d.toStringAsFixed(1)} ${suffixes[i]}';
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedSource = widget.currentSource;
+    _isAuto = widget.currentSource == null;
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final sortedSources = List<VideoSource>.from(episode.sources);
-    sortedSources.sort((a, b) {
-      final hA = a.metadata?.height ?? 0;
-      final hB = b.metadata?.height ?? 0;
-      if (hA != hB) {
-        return hB.compareTo(hA);
-      }
-      return b.fileSizeBytes.compareTo(a.fileSizeBytes);
-    });
+    final sources = widget.episode.sources;
 
     return Container(
       decoration: BoxDecoration(
         color: theme.scaffoldBackgroundColor,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom + MediaQuery.of(context).padding.bottom + 16,
+        top: 24,
+        left: 24,
+        right: 24,
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Text(
-              'Select Quality',
-              style: theme.textTheme.titleMedium,
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Text(
+                  'Select Quality',
+                  style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.refresh, size: 20),
+                onPressed: () {
+                  for (final s in sources) {
+                    VideoMetadataCache.clearForMessage(s.messageId);
+                  }
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Cache cleared. Pull to refresh episode list to re-extract.')),
+                  );
+                  Navigator.pop(context, QualityPickerResult(action: QualityPickerAction.cancel));
+                },
+                tooltip: 'Clear Metadata Cache',
+              ),
+              IconButton(
+                icon: const Icon(Icons.close, size: 24),
+                onPressed: () => Navigator.pop(context, QualityPickerResult(action: QualityPickerAction.cancel)),
+              ),
+            ],
           ),
+          const SizedBox(height: 8),
+          Text(
+            widget.title,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.textTheme.bodyMedium?.color?.withAlpha(178),
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 24),
+          
           Flexible(
-            child: ListView.builder(
-              shrinkWrap: true,
-              itemCount: sortedSources.length,
-              itemBuilder: (context, index) {
-                final source = sortedSources[index];
-                final isSelected = source.messageId == currentSource.messageId;
-                
-                String label = (source.metadata?.height ?? 0) > 0 ? '${source.metadata!.height}p' : source.qualityLabel;
-                if (source.fileSizeBytes > 0) {
-                  final sizeMb = source.fileSizeBytes / (1024 * 1024);
-                  label += ' (${sizeMb.toStringAsFixed(1)} MB)';
-                }
-
-                return ListTile(
-                  title: Text(
-                    label,
-                    style: TextStyle(
-                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                      color: isSelected ? theme.colorScheme.primary : null,
-                    ),
+            child: SingleChildScrollView(
+              child: Column(
+                children: [
+                  _buildQualityOption(
+                    title: 'Auto',
+                    subtitle: 'Automatically select best quality',
+                    isSelected: _isAuto,
+                    onTap: () {
+                      setState(() {
+                        _isAuto = true;
+                        _selectedSource = null;
+                      });
+                    },
                   ),
-                  trailing: isSelected 
-                    ? Icon(Icons.check, color: theme.colorScheme.primary) 
-                    : null,
-                  onTap: () {
-                    Navigator.pop(context);
-                    if (!isSelected) {
-                      onSourceSelected(source);
-                    }
-                  },
-                );
-              },
+                  const SizedBox(height: 8),
+                  ...sources.map((source) {
+                    final isSelected = !_isAuto && _selectedSource?.messageId == source.messageId;
+                    
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: _buildQualityOption(
+                        title: source.qualityLabel,
+                        subtitle: _formatBytes(source.fileSizeBytes),
+                        isSelected: isSelected,
+                        onTap: () {
+                          setState(() {
+                            _isAuto = false;
+                            _selectedSource = source;
+                          });
+                        },
+                      ),
+                    );
+                  }),
+                ],
+              ),
             ),
           ),
-          const SizedBox(height: 16),
+          
+          const SizedBox(height: 24),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () {
+                    Navigator.pop(context, QualityPickerResult(
+                      action: QualityPickerAction.download,
+                      source: _isAuto ? sources.first : _selectedSource,
+                    ));
+                  },
+                  icon: const Icon(Icons.download),
+                  label: const Text('Download'),
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: FilledButton.icon(
+                  onPressed: () {
+                    Navigator.pop(context, QualityPickerResult(
+                      action: QualityPickerAction.play,
+                      source: _isAuto ? sources.first : _selectedSource,
+                    ));
+                  },
+                  icon: const Icon(Icons.play_arrow),
+                  label: const Text('Play'),
+                ),
+              ),
+            ],
+          ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildQualityOption({
+    required String title,
+    String? subtitle,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: isSelected 
+                  ? theme.colorScheme.primary
+                  : (isDark ? Colors.white12 : Colors.black12),
+              width: isSelected ? 2 : 1,
+            ),
+            color: isSelected 
+                ? theme.colorScheme.primary.withAlpha(25) 
+                : Colors.transparent,
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                        color: isSelected ? theme.colorScheme.primary : null,
+                      ),
+                    ),
+                    if (subtitle != null) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        subtitle,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: isSelected 
+                              ? theme.colorScheme.primary.withAlpha(204)
+                              : theme.textTheme.bodySmall?.color?.withAlpha(178),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              if (isSelected)
+                Icon(
+                  Icons.check_circle,
+                  color: theme.colorScheme.primary,
+                ),
+            ],
+          ),
+        ),
       ),
     );
   }

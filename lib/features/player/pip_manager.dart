@@ -1,11 +1,14 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:tdlib/td_api.dart' as td;
 import 'package:media_kit/media_kit.dart';
 import 'video_player_screen.dart';
 import '../../models/episode.dart';
 import '../../models/video_source.dart';
+import '../../services/storage_service.dart';
+import '../../services/streaming_proxy_service.dart';
+import '../../services/tdlib_service.dart';
+import 'package:tdlib/td_api.dart' as td;
 
 class PlayQueueItem {
   final int messageId;
@@ -290,27 +293,79 @@ class PipController extends Notifier<PipVideoState?> {
     }
   }
 
-  void switchQuality(BuildContext context, VideoSource selectedSource) {
+  /// Switches the current player's media to [newSource] in-place — no Navigator
+  /// rebuild, no Player disposal. Preserves the current playback position by
+  /// capturing it before the swap and seeking after the new media is loaded.
+  /// 
+  /// Returns the new playback position (in seconds) so the caller can show a
+  /// brief overlay ("Switched to 1080p @ 12:34") if desired.
+  Future<int> switchQualityInPlace(VideoSource newSource) async {
     final currentState = state;
-    if (currentState == null) return;
+    if (currentState == null) return 0;
+    
+    final player = ref.read(activePlayerProvider);
+    if (player == null) return 0;
     
     final currentItem = currentState.queue[currentState.currentIndex];
-    final selectedIndex = currentItem.episode?.sources.indexOf(selectedSource) ?? 0;
+    final episode = currentItem.episode;
+    if (episode == null) return 0;
     
+    // 1. Capture current position BEFORE any state change.
+    final position = player.state.position.inSeconds;
+    final duration = player.state.duration.inSeconds;
+    
+    // 2. Update the queue item to point at the new source.
+    final selectedIndex = episode.sources.indexOf(newSource);
     final updatedItem = currentItem.copyWith(
-      messageId: selectedSource.messageId,
-      videoFileId: 0,
-      
-      selectedSourceIndex: selectedIndex,
+      messageId: newSource.messageId,
+      selectedSourceIndex: selectedIndex >= 0 ? selectedIndex : 0,
     );
-    
     final newQueue = List<PlayQueueItem>.from(currentState.queue);
     newQueue[currentState.currentIndex] = updatedItem;
+    state = currentState.copyWith(
+      queue: newQueue,
+      messageId: newSource.messageId,
+    );
     
-    state = currentState.copyWith(queue: newQueue);
+    // 3. Build the new proxy URL for the new source.
+    final proxy = ref.read(streamingProxyServiceProvider).requireValue;
+    final tdlib = ref.read(tdlibServiceProvider);
+    final tdMsg = await tdlib.getMessage(newSource.chatId, newSource.messageId);
+    if (tdMsg == null) return position;
     
-    // Reload player with the new quality
-    playQueueIndex(context, currentState.currentIndex);
+    td.File? tdFile;
+    if (tdMsg.content is td.MessageVideo) {
+      tdFile = (tdMsg.content as td.MessageVideo).video.video;
+    } else if (tdMsg.content is td.MessageDocument) {
+      tdFile = (tdMsg.content as td.MessageDocument).document.document;
+    }
+    if (tdFile == null) return position;
+    
+    final newUrl = proxy.getProxyUrl(tdFile.id);
+    
+    // 4. Open the new media in the SAME player. Player.open with [play: false]
+    //    loads the media without auto-playing, so we can seek first.
+    await player.open(Media(newUrl, httpHeaders: proxy.getAuthHeaders()), play: false);
+    
+    // 5. Seek to the captured position.
+    if (position > 0) {
+      await Future.delayed(const Duration(milliseconds: 100));
+      await player.seek(Duration(seconds: position));
+    }
+    
+    // 6. Resume playback.
+    await player.play();
+    
+    // 7. Persist the position to storage
+    if (position > 0) {
+      final storage = ref.read(storageServiceProvider);
+      storage.saveWatchPosition(newSource.messageId, position);
+      if (duration > 0) {
+        storage.saveVideoDuration(newSource.messageId, duration);
+      }
+    }
+    
+    return position;
   }
 
   void addToQueue(PlayQueueItem item) {

@@ -10,6 +10,7 @@ import '../core/logger.dart';
 import 'video_metadata_cache.dart';
 import 'tdlib_service.dart';
 import '../core/video_metadata/video_metadata.dart';
+import '../features/home/home_controller.dart';
 
 final metadataExtractionServiceProvider = NotifierProvider<MetadataExtractionNotifier, Map<int, Episode>>(
   MetadataExtractionNotifier.new,
@@ -77,6 +78,19 @@ class MetadataExtractionNotifier extends Notifier<Map<int, Episode>> {
       ...state,
       episodeId: updatedEpisode,
     };
+
+    // Propagate to source-of-truth so the UI re-renders and the cache persists.
+    final controllers = [
+      ref.read(animeControllerProvider.notifier),
+      ref.read(moviesControllerProvider.notifier),
+      ref.read(webSeriesControllerProvider.notifier),
+    ];
+    for (final controller in controllers) {
+      await controller.updateEpisode(
+        episodeId,
+        (_) => updatedEpisode,
+      );
+    }
   }
 
   Future<VideoMetadata?> _extractWithRetry(VideoSource source, StreamingProxyService proxy, TdlibService tdlib) async {

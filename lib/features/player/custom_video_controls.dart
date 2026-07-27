@@ -11,6 +11,7 @@ import 'pip_manager.dart';
 
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../services/download_service.dart';
 import '../../l10n/app_localizations.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
@@ -779,6 +780,17 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
   }
 
   int _outroThresholdSeconds = 45;
+
+  String _formatPosition(int seconds) {
+    final dur = Duration(seconds: seconds);
+    final hours = dur.inHours;
+    final mins = dur.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final secs = dur.inSeconds.remainder(60).toString().padLeft(2, '0');
+    if (hours > 0) {
+      return '$hours:$mins:$secs';
+    }
+    return '$mins:$secs';
+  }
 
   @override
   void initState() {
@@ -1911,7 +1923,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     final currentItem = (pipState != null && pipState.currentIndex >= 0 && pipState.currentIndex < pipState.queue.length)
         ? pipState.queue[pipState.currentIndex]
         : null;
-    final hasMultipleQualities = currentItem?.episode?.sources != null && currentItem!.episode!.sources.length > 1;
+    final hasMultipleQualities = currentItem?.episode?.sources != null && currentItem!.episode!.sources.length > 1 && ref.read(videoSettingsProvider).showQualityBadges;
 
 
     return Shortcuts(
@@ -2245,32 +2257,63 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                 hasMultipleQualities: hasMultipleQualities,
                 onShowQualities: () async {
                   if (currentItem == null || currentItem.episode == null) return;
-                  final selectedSource = await QualityPickerSheet.showSheet(
+                  
+                  if (!ref.read(videoSettingsProvider).enableInPlayerQualitySwitch) return;
+                  
+                  final result = await QualityPickerSheet.showSheet(
                     context,
                     currentItem.episode!,
                     widget.videoTitle,
+                    currentSource: currentItem.episode!.sources.firstWhere(
+                      (s) => s.messageId == currentItem.messageId,
+                      orElse: () => currentItem.episode!.sources.first,
+                    ),
                   );
                   
-                  if (selectedSource != null && mounted) {
-                    final newSourceMessageId = selectedSource.messageId;
-                    if (newSourceMessageId == currentItem.messageId) return; // Same quality
-                    
-                    // Transfer current position to the new quality
-                    final position = widget.player.state.position.inSeconds;
-                    if (position > 0) {
-                      final storage = ref.read(storageServiceProvider);
-                      storage.saveWatchPosition(currentItem.messageId, position);
-                      storage.saveWatchPosition(newSourceMessageId, position);
-                      
-                      final duration = widget.player.state.duration.inSeconds;
-                      if (duration > 0) {
-                        storage.saveVideoDuration(newSourceMessageId, duration);
-                      }
-                    }
-                    
-                    // Tell PipManager to switch quality (updates queue and pushReplacement)
+                  if (result == null) return;
+                  if (!mounted) return;
+                  
+                  if (result.action == QualityPickerAction.cancel) return;
+                  final selectedSource = result.source;
+                  if (result.action == QualityPickerAction.download && selectedSource != null) {
+                    ref.read(downloadControllerProvider.notifier).startDownload(
+                      0,
+                      widget.videoTitle,
+                      messageId: selectedSource.messageId,
+                      chatId: selectedSource.chatId,
+                    );
                     if (context.mounted) {
-                      ref.read(pipControllerProvider.notifier).switchQuality(context, selectedSource);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Downloading: ${widget.videoTitle} (${selectedSource.qualityLabel})')),
+                      );
+                    }
+                    return;
+                  }
+                  
+                  if (selectedSource == null || selectedSource.messageId == currentItem.messageId) return; // Same quality
+                  
+                  
+                  try {
+                    final position = await ref.read(pipControllerProvider.notifier)
+                        .switchQualityInPlace(selectedSource);
+                    
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Switched to ${selectedSource.qualityLabel} @ ${_formatPosition(position)}'),
+                          duration: const Duration(seconds: 2),
+                        ),
+                      );
+                    }
+                  } catch (e, st) {
+                    Log.e('Failed to switch quality in place', e, st);
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Failed to switch quality. Please try again.'),
+                          backgroundColor: Colors.redAccent,
+                        ),
+                      );
                     }
                   }
                 },

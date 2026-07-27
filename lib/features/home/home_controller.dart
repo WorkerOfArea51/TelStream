@@ -594,6 +594,35 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
     return await _applySearchAndSort(_allSeries);
   }
 
+  /// Walks every AnimeSeries/AnimeSeason/Episode and replaces the Episode whose
+  /// defaultSource.messageId == [episodeMessageId] with the result of [transform].
+  /// Persists the catalog cache afterwards (debounced).
+  Future<void> updateEpisode(int episodeMessageId, Episode Function(Episode) transform) async {
+    bool changed = false;
+    final newSeries = <AnimeSeries>[];
+    for (final s in _allSeries) {
+      final newSeasons = <AnimeSeason>[];
+      for (final season in s.seasons) {
+        final newEps = <Episode>[];
+        for (final ep in season.episodes) {
+          if (ep.defaultSource?.messageId == episodeMessageId) {
+            newEps.add(transform(ep));
+            changed = true;
+          } else {
+            newEps.add(ep);
+          }
+        }
+        newSeasons.add(season.copyWith(episodes: newEps));
+      }
+      newSeries.add(AnimeSeries(coreName: s.coreName, seasons: newSeasons));
+    }
+    if (changed) {
+      _allSeries = newSeries;
+      state = AsyncData(_allSeries);
+      _scheduleCatalogCacheWrite();
+    }
+  }
+
   Future<void> _saveCatalogCache() async {
     try {
       final directory = await getAppDirectory();

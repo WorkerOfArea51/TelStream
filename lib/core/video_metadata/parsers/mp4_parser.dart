@@ -2,6 +2,53 @@ import 'dart:typed_data';
 import '../video_metadata.dart';
 
 class Mp4Parser {
+  /// Scans [suffix] for the 4-byte 'moov' signature (0x6D6F6F76) and parses
+  /// the moov box starting at that offset. Use this for moov-at-end MP4s where
+  /// the prefix doesn't contain moov.
+  /// 
+  /// Returns null if no moov signature is found or parsing fails.
+  static Future<VideoMetadata?> parseMoovFromSuffix(Uint8List suffix) async {
+    try {
+      // Scan for 'moov' (0x6D 0x6F 0x6F 0x76) at every offset.
+      // The moov box's size field is the 4 bytes BEFORE the 'moov' type.
+      // So when we find 'moov' at offset i, the box starts at i-4 and the
+      // size is the uint32 at i-4.
+      for (int i = 4; i <= suffix.length - 8; i++) {
+        if (suffix[i] == 0x6D &&  // 'm'
+            suffix[i + 1] == 0x6F &&  // 'o'
+            suffix[i + 2] == 0x6F &&  // 'o'
+            suffix[i + 3] == 0x76) {  // 'v'
+          // Found 'moov' at offset i. The box starts at i-4 (size field).
+          final boxStart = i - 4;
+          final view = ByteData.view(suffix.buffer, suffix.offsetInBytes + boxStart);
+          int size = view.getUint32(0);
+          int headerSize = 8;
+          if (size == 1) {
+            // 64-bit size — read next 8 bytes after the type.
+            if (boxStart + 16 > suffix.length) continue;  // truncated, try next match
+            size = view.getUint64(8);
+            headerSize = 16;
+          } else if (size == 0) {
+            // Box extends to EOF — use what we have.
+            size = suffix.length - boxStart;
+          }
+          
+          // Extract the moov box content (after the header).
+          final moovEnd = (boxStart + size <= suffix.length) ? boxStart + size : suffix.length;
+          final moovData = suffix.sublist(boxStart + headerSize, moovEnd);
+          
+          // Parse the moov box content.
+          final result = _parseMoov(moovData);
+          if (result != null) return result;
+          // If _parseMoov returned null, the moov box was malformed — try next match.
+        }
+      }
+    } catch (e) {
+      // Ignore — return null
+    }
+    return null;
+  }
+
   static Future<VideoMetadata?> parse(Uint8List data) async {
     try {
       int offset = 0;

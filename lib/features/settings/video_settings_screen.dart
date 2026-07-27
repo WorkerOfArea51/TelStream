@@ -632,7 +632,7 @@ class _VideoSettingsScreenState extends ConsumerState<VideoSettingsScreen> {
                 ),
                 Divider(height: 1, color: theme.colorScheme.onSurface.withValues(alpha: 0.08)),
                 ListTile(
-                  title: Text('Preferred Download Quality', style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
+                  title: Text('Single Episode Download Quality', style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
                   subtitle: Text(settings.defaultDownloadQuality, style: TextStyle(color: isDark ? Colors.white54 : Colors.black54, fontSize: 12)),
                   trailing: DropdownButton<String>(
                     value: settings.defaultDownloadQuality,
@@ -652,6 +652,32 @@ class _VideoSettingsScreenState extends ConsumerState<VideoSettingsScreen> {
                     onChanged: (String? value) {
                       if (value != null) {
                         notifier.updateSettings(settings.copyWith(defaultDownloadQuality: value));
+                      }
+                    },
+                  ),
+                ),
+                Divider(height: 1, color: theme.colorScheme.onSurface.withValues(alpha: 0.08)),
+                ListTile(
+                  title: Text('Batch Download Quality (Series/Seasons)', style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
+                  subtitle: Text(settings.batchDownloadQuality, style: TextStyle(color: isDark ? Colors.white54 : Colors.black54, fontSize: 12)),
+                  trailing: DropdownButton<String>(
+                    value: settings.batchDownloadQuality,
+                    dropdownColor: theme.cardColor,
+                    underline: const SizedBox(),
+                    style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+                    icon: Icon(Icons.arrow_drop_down, color: isDark ? Colors.white70 : Colors.black54),
+                    items: const [
+                      DropdownMenuItem(value: 'Ask Each Time', child: Text('Ask Each Time')),
+                      DropdownMenuItem(value: '2160p', child: Text('2160p')),
+                      DropdownMenuItem(value: '1440p', child: Text('1440p')),
+                      DropdownMenuItem(value: '1080p', child: Text('1080p')),
+                      DropdownMenuItem(value: '720p', child: Text('720p')),
+                      DropdownMenuItem(value: '480p', child: Text('480p')),
+                      DropdownMenuItem(value: '360p', child: Text('360p')),
+                    ],
+                    onChanged: (String? value) {
+                      if (value != null) {
+                        notifier.updateSettings(settings.copyWith(batchDownloadQuality: value));
                       }
                     },
                   ),

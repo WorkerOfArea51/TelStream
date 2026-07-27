@@ -103,6 +103,7 @@ abstract class VideoSettings with _$VideoSettings {
     @Default('auto') String hardwareDecoderMode,
     @Default(50) int? proxyPingLimit,
     @Default('Ask Each Time') String defaultDownloadQuality,
+      @Default('Ask Each Time') String batchDownloadQuality,
     @Default(true) bool showQualityBadges,
     @Default(true) bool enableInPlayerQualitySwitch,
   }) = _VideoSettings;
@@ -203,6 +204,7 @@ abstract class VideoSettings with _$VideoSettings {
       hardwareDecoderMode: hardwareDecoderMode,
       proxyPingLimit: json.containsKey('proxyPingLimit') ? json['proxyPingLimit'] as int? : 50,
       defaultDownloadQuality: json['defaultDownloadQuality'] ?? 'Ask Each Time',
+      batchDownloadQuality: json['batchDownloadQuality'] ?? 'Ask Each Time',
       showQualityBadges: json['showQualityBadges'] ?? true,
       enableInPlayerQualitySwitch: json['enableInPlayerQualitySwitch'] ?? true,
     );
@@ -261,6 +263,7 @@ abstract class VideoSettings with _$VideoSettings {
       'wifiOnlyDownloads': wifiOnlyDownloads,
       'proxyPingLimit': proxyPingLimit,
       'defaultDownloadQuality': defaultDownloadQuality,
+      'batchDownloadQuality': batchDownloadQuality,
       'showQualityBadges': showQualityBadges,
       'enableInPlayerQualitySwitch': enableInPlayerQualitySwitch,
     };
