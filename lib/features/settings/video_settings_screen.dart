@@ -638,6 +638,28 @@ class _VideoSettingsScreenState extends ConsumerState<VideoSettingsScreen> {
                     },
                   ),
                 ),
+                Divider(color: theme.dividerColor, height: 1, indent: 16, endIndent: 16),
+                ListTile(
+                  title: Text('Batch Download Quality', style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
+                  subtitle: Text(settings.defaultDownloadQuality, style: TextStyle(color: isDark ? Colors.white54 : Colors.black54, fontSize: 12)),
+                  trailing: DropdownButton<String>(
+                    value: settings.defaultDownloadQuality,
+                    dropdownColor: theme.cardColor,
+                    underline: const SizedBox(),
+                    style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+                    icon: Icon(Icons.arrow_drop_down, color: isDark ? Colors.white70 : Colors.black54),
+                    items: const [
+                      DropdownMenuItem(value: 'Ask Each Time', child: Text('Ask Each Time')),
+                      DropdownMenuItem(value: 'Highest Quality', child: Text('Highest Quality')),
+                      DropdownMenuItem(value: 'Lowest Quality', child: Text('Lowest Quality')),
+                    ],
+                    onChanged: (String? value) {
+                      if (value != null) {
+                        notifier.updateSettings(settings.copyWith(defaultDownloadQuality: value));
+                      }
+                    },
+                  ),
+                ),
               ],
             ),
           ),

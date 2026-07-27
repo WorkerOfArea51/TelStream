@@ -3,6 +3,7 @@ import 'package:tdlib/td_api.dart' as td;
 import '../services/storage_service.dart';
 import '../../core/utils/td_json_util.dart';
 import 'episode.dart';
+import '../services/episode_grouper.dart';
 
 class AnimeSeries {
   final String coreName;
@@ -51,17 +52,30 @@ class AnimeSeason {
       final map = TdJsonUtil.sanitize(raw as Map<String, dynamic>);
       return td.convertToObject(jsonEncode(map)) as td.Message;
     }
+    
+    final rawEpisodes = json['episodes'] as List;
+    bool needsMigration = false;
+    List<td.Message> legacyMessages = [];
+    
+    if (rawEpisodes.isNotEmpty && rawEpisodes.first is Map<String, dynamic> && rawEpisodes.first.containsKey('@type')) {
+       needsMigration = true;
+       for (var e in rawEpisodes) {
+           legacyMessages.add(parseMessage(e));
+       }
+    }
+
+    List<Episode> episodesList;
+    if (needsMigration) {
+       episodesList = EpisodeGrouper.groupEpisodes(legacyMessages);
+    } else {
+       episodesList = rawEpisodes.map((e) => Episode.fromJson(e as Map<String, dynamic>)).toList();
+    }
+
     return AnimeSeason(
       fullTitle: json['fullTitle'] as String,
       seasonName: json['seasonName'] as String,
       posterMessage: parseMessage(json['posterMessage']),
-      episodes: (json['episodes'] as List).map((e) {
-        // Fallback for old cache format (where 'episodes' were flat td.Message jsons)
-        if (e is Map<String, dynamic> && e.containsKey('@type') && (e['@type'] == 'message' || e['@type'] == 'messageVideo' || e['@type'] == 'messageDocument')) {
-          return Episode(title: 'Unknown', sources: [], isMetadataExtracted: false); // We'll handle proper migration in Phase 10
-        }
-        return Episode.fromJson(e as Map<String, dynamic>);
-      }).toList(),
+      episodes: episodesList,
     );
   }
 
