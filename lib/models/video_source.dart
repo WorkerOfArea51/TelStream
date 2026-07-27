@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:freezed_annotation/freezed_annotation.dart';
 import '../core/video_metadata/video_metadata.dart';
 
@@ -13,6 +14,15 @@ abstract class VideoSource with _$VideoSource {
     required String mimeType,
     required DateTime receivedAt,
     VideoMetadata? metadata,
+
+    /// Base64-encoded JPEG minithumbnail from TDLib (instant display, no network).
+    /// Null for messages where Telegram didn't generate a thumbnail.
+    @Default(null) String? minithumbnailData,
+
+    /// TDLib-provided duration in seconds (only for MessageVideo, null for
+    /// MessageDocument). Used as a fallback when container parsing hasn't
+    /// completed yet.
+    @Default(null) int? tdlibDurationSeconds,
   }) = _VideoSource;
 
   const VideoSource._();
@@ -31,6 +41,27 @@ abstract class VideoSource with _$VideoSource {
   /// True when this source has confirmed real metadata (not just a guess).
   bool get hasMetadata => metadata != null && metadata!.height > 0;
 
+  /// Returns the best-known duration in milliseconds. Prefers container-parsed
+  /// metadata; falls back to TDLib's duration for MessageVideo.
+  int get durationMillis {
+    final meta = metadata;
+    if (meta != null && meta.durationMillis > 0) return meta.durationMillis;
+    final td = tdlibDurationSeconds;
+    if (td != null && td > 0) return td * 1000;
+    return 0;
+  }
+
+  /// Decoded minithumbnail bytes, or null if not available.
+  List<int>? get minithumbnailBytes {
+    final data = minithumbnailData;
+    if (data == null || data.isEmpty) return null;
+    try {
+      return base64Decode(data);
+    } catch (_) {
+      return null;
+    }
+  }
+
   factory VideoSource.fromFlatJson(Map<String, dynamic> json) {
     return VideoSource(
       messageId: json['messageId'] as int,
@@ -42,6 +73,8 @@ abstract class VideoSource with _$VideoSource {
       metadata: json['metadata'] != null
           ? VideoMetadata.fromFlatJson(json['metadata'] as Map<String, dynamic>)
           : null,
+      minithumbnailData: json['minithumbnailData'] as String?,
+      tdlibDurationSeconds: json['tdlibDurationSeconds'] as int?,
     );
   }
 
@@ -54,6 +87,8 @@ abstract class VideoSource with _$VideoSource {
       'mimeType': mimeType,
       'receivedAt': receivedAt.toIso8601String(),
       if (metadata != null) 'metadata': metadata!.toFlatJson(),
+      if (minithumbnailData != null) 'minithumbnailData': minithumbnailData,
+      if (tdlibDurationSeconds != null) 'tdlibDurationSeconds': tdlibDurationSeconds,
     };
   }
 }

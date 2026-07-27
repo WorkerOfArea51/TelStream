@@ -92,7 +92,10 @@ class MetadataExtractionNotifier extends Notifier<Map<int, Episode>> {
     bool anyChanged = false;
 
     for (final source in episode.sources) {
-      if (source.hasMetadata) {
+      // Skip if we already have FULL metadata (container known + height > 0).
+      // For MessageVideo, TDLib gives us height/width/duration but container
+      // is unknown — we still want to parse the container to get the codec.
+      if (source.hasMetadata && source.metadata!.container != VideoContainer.unknown) {
         updatedSources.add(source);
         continue;
       }
@@ -165,7 +168,25 @@ class MetadataExtractionNotifier extends Notifier<Map<int, Episode>> {
     final byId = {for (final s in existing) s.messageId: s};
     for (final u in updated) {
       final prev = byId[u.messageId];
-      byId[u.messageId] = (prev == null || u.hasMetadata) ? u : prev;
+      if (prev == null) {
+        byId[u.messageId] = u;
+      } else if (u.hasMetadata) {
+        // Container-parsed metadata is more detailed than TDLib's initial
+        // metadata (it includes container type + codec). But preserve the
+        // TDLib-provided duration and minithumbnail if the parsed metadata
+        // doesn't have them.
+        final mergedMetadata = u.metadata!;
+        final finalMetadata = (mergedMetadata.durationMillis > 0 || prev.tdlibDurationSeconds == null)
+            ? mergedMetadata
+            : mergedMetadata.copyWith(
+                durationMillis: prev.tdlibDurationSeconds! * 1000,
+              );
+        byId[u.messageId] = u.copyWith(metadata: finalMetadata);
+      } else {
+        // Extraction failed — keep the existing source (which may have
+        // TDLib-provided initial metadata).
+        byId[u.messageId] = prev;
+      }
     }
     // Preserve original insertion order.
     return existing.map((e) => byId[e.messageId]!).toList()

@@ -57,11 +57,38 @@ class AnimeSeason {
     bool needsMigration = false;
     List<td.Message> legacyMessages = [];
     
+    // Migration trigger 1: old cache format with raw td.Message objects
     if (rawEpisodes.isNotEmpty && rawEpisodes.first is Map<String, dynamic> && rawEpisodes.first.containsKey('@type')) {
        needsMigration = true;
        for (var e in rawEpisodes) {
            legacyMessages.add(parseMessage(e));
        }
+    }
+    
+    // Migration trigger 2: episodes missing the new minithumbnailData field
+    // (added in v2.13.1). Force re-grouping to populate thumbnails.
+    if (!needsMigration && rawEpisodes.isNotEmpty) {
+      final firstEp = rawEpisodes.first as Map<String, dynamic>;
+      if (!firstEp.containsKey('sources')) {
+        needsMigration = true;
+      } else {
+        final sources = firstEp['sources'] as List;
+        if (sources.isNotEmpty) {
+          final firstSource = sources.first as Map<String, dynamic>;
+          if (!firstSource.containsKey('minithumbnailData')) {
+            needsMigration = true;
+          }
+        }
+      }
+    }
+    
+    // If migration is needed but we don't have legacy messages, we need to
+    // signal that the cache should be rebuilt from network. For now, just
+    // parse what we have — the UI will show placeholders until refresh.
+    if (needsMigration && legacyMessages.isEmpty && rawEpisodes.isNotEmpty) {
+      // Cache is in Episode.fromFlatJson format but missing new fields.
+      // Parse normally — thumbnails will appear after the next network sync.
+      needsMigration = false;
     }
 
     List<Episode> episodesList;

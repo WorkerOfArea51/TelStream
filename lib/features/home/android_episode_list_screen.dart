@@ -2,6 +2,8 @@ import 'dart:math' as math;
 
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:tdlib/td_api.dart' as td;
 import '../../core/utils/poster_thumbnail_extractor.dart';
@@ -961,7 +963,7 @@ class _AndroidEpisodeListScreenState extends ConsumerState<AndroidEpisodeListScr
                 onTap: () async {
                   final msgId = ep.defaultSource?.messageId;
                   if (msgId == null) return;
-                  int duration = (ep.defaultSource?.metadata?.durationMillis ?? 0) ~/ 1000;
+                  int duration = (ep.defaultSource?.durationMillis ?? 0) ~/ 1000;
                   if (duration <= 0) {
                     duration = storage.getVideoDuration(msgId);
                   }
@@ -1110,7 +1112,7 @@ class _EpisodeCardItemState extends ConsumerState<_EpisodeCardItem> {
     
     fileTitle = widget.ep.title;
     fileId = 1; // mock
-    final durationMillis = widget.ep.defaultSource?.metadata?.durationMillis ?? 0;
+    final durationMillis = widget.ep.defaultSource?.durationMillis ?? 0;
     final sizeMb = (widget.ep.defaultSource!.fileSizeBytes / 1024 / 1024).toStringAsFixed(1);
     
     if (durationMillis > 0) {
@@ -1234,7 +1236,8 @@ class _EpisodeCardItemState extends ConsumerState<_EpisodeCardItem> {
     final storage = ref.read(storageServiceProvider);
     final savedPos = storage.getWatchPosition(epMsgId);
     int duration = 0;
-    duration = ((widget.ep.defaultSource?.metadata?.durationMillis ?? 0) > 0) ? (widget.ep.defaultSource!.metadata!.durationMillis ~/ 1000) : storage.getVideoDuration(epMsgId);
+    final dm = widget.ep.defaultSource?.durationMillis ?? 0;
+    duration = (dm > 0) ? (dm ~/ 1000) : storage.getVideoDuration(epMsgId);
     final double progressValue = (duration > 0)
         ? (savedPos / duration).clamp(0.0, 1.0)
         : 0.0;
@@ -1366,7 +1369,7 @@ class _EpisodeCardItemState extends ConsumerState<_EpisodeCardItem> {
                   child: Stack(
                     fit: StackFit.expand,
                     children: [
-                      _buildEpisodePlaceholder(),
+                      _buildEpisodeThumbnail(),
                       Container(color: Colors.black26),
                       Center(
                         child: Container(
@@ -1450,19 +1453,26 @@ class _EpisodeCardItemState extends ConsumerState<_EpisodeCardItem> {
                           spacing: 4,
                           runSpacing: 4,
                           children: widget.ep.sources.map((src) {
+                            final hasHeight = (src.metadata?.height ?? 0) > 0;
+                            final label = hasHeight
+                                ? '${src.metadata!.height}p'
+                                : (src.hasMetadata ? src.qualityLabel : '...');
                             return Container(
                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                               decoration: BoxDecoration(
-                                color: settingsAccent.withValues(alpha: 0.2),
+                                color: settingsAccent.withValues(alpha: hasHeight ? 0.2 : 0.1),
                                 borderRadius: BorderRadius.circular(4),
-                                border: Border.all(color: settingsAccent.withValues(alpha: 0.5), width: 0.5),
+                                border: Border.all(
+                                  color: settingsAccent.withValues(alpha: hasHeight ? 0.5 : 0.2),
+                                  width: 0.5,
+                                ),
                               ),
                               child: Text(
-                                (src.metadata?.height ?? 0) > 0 ? '${src.metadata!.height}p' : src.qualityLabel,
+                                label,
                                 style: TextStyle(
                                   fontSize: 9,
                                   fontWeight: FontWeight.bold,
-                                  color: settingsAccent,
+                                  color: hasHeight ? settingsAccent : settingsAccent.withValues(alpha: 0.5),
                                 ),
                               ),
                             );
@@ -1480,6 +1490,25 @@ class _EpisodeCardItemState extends ConsumerState<_EpisodeCardItem> {
         ),
       ),
     );
+  }
+
+  Widget _buildEpisodeThumbnail() {
+    final minithumbnailData = widget.ep.defaultSource?.minithumbnailData;
+    if (minithumbnailData != null && minithumbnailData.isNotEmpty) {
+      try {
+        final bytes = base64Decode(minithumbnailData);
+        return Image.memory(
+          Uint8List.fromList(bytes),
+          fit: BoxFit.cover,
+          gaplessPlayback: true,
+          errorBuilder: (context, error, stackTrace) =>
+              _buildEpisodePlaceholder(),
+        );
+      } catch (_) {
+        return _buildEpisodePlaceholder();
+      }
+    }
+    return _buildEpisodePlaceholder();
   }
 
   Widget _buildEpisodePlaceholder({bool isDark = false}) {

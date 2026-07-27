@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.13.1] - 2026-07-27
+
+### Fixed
+- **Episode Thumbnails Restored**: Episode cards now display the video's minithumbnail (extracted from TDLib) instead of a gray placeholder. Thumbnails appear instantly on cache load — no network fetch needed.
+- **Episode Titles Restored**: Grouped episodes now show descriptive titles extracted from filenames (e.g., "Episode 1 - The Magic That Started Everything" instead of just "Episode 1"). Supports `EP - XX - Title`, `S##E## - Title`, and `Episode XX - Title` patterns.
+- **Duration Restored for Videos**: For messages sent as Telegram Videos (not Documents), duration is now read directly from TDLib's `video.duration` field — no container parsing needed. Appears instantly.
+- **Quality Badge Restored for Videos**: For MessageVideo, width/height from TDLib are used immediately to show the quality badge (e.g., "1080p") without waiting for container parsing.
+- **"Extracting..." Indicator**: While container metadata is being fetched for Document-type messages, the quality badge now shows "..." instead of "Unknown" to indicate extraction is in progress.
+- **Metadata Merge Safety**: Container-parsed metadata no longer overwrites TDLib-provided duration when the parser fails to extract duration from the container.
+
 All notable changes to this project will be documented in this file.
 
 ## [2.13.0] - 2026-07-27
