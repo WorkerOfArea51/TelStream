@@ -1,9 +1,7 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
-import 'package:tdlib/td_api.dart' as td;
 import 'video_source.dart';
 
 part 'episode.freezed.dart';
-part 'episode.g.dart';
 
 @freezed
 abstract class Episode with _$Episode {
@@ -11,18 +9,58 @@ abstract class Episode with _$Episode {
     required String title,
     @Default([]) List<VideoSource> sources,
     @Default(false) bool isMetadataExtracted,
+    int? episodeNumber,
   }) = _Episode;
 
   const Episode._();
 
-  factory Episode.fromJson(Map<String, dynamic> json) => _$EpisodeFromJson(json);
-
-  /// Helper to get the best quality source (highest resolution)
-  VideoSource? get bestSource {
+  /// Best source = highest confirmed metadata, else first source.
+  VideoSource? get defaultSource {
     if (sources.isEmpty) return null;
-    return sources.reduce((curr, next) => (curr.height > next.height) ? curr : next);
+    final withMeta = sources.where((s) => s.hasMetadata).toList();
+    if (withMeta.isNotEmpty) {
+      withMeta.sort((a, b) => b.qualityRank.compareTo(a.qualityRank));
+      return withMeta.first;
+    }
+    return sources.first;
   }
 
-  /// Original representation for fallback compat (returns best source message)
-  td.Message? get message => bestSource?.message;
+  /// Sorted highest-quality first.
+  List<VideoSource> get sortedSources {
+    return [...sources]..sort((a, b) => b.qualityRank.compareTo(a.qualityRank));
+  }
+
+  /// True only when there are 2+ sources WITH confirmed metadata AND they differ in quality.
+  bool get hasMultipleQualities {
+    final labels = sources
+        .where((s) => s.hasMetadata)
+        .map((s) => s.qualityLabel)
+        .toSet();
+    return labels.length > 1;
+  }
+
+  /// For backwards compat — many call sites expect a single messageId / chatId.
+  int? get messageId => defaultSource?.messageId;
+  int? get chatId => defaultSource?.chatId;
+
+  factory Episode.fromFlatJson(Map<String, dynamic> json) {
+    final sourcesRaw = json['sources'] as List? ?? [];
+    return Episode(
+      title: json['title'] as String? ?? '',
+      sources: sourcesRaw
+          .map((s) => VideoSource.fromFlatJson(s as Map<String, dynamic>))
+          .toList(),
+      isMetadataExtracted: json['isMetadataExtracted'] as bool? ?? false,
+      episodeNumber: json['episodeNumber'] as int?,
+    );
+  }
+
+  Map<String, dynamic> toFlatJson() {
+    return {
+      'title': title,
+      'sources': sources.map((s) => s.toFlatJson()).toList(),
+      'isMetadataExtracted': isMetadataExtracted,
+      if (episodeNumber != null) 'episodeNumber': episodeNumber,
+    };
+  }
 }

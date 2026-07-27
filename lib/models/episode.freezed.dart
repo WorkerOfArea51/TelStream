@@ -11,33 +11,30 @@ part of 'episode.dart';
 
 // dart format off
 T _$identity<T>(T value) => value;
-
 /// @nodoc
 mixin _$Episode {
 
- String get title; List<VideoSource> get sources; bool get isMetadataExtracted;
+ String get title; List<VideoSource> get sources; bool get isMetadataExtracted; int? get episodeNumber;
 /// Create a copy of Episode
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
 @pragma('vm:prefer-inline')
 $EpisodeCopyWith<Episode> get copyWith => _$EpisodeCopyWithImpl<Episode>(this as Episode, _$identity);
 
-  /// Serializes this Episode to a JSON map.
-  Map<String, dynamic> toJson();
 
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is Episode&&(identical(other.title, title) || other.title == title)&&const DeepCollectionEquality().equals(other.sources, sources)&&(identical(other.isMetadataExtracted, isMetadataExtracted) || other.isMetadataExtracted == isMetadataExtracted));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is Episode&&(identical(other.title, title) || other.title == title)&&const DeepCollectionEquality().equals(other.sources, sources)&&(identical(other.isMetadataExtracted, isMetadataExtracted) || other.isMetadataExtracted == isMetadataExtracted)&&(identical(other.episodeNumber, episodeNumber) || other.episodeNumber == episodeNumber));
 }
 
-@JsonKey(includeFromJson: false, includeToJson: false)
+
 @override
-int get hashCode => Object.hash(runtimeType,title,const DeepCollectionEquality().hash(sources),isMetadataExtracted);
+int get hashCode => Object.hash(runtimeType,title,const DeepCollectionEquality().hash(sources),isMetadataExtracted,episodeNumber);
 
 @override
 String toString() {
-  return 'Episode(title: $title, sources: $sources, isMetadataExtracted: $isMetadataExtracted)';
+  return 'Episode(title: $title, sources: $sources, isMetadataExtracted: $isMetadataExtracted, episodeNumber: $episodeNumber)';
 }
 
 
@@ -48,7 +45,7 @@ abstract mixin class $EpisodeCopyWith<$Res>  {
   factory $EpisodeCopyWith(Episode value, $Res Function(Episode) _then) = _$EpisodeCopyWithImpl;
 @useResult
 $Res call({
- String title, List<VideoSource> sources, bool isMetadataExtracted
+ String title, List<VideoSource> sources, bool isMetadataExtracted, int? episodeNumber
 });
 
 
@@ -65,12 +62,13 @@ class _$EpisodeCopyWithImpl<$Res>
 
 /// Create a copy of Episode
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? title = null,Object? sources = null,Object? isMetadataExtracted = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? title = null,Object? sources = null,Object? isMetadataExtracted = null,Object? episodeNumber = freezed,}) {
   return _then(_self.copyWith(
 title: null == title ? _self.title : title // ignore: cast_nullable_to_non_nullable
 as String,sources: null == sources ? _self.sources : sources // ignore: cast_nullable_to_non_nullable
 as List<VideoSource>,isMetadataExtracted: null == isMetadataExtracted ? _self.isMetadataExtracted : isMetadataExtracted // ignore: cast_nullable_to_non_nullable
-as bool,
+as bool,episodeNumber: freezed == episodeNumber ? _self.episodeNumber : episodeNumber // ignore: cast_nullable_to_non_nullable
+as int?,
   ));
 }
 
@@ -155,10 +153,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String title,  List<VideoSource> sources,  bool isMetadataExtracted)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String title,  List<VideoSource> sources,  bool isMetadataExtracted,  int? episodeNumber)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _Episode() when $default != null:
-return $default(_that.title,_that.sources,_that.isMetadataExtracted);case _:
+return $default(_that.title,_that.sources,_that.isMetadataExtracted,_that.episodeNumber);case _:
   return orElse();
 
 }
@@ -176,10 +174,10 @@ return $default(_that.title,_that.sources,_that.isMetadataExtracted);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String title,  List<VideoSource> sources,  bool isMetadataExtracted)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String title,  List<VideoSource> sources,  bool isMetadataExtracted,  int? episodeNumber)  $default,) {final _that = this;
 switch (_that) {
 case _Episode():
-return $default(_that.title,_that.sources,_that.isMetadataExtracted);case _:
+return $default(_that.title,_that.sources,_that.isMetadataExtracted,_that.episodeNumber);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -196,10 +194,10 @@ return $default(_that.title,_that.sources,_that.isMetadataExtracted);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String title,  List<VideoSource> sources,  bool isMetadataExtracted)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String title,  List<VideoSource> sources,  bool isMetadataExtracted,  int? episodeNumber)?  $default,) {final _that = this;
 switch (_that) {
 case _Episode() when $default != null:
-return $default(_that.title,_that.sources,_that.isMetadataExtracted);case _:
+return $default(_that.title,_that.sources,_that.isMetadataExtracted,_that.episodeNumber);case _:
   return null;
 
 }
@@ -208,11 +206,11 @@ return $default(_that.title,_that.sources,_that.isMetadataExtracted);case _:
 }
 
 /// @nodoc
-@JsonSerializable()
+
 
 class _Episode extends Episode {
-  const _Episode({required this.title, final  List<VideoSource> sources = const [], this.isMetadataExtracted = false}): _sources = sources,super._();
-  factory _Episode.fromJson(Map<String, dynamic> json) => _$EpisodeFromJson(json);
+  const _Episode({required this.title, final  List<VideoSource> sources = const [], this.isMetadataExtracted = false, this.episodeNumber}): _sources = sources,super._();
+  
 
 @override final  String title;
  final  List<VideoSource> _sources;
@@ -223,6 +221,7 @@ class _Episode extends Episode {
 }
 
 @override@JsonKey() final  bool isMetadataExtracted;
+@override final  int? episodeNumber;
 
 /// Create a copy of Episode
 /// with the given fields replaced by the non-null parameter values.
@@ -230,23 +229,20 @@ class _Episode extends Episode {
 @pragma('vm:prefer-inline')
 _$EpisodeCopyWith<_Episode> get copyWith => __$EpisodeCopyWithImpl<_Episode>(this, _$identity);
 
-@override
-Map<String, dynamic> toJson() {
-  return _$EpisodeToJson(this, );
-}
+
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _Episode&&(identical(other.title, title) || other.title == title)&&const DeepCollectionEquality().equals(other._sources, _sources)&&(identical(other.isMetadataExtracted, isMetadataExtracted) || other.isMetadataExtracted == isMetadataExtracted));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _Episode&&(identical(other.title, title) || other.title == title)&&const DeepCollectionEquality().equals(other._sources, _sources)&&(identical(other.isMetadataExtracted, isMetadataExtracted) || other.isMetadataExtracted == isMetadataExtracted)&&(identical(other.episodeNumber, episodeNumber) || other.episodeNumber == episodeNumber));
 }
 
-@JsonKey(includeFromJson: false, includeToJson: false)
+
 @override
-int get hashCode => Object.hash(runtimeType,title,const DeepCollectionEquality().hash(_sources),isMetadataExtracted);
+int get hashCode => Object.hash(runtimeType,title,const DeepCollectionEquality().hash(_sources),isMetadataExtracted,episodeNumber);
 
 @override
 String toString() {
-  return 'Episode(title: $title, sources: $sources, isMetadataExtracted: $isMetadataExtracted)';
+  return 'Episode(title: $title, sources: $sources, isMetadataExtracted: $isMetadataExtracted, episodeNumber: $episodeNumber)';
 }
 
 
@@ -257,7 +253,7 @@ abstract mixin class _$EpisodeCopyWith<$Res> implements $EpisodeCopyWith<$Res> {
   factory _$EpisodeCopyWith(_Episode value, $Res Function(_Episode) _then) = __$EpisodeCopyWithImpl;
 @override @useResult
 $Res call({
- String title, List<VideoSource> sources, bool isMetadataExtracted
+ String title, List<VideoSource> sources, bool isMetadataExtracted, int? episodeNumber
 });
 
 
@@ -274,12 +270,13 @@ class __$EpisodeCopyWithImpl<$Res>
 
 /// Create a copy of Episode
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? title = null,Object? sources = null,Object? isMetadataExtracted = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? title = null,Object? sources = null,Object? isMetadataExtracted = null,Object? episodeNumber = freezed,}) {
   return _then(_Episode(
 title: null == title ? _self.title : title // ignore: cast_nullable_to_non_nullable
 as String,sources: null == sources ? _self._sources : sources // ignore: cast_nullable_to_non_nullable
 as List<VideoSource>,isMetadataExtracted: null == isMetadataExtracted ? _self.isMetadataExtracted : isMetadataExtracted // ignore: cast_nullable_to_non_nullable
-as bool,
+as bool,episodeNumber: freezed == episodeNumber ? _self.episodeNumber : episodeNumber // ignore: cast_nullable_to_non_nullable
+as int?,
   ));
 }
 

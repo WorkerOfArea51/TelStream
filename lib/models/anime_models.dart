@@ -44,7 +44,7 @@ class AnimeSeason {
         'fullTitle': fullTitle,
         'seasonName': seasonName,
         'posterMessage': posterMessage.toJson(),
-        'episodes': episodes.map((e) => e.toJson()).toList(),
+        'episodes': episodes.map((e) => e.toFlatJson()).toList(),
       };
 
   factory AnimeSeason.fromJson(Map<String, dynamic> json) {
@@ -68,7 +68,7 @@ class AnimeSeason {
     if (needsMigration) {
        episodesList = EpisodeGrouper.groupEpisodes(legacyMessages);
     } else {
-       episodesList = rawEpisodes.map((e) => Episode.fromJson(e as Map<String, dynamic>)).toList();
+       episodesList = rawEpisodes.map((e) => Episode.fromFlatJson(e as Map<String, dynamic>)).toList();
     }
 
     return AnimeSeason(
@@ -119,12 +119,7 @@ class AnimeSeason {
     }
 
     for (final ep in episodes) {
-      String? fileName;
-      if (ep.message?.content is td.MessageVideo) {
-        fileName = (ep.message!.content as td.MessageVideo).video.fileName;
-      } else if (ep.message?.content is td.MessageDocument) {
-        fileName = (ep.message!.content as td.MessageDocument).document.fileName;
-      }
+      final fileName = ep.defaultSource?.fileName;
       if (fileName != null && fileName.isNotEmpty) {
         final fromEp = extractYear(fileName);
         if (fromEp != null) {

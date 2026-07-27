@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tdlib/td_api.dart' as td;
+import '../../models/episode.dart';
 import '../../models/anime_models.dart';
 
 class DesktopSelectedSeriesNotifier extends Notifier<AnimeSeries?> {
@@ -14,17 +15,17 @@ class DesktopSelectedSeriesNotifier extends Notifier<AnimeSeries?> {
 
 final desktopSelectedSeriesProvider = NotifierProvider<DesktopSelectedSeriesNotifier, AnimeSeries?>(DesktopSelectedSeriesNotifier.new);
 
-class DesktopSelectedEpisodeNotifier extends Notifier<td.Message?> {
+class DesktopSelectedEpisodeNotifier extends Notifier<Episode?> {
   @override
-  td.Message? build() => null;
+  Episode? build() => null;
 
   @override
-  set state(td.Message? episode) {
+  set state(Episode? episode) {
     super.state = episode;
   }
 }
 
-final desktopSelectedEpisodeProvider = NotifierProvider<DesktopSelectedEpisodeNotifier, td.Message?>(DesktopSelectedEpisodeNotifier.new);
+final desktopSelectedEpisodeProvider = NotifierProvider<DesktopSelectedEpisodeNotifier, Episode?>(DesktopSelectedEpisodeNotifier.new);
 
 class DesktopSelectedSeasonIndexNotifier extends Notifier<int> {
   @override

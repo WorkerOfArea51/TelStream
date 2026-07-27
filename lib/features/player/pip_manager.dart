@@ -171,27 +171,15 @@ class PipController extends Notifier<PipVideoState?> {
       }
       for (int i = 0; i < episodeList.length; i++) {
         final msg = episodeList[i];
-        int? fileId;
-        String title = 'Episode ${i + 1}';
         
-        if (msg.message != null && msg.message!.content is td.MessageVideo) {
-          final v = msg.message!.content as td.MessageVideo;
-          fileId = v.video.video.id;
-          title = v.video.fileName;
-        } else if (msg.message != null && msg.message!.content is td.MessageDocument) {
-          final d = msg.message!.content as td.MessageDocument;
-          fileId = d.document.document.id;
-          title = d.document.fileName;
-        }
-
         initialQueue.add(PlayQueueItem(
-          messageId: msg.message?.id ?? 0,
-          videoFileId: fileId ?? 0,
-          videoTitle: '$seriesName - $title',
+          messageId: msg.defaultSource?.messageId ?? 0,
+          videoFileId: 0,
+          videoTitle: '$seriesName - ${msg.title}',
           seriesName: seriesName,
-          message: msg.message,
           episode: msg,
           selectedSourceIndex: 0,
+          
         ));
       }
       initialIndex = currentEpisodeIndex;
@@ -234,7 +222,6 @@ class PipController extends Notifier<PipVideoState?> {
       ),
     );
 
-    // Always push the player screen when launching from lists/detail screens to preserve back navigation history
     if (Platform.isWindows) {
       isTransitioning = false;
     } else {
@@ -270,7 +257,6 @@ class PipController extends Notifier<PipVideoState?> {
       currentIndex: index,
     );
 
-    // Reconstruct episodeList parameter for compatibility
     final reconstructedEpisodes = currentState.queue
         .map((e) => e.episode)
         .whereType<Episode>()
@@ -311,17 +297,10 @@ class PipController extends Notifier<PipVideoState?> {
     final currentItem = currentState.queue[currentState.currentIndex];
     final selectedIndex = currentItem.episode?.sources.indexOf(selectedSource) ?? 0;
     
-    int newFileId = 0;
-    if (selectedSource.message.content is td.MessageVideo) {
-      newFileId = (selectedSource.message.content as td.MessageVideo).video.video.id;
-    } else if (selectedSource.message.content is td.MessageDocument) {
-      newFileId = (selectedSource.message.content as td.MessageDocument).document.document.id;
-    }
-
     final updatedItem = currentItem.copyWith(
-      messageId: selectedSource.message.id,
-      videoFileId: newFileId,
-      message: selectedSource.message,
+      messageId: selectedSource.messageId,
+      videoFileId: 0,
+      
       selectedSourceIndex: selectedIndex,
     );
     

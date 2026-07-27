@@ -109,6 +109,14 @@ class TdlibService {
 
   Future<void>? _initFuture;
 
+  Future<td.Message?> getMessage(int chatId, int messageId) async {
+    try {
+      final result = await sendAsync(td.GetMessage(chatId: chatId, messageId: messageId));
+      if (result is td.Message) return result;
+    } catch (_) {}
+    return null;
+  }
+
   Future<void> forceReset() async {
     Log.w('TDLib forceReset called. Clearing in-flight init.');
     await _initLock.synchronized(() async {

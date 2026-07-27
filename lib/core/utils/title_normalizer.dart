@@ -149,50 +149,44 @@ class TitleNormalizer {
     return fileName;
   }
 
-  static int parseEpisodeNumber(td.Message ep) {
+  static int? parseEpisodeNumber(td.Message ep) {
     String fileName = getMessageFileName(ep);
-    
     final name = fileName.toLowerCase();
     
-    // 1. Match patterns like e06, ep06, ep.06, ep - 06, episode 06, episode - 06, ep_06
+    // 1. S##E## pattern
+    final seasonEpMatch = RegExp(
+      r's(\d{1,2})\s*[eex]\s*(\d{1,3})',
+      caseSensitive: false,
+    ).firstMatch(name);
+    if (seasonEpMatch != null) {
+      return int.tryParse(seasonEpMatch.group(2)!);
+    }
+    
+    // 2. ep/episode/e prefix
     final epMatch = RegExp(
-      r'\b(?:ep|episode|e|eps)\.?\s*[-—–_]*\s*(\d+)\b',
+      r'\b(?:ep|episode|eps)\.?\s*[-—–_]*\s*(\d{1,3})\b',
       caseSensitive: false,
     ).firstMatch(name);
     if (epMatch != null) {
-      return int.tryParse(epMatch.group(1)!) ?? 9999;
+      return int.tryParse(epMatch.group(1)!);
     }
     
-    // 2. Match standalone numbers followed by common extensions or separators
+    // 3. Standalone E## (only if preceded by separator)
+    final eMatch = RegExp(r'(?:[-—–_ ]|\b)e(\d{1,3})\b', caseSensitive: false).firstMatch(name);
+    if (eMatch != null) {
+      return int.tryParse(eMatch.group(1)!);
+    }
+    
+    // 4. Standalone number after separator
     final standaloneMatch = RegExp(
-      r'(?:[-—–_]\s*|^)(\d+)(?:\s*[-—–_]|\.mkv|\.mp4|\.avi|\.webm|\.mov|\.flv|\.wmv|\.3gp|\.m4v|\.ts)\b',
+      r'(?:[-—–_]\s*|^)(\d{1,3})(?:\s*[-—–_]|\.mkv|\.mp4|\.avi|\.webm|\.mov|\.flv|\.wmv|\.3gp|\.m4v|\.ts)\b',
       caseSensitive: false,
     ).firstMatch(name);
     if (standaloneMatch != null) {
-      return int.tryParse(standaloneMatch.group(1)!) ?? 9999;
+      return int.tryParse(standaloneMatch.group(1)!);
     }
     
-    // 3. Fallback: match any digits in the filename
-    final fallbackMatch = RegExp(r'(\d+)').firstMatch(name);
-    if (fallbackMatch != null) {
-      return int.tryParse(fallbackMatch.group(1)!) ?? 9999;
-    }
-    
-    return 9999;
-  }
-
-  static String extractQuality(td.Message ep) {
-    String fileName = getMessageFileName(ep);
-    final name = fileName.toLowerCase();
-    
-    final match = RegExp(r'\b(2160p|1440p|1080p|720p|480p|360p)\b').firstMatch(name);
-    if (match != null) {
-      return match.group(1)!;
-    }
-    
-    if (RegExp(r'\b(4k|uhd)\b').hasMatch(name)) return '2160p';
-    if (RegExp(r'\b(2k|wqhd)\b').hasMatch(name)) return '1440p';
-    
-    return 'Unknown';
+    // 5. No match — return null (DO NOT return 9999)
+    return null;
   }
 }

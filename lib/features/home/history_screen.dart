@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import '../../models/video_source.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../l10n/app_localizations.dart';
 import 'package:intl/intl.dart';
@@ -321,7 +322,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                                 final epTimeStr = _formatDateTime(epTime);
 
                                 // Resolve episode Details
-                                td.Message? episodeMsg;
+                                VideoSource? episodeSource;
                                 AnimeSeason? matchedSeason;
                                 int? episodeListIndex;
                                 int? fileId;
@@ -330,9 +331,9 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                                 if (matchedSeries != null) {
                                   // Find in seasons
                                   for (var season in matchedSeries.seasons) {
-                                    final idx = season.episodes.indexWhere((ep) => ep.message?.id == msgId);
+                                    final idx = season.episodes.indexWhere((ep) => ep.defaultSource?.messageId == msgId);
                                     if (idx != -1) {
-                                      episodeMsg = season.episodes[idx].message;
+                                      episodeSource = season.episodes[idx].defaultSource;
                                       matchedSeason = season;
                                       episodeListIndex = idx;
                                       break;
@@ -340,26 +341,19 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                                   }
 
                                   // Fallback to first season index
-                                  if (episodeMsg == null && matchedSeries.seasons.isNotEmpty) {
+                                  if (episodeSource == null && matchedSeries.seasons.isNotEmpty) {
                                     final firstSeason = matchedSeries.seasons.first;
                                     final epIdx = log['episodeIndex'] as int;
                                     if (epIdx >= 0 && epIdx < firstSeason.episodes.length) {
-                                      episodeMsg = firstSeason.episodes[epIdx].message;
+                                      episodeSource = firstSeason.episodes[epIdx].defaultSource;
                                       matchedSeason = firstSeason;
                                       episodeListIndex = epIdx;
                                     }
                                   }
 
-                                  if (episodeMsg != null) {
-                                    if (episodeMsg.content is td.MessageVideo) {
-                                      final v = episodeMsg.content as td.MessageVideo;
-                                      fileId = v.video.video.id;
-                                      epFileName = v.video.fileName;
-                                    } else if (episodeMsg.content is td.MessageDocument) {
-                                      final d = episodeMsg.content as td.MessageDocument;
-                                      fileId = d.document.document.id;
-                                      epFileName = d.document.fileName;
-                                    }
+                                  if (episodeSource != null) {
+                                    fileId = 0; // VideoSource does not have fileId
+                                    epFileName = episodeSource.fileName;
                                   }
                                 }
 
@@ -408,7 +402,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                                                 icon: Icon(Icons.play_circle_fill_rounded, color: settingsAccent, size: 28),
                                                 tooltip: 'Play Episode',
                                                 onPressed: () {
-                                                  final msgId = episodeMsg?.id ?? (log['messageId'] as int?) ?? 0;
+                                                  final msgId = episodeSource?.messageId ?? (log['messageId'] as int?) ?? 0;
                                                   final targetSeason = matchedSeason ?? matchedSeries!.seasons.first;
                                                   if (Platform.isWindows) {
                                                     ref.read(desktopSelectedSeasonIndexProvider.notifier).state = matchedSeries!.seasons.indexOf(targetSeason);

@@ -103,6 +103,8 @@ abstract class VideoSettings with _$VideoSettings {
     @Default('auto') String hardwareDecoderMode,
     @Default(50) int? proxyPingLimit,
     @Default('Ask Each Time') String defaultDownloadQuality,
+    @Default(true) bool showQualityBadges,
+    @Default(true) bool enableInPlayerQualitySwitch,
   }) = _VideoSettings;
 
   String getLayoutForCategory(String categoryTitle) {
@@ -200,6 +202,9 @@ abstract class VideoSettings with _$VideoSettings {
       wifiOnlyDownloads: json['wifiOnlyDownloads'] ?? false,
       hardwareDecoderMode: hardwareDecoderMode,
       proxyPingLimit: json.containsKey('proxyPingLimit') ? json['proxyPingLimit'] as int? : 50,
+      defaultDownloadQuality: json['defaultDownloadQuality'] ?? 'Ask Each Time',
+      showQualityBadges: json['showQualityBadges'] ?? true,
+      enableInPlayerQualitySwitch: json['enableInPlayerQualitySwitch'] ?? true,
     );
   }
 
@@ -255,6 +260,9 @@ abstract class VideoSettings with _$VideoSettings {
       'rememberSpeed': rememberSpeed,
       'wifiOnlyDownloads': wifiOnlyDownloads,
       'proxyPingLimit': proxyPingLimit,
+      'defaultDownloadQuality': defaultDownloadQuality,
+      'showQualityBadges': showQualityBadges,
+      'enableInPlayerQualitySwitch': enableInPlayerQualitySwitch,
     };
   }
 }

@@ -600,6 +600,67 @@ class _VideoSettingsScreenState extends ConsumerState<VideoSettingsScreen> {
           ),
 
           const SizedBox(height: 20),
+          _buildSectionHeader(context, 'Playback'),
+          Card(
+            elevation: 0,
+            color: theme.cardColor,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+              side: BorderSide(color: theme.colorScheme.onSurface.withValues(alpha: 0.08), width: 1),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: Column(
+              children: [
+                SwitchListTile(
+                  title: Text('Enable In-Player Quality Switch', style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
+                  subtitle: Text('Show quality options directly in player', style: TextStyle(color: isDark ? Colors.white54 : Colors.black54, fontSize: 12)),
+                  value: settings.enableInPlayerQualitySwitch,
+                  activeColor: theme.colorScheme.primary,
+                  onChanged: (bool value) {
+                    notifier.updateSettings(settings.copyWith(enableInPlayerQualitySwitch: value));
+                  },
+                ),
+                Divider(height: 1, color: theme.colorScheme.onSurface.withValues(alpha: 0.08)),
+                SwitchListTile(
+                  title: Text('Show Quality Badges in Library', style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
+                  subtitle: Text('Display available resolutions on episodes', style: TextStyle(color: isDark ? Colors.white54 : Colors.black54, fontSize: 12)),
+                  value: settings.showQualityBadges,
+                  activeColor: theme.colorScheme.primary,
+                  onChanged: (bool value) {
+                    notifier.updateSettings(settings.copyWith(showQualityBadges: value));
+                  },
+                ),
+                Divider(height: 1, color: theme.colorScheme.onSurface.withValues(alpha: 0.08)),
+                ListTile(
+                  title: Text('Preferred Download Quality', style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
+                  subtitle: Text(settings.defaultDownloadQuality, style: TextStyle(color: isDark ? Colors.white54 : Colors.black54, fontSize: 12)),
+                  trailing: DropdownButton<String>(
+                    value: settings.defaultDownloadQuality,
+                    dropdownColor: theme.cardColor,
+                    underline: const SizedBox(),
+                    style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+                    icon: Icon(Icons.arrow_drop_down, color: isDark ? Colors.white70 : Colors.black54),
+                    items: const [
+                      DropdownMenuItem(value: 'Ask Each Time', child: Text('Ask Each Time')),
+                      DropdownMenuItem(value: '2160p', child: Text('2160p')),
+                      DropdownMenuItem(value: '1440p', child: Text('1440p')),
+                      DropdownMenuItem(value: '1080p', child: Text('1080p')),
+                      DropdownMenuItem(value: '720p', child: Text('720p')),
+                      DropdownMenuItem(value: '480p', child: Text('480p')),
+                      DropdownMenuItem(value: '360p', child: Text('360p')),
+                    ],
+                    onChanged: (String? value) {
+                      if (value != null) {
+                        notifier.updateSettings(settings.copyWith(defaultDownloadQuality: value));
+                      }
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 20),
           _buildSectionHeader(context, 'Downloads'),
           Card(
             elevation: 0,

@@ -11,33 +11,30 @@ part of 'video_source.dart';
 
 // dart format off
 T _$identity<T>(T value) => value;
-
 /// @nodoc
 mixin _$VideoSource {
 
-@TdMessageConverter() td.Message get message; String get qualityLabel; int get width; int get height;
+ int get messageId; int get chatId; int get fileSizeBytes; String get fileName; String get mimeType; DateTime get receivedAt; VideoMetadata? get metadata;
 /// Create a copy of VideoSource
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
 @pragma('vm:prefer-inline')
 $VideoSourceCopyWith<VideoSource> get copyWith => _$VideoSourceCopyWithImpl<VideoSource>(this as VideoSource, _$identity);
 
-  /// Serializes this VideoSource to a JSON map.
-  Map<String, dynamic> toJson();
 
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is VideoSource&&(identical(other.message, message) || other.message == message)&&(identical(other.qualityLabel, qualityLabel) || other.qualityLabel == qualityLabel)&&(identical(other.width, width) || other.width == width)&&(identical(other.height, height) || other.height == height));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is VideoSource&&(identical(other.messageId, messageId) || other.messageId == messageId)&&(identical(other.chatId, chatId) || other.chatId == chatId)&&(identical(other.fileSizeBytes, fileSizeBytes) || other.fileSizeBytes == fileSizeBytes)&&(identical(other.fileName, fileName) || other.fileName == fileName)&&(identical(other.mimeType, mimeType) || other.mimeType == mimeType)&&(identical(other.receivedAt, receivedAt) || other.receivedAt == receivedAt)&&(identical(other.metadata, metadata) || other.metadata == metadata));
 }
 
-@JsonKey(includeFromJson: false, includeToJson: false)
+
 @override
-int get hashCode => Object.hash(runtimeType,message,qualityLabel,width,height);
+int get hashCode => Object.hash(runtimeType,messageId,chatId,fileSizeBytes,fileName,mimeType,receivedAt,metadata);
 
 @override
 String toString() {
-  return 'VideoSource(message: $message, qualityLabel: $qualityLabel, width: $width, height: $height)';
+  return 'VideoSource(messageId: $messageId, chatId: $chatId, fileSizeBytes: $fileSizeBytes, fileName: $fileName, mimeType: $mimeType, receivedAt: $receivedAt, metadata: $metadata)';
 }
 
 
@@ -48,11 +45,11 @@ abstract mixin class $VideoSourceCopyWith<$Res>  {
   factory $VideoSourceCopyWith(VideoSource value, $Res Function(VideoSource) _then) = _$VideoSourceCopyWithImpl;
 @useResult
 $Res call({
-@TdMessageConverter() td.Message message, String qualityLabel, int width, int height
+ int messageId, int chatId, int fileSizeBytes, String fileName, String mimeType, DateTime receivedAt, VideoMetadata? metadata
 });
 
 
-
+$VideoMetadataCopyWith<$Res>? get metadata;
 
 }
 /// @nodoc
@@ -65,16 +62,31 @@ class _$VideoSourceCopyWithImpl<$Res>
 
 /// Create a copy of VideoSource
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? message = null,Object? qualityLabel = null,Object? width = null,Object? height = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? messageId = null,Object? chatId = null,Object? fileSizeBytes = null,Object? fileName = null,Object? mimeType = null,Object? receivedAt = null,Object? metadata = freezed,}) {
   return _then(_self.copyWith(
-message: null == message ? _self.message : message // ignore: cast_nullable_to_non_nullable
-as td.Message,qualityLabel: null == qualityLabel ? _self.qualityLabel : qualityLabel // ignore: cast_nullable_to_non_nullable
-as String,width: null == width ? _self.width : width // ignore: cast_nullable_to_non_nullable
-as int,height: null == height ? _self.height : height // ignore: cast_nullable_to_non_nullable
-as int,
+messageId: null == messageId ? _self.messageId : messageId // ignore: cast_nullable_to_non_nullable
+as int,chatId: null == chatId ? _self.chatId : chatId // ignore: cast_nullable_to_non_nullable
+as int,fileSizeBytes: null == fileSizeBytes ? _self.fileSizeBytes : fileSizeBytes // ignore: cast_nullable_to_non_nullable
+as int,fileName: null == fileName ? _self.fileName : fileName // ignore: cast_nullable_to_non_nullable
+as String,mimeType: null == mimeType ? _self.mimeType : mimeType // ignore: cast_nullable_to_non_nullable
+as String,receivedAt: null == receivedAt ? _self.receivedAt : receivedAt // ignore: cast_nullable_to_non_nullable
+as DateTime,metadata: freezed == metadata ? _self.metadata : metadata // ignore: cast_nullable_to_non_nullable
+as VideoMetadata?,
   ));
 }
+/// Create a copy of VideoSource
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$VideoMetadataCopyWith<$Res>? get metadata {
+    if (_self.metadata == null) {
+    return null;
+  }
 
+  return $VideoMetadataCopyWith<$Res>(_self.metadata!, (value) {
+    return _then(_self.copyWith(metadata: value));
+  });
+}
 }
 
 
@@ -156,10 +168,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function(@TdMessageConverter()  td.Message message,  String qualityLabel,  int width,  int height)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( int messageId,  int chatId,  int fileSizeBytes,  String fileName,  String mimeType,  DateTime receivedAt,  VideoMetadata? metadata)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _VideoSource() when $default != null:
-return $default(_that.message,_that.qualityLabel,_that.width,_that.height);case _:
+return $default(_that.messageId,_that.chatId,_that.fileSizeBytes,_that.fileName,_that.mimeType,_that.receivedAt,_that.metadata);case _:
   return orElse();
 
 }
@@ -177,10 +189,10 @@ return $default(_that.message,_that.qualityLabel,_that.width,_that.height);case 
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function(@TdMessageConverter()  td.Message message,  String qualityLabel,  int width,  int height)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( int messageId,  int chatId,  int fileSizeBytes,  String fileName,  String mimeType,  DateTime receivedAt,  VideoMetadata? metadata)  $default,) {final _that = this;
 switch (_that) {
 case _VideoSource():
-return $default(_that.message,_that.qualityLabel,_that.width,_that.height);case _:
+return $default(_that.messageId,_that.chatId,_that.fileSizeBytes,_that.fileName,_that.mimeType,_that.receivedAt,_that.metadata);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -197,10 +209,10 @@ return $default(_that.message,_that.qualityLabel,_that.width,_that.height);case 
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function(@TdMessageConverter()  td.Message message,  String qualityLabel,  int width,  int height)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( int messageId,  int chatId,  int fileSizeBytes,  String fileName,  String mimeType,  DateTime receivedAt,  VideoMetadata? metadata)?  $default,) {final _that = this;
 switch (_that) {
 case _VideoSource() when $default != null:
-return $default(_that.message,_that.qualityLabel,_that.width,_that.height);case _:
+return $default(_that.messageId,_that.chatId,_that.fileSizeBytes,_that.fileName,_that.mimeType,_that.receivedAt,_that.metadata);case _:
   return null;
 
 }
@@ -209,16 +221,19 @@ return $default(_that.message,_that.qualityLabel,_that.width,_that.height);case 
 }
 
 /// @nodoc
-@JsonSerializable()
 
-class _VideoSource implements VideoSource {
-  const _VideoSource({@TdMessageConverter() required this.message, required this.qualityLabel, required this.width, required this.height});
-  factory _VideoSource.fromJson(Map<String, dynamic> json) => _$VideoSourceFromJson(json);
 
-@override@TdMessageConverter() final  td.Message message;
-@override final  String qualityLabel;
-@override final  int width;
-@override final  int height;
+class _VideoSource extends VideoSource {
+  const _VideoSource({required this.messageId, required this.chatId, required this.fileSizeBytes, required this.fileName, required this.mimeType, required this.receivedAt, this.metadata}): super._();
+  
+
+@override final  int messageId;
+@override final  int chatId;
+@override final  int fileSizeBytes;
+@override final  String fileName;
+@override final  String mimeType;
+@override final  DateTime receivedAt;
+@override final  VideoMetadata? metadata;
 
 /// Create a copy of VideoSource
 /// with the given fields replaced by the non-null parameter values.
@@ -226,23 +241,20 @@ class _VideoSource implements VideoSource {
 @pragma('vm:prefer-inline')
 _$VideoSourceCopyWith<_VideoSource> get copyWith => __$VideoSourceCopyWithImpl<_VideoSource>(this, _$identity);
 
-@override
-Map<String, dynamic> toJson() {
-  return _$VideoSourceToJson(this, );
-}
+
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _VideoSource&&(identical(other.message, message) || other.message == message)&&(identical(other.qualityLabel, qualityLabel) || other.qualityLabel == qualityLabel)&&(identical(other.width, width) || other.width == width)&&(identical(other.height, height) || other.height == height));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _VideoSource&&(identical(other.messageId, messageId) || other.messageId == messageId)&&(identical(other.chatId, chatId) || other.chatId == chatId)&&(identical(other.fileSizeBytes, fileSizeBytes) || other.fileSizeBytes == fileSizeBytes)&&(identical(other.fileName, fileName) || other.fileName == fileName)&&(identical(other.mimeType, mimeType) || other.mimeType == mimeType)&&(identical(other.receivedAt, receivedAt) || other.receivedAt == receivedAt)&&(identical(other.metadata, metadata) || other.metadata == metadata));
 }
 
-@JsonKey(includeFromJson: false, includeToJson: false)
+
 @override
-int get hashCode => Object.hash(runtimeType,message,qualityLabel,width,height);
+int get hashCode => Object.hash(runtimeType,messageId,chatId,fileSizeBytes,fileName,mimeType,receivedAt,metadata);
 
 @override
 String toString() {
-  return 'VideoSource(message: $message, qualityLabel: $qualityLabel, width: $width, height: $height)';
+  return 'VideoSource(messageId: $messageId, chatId: $chatId, fileSizeBytes: $fileSizeBytes, fileName: $fileName, mimeType: $mimeType, receivedAt: $receivedAt, metadata: $metadata)';
 }
 
 
@@ -253,11 +265,11 @@ abstract mixin class _$VideoSourceCopyWith<$Res> implements $VideoSourceCopyWith
   factory _$VideoSourceCopyWith(_VideoSource value, $Res Function(_VideoSource) _then) = __$VideoSourceCopyWithImpl;
 @override @useResult
 $Res call({
-@TdMessageConverter() td.Message message, String qualityLabel, int width, int height
+ int messageId, int chatId, int fileSizeBytes, String fileName, String mimeType, DateTime receivedAt, VideoMetadata? metadata
 });
 
 
-
+@override $VideoMetadataCopyWith<$Res>? get metadata;
 
 }
 /// @nodoc
@@ -270,17 +282,32 @@ class __$VideoSourceCopyWithImpl<$Res>
 
 /// Create a copy of VideoSource
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? message = null,Object? qualityLabel = null,Object? width = null,Object? height = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? messageId = null,Object? chatId = null,Object? fileSizeBytes = null,Object? fileName = null,Object? mimeType = null,Object? receivedAt = null,Object? metadata = freezed,}) {
   return _then(_VideoSource(
-message: null == message ? _self.message : message // ignore: cast_nullable_to_non_nullable
-as td.Message,qualityLabel: null == qualityLabel ? _self.qualityLabel : qualityLabel // ignore: cast_nullable_to_non_nullable
-as String,width: null == width ? _self.width : width // ignore: cast_nullable_to_non_nullable
-as int,height: null == height ? _self.height : height // ignore: cast_nullable_to_non_nullable
-as int,
+messageId: null == messageId ? _self.messageId : messageId // ignore: cast_nullable_to_non_nullable
+as int,chatId: null == chatId ? _self.chatId : chatId // ignore: cast_nullable_to_non_nullable
+as int,fileSizeBytes: null == fileSizeBytes ? _self.fileSizeBytes : fileSizeBytes // ignore: cast_nullable_to_non_nullable
+as int,fileName: null == fileName ? _self.fileName : fileName // ignore: cast_nullable_to_non_nullable
+as String,mimeType: null == mimeType ? _self.mimeType : mimeType // ignore: cast_nullable_to_non_nullable
+as String,receivedAt: null == receivedAt ? _self.receivedAt : receivedAt // ignore: cast_nullable_to_non_nullable
+as DateTime,metadata: freezed == metadata ? _self.metadata : metadata // ignore: cast_nullable_to_non_nullable
+as VideoMetadata?,
   ));
 }
 
+/// Create a copy of VideoSource
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$VideoMetadataCopyWith<$Res>? get metadata {
+    if (_self.metadata == null) {
+    return null;
+  }
 
+  return $VideoMetadataCopyWith<$Res>(_self.metadata!, (value) {
+    return _then(_self.copyWith(metadata: value));
+  });
+}
 }
 
 // dart format on

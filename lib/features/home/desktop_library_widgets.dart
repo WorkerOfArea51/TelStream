@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import '../../models/episode.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../l10n/app_localizations.dart';
 import 'package:tdlib/td_api.dart' as td;
@@ -320,15 +321,15 @@ class DesktopContinueWatchingShelf extends StatelessWidget {
                     onTap: () {
                       if (matchedSeries != null) {
                         ref.read(desktopSelectedSeriesProvider.notifier).state = matchedSeries;
-                        td.Message? epMsg;
+                        Episode? epMatch;
                         for (final season in matchedSeries.seasons) {
                           try {
-                            epMsg = season.episodes.firstWhere((ep) => ep.message?.id == msgId).message;
+                            epMatch = season.episodes.firstWhere((ep) => ep.defaultSource?.messageId == msgId);
                             break;
                           } catch (_) {}
                         }
-                        if (epMsg != null) {
-                          ref.read(desktopSelectedEpisodeProvider.notifier).state = epMsg;
+                        if (epMatch != null) {
+                          ref.read(desktopSelectedEpisodeProvider.notifier).state = epMatch;
                         }
                       }
                     },

@@ -1,34 +1,59 @@
-import 'dart:convert';
 import 'package:freezed_annotation/freezed_annotation.dart';
-import 'package:tdlib/td_api.dart' as td;
-import '../core/utils/td_json_util.dart';
+import '../core/video_metadata/video_metadata.dart';
 
 part 'video_source.freezed.dart';
-part 'video_source.g.dart';
-
-class TdMessageConverter implements JsonConverter<td.Message, Map<String, dynamic>> {
-  const TdMessageConverter();
-
-  @override
-  td.Message fromJson(Map<String, dynamic> json) {
-    final map = TdJsonUtil.sanitize(json);
-    return td.convertToObject(jsonEncode(map)) as td.Message;
-  }
-
-  @override
-  Map<String, dynamic> toJson(td.Message object) {
-    return object.toJson();
-  }
-}
 
 @freezed
 abstract class VideoSource with _$VideoSource {
   const factory VideoSource({
-    @TdMessageConverter() required td.Message message,
-    required String qualityLabel,
-    required int width,
-    required int height,
+    required int messageId,
+    required int chatId,
+    required int fileSizeBytes,
+    required String fileName,
+    required String mimeType,
+    required DateTime receivedAt,
+    VideoMetadata? metadata,
   }) = _VideoSource;
 
-  factory VideoSource.fromJson(Map<String, dynamic> json) => _$VideoSourceFromJson(json);
+  const VideoSource._();
+
+  /// Convenience getter — derives from metadata, never stored.
+  String get qualityLabel {
+    if (metadata != null && metadata!.height > 0) {
+      return metadata!.qualityLabel;
+    }
+    return 'Unknown';
+  }
+
+  /// Sort rank — higher = better quality. -1 means metadata not yet extracted.
+  int get qualityRank => metadata?.height ?? -1;
+
+  /// True when this source has confirmed real metadata (not just a guess).
+  bool get hasMetadata => metadata != null && metadata!.height > 0;
+
+  factory VideoSource.fromFlatJson(Map<String, dynamic> json) {
+    return VideoSource(
+      messageId: json['messageId'] as int,
+      chatId: json['chatId'] as int,
+      fileSizeBytes: json['fileSizeBytes'] as int? ?? 0,
+      fileName: json['fileName'] as String? ?? '',
+      mimeType: json['mimeType'] as String? ?? '',
+      receivedAt: DateTime.tryParse(json['receivedAt'] as String? ?? '') ?? DateTime.now(),
+      metadata: json['metadata'] != null
+          ? VideoMetadata.fromFlatJson(json['metadata'] as Map<String, dynamic>)
+          : null,
+    );
+  }
+
+  Map<String, dynamic> toFlatJson() {
+    return {
+      'messageId': messageId,
+      'chatId': chatId,
+      'fileSizeBytes': fileSizeBytes,
+      'fileName': fileName,
+      'mimeType': mimeType,
+      'receivedAt': receivedAt.toIso8601String(),
+      if (metadata != null) 'metadata': metadata!.toFlatJson(),
+    };
+  }
 }

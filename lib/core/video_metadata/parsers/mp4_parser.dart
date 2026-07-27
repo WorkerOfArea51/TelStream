@@ -33,12 +33,13 @@ class Mp4Parser {
             offset += size;
           } else {
             // moov is probably at the end of the file, outside our prefix
-            return null;
+            throw Exception('moov_not_found');
           }
         }
       }
     } catch (e) {
-      // Ignore errors parsing prefix
+      if (e.toString().contains('moov_not_found')) rethrow;
+      // Ignore other errors parsing prefix
     }
     return null;
   }
@@ -100,11 +101,11 @@ class Mp4Parser {
       offset += size;
     }
 
-    if (width != null && height != null && durationMillis != null) {
+    if (width != null && height != null) {
       return VideoMetadata(
         width: width,
         height: height,
-        durationMillis: durationMillis,
+        durationMillis: durationMillis ?? 0,
         container: VideoContainer.mp4,
         codecHint: codecHint,
       );

@@ -231,11 +231,11 @@ class MkvParser {
         durationMillis = (durationFloat * timecodeScale / 1000000.0).round();
       }
 
-      if (width != null && height != null && durationMillis != null) {
+      if (width != null && height != null) {
         return VideoMetadata(
           width: width,
           height: height,
-          durationMillis: durationMillis,
+          durationMillis: durationMillis ?? 0,
           container: VideoContainer.mkv,
           codecHint: codecHint,
         );

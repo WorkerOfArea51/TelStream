@@ -10,6 +10,7 @@ import '../../models/episode.dart';
 import '../../models/video_source.dart';
 import '../../services/tdlib_service.dart';
 import '../../services/storage_service.dart';
+import '../../core/utils/td_message_helpers.dart';
 import '../../core/utils/title_normalizer.dart';
 import '../../services/series_parser.dart';
 import '../../services/release_year_service.dart';
@@ -369,10 +370,10 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
       
       if (changed) {
         for (final ep in episodes) {
-          final epMsg = ep.message;
-          if (epMsg != null && !_rawMessageIds.contains(epMsg.id)) {
-            _rawMessages.add(epMsg);
-            _rawMessageIds.add(epMsg.id);
+          final epMsgId = ep.defaultSource?.messageId;
+          if (epMsgId != null && !_rawMessageIds.contains(epMsgId)) {
+            /* deprecated raw push */
+            _rawMessageIds.add(epMsgId);
           }
         }
       }
@@ -464,10 +465,10 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
               _rawMessageIds.add(season.posterMessage.id);
             }
             for (final ep in season.episodes) {
-              final epMsg = ep.message;
-              if (epMsg != null && !_rawMessageIds.contains(epMsg.id)) {
-                _rawMessages.add(epMsg);
-                _rawMessageIds.add(epMsg.id);
+              final epMsgId = ep.defaultSource?.messageId;
+              if (epMsgId != null && !_rawMessageIds.contains(epMsgId)) {
+                /* deprecated raw push */
+                _rawMessageIds.add(epMsgId);
               }
             }
           }
@@ -940,16 +941,28 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
       for (final s in _allSeries) {
         for (int i = 0; i < s.seasons.length; i++) {
           if (s.seasons[i].posterMessage.id == selectedPoster.id) {
-            final exists = s.seasons[i].episodes.any((e) => e.message?.id == msg.id);
+            final exists = s.seasons[i].episodes.any((e) => e.messageId == msg.id);
             if (!exists) {
-              final newSource = VideoSource(message: msg, qualityLabel: TitleNormalizer.extractQuality(msg), width: 0, height: 0);
-              s.seasons[i].episodes.add(Episode(title: 'New Episode', sources: [newSource], isMetadataExtracted: false));
+              final newSource = VideoSource(
+                messageId: msg.id,
+                chatId: msg.chatId,
+                fileSizeBytes: extractFileSize(msg),
+                fileName: extractFileName(msg),
+                mimeType: extractMimeType(msg),
+                receivedAt: DateTime.fromMillisecondsSinceEpoch(msg.date * 1000),
+              );
+              s.seasons[i].episodes.add(Episode(
+                title: 'New Episode',
+                sources: [newSource],
+                isMetadataExtracted: false,
+                episodeNumber: TitleNormalizer.parseEpisodeNumber(msg),
+              ));
               s.seasons[i].episodes.sort((a, b) {
-                if (a.message == null || b.message == null) return 0;
-                final epA = TitleNormalizer.parseEpisodeNumber(a.message!);
-                final epB = TitleNormalizer.parseEpisodeNumber(b.message!);
-                if (epA != epB) return epA.compareTo(epB);
-                return a.message!.id.compareTo(b.message!.id);
+                if (a.messageId == null || b.messageId == null) return 0;
+                final numA = a.episodeNumber ?? 9999;
+                final numB = b.episodeNumber ?? 9999;
+                if (numA != numB) return numA.compareTo(numB);
+                return a.messageId!.compareTo(b.messageId!);
               });
               return true;
             }
@@ -1040,24 +1053,28 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
           found = true;
           break;
         }
-        final epIndex = season.episodes.indexWhere((e) => e.sources.any((src) => src.message.id == editedMsg.id));
-        if (epIndex != -1) {
-          final oldEp = season.episodes[epIndex];
-          final oldSourceIndex = oldEp.sources.indexWhere((s) => s.message.id == editedMsg.id);
-          if (oldSourceIndex != -1) {
-            final newSources = List<VideoSource>.from(oldEp.sources);
-            newSources[oldSourceIndex] = newSources[oldSourceIndex].copyWith(message: editedMsg, qualityLabel: TitleNormalizer.extractQuality(editedMsg));
-            season.episodes[epIndex] = oldEp.copyWith(sources: newSources);
-          }
-          // Re-sort episodes in case the filename/caption changed
-          season.episodes.sort((a, b) {
-            if (a.message == null || b.message == null) return 0;
-            final epA = TitleNormalizer.parseEpisodeNumber(a.message!);
-            final epB = TitleNormalizer.parseEpisodeNumber(b.message!);
-            if (epA != epB) return epA.compareTo(epB);
-            return a.message!.id.compareTo(b.message!.id);
-          });
-          found = true;
+          final epIndex = season.episodes.indexWhere((e) => e.sources.any((src) => src.messageId == editedMsg.id));
+          if (epIndex != -1) {
+            final oldEp = season.episodes[epIndex];
+            final oldSourceIndex = oldEp.sources.indexWhere((s) => s.messageId == editedMsg.id);
+            if (oldSourceIndex != -1) {
+              final newSources = List<VideoSource>.from(oldEp.sources);
+              newSources[oldSourceIndex] = newSources[oldSourceIndex].copyWith(
+                fileSizeBytes: extractFileSize(editedMsg),
+                fileName: extractFileName(editedMsg),
+                mimeType: extractMimeType(editedMsg),
+              );
+              season.episodes[epIndex] = oldEp.copyWith(sources: newSources);
+            }
+            // Re-sort episodes in case the filename/caption changed
+            season.episodes.sort((a, b) {
+              if (a.messageId == null || b.messageId == null) return 0;
+              final numA = a.episodeNumber ?? 9999;
+              final numB = b.episodeNumber ?? 9999;
+              if (numA != numB) return numA.compareTo(numB);
+              return a.messageId!.compareTo(b.messageId!);
+            });
+            found = true;
           break;
         }
       }

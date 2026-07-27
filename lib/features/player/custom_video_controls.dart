@@ -6,7 +6,7 @@ import 'dart:ui';
 import 'package:telstream/features/player/widgets/subtitle_overlay.dart';
 import 'package:telstream/features/player/widgets/video_layer.dart';
 import 'package:flutter/material.dart';
-import '../home/widgets/quality_picker_sheet.dart';
+import 'widgets/quality_picker_sheet.dart';
 import 'pip_manager.dart';
 
 import 'package:flutter/services.dart';
@@ -2245,14 +2245,14 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                 hasMultipleQualities: hasMultipleQualities,
                 onShowQualities: () async {
                   if (currentItem == null || currentItem.episode == null) return;
-                  final selectedSource = await QualityPickerSheet.show(
+                  final selectedSource = await QualityPickerSheet.showSheet(
                     context,
                     currentItem.episode!,
                     widget.videoTitle,
                   );
                   
                   if (selectedSource != null && mounted) {
-                    final newSourceMessageId = selectedSource.message.id;
+                    final newSourceMessageId = selectedSource.messageId;
                     if (newSourceMessageId == currentItem.messageId) return; // Same quality
                     
                     // Transfer current position to the new quality
