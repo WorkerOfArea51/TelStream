@@ -24,7 +24,7 @@ class EpisodeGrouper {
     // Preserve leading emojis before extraction (they're part of the user's
     // intended naming style — see the separate emoji-preservation fix).
     // ignore: valid_regexps
-    final leadingEmojiMatch = RegExp(r'^(\p{Extended_Pictographic}(\p{Extended_Pictographic}|\s)*)', unicode: true).firstMatch(title);
+    final leadingEmojiMatch = RegExp(r'^(\p{Extended_Pictographic}(?:\p{Extended_Pictographic}|\s)*)', unicode: true).firstMatch(title);
     final leadingEmoji = leadingEmojiMatch?.group(1) ?? '';
     var workingTitle = leadingEmoji.isEmpty ? title : title.substring(leadingEmoji.length).trim();
 
