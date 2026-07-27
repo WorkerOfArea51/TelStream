@@ -173,57 +173,67 @@ class _AndroidEpisodeListScreenState extends ConsumerState<AndroidEpisodeListScr
     String qualityRule = settings.batchDownloadQuality;
 
     if (qualityRule == 'Ask Each Time') {
-      final selectedRule = await showDialog<String>(
-        context: context,
-        builder: (context) => SimpleDialog(
-          title: Text(
-            'Select Batch Download Quality', 
-            style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
-          ),
-          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-          children: [
-            SimpleDialogOption(
-              onPressed: () => Navigator.pop(context, 'Highest Quality'),
-              child: const Padding(
-                padding: EdgeInsets.symmetric(vertical: 8.0),
-                child: Text('Highest Quality'),
-              ),
-            ),
-            SimpleDialogOption(
-              onPressed: () => Navigator.pop(context, 'Lowest Quality'),
-              child: const Padding(
-                padding: EdgeInsets.symmetric(vertical: 8.0),
-                child: Text('Lowest Quality'),
-              ),
-            ),
-            const Divider(height: 1),
-            SimpleDialogOption(
-              onPressed: () => Navigator.pop(context, '2160p'),
-              child: const Padding(
-                padding: EdgeInsets.symmetric(vertical: 8.0),
-                child: Text('Prefer 2160p (fallback: highest)'),
-              ),
-            ),
-            SimpleDialogOption(
-              onPressed: () => Navigator.pop(context, '1080p'),
-              child: const Padding(
-                padding: EdgeInsets.symmetric(vertical: 8.0),
-                child: Text('Prefer 1080p (fallback: highest)'),
-              ),
-            ),
-            SimpleDialogOption(
-              onPressed: () => Navigator.pop(context, '720p'),
-              child: const Padding(
-                padding: EdgeInsets.symmetric(vertical: 8.0),
-                child: Text('Prefer 720p (fallback: lowest)'),
-              ),
-            ),
-          ],
-        ),
-      );
+      int maxSources = 0;
+      final availableQualities = <String>{};
+      for (final ep in season.episodes) {
+        if (ep.sources.length > maxSources) {
+          maxSources = ep.sources.length;
+        }
+        for (final src in ep.sources) {
+          if (src.hasMetadata) {
+            availableQualities.add(src.qualityLabel);
+          }
+        }
+      }
 
-      if (selectedRule == null) return;
-      qualityRule = selectedRule;
+      if (maxSources <= 1) {
+        qualityRule = 'Highest Quality';
+      } else {
+        final sortedQualities = availableQualities.toList()..sort((a, b) {
+          // simple sort for '2160p', '1080p', etc (descending)
+          final numA = int.tryParse(a.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+          final numB = int.tryParse(b.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+          return numB.compareTo(numA);
+        });
+
+        final selectedRule = await showDialog<String>(
+          context: context,
+          builder: (context) => SimpleDialog(
+            title: Text(
+              'Select Batch Download Quality', 
+              style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
+            ),
+            backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+            children: [
+              SimpleDialogOption(
+                onPressed: () => Navigator.pop(context, 'Highest Quality'),
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 8.0),
+                  child: Text('Highest Quality'),
+                ),
+              ),
+              SimpleDialogOption(
+                onPressed: () => Navigator.pop(context, 'Lowest Quality'),
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 8.0),
+                  child: Text('Lowest Quality'),
+                ),
+              ),
+              if (sortedQualities.isNotEmpty) const Divider(height: 1),
+              ...sortedQualities.map((q) => SimpleDialogOption(
+                onPressed: () => Navigator.pop(context, q),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8.0),
+                  child: Text('Prefer $q (fallback: highest)'),
+                ),
+              )),
+            ],
+          ),
+        );
+
+        if (selectedRule == null) return;
+        qualityRule = selectedRule;
+      }
     }
 
     final fileIds = <int>[];
@@ -1454,9 +1464,7 @@ class _EpisodeCardItemState extends ConsumerState<_EpisodeCardItem> {
                           runSpacing: 4,
                           children: widget.ep.sources.map((src) {
                             final hasHeight = (src.metadata?.height ?? 0) > 0;
-                            final label = hasHeight
-                                ? '${src.metadata!.height}p'
-                                : (src.hasMetadata ? src.qualityLabel : '...');
+                            final label = src.hasMetadata ? src.qualityLabel : '...';
                             return Container(
                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                               decoration: BoxDecoration(

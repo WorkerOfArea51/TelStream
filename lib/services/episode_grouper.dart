@@ -94,18 +94,29 @@ class EpisodeGrouper {
       ));
     }
 
-    // Process isolated episodes
+    // Group isolated messages by their clean title
+    final isolatedGroups = <String, List<td.Message>>{};
     for (final msg in isolatedMessages) {
-      final source = _createSource(msg);
       String rawTitle = TitleNormalizer.getMessageFileName(msg);
+      final cleanTitle = TitleNormalizer.normalizeSeriesName(rawTitle, isMovie: true).toLowerCase();
+      isolatedGroups.putIfAbsent(cleanTitle, () => []).add(msg);
+    }
+
+    // Process isolated groups
+    for (final entry in isolatedGroups.entries) {
+      final msgs = entry.value;
+      final sources = msgs.map(_createSource).toList();
+      
+      // Use the first message to build the title
+      String rawTitle = TitleNormalizer.getMessageFileName(msgs.first);
       final cleanTitle = rawTitle
           .replaceAll(RegExp(r'\.(mkv|mp4|avi|webm|mov|flv|wmv|ts|m4v|3gp)$', caseSensitive: false), '')
           .replaceAll('_', ' ')
           .trim();
 
       results.add(Episode(
-        title: cleanTitle.isNotEmpty ? cleanTitle : 'Video ${msg.id}',
-        sources: [source],
+        title: cleanTitle.isNotEmpty ? cleanTitle : 'Video ${msgs.first.id}',
+        sources: sources,
         isMetadataExtracted: false,
         episodeNumber: null,
       ));

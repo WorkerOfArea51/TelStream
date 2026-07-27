@@ -156,7 +156,9 @@ class MkvParser {
                     offset += eSize;
                   } else if (eId == 0x86) {
                     String codecStr = readString(data, offset, eSize) ?? '';
-                    if (codecStr.contains('AVC')) {
+                    if (codecStr.toUpperCase().contains('JPEG')) {
+                      isVideo = false;
+                    } else if (codecStr.contains('AVC')) {
                       cHint = 'h264';
                     } else if (codecStr.contains('HEVC')) {
                       cHint = 'hevc';
