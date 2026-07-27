@@ -323,7 +323,7 @@ class DesktopContinueWatchingShelf extends StatelessWidget {
                         td.Message? epMsg;
                         for (final season in matchedSeries.seasons) {
                           try {
-                            epMsg = season.episodes.firstWhere((ep) => ep.id == msgId);
+                            epMsg = season.episodes.firstWhere((ep) => ep.message?.id == msgId).message;
                             break;
                           } catch (_) {}
                         }

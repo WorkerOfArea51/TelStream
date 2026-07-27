@@ -1,6 +1,8 @@
 import 'package:tdlib/td_api.dart' as td;
 import '../models/anime_models.dart';
 import '../core/utils/title_normalizer.dart';
+import 'episode_grouper.dart';
+import '../models/episode.dart';
 
 class SeriesParser {
   static List<AnimeSeries> parseMessagesBackground(List<td.Message> raw, bool isMovie) {
@@ -154,18 +156,23 @@ class SeriesParser {
       }
 
       if (matchedExistingKey != null) {
-        // Add this episode to the existing series' latest season
-        final existingSeries = seriesMap[matchedExistingKey]!;
-        if (existingSeries.seasons.isNotEmpty) {
-          existingSeries.seasons.last.episodes.add(ep);
+        // Add this episode to the existing series' latest posterDetails
+        final targetPd = posterDetails.lastWhere(
+          (pd) => pd['matchedKey'] == matchedExistingKey,
+          orElse: () => <String, dynamic>{}, // Should not happen since seriesMap only has keys from posterDetails
+        );
+        if (targetPd.isNotEmpty) {
+          (targetPd['episodesList'] as List<td.Message>).add(ep);
         } else {
-          final syntheticSeason = AnimeSeason(
-            fullTitle: existingSeries.coreName,
-            seasonName: isMovie ? 'Movie' : 'Season 1',
-            posterMessage: ep,
-            episodes: [ep],
-          );
-          existingSeries.seasons.add(syntheticSeason);
+          // Fallback if somehow not found
+          final standalonePoster = {
+            'message': ep,
+            'fullTitle': epTitle,
+            'baseName': epBaseName,
+            'matchedKey': matchedExistingKey,
+            'episodesList': <td.Message>[ep],
+          };
+          posterDetails.add(standalonePoster);
         }
       } else {
         // No existing series matches — create standalone entry as fallback
@@ -195,22 +202,13 @@ class SeriesParser {
     final matchedKey = pd['matchedKey'] as String;
     final rawEps = pd['episodesList'] as List<td.Message>;
 
-    // Sort episodes inside the season numerically by episode number parsed from filename
-    final sortedEpisodes = List<td.Message>.from(rawEps)
-      ..sort((a, b) {
-        final epA = TitleNormalizer.parseEpisodeNumber(a);
-        final epB = TitleNormalizer.parseEpisodeNumber(b);
-        if (epA != epB) {
-          return epA.compareTo(epB);
-        }
-        return a.id.compareTo(b.id);
-      });
+    final groupedEpisodes = EpisodeGrouper.groupEpisodes(rawEps);
 
     final newSeason = AnimeSeason(
       fullTitle: fullTitle,
       seasonName: TitleNormalizer.parseSeasonName(fullTitle, baseName, isMovie: isMovie),
       posterMessage: pMsg,
-      episodes: sortedEpisodes,
+      episodes: groupedEpisodes,
     );
 
     final series = seriesMap[matchedKey];

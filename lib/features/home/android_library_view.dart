@@ -1365,7 +1365,7 @@ class ContinueWatchingShelf extends StatelessWidget {
                         matchedSeries.seasons.isNotEmpty) {
                       AnimeSeason selectedSeason = matchedSeries.seasons.first;
                       for (final season in matchedSeries.seasons) {
-                        if (season.episodes.any((ep) => ep.id == msgId)) {
+                        if (season.episodes.any((ep) => ep.message?.id == msgId)) {
                           selectedSeason = season;
                           break;
                         }

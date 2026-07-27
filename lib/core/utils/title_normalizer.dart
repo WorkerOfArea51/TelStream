@@ -180,4 +180,19 @@ class TitleNormalizer {
     
     return 9999;
   }
+
+  static String extractQuality(td.Message ep) {
+    String fileName = getMessageFileName(ep);
+    final name = fileName.toLowerCase();
+    
+    final match = RegExp(r'\b(2160p|1440p|1080p|720p|480p|360p)\b').firstMatch(name);
+    if (match != null) {
+      return match.group(1)!;
+    }
+    
+    if (RegExp(r'\b(4k|uhd)\b').hasMatch(name)) return '2160p';
+    if (RegExp(r'\b(2k|wqhd)\b').hasMatch(name)) return '1440p';
+    
+    return 'Unknown';
+  }
 }

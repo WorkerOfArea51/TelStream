@@ -7,6 +7,8 @@ import 'package:tdlib/td_api.dart' as td;
 import '../../core/utils/poster_thumbnail_extractor.dart';
 
 import '../../models/anime_models.dart';
+import '../../models/episode.dart';
+import '../../services/metadata_service.dart';
 import '../player/pip_manager.dart';
 import '../../core/widgets/wavy_progress_indicators.dart';
 import '../../core/widgets/td_thumbnail.dart';
@@ -22,6 +24,9 @@ import '../../services/tdlib_service.dart';
 import '../../core/widgets/shimmer_card.dart';
 import 'tracker_match_dialog.dart';
 import '../../services/metadata_service.dart';
+import '../../services/metadata_extraction_service.dart';
+import '../../services/episode_grouper.dart';
+import 'package:visibility_detector/visibility_detector.dart';
 import '../../services/firebase_metadata_service.dart';
 import '../../core/constants.dart';
 import 'widgets/admin_override_dialog.dart';
@@ -73,7 +78,7 @@ class _AndroidEpisodeListScreenState extends ConsumerState<AndroidEpisodeListScr
     if (widget.highlightMessageId != null) {
       bool found = false;
       for (final season in widget.series.seasons) {
-        if (season.episodes.any((ep) => ep.id == widget.highlightMessageId)) {
+        if (season.episodes.any((ep) => ep.message?.id == widget.highlightMessageId)) {
           _selectedSeason = season;
           found = true;
           break;
@@ -133,7 +138,7 @@ class _AndroidEpisodeListScreenState extends ConsumerState<AndroidEpisodeListScr
   void _scrollToHighlightedEpisode() {
     if (widget.highlightMessageId == null) return;
     final idx = _selectedSeason.episodes.indexWhere(
-      (ep) => ep.id == widget.highlightMessageId,
+      (ep) => ep.message?.id == widget.highlightMessageId,
     );
     if (idx != -1) {
       Future.delayed(const Duration(milliseconds: 600), () {
@@ -164,7 +169,9 @@ class _AndroidEpisodeListScreenState extends ConsumerState<AndroidEpisodeListScr
     final messageIds = <int>[];
     final chatIds = <int>[];
 
-    for (final msg in season.episodes) {
+    for (final ep in season.episodes) {
+      final msg = ep.message;
+      if (msg == null) continue;
       final fileId = _extractFileId(msg);
       if (fileId != null && fileId != 0) {
         final title = TitleNormalizer.getMessageFileName(msg)
@@ -282,13 +289,7 @@ class _AndroidEpisodeListScreenState extends ConsumerState<AndroidEpisodeListScr
         }
       }
 
-      // Sort the episodes chronologically/numerically just like HomeController does
-      collectedEpisodes.sort((a, b) {
-        final epA = TitleNormalizer.parseEpisodeNumber(a);
-        final epB = TitleNormalizer.parseEpisodeNumber(b);
-        if (epA != epB) return epA.compareTo(epB);
-        return a.id.compareTo(b.id);
-      });
+      final groupedEpisodes = EpisodeGrouper.groupEpisodes(collectedEpisodes);
 
       if (mounted) {
         setState(() {
@@ -296,7 +297,7 @@ class _AndroidEpisodeListScreenState extends ConsumerState<AndroidEpisodeListScr
             fullTitle: _selectedSeason.fullTitle,
             seasonName: _selectedSeason.seasonName,
             posterMessage: _selectedSeason.posterMessage,
-            episodes: collectedEpisodes,
+            episodes: groupedEpisodes,
           );
           _isLoadingEpisodes = false;
         });
@@ -312,7 +313,7 @@ class _AndroidEpisodeListScreenState extends ConsumerState<AndroidEpisodeListScr
         providerNotifier.updateSeasonEpisodes(
           widget.series.coreName,
           _selectedSeason.posterMessage.id,
-          collectedEpisodes,
+          groupedEpisodes,
         );
         _scrollToHighlightedEpisode();
       }
@@ -794,11 +795,12 @@ class _AndroidEpisodeListScreenState extends ConsumerState<AndroidEpisodeListScr
                   delegate: SliverChildBuilderDelegate(
                     (context, index) {
                       final msg = selectedSeason.episodes[index];
+                      final tdMsg = msg.message;
                       final isHighlighted =
-                          widget.highlightMessageId == msg.id;
+                          tdMsg != null && widget.highlightMessageId == tdMsg.id;
                       return _EpisodeCardItem(
-                        key: ValueKey(msg.id),
-                        msg: msg,
+                        key: ValueKey(tdMsg?.id ?? index),
+                        ep: msg,
                         index: index,
                         season: selectedSeason,
                         series: widget.series,
@@ -821,7 +823,7 @@ class _AndroidEpisodeListScreenState extends ConsumerState<AndroidEpisodeListScr
 
   void _showMarkWatchedDialog(
     BuildContext context,
-    td.Message msg,
+    Episode ep,
     int index,
     String title,
   ) {
@@ -859,6 +861,8 @@ class _AndroidEpisodeListScreenState extends ConsumerState<AndroidEpisodeListScr
                 ),
                 title: const Text('Mark as Watched'),
                 onTap: () async {
+                  final msg = ep.message;
+                  if (msg == null) return;
                   int duration = 0;
                   if (msg.content is td.MessageVideo) {
                     duration = (msg.content as td.MessageVideo).video.duration;
@@ -901,7 +905,9 @@ class _AndroidEpisodeListScreenState extends ConsumerState<AndroidEpisodeListScr
                 ),
                 title: const Text('Mark as Unwatched'),
                 onTap: () async {
-                  await storage.saveWatchPosition(msg.id, 0);
+                  if (ep.message != null) {
+                    await storage.saveWatchPosition(ep.message!.id, 0);
+                  }
                   if (context.mounted) {
                     setState(() {});
                     Navigator.pop(context);
@@ -928,16 +934,16 @@ int? _extractFileId(td.Message msg) {
 }
 
 class _EpisodeCardItem extends ConsumerStatefulWidget {
-  final td.Message msg;
+  final Episode ep;
   final int index;
   final AnimeSeason season;
   final AnimeSeries series;
-  final Function(BuildContext, td.Message, int, String) onLongPress;
+  final Function(BuildContext, Episode, int, String) onLongPress;
   final bool isHighlighted;
 
   const _EpisodeCardItem({
     super.key,
-    required this.msg,
+    required this.ep,
     required this.index,
     required this.season,
     required this.series,
@@ -1000,12 +1006,14 @@ class _EpisodeCardItemState extends ConsumerState<_EpisodeCardItem> {
     String metadata = '';
     int? fileId;
 
-      if (widget.msg.content is td.MessageVideo) {
-        final video = widget.msg.content as td.MessageVideo;
-        fileTitle = TitleNormalizer.getMessageFileName(widget.msg)
-            .replaceAll('_', ' ')
-            .replaceAll('.mkv', '')
-            .replaceAll('.mp4', '');
+    final epMsg = widget.ep.message;
+    if (epMsg == null) {
+      return const SizedBox();
+    }
+
+      if (epMsg.content is td.MessageVideo) {
+        final video = epMsg.content as td.MessageVideo;
+        fileTitle = widget.ep.title;
         fileId = video.video.video.id;
       final sizeMb = (video.video.video.expectedSize / 1024 / 1024)
           .toStringAsFixed(1);
@@ -1015,18 +1023,16 @@ class _EpisodeCardItemState extends ConsumerState<_EpisodeCardItem> {
       final s = duration.inSeconds.remainder(60).toString().padLeft(2, '0');
       final durStr = h > 0 ? '$h:$m:$s' : '$m:$s';
       metadata = '$durStr • $sizeMb MB';
-      } else if (widget.msg.content is td.MessageDocument) {
-        final doc = widget.msg.content as td.MessageDocument;
-        fileTitle = TitleNormalizer.getMessageFileName(widget.msg)
-            .replaceAll('_', ' ')
-            .replaceAll('.mkv', '')
-            .replaceAll('.mp4', '');
+      } else if (epMsg.content is td.MessageDocument) {
+        final doc = epMsg.content as td.MessageDocument;
+        fileTitle = widget.ep.title;
         fileId = doc.document.document.id;
       final sizeMb = (doc.document.document.expectedSize / 1024 / 1024)
           .toStringAsFixed(1);
       
       // Workaround for Documents: Extract duration from filename if present (e.g. "[24:00]" or "(24:00)")
-      final durationMatch = RegExp(r'[\[\(](\d{1,2}:\d{2}(?::\d{2})?)[\]\)]').firstMatch(fileTitle);
+      final rawFileName = TitleNormalizer.getMessageFileName(epMsg);
+      final durationMatch = RegExp(r'[\[\(](\d{1,2}:\d{2}(?::\d{2})?)[\]\)]').firstMatch(rawFileName);
       if (durationMatch != null) {
         metadata = '${durationMatch.group(1)} • $sizeMb MB';
       } else {
@@ -1071,7 +1077,7 @@ class _EpisodeCardItemState extends ConsumerState<_EpisodeCardItem> {
     final downloadTasks = ref.watch(downloadControllerProvider);
     DownloadTask? task;
     for (final t in downloadTasks.values) {
-      if (t.messageId == widget.msg.id || t.fileId == fileId) {
+      if (t.messageId == epMsg.id || t.fileId == fileId) {
         task = t;
         break;
       }
@@ -1091,8 +1097,8 @@ class _EpisodeCardItemState extends ConsumerState<_EpisodeCardItem> {
               .startDownload(
                 fileId!,
                 fileTitle,
-                messageId: widget.msg.id,
-                chatId: widget.msg.chatId,
+                messageId: epMsg.id,
+                chatId: epMsg.chatId,
               );
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -1145,12 +1151,12 @@ class _EpisodeCardItemState extends ConsumerState<_EpisodeCardItem> {
     final isDownloaded =
         task != null && task.isCompleted && task.localPath != null;
     final storage = ref.read(storageServiceProvider);
-    final savedPos = storage.getWatchPosition(widget.msg.id);
+    final savedPos = storage.getWatchPosition(epMsg.id);
     int duration = 0;
-    if (widget.msg.content is td.MessageVideo) {
-      duration = (widget.msg.content as td.MessageVideo).video.duration;
+    if (epMsg.content is td.MessageVideo) {
+      duration = (epMsg.content as td.MessageVideo).video.duration;
     } else {
-      duration = storage.getVideoDuration(widget.msg.id);
+      duration = storage.getVideoDuration(epMsg.id);
     }
     final double progressValue = (duration > 0)
         ? (savedPos / duration).clamp(0.0, 1.0)
@@ -1166,22 +1172,30 @@ class _EpisodeCardItemState extends ConsumerState<_EpisodeCardItem> {
             .read(pipControllerProvider.notifier)
             .playVideo(
               context,
-              messageId: widget.msg.id,
+              messageId: epMsg.id,
               videoFileId: fileId!,
               videoTitle: '${widget.series.coreName} - $fileTitle',
-              episodeList: widget.season.episodes,
+              episodeList: widget.season.episodes.map((e) => e.message!).toList(),
               currentEpisodeIndex: widget.index,
               seriesName: widget.series.coreName,
               networkUrl: isDownloaded ? task?.localPath : null,
             );
       },
       onLongPress: () {
-        widget.onLongPress(context, widget.msg, widget.index, fileTitle);
+        widget.onLongPress(context, widget.ep, widget.index, fileTitle);
       },
-      child: Consumer(
+      child: VisibilityDetector(
+        key: Key('episode_${widget.ep.title}_${epMsg.id}'),
+        onVisibilityChanged: (info) {
+          if (info.visibleFraction > 0) {
+            ref.read(metadataExtractionServiceProvider.notifier)
+               .extractMetadataForEpisode(widget.ep);
+          }
+        },
+        child: Consumer(
         builder: (context, ref, child) {
           final pipState = ref.watch(pipControllerProvider);
-          final isCurrentlyPlaying = (pipState != null && pipState.messageId == widget.msg.id);
+          final isCurrentlyPlaying = (pipState != null && pipState.messageId == epMsg.id);
           final shouldGlow = _isGlowing || isCurrentlyPlaying;
 
           return AnimatedScale(
@@ -1270,7 +1284,7 @@ class _EpisodeCardItemState extends ConsumerState<_EpisodeCardItem> {
                   child: Stack(
                     fit: StackFit.expand,
                     children: [
-                      _buildEpisodePlaceholder(widget.msg),
+                      _buildEpisodePlaceholder(epMsg),
                       Container(color: Colors.black26),
                       Center(
                         child: Container(
@@ -1348,6 +1362,29 @@ class _EpisodeCardItemState extends ConsumerState<_EpisodeCardItem> {
                           ),
                         ],
                       ),
+                      const SizedBox(height: 6),
+                      Wrap(
+                        spacing: 4,
+                        runSpacing: 4,
+                        children: widget.ep.sources.map((src) {
+                          return Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: settingsAccent.withValues(alpha: 0.2),
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(color: settingsAccent.withValues(alpha: 0.5), width: 0.5),
+                            ),
+                            child: Text(
+                              src.width > 0 ? '${src.height}p' : src.qualityLabel,
+                              style: TextStyle(
+                                fontSize: 9,
+                                fontWeight: FontWeight.bold,
+                                color: settingsAccent,
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
                     ],
                   ),
                 ),
@@ -1357,6 +1394,7 @@ class _EpisodeCardItemState extends ConsumerState<_EpisodeCardItem> {
             ),
           ),
         ),
+      ),
     );
   }
 

@@ -330,9 +330,9 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                                 if (matchedSeries != null) {
                                   // Find in seasons
                                   for (var season in matchedSeries.seasons) {
-                                    final idx = season.episodes.indexWhere((ep) => ep.id == msgId);
+                                    final idx = season.episodes.indexWhere((ep) => ep.message?.id == msgId);
                                     if (idx != -1) {
-                                      episodeMsg = season.episodes[idx];
+                                      episodeMsg = season.episodes[idx].message;
                                       matchedSeason = season;
                                       episodeListIndex = idx;
                                       break;
@@ -344,7 +344,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                                     final firstSeason = matchedSeries.seasons.first;
                                     final epIdx = log['episodeIndex'] as int;
                                     if (epIdx >= 0 && epIdx < firstSeason.episodes.length) {
-                                      episodeMsg = firstSeason.episodes[epIdx];
+                                      episodeMsg = firstSeason.episodes[epIdx].message;
                                       matchedSeason = firstSeason;
                                       episodeListIndex = epIdx;
                                     }
@@ -436,7 +436,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                                                         messageId: msgId,
                                                         videoFileId: fileId,
                                                         videoTitle: '$seriesName - ${epFileName.isNotEmpty ? epFileName : episodeTitle}',
-                                                        episodeList: targetSeason.episodes,
+                                                        episodeList: targetSeason.episodes.map((e) => e.message).whereType<td.Message>().toList(),
                                                         currentEpisodeIndex: epIdx,
                                                         seriesName: seriesName,
                                                       );

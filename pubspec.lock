@@ -992,7 +992,7 @@ packages:
     source: hosted
     version: "3.9.1"
   pool:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: pool
       sha256: "978783255c543aa3586a1b3c21f6e9d720eb315376a915872c61ef8b5c20177d"
@@ -1484,6 +1484,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.2.0"
+  visibility_detector:
+    dependency: "direct main"
+    description:
+      name: visibility_detector
+      sha256: dd5cc11e13494f432d15939c3aa8ae76844c42b723398643ce9addb88a5ed420
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.4.0+2"
   vm_service:
     dependency: transitive
     description:

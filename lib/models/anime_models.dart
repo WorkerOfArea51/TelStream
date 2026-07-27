@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:tdlib/td_api.dart' as td;
 import '../services/storage_service.dart';
 import '../../core/utils/td_json_util.dart';
+import 'episode.dart';
 
 class AnimeSeries {
   final String coreName;
@@ -29,7 +30,7 @@ class AnimeSeason {
   final String fullTitle;
   final String seasonName;
   td.Message posterMessage; // The Photo message
-  final List<td.Message> episodes; // The Video/Document messages
+  final List<Episode> episodes;
 
   AnimeSeason({
     required this.fullTitle,
@@ -54,7 +55,14 @@ class AnimeSeason {
       fullTitle: json['fullTitle'] as String,
       seasonName: json['seasonName'] as String,
       posterMessage: parseMessage(json['posterMessage']),
-      episodes: (json['episodes'] as List).map((e) => parseMessage(e)).toList(),
+      episodes: (json['episodes'] as List).map((e) {
+        // Fallback for old cache format (where 'episodes' were flat td.Message jsons)
+        if (e is Map<String, dynamic> && e.containsKey('@type') && (e['@type'] == 'message' || e['@type'] == 'messageVideo' || e['@type'] == 'messageDocument')) {
+          final msg = parseMessage(e);
+          return Episode(title: 'Unknown', sources: [], isMetadataExtracted: false); // We'll handle proper migration in Phase 10
+        }
+        return Episode.fromJson(e as Map<String, dynamic>);
+      }).toList(),
     );
   }
 
@@ -62,7 +70,7 @@ class AnimeSeason {
     String? fullTitle,
     String? seasonName,
     td.Message? posterMessage,
-    List<td.Message>? episodes,
+    List<Episode>? episodes,
   }) {
     return AnimeSeason(
       fullTitle: fullTitle ?? this.fullTitle,
@@ -99,10 +107,10 @@ class AnimeSeason {
 
     for (final ep in episodes) {
       String? fileName;
-      if (ep.content is td.MessageVideo) {
-        fileName = (ep.content as td.MessageVideo).video.fileName;
-      } else if (ep.content is td.MessageDocument) {
-        fileName = (ep.content as td.MessageDocument).document.fileName;
+      if (ep.message?.content is td.MessageVideo) {
+        fileName = (ep.message!.content as td.MessageVideo).video.fileName;
+      } else if (ep.message?.content is td.MessageDocument) {
+        fileName = (ep.message!.content as td.MessageDocument).document.fileName;
       }
       if (fileName != null && fileName.isNotEmpty) {
         final fromEp = extractYear(fileName);
@@ -115,4 +123,3 @@ class AnimeSeason {
     return null;
   }
 }
-
