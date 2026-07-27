@@ -1425,7 +1425,7 @@ as int,
 /// @nodoc
 mixin _$VideoSettings {
 
- PlayerLayoutSettings get layout; GestureSettings get gestures; AudioSettings get audio; SubtitleSettings get subtitles; CacheSettings get cache; bool get savePositionOnQuit; bool get autoplayNextVideo; String get streamingProfile; bool get downloadSchedulerEnabled; int get downloadStartHour; int get downloadEndHour; String get customMpvOptions; String get downloadSpeedLimit; String get progressSyncMode; bool get rememberSpeed; bool get wifiOnlyDownloads; String get hardwareDecoderMode; int? get proxyPingLimit;
+ PlayerLayoutSettings get layout; GestureSettings get gestures; AudioSettings get audio; SubtitleSettings get subtitles; CacheSettings get cache; bool get savePositionOnQuit; bool get autoplayNextVideo; String get streamingProfile; bool get downloadSchedulerEnabled; int get downloadStartHour; int get downloadEndHour; String get customMpvOptions; String get downloadSpeedLimit; String get progressSyncMode; bool get rememberSpeed; bool get wifiOnlyDownloads; String get hardwareDecoderMode; int? get proxyPingLimit; String get defaultDownloadQuality;
 /// Create a copy of VideoSettings
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -1436,16 +1436,16 @@ $VideoSettingsCopyWith<VideoSettings> get copyWith => _$VideoSettingsCopyWithImp
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is VideoSettings&&(identical(other.layout, layout) || other.layout == layout)&&(identical(other.gestures, gestures) || other.gestures == gestures)&&(identical(other.audio, audio) || other.audio == audio)&&(identical(other.subtitles, subtitles) || other.subtitles == subtitles)&&(identical(other.cache, cache) || other.cache == cache)&&(identical(other.savePositionOnQuit, savePositionOnQuit) || other.savePositionOnQuit == savePositionOnQuit)&&(identical(other.autoplayNextVideo, autoplayNextVideo) || other.autoplayNextVideo == autoplayNextVideo)&&(identical(other.streamingProfile, streamingProfile) || other.streamingProfile == streamingProfile)&&(identical(other.downloadSchedulerEnabled, downloadSchedulerEnabled) || other.downloadSchedulerEnabled == downloadSchedulerEnabled)&&(identical(other.downloadStartHour, downloadStartHour) || other.downloadStartHour == downloadStartHour)&&(identical(other.downloadEndHour, downloadEndHour) || other.downloadEndHour == downloadEndHour)&&(identical(other.customMpvOptions, customMpvOptions) || other.customMpvOptions == customMpvOptions)&&(identical(other.downloadSpeedLimit, downloadSpeedLimit) || other.downloadSpeedLimit == downloadSpeedLimit)&&(identical(other.progressSyncMode, progressSyncMode) || other.progressSyncMode == progressSyncMode)&&(identical(other.rememberSpeed, rememberSpeed) || other.rememberSpeed == rememberSpeed)&&(identical(other.wifiOnlyDownloads, wifiOnlyDownloads) || other.wifiOnlyDownloads == wifiOnlyDownloads)&&(identical(other.hardwareDecoderMode, hardwareDecoderMode) || other.hardwareDecoderMode == hardwareDecoderMode)&&(identical(other.proxyPingLimit, proxyPingLimit) || other.proxyPingLimit == proxyPingLimit));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is VideoSettings&&(identical(other.layout, layout) || other.layout == layout)&&(identical(other.gestures, gestures) || other.gestures == gestures)&&(identical(other.audio, audio) || other.audio == audio)&&(identical(other.subtitles, subtitles) || other.subtitles == subtitles)&&(identical(other.cache, cache) || other.cache == cache)&&(identical(other.savePositionOnQuit, savePositionOnQuit) || other.savePositionOnQuit == savePositionOnQuit)&&(identical(other.autoplayNextVideo, autoplayNextVideo) || other.autoplayNextVideo == autoplayNextVideo)&&(identical(other.streamingProfile, streamingProfile) || other.streamingProfile == streamingProfile)&&(identical(other.downloadSchedulerEnabled, downloadSchedulerEnabled) || other.downloadSchedulerEnabled == downloadSchedulerEnabled)&&(identical(other.downloadStartHour, downloadStartHour) || other.downloadStartHour == downloadStartHour)&&(identical(other.downloadEndHour, downloadEndHour) || other.downloadEndHour == downloadEndHour)&&(identical(other.customMpvOptions, customMpvOptions) || other.customMpvOptions == customMpvOptions)&&(identical(other.downloadSpeedLimit, downloadSpeedLimit) || other.downloadSpeedLimit == downloadSpeedLimit)&&(identical(other.progressSyncMode, progressSyncMode) || other.progressSyncMode == progressSyncMode)&&(identical(other.rememberSpeed, rememberSpeed) || other.rememberSpeed == rememberSpeed)&&(identical(other.wifiOnlyDownloads, wifiOnlyDownloads) || other.wifiOnlyDownloads == wifiOnlyDownloads)&&(identical(other.hardwareDecoderMode, hardwareDecoderMode) || other.hardwareDecoderMode == hardwareDecoderMode)&&(identical(other.proxyPingLimit, proxyPingLimit) || other.proxyPingLimit == proxyPingLimit)&&(identical(other.defaultDownloadQuality, defaultDownloadQuality) || other.defaultDownloadQuality == defaultDownloadQuality));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,layout,gestures,audio,subtitles,cache,savePositionOnQuit,autoplayNextVideo,streamingProfile,downloadSchedulerEnabled,downloadStartHour,downloadEndHour,customMpvOptions,downloadSpeedLimit,progressSyncMode,rememberSpeed,wifiOnlyDownloads,hardwareDecoderMode,proxyPingLimit);
+int get hashCode => Object.hashAll([runtimeType,layout,gestures,audio,subtitles,cache,savePositionOnQuit,autoplayNextVideo,streamingProfile,downloadSchedulerEnabled,downloadStartHour,downloadEndHour,customMpvOptions,downloadSpeedLimit,progressSyncMode,rememberSpeed,wifiOnlyDownloads,hardwareDecoderMode,proxyPingLimit,defaultDownloadQuality]);
 
 @override
 String toString() {
-  return 'VideoSettings(layout: $layout, gestures: $gestures, audio: $audio, subtitles: $subtitles, cache: $cache, savePositionOnQuit: $savePositionOnQuit, autoplayNextVideo: $autoplayNextVideo, streamingProfile: $streamingProfile, downloadSchedulerEnabled: $downloadSchedulerEnabled, downloadStartHour: $downloadStartHour, downloadEndHour: $downloadEndHour, customMpvOptions: $customMpvOptions, downloadSpeedLimit: $downloadSpeedLimit, progressSyncMode: $progressSyncMode, rememberSpeed: $rememberSpeed, wifiOnlyDownloads: $wifiOnlyDownloads, hardwareDecoderMode: $hardwareDecoderMode, proxyPingLimit: $proxyPingLimit)';
+  return 'VideoSettings(layout: $layout, gestures: $gestures, audio: $audio, subtitles: $subtitles, cache: $cache, savePositionOnQuit: $savePositionOnQuit, autoplayNextVideo: $autoplayNextVideo, streamingProfile: $streamingProfile, downloadSchedulerEnabled: $downloadSchedulerEnabled, downloadStartHour: $downloadStartHour, downloadEndHour: $downloadEndHour, customMpvOptions: $customMpvOptions, downloadSpeedLimit: $downloadSpeedLimit, progressSyncMode: $progressSyncMode, rememberSpeed: $rememberSpeed, wifiOnlyDownloads: $wifiOnlyDownloads, hardwareDecoderMode: $hardwareDecoderMode, proxyPingLimit: $proxyPingLimit, defaultDownloadQuality: $defaultDownloadQuality)';
 }
 
 
@@ -1456,7 +1456,7 @@ abstract mixin class $VideoSettingsCopyWith<$Res>  {
   factory $VideoSettingsCopyWith(VideoSettings value, $Res Function(VideoSettings) _then) = _$VideoSettingsCopyWithImpl;
 @useResult
 $Res call({
- PlayerLayoutSettings layout, GestureSettings gestures, AudioSettings audio, SubtitleSettings subtitles, CacheSettings cache, bool savePositionOnQuit, bool autoplayNextVideo, String streamingProfile, bool downloadSchedulerEnabled, int downloadStartHour, int downloadEndHour, String customMpvOptions, String downloadSpeedLimit, String progressSyncMode, bool rememberSpeed, bool wifiOnlyDownloads, String hardwareDecoderMode, int? proxyPingLimit
+ PlayerLayoutSettings layout, GestureSettings gestures, AudioSettings audio, SubtitleSettings subtitles, CacheSettings cache, bool savePositionOnQuit, bool autoplayNextVideo, String streamingProfile, bool downloadSchedulerEnabled, int downloadStartHour, int downloadEndHour, String customMpvOptions, String downloadSpeedLimit, String progressSyncMode, bool rememberSpeed, bool wifiOnlyDownloads, String hardwareDecoderMode, int? proxyPingLimit, String defaultDownloadQuality
 });
 
 
@@ -1473,7 +1473,7 @@ class _$VideoSettingsCopyWithImpl<$Res>
 
 /// Create a copy of VideoSettings
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? layout = null,Object? gestures = null,Object? audio = null,Object? subtitles = null,Object? cache = null,Object? savePositionOnQuit = null,Object? autoplayNextVideo = null,Object? streamingProfile = null,Object? downloadSchedulerEnabled = null,Object? downloadStartHour = null,Object? downloadEndHour = null,Object? customMpvOptions = null,Object? downloadSpeedLimit = null,Object? progressSyncMode = null,Object? rememberSpeed = null,Object? wifiOnlyDownloads = null,Object? hardwareDecoderMode = null,Object? proxyPingLimit = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? layout = null,Object? gestures = null,Object? audio = null,Object? subtitles = null,Object? cache = null,Object? savePositionOnQuit = null,Object? autoplayNextVideo = null,Object? streamingProfile = null,Object? downloadSchedulerEnabled = null,Object? downloadStartHour = null,Object? downloadEndHour = null,Object? customMpvOptions = null,Object? downloadSpeedLimit = null,Object? progressSyncMode = null,Object? rememberSpeed = null,Object? wifiOnlyDownloads = null,Object? hardwareDecoderMode = null,Object? proxyPingLimit = freezed,Object? defaultDownloadQuality = null,}) {
   return _then(_self.copyWith(
 layout: null == layout ? _self.layout : layout // ignore: cast_nullable_to_non_nullable
 as PlayerLayoutSettings,gestures: null == gestures ? _self.gestures : gestures // ignore: cast_nullable_to_non_nullable
@@ -1493,7 +1493,8 @@ as String,rememberSpeed: null == rememberSpeed ? _self.rememberSpeed : rememberS
 as bool,wifiOnlyDownloads: null == wifiOnlyDownloads ? _self.wifiOnlyDownloads : wifiOnlyDownloads // ignore: cast_nullable_to_non_nullable
 as bool,hardwareDecoderMode: null == hardwareDecoderMode ? _self.hardwareDecoderMode : hardwareDecoderMode // ignore: cast_nullable_to_non_nullable
 as String,proxyPingLimit: freezed == proxyPingLimit ? _self.proxyPingLimit : proxyPingLimit // ignore: cast_nullable_to_non_nullable
-as int?,
+as int?,defaultDownloadQuality: null == defaultDownloadQuality ? _self.defaultDownloadQuality : defaultDownloadQuality // ignore: cast_nullable_to_non_nullable
+as String,
   ));
 }
 /// Create a copy of VideoSettings
@@ -1623,10 +1624,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( PlayerLayoutSettings layout,  GestureSettings gestures,  AudioSettings audio,  SubtitleSettings subtitles,  CacheSettings cache,  bool savePositionOnQuit,  bool autoplayNextVideo,  String streamingProfile,  bool downloadSchedulerEnabled,  int downloadStartHour,  int downloadEndHour,  String customMpvOptions,  String downloadSpeedLimit,  String progressSyncMode,  bool rememberSpeed,  bool wifiOnlyDownloads,  String hardwareDecoderMode,  int? proxyPingLimit)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( PlayerLayoutSettings layout,  GestureSettings gestures,  AudioSettings audio,  SubtitleSettings subtitles,  CacheSettings cache,  bool savePositionOnQuit,  bool autoplayNextVideo,  String streamingProfile,  bool downloadSchedulerEnabled,  int downloadStartHour,  int downloadEndHour,  String customMpvOptions,  String downloadSpeedLimit,  String progressSyncMode,  bool rememberSpeed,  bool wifiOnlyDownloads,  String hardwareDecoderMode,  int? proxyPingLimit,  String defaultDownloadQuality)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _VideoSettings() when $default != null:
-return $default(_that.layout,_that.gestures,_that.audio,_that.subtitles,_that.cache,_that.savePositionOnQuit,_that.autoplayNextVideo,_that.streamingProfile,_that.downloadSchedulerEnabled,_that.downloadStartHour,_that.downloadEndHour,_that.customMpvOptions,_that.downloadSpeedLimit,_that.progressSyncMode,_that.rememberSpeed,_that.wifiOnlyDownloads,_that.hardwareDecoderMode,_that.proxyPingLimit);case _:
+return $default(_that.layout,_that.gestures,_that.audio,_that.subtitles,_that.cache,_that.savePositionOnQuit,_that.autoplayNextVideo,_that.streamingProfile,_that.downloadSchedulerEnabled,_that.downloadStartHour,_that.downloadEndHour,_that.customMpvOptions,_that.downloadSpeedLimit,_that.progressSyncMode,_that.rememberSpeed,_that.wifiOnlyDownloads,_that.hardwareDecoderMode,_that.proxyPingLimit,_that.defaultDownloadQuality);case _:
   return orElse();
 
 }
@@ -1644,10 +1645,10 @@ return $default(_that.layout,_that.gestures,_that.audio,_that.subtitles,_that.ca
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( PlayerLayoutSettings layout,  GestureSettings gestures,  AudioSettings audio,  SubtitleSettings subtitles,  CacheSettings cache,  bool savePositionOnQuit,  bool autoplayNextVideo,  String streamingProfile,  bool downloadSchedulerEnabled,  int downloadStartHour,  int downloadEndHour,  String customMpvOptions,  String downloadSpeedLimit,  String progressSyncMode,  bool rememberSpeed,  bool wifiOnlyDownloads,  String hardwareDecoderMode,  int? proxyPingLimit)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( PlayerLayoutSettings layout,  GestureSettings gestures,  AudioSettings audio,  SubtitleSettings subtitles,  CacheSettings cache,  bool savePositionOnQuit,  bool autoplayNextVideo,  String streamingProfile,  bool downloadSchedulerEnabled,  int downloadStartHour,  int downloadEndHour,  String customMpvOptions,  String downloadSpeedLimit,  String progressSyncMode,  bool rememberSpeed,  bool wifiOnlyDownloads,  String hardwareDecoderMode,  int? proxyPingLimit,  String defaultDownloadQuality)  $default,) {final _that = this;
 switch (_that) {
 case _VideoSettings():
-return $default(_that.layout,_that.gestures,_that.audio,_that.subtitles,_that.cache,_that.savePositionOnQuit,_that.autoplayNextVideo,_that.streamingProfile,_that.downloadSchedulerEnabled,_that.downloadStartHour,_that.downloadEndHour,_that.customMpvOptions,_that.downloadSpeedLimit,_that.progressSyncMode,_that.rememberSpeed,_that.wifiOnlyDownloads,_that.hardwareDecoderMode,_that.proxyPingLimit);case _:
+return $default(_that.layout,_that.gestures,_that.audio,_that.subtitles,_that.cache,_that.savePositionOnQuit,_that.autoplayNextVideo,_that.streamingProfile,_that.downloadSchedulerEnabled,_that.downloadStartHour,_that.downloadEndHour,_that.customMpvOptions,_that.downloadSpeedLimit,_that.progressSyncMode,_that.rememberSpeed,_that.wifiOnlyDownloads,_that.hardwareDecoderMode,_that.proxyPingLimit,_that.defaultDownloadQuality);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -1664,10 +1665,10 @@ return $default(_that.layout,_that.gestures,_that.audio,_that.subtitles,_that.ca
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( PlayerLayoutSettings layout,  GestureSettings gestures,  AudioSettings audio,  SubtitleSettings subtitles,  CacheSettings cache,  bool savePositionOnQuit,  bool autoplayNextVideo,  String streamingProfile,  bool downloadSchedulerEnabled,  int downloadStartHour,  int downloadEndHour,  String customMpvOptions,  String downloadSpeedLimit,  String progressSyncMode,  bool rememberSpeed,  bool wifiOnlyDownloads,  String hardwareDecoderMode,  int? proxyPingLimit)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( PlayerLayoutSettings layout,  GestureSettings gestures,  AudioSettings audio,  SubtitleSettings subtitles,  CacheSettings cache,  bool savePositionOnQuit,  bool autoplayNextVideo,  String streamingProfile,  bool downloadSchedulerEnabled,  int downloadStartHour,  int downloadEndHour,  String customMpvOptions,  String downloadSpeedLimit,  String progressSyncMode,  bool rememberSpeed,  bool wifiOnlyDownloads,  String hardwareDecoderMode,  int? proxyPingLimit,  String defaultDownloadQuality)?  $default,) {final _that = this;
 switch (_that) {
 case _VideoSettings() when $default != null:
-return $default(_that.layout,_that.gestures,_that.audio,_that.subtitles,_that.cache,_that.savePositionOnQuit,_that.autoplayNextVideo,_that.streamingProfile,_that.downloadSchedulerEnabled,_that.downloadStartHour,_that.downloadEndHour,_that.customMpvOptions,_that.downloadSpeedLimit,_that.progressSyncMode,_that.rememberSpeed,_that.wifiOnlyDownloads,_that.hardwareDecoderMode,_that.proxyPingLimit);case _:
+return $default(_that.layout,_that.gestures,_that.audio,_that.subtitles,_that.cache,_that.savePositionOnQuit,_that.autoplayNextVideo,_that.streamingProfile,_that.downloadSchedulerEnabled,_that.downloadStartHour,_that.downloadEndHour,_that.customMpvOptions,_that.downloadSpeedLimit,_that.progressSyncMode,_that.rememberSpeed,_that.wifiOnlyDownloads,_that.hardwareDecoderMode,_that.proxyPingLimit,_that.defaultDownloadQuality);case _:
   return null;
 
 }
@@ -1679,7 +1680,7 @@ return $default(_that.layout,_that.gestures,_that.audio,_that.subtitles,_that.ca
 
 
 class _VideoSettings extends VideoSettings {
-  const _VideoSettings({this.layout = const PlayerLayoutSettings(), this.gestures = const GestureSettings(), this.audio = const AudioSettings(), this.subtitles = const SubtitleSettings(), this.cache = const CacheSettings(), this.savePositionOnQuit = true, this.autoplayNextVideo = true, this.streamingProfile = 'Balanced', this.downloadSchedulerEnabled = false, this.downloadStartHour = 2, this.downloadEndHour = 6, this.customMpvOptions = '', this.downloadSpeedLimit = 'Unlimited', this.progressSyncMode = 'disabled', this.rememberSpeed = false, this.wifiOnlyDownloads = false, this.hardwareDecoderMode = 'auto', this.proxyPingLimit = 50}): super._();
+  const _VideoSettings({this.layout = const PlayerLayoutSettings(), this.gestures = const GestureSettings(), this.audio = const AudioSettings(), this.subtitles = const SubtitleSettings(), this.cache = const CacheSettings(), this.savePositionOnQuit = true, this.autoplayNextVideo = true, this.streamingProfile = 'Balanced', this.downloadSchedulerEnabled = false, this.downloadStartHour = 2, this.downloadEndHour = 6, this.customMpvOptions = '', this.downloadSpeedLimit = 'Unlimited', this.progressSyncMode = 'disabled', this.rememberSpeed = false, this.wifiOnlyDownloads = false, this.hardwareDecoderMode = 'auto', this.proxyPingLimit = 50, this.defaultDownloadQuality = 'Ask Each Time'}): super._();
   
 
 @override@JsonKey() final  PlayerLayoutSettings layout;
@@ -1700,6 +1701,7 @@ class _VideoSettings extends VideoSettings {
 @override@JsonKey() final  bool wifiOnlyDownloads;
 @override@JsonKey() final  String hardwareDecoderMode;
 @override@JsonKey() final  int? proxyPingLimit;
+@override@JsonKey() final  String defaultDownloadQuality;
 
 /// Create a copy of VideoSettings
 /// with the given fields replaced by the non-null parameter values.
@@ -1711,16 +1713,16 @@ _$VideoSettingsCopyWith<_VideoSettings> get copyWith => __$VideoSettingsCopyWith
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _VideoSettings&&(identical(other.layout, layout) || other.layout == layout)&&(identical(other.gestures, gestures) || other.gestures == gestures)&&(identical(other.audio, audio) || other.audio == audio)&&(identical(other.subtitles, subtitles) || other.subtitles == subtitles)&&(identical(other.cache, cache) || other.cache == cache)&&(identical(other.savePositionOnQuit, savePositionOnQuit) || other.savePositionOnQuit == savePositionOnQuit)&&(identical(other.autoplayNextVideo, autoplayNextVideo) || other.autoplayNextVideo == autoplayNextVideo)&&(identical(other.streamingProfile, streamingProfile) || other.streamingProfile == streamingProfile)&&(identical(other.downloadSchedulerEnabled, downloadSchedulerEnabled) || other.downloadSchedulerEnabled == downloadSchedulerEnabled)&&(identical(other.downloadStartHour, downloadStartHour) || other.downloadStartHour == downloadStartHour)&&(identical(other.downloadEndHour, downloadEndHour) || other.downloadEndHour == downloadEndHour)&&(identical(other.customMpvOptions, customMpvOptions) || other.customMpvOptions == customMpvOptions)&&(identical(other.downloadSpeedLimit, downloadSpeedLimit) || other.downloadSpeedLimit == downloadSpeedLimit)&&(identical(other.progressSyncMode, progressSyncMode) || other.progressSyncMode == progressSyncMode)&&(identical(other.rememberSpeed, rememberSpeed) || other.rememberSpeed == rememberSpeed)&&(identical(other.wifiOnlyDownloads, wifiOnlyDownloads) || other.wifiOnlyDownloads == wifiOnlyDownloads)&&(identical(other.hardwareDecoderMode, hardwareDecoderMode) || other.hardwareDecoderMode == hardwareDecoderMode)&&(identical(other.proxyPingLimit, proxyPingLimit) || other.proxyPingLimit == proxyPingLimit));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _VideoSettings&&(identical(other.layout, layout) || other.layout == layout)&&(identical(other.gestures, gestures) || other.gestures == gestures)&&(identical(other.audio, audio) || other.audio == audio)&&(identical(other.subtitles, subtitles) || other.subtitles == subtitles)&&(identical(other.cache, cache) || other.cache == cache)&&(identical(other.savePositionOnQuit, savePositionOnQuit) || other.savePositionOnQuit == savePositionOnQuit)&&(identical(other.autoplayNextVideo, autoplayNextVideo) || other.autoplayNextVideo == autoplayNextVideo)&&(identical(other.streamingProfile, streamingProfile) || other.streamingProfile == streamingProfile)&&(identical(other.downloadSchedulerEnabled, downloadSchedulerEnabled) || other.downloadSchedulerEnabled == downloadSchedulerEnabled)&&(identical(other.downloadStartHour, downloadStartHour) || other.downloadStartHour == downloadStartHour)&&(identical(other.downloadEndHour, downloadEndHour) || other.downloadEndHour == downloadEndHour)&&(identical(other.customMpvOptions, customMpvOptions) || other.customMpvOptions == customMpvOptions)&&(identical(other.downloadSpeedLimit, downloadSpeedLimit) || other.downloadSpeedLimit == downloadSpeedLimit)&&(identical(other.progressSyncMode, progressSyncMode) || other.progressSyncMode == progressSyncMode)&&(identical(other.rememberSpeed, rememberSpeed) || other.rememberSpeed == rememberSpeed)&&(identical(other.wifiOnlyDownloads, wifiOnlyDownloads) || other.wifiOnlyDownloads == wifiOnlyDownloads)&&(identical(other.hardwareDecoderMode, hardwareDecoderMode) || other.hardwareDecoderMode == hardwareDecoderMode)&&(identical(other.proxyPingLimit, proxyPingLimit) || other.proxyPingLimit == proxyPingLimit)&&(identical(other.defaultDownloadQuality, defaultDownloadQuality) || other.defaultDownloadQuality == defaultDownloadQuality));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,layout,gestures,audio,subtitles,cache,savePositionOnQuit,autoplayNextVideo,streamingProfile,downloadSchedulerEnabled,downloadStartHour,downloadEndHour,customMpvOptions,downloadSpeedLimit,progressSyncMode,rememberSpeed,wifiOnlyDownloads,hardwareDecoderMode,proxyPingLimit);
+int get hashCode => Object.hashAll([runtimeType,layout,gestures,audio,subtitles,cache,savePositionOnQuit,autoplayNextVideo,streamingProfile,downloadSchedulerEnabled,downloadStartHour,downloadEndHour,customMpvOptions,downloadSpeedLimit,progressSyncMode,rememberSpeed,wifiOnlyDownloads,hardwareDecoderMode,proxyPingLimit,defaultDownloadQuality]);
 
 @override
 String toString() {
-  return 'VideoSettings(layout: $layout, gestures: $gestures, audio: $audio, subtitles: $subtitles, cache: $cache, savePositionOnQuit: $savePositionOnQuit, autoplayNextVideo: $autoplayNextVideo, streamingProfile: $streamingProfile, downloadSchedulerEnabled: $downloadSchedulerEnabled, downloadStartHour: $downloadStartHour, downloadEndHour: $downloadEndHour, customMpvOptions: $customMpvOptions, downloadSpeedLimit: $downloadSpeedLimit, progressSyncMode: $progressSyncMode, rememberSpeed: $rememberSpeed, wifiOnlyDownloads: $wifiOnlyDownloads, hardwareDecoderMode: $hardwareDecoderMode, proxyPingLimit: $proxyPingLimit)';
+  return 'VideoSettings(layout: $layout, gestures: $gestures, audio: $audio, subtitles: $subtitles, cache: $cache, savePositionOnQuit: $savePositionOnQuit, autoplayNextVideo: $autoplayNextVideo, streamingProfile: $streamingProfile, downloadSchedulerEnabled: $downloadSchedulerEnabled, downloadStartHour: $downloadStartHour, downloadEndHour: $downloadEndHour, customMpvOptions: $customMpvOptions, downloadSpeedLimit: $downloadSpeedLimit, progressSyncMode: $progressSyncMode, rememberSpeed: $rememberSpeed, wifiOnlyDownloads: $wifiOnlyDownloads, hardwareDecoderMode: $hardwareDecoderMode, proxyPingLimit: $proxyPingLimit, defaultDownloadQuality: $defaultDownloadQuality)';
 }
 
 
@@ -1731,7 +1733,7 @@ abstract mixin class _$VideoSettingsCopyWith<$Res> implements $VideoSettingsCopy
   factory _$VideoSettingsCopyWith(_VideoSettings value, $Res Function(_VideoSettings) _then) = __$VideoSettingsCopyWithImpl;
 @override @useResult
 $Res call({
- PlayerLayoutSettings layout, GestureSettings gestures, AudioSettings audio, SubtitleSettings subtitles, CacheSettings cache, bool savePositionOnQuit, bool autoplayNextVideo, String streamingProfile, bool downloadSchedulerEnabled, int downloadStartHour, int downloadEndHour, String customMpvOptions, String downloadSpeedLimit, String progressSyncMode, bool rememberSpeed, bool wifiOnlyDownloads, String hardwareDecoderMode, int? proxyPingLimit
+ PlayerLayoutSettings layout, GestureSettings gestures, AudioSettings audio, SubtitleSettings subtitles, CacheSettings cache, bool savePositionOnQuit, bool autoplayNextVideo, String streamingProfile, bool downloadSchedulerEnabled, int downloadStartHour, int downloadEndHour, String customMpvOptions, String downloadSpeedLimit, String progressSyncMode, bool rememberSpeed, bool wifiOnlyDownloads, String hardwareDecoderMode, int? proxyPingLimit, String defaultDownloadQuality
 });
 
 
@@ -1748,7 +1750,7 @@ class __$VideoSettingsCopyWithImpl<$Res>
 
 /// Create a copy of VideoSettings
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? layout = null,Object? gestures = null,Object? audio = null,Object? subtitles = null,Object? cache = null,Object? savePositionOnQuit = null,Object? autoplayNextVideo = null,Object? streamingProfile = null,Object? downloadSchedulerEnabled = null,Object? downloadStartHour = null,Object? downloadEndHour = null,Object? customMpvOptions = null,Object? downloadSpeedLimit = null,Object? progressSyncMode = null,Object? rememberSpeed = null,Object? wifiOnlyDownloads = null,Object? hardwareDecoderMode = null,Object? proxyPingLimit = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? layout = null,Object? gestures = null,Object? audio = null,Object? subtitles = null,Object? cache = null,Object? savePositionOnQuit = null,Object? autoplayNextVideo = null,Object? streamingProfile = null,Object? downloadSchedulerEnabled = null,Object? downloadStartHour = null,Object? downloadEndHour = null,Object? customMpvOptions = null,Object? downloadSpeedLimit = null,Object? progressSyncMode = null,Object? rememberSpeed = null,Object? wifiOnlyDownloads = null,Object? hardwareDecoderMode = null,Object? proxyPingLimit = freezed,Object? defaultDownloadQuality = null,}) {
   return _then(_VideoSettings(
 layout: null == layout ? _self.layout : layout // ignore: cast_nullable_to_non_nullable
 as PlayerLayoutSettings,gestures: null == gestures ? _self.gestures : gestures // ignore: cast_nullable_to_non_nullable
@@ -1768,7 +1770,8 @@ as String,rememberSpeed: null == rememberSpeed ? _self.rememberSpeed : rememberS
 as bool,wifiOnlyDownloads: null == wifiOnlyDownloads ? _self.wifiOnlyDownloads : wifiOnlyDownloads // ignore: cast_nullable_to_non_nullable
 as bool,hardwareDecoderMode: null == hardwareDecoderMode ? _self.hardwareDecoderMode : hardwareDecoderMode // ignore: cast_nullable_to_non_nullable
 as String,proxyPingLimit: freezed == proxyPingLimit ? _self.proxyPingLimit : proxyPingLimit // ignore: cast_nullable_to_non_nullable
-as int?,
+as int?,defaultDownloadQuality: null == defaultDownloadQuality ? _self.defaultDownloadQuality : defaultDownloadQuality // ignore: cast_nullable_to_non_nullable
+as String,
   ));
 }
 

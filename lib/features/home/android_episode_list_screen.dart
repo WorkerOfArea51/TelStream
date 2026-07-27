@@ -8,6 +8,8 @@ import '../../core/utils/poster_thumbnail_extractor.dart';
 
 import '../../models/anime_models.dart';
 import '../../models/episode.dart';
+import '../../models/video_source.dart';
+import '../settings/settings_provider.dart';
 import '../../services/metadata_service.dart';
 import '../player/pip_manager.dart';
 import '../../core/widgets/wavy_progress_indicators.dart';
@@ -165,14 +167,75 @@ class _AndroidEpisodeListScreenState extends ConsumerState<AndroidEpisodeListScr
   }
 
   Future<void> _downloadAllEpisodes(AnimeSeason season) async {
+    final settings = ref.read(videoSettingsProvider);
+    String qualityRule = settings.defaultDownloadQuality;
+
+    if (qualityRule == 'Ask Each Time') {
+      final selectedRule = await showDialog<String>(
+        context: context,
+        builder: (context) => SimpleDialog(
+          title: Text(
+            'Select Batch Download Quality', 
+            style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
+          ),
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+          children: [
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(context, 'Highest Quality'),
+              child: const Padding(
+                padding: EdgeInsets.symmetric(vertical: 8.0),
+                child: Text('Highest Quality'),
+              ),
+            ),
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(context, 'Lowest Quality'),
+              child: const Padding(
+                padding: EdgeInsets.symmetric(vertical: 8.0),
+                child: Text('Lowest Quality'),
+              ),
+            ),
+          ],
+        ),
+      );
+
+      if (selectedRule == null) return;
+      qualityRule = selectedRule;
+    }
+
     final fileIds = <int>[];
     final titles = <String>[];
     final messageIds = <int>[];
     final chatIds = <int>[];
 
     for (final ep in season.episodes) {
-      final msg = ep.message;
-      if (msg == null) continue;
+      if (ep.sources.isEmpty) continue;
+
+      final sortedSources = List<VideoSource>.from(ep.sources)
+        ..sort((a, b) {
+          if (b.height != a.height) return b.height.compareTo(a.height);
+          
+          int sizeA = 0;
+          if (a.message.content is td.MessageVideo) {
+            sizeA = (a.message.content as td.MessageVideo).video.video.size;
+          } else if (a.message.content is td.MessageDocument) {
+            sizeA = (a.message.content as td.MessageDocument).document.document.size;
+          }
+          
+          int sizeB = 0;
+          if (b.message.content is td.MessageVideo) {
+            sizeB = (b.message.content as td.MessageVideo).video.video.size;
+          } else if (b.message.content is td.MessageDocument) {
+            sizeB = (b.message.content as td.MessageDocument).document.document.size;
+          }
+          
+          return sizeB.compareTo(sizeA);
+        });
+
+      VideoSource targetSource = qualityRule == 'Lowest Quality' 
+          ? sortedSources.last 
+          : sortedSources.first;
+
+      final msg = targetSource.message;
       final fileId = _extractFileId(msg);
       if (fileId != null && fileId != 0) {
         final title = TitleNormalizer.getMessageFileName(msg)
@@ -187,11 +250,15 @@ class _AndroidEpisodeListScreenState extends ConsumerState<AndroidEpisodeListScr
     }
 
     if (fileIds.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(AppLocalizations.of(context)!.noDownloadableEpisodes)),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(AppLocalizations.of(context)!.noDownloadableEpisodes)),
+        );
+      }
       return;
     }
+
+    if (!mounted) return;
 
     final confirmed = await showDialog<bool>(
       context: context,

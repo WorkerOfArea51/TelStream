@@ -102,6 +102,7 @@ abstract class VideoSettings with _$VideoSettings {
     @Default(false) bool wifiOnlyDownloads,
     @Default('auto') String hardwareDecoderMode,
     @Default(50) int? proxyPingLimit,
+    @Default('Ask Each Time') String defaultDownloadQuality,
   }) = _VideoSettings;
 
   String getLayoutForCategory(String categoryTitle) {
