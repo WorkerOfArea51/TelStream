@@ -49,7 +49,26 @@ class TitleNormalizer {
     // 4. Remove bracketed text at the end again
     normalized = normalized.replaceAll(_bracketSuffixRegex, '');
 
-    // Also clean up any trailing dashes, colons, or punctuation
+    // If it's a movie, we should strip quality tags out so they can group properly!
+    if (isMovie) {
+      // For movies, let's aggressively strip known quality tags anywhere in the string
+      normalized = normalized.replaceAll(RegExp(r'\b(1080p|720p|480p|2160p|4K|UHD|HDR|BluRay|BRRip|DVDRip|WEBRip|WEB-DL|x264|x265|HEVC|AVC|10bit|10-bit|AAC|AC3|DDP|DDPA|5\.1|7\.1|DS4K|ESub|Org)\b', caseSensitive: false), '');
+      
+      // Also match up to the year if present, ignoring everything after the year
+      final yearMatch = RegExp(r'^(.+?)(?:\b(19\d{2}|20\d{2})\b)').firstMatch(normalized);
+      if (yearMatch != null) {
+        String base = yearMatch.group(1)!.trim();
+        if (yearMatch.group(2) != null) {
+          base += ' ${yearMatch.group(2)}';
+        }
+        normalized = base;
+      }
+      
+      // Remove all brackets just to be safe
+      normalized = normalized.replaceAll(RegExp(r'\[.*?\]|\(.*?\)'), '');
+    }
+
+    // Clean up any trailing dashes, colons, or punctuation
     normalized = normalized.replaceAll(_trailingPunctuationRegex, '');
 
     return normalized.trim();

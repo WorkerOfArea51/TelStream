@@ -12,52 +12,19 @@ class EpisodeGrouper {
   );
 
   /// Extracts a descriptive episode title from the filename.
-  /// Examples:
-  ///   "EP - 01 - The Magic That Started Everything.mkv" → "Episode 1 - The Magic That Started Everything"
-  ///   "Show.S01E05.The.Big.Bang.mp4"                     → "Episode 5 - The Big Bang"
-  ///   "Episode 3 - Punishment Posting.mkv"               → "Episode 3 - Punishment Posting"
-  ///   "01.mkv"                                           → "Episode 1"
   static String _buildEpisodeTitle(td.Message msg, int epNum) {
-    final fileName = TitleNormalizer.getMessageFileName(msg);
-    // Remove file extension
-    final baseName = fileName.replaceAll(RegExp(r'\.[A-Za-z0-9]+$'), '');
-
-    // Try pattern: (ep|episode|eps)[. _-]* N [-_–] <descriptive title>
-    final epTitleMatch = RegExp(
-      r'(?:ep|episode|eps)\.?\s*[-—–_]*\s*\d{1,3}\s*[-—–_:]\s*(.+)',
-      caseSensitive: false,
-    ).firstMatch(baseName);
-
-    if (epTitleMatch != null) {
-      final desc = epTitleMatch.group(1)!
-          .replaceAll('_', ' ')
-          .replaceAll('.', ' ')
-          .replaceAll(RegExp(r'\s+'), ' ')
-          .trim();
-      if (desc.isNotEmpty && desc.toLowerCase() != 'episode') {
-        return 'Episode $epNum - $desc';
-      }
-    }
-
-    // Try S##E## pattern: Show.S01E05.The.Big.Bang → "The Big Bang"
-    final sxxExxMatch = RegExp(
-      r's\d{1,2}\s*e\d{1,3}\s*[-—–_.]\s*(.+)',
-      caseSensitive: false,
-    ).firstMatch(baseName);
-
-    if (sxxExxMatch != null) {
-      final desc = sxxExxMatch.group(1)!
-          .replaceAll('_', ' ')
-          .replaceAll('.', ' ')
-          .replaceAll(RegExp(r'\s+'), ' ')
-          .trim();
-      if (desc.isNotEmpty) {
-        return 'Episode $epNum - $desc';
-      }
-    }
-
-    // Fallback: just the number
-    return 'Episode $epNum';
+    String rawTitle = TitleNormalizer.getMessageFileName(msg);
+    // Remove extension
+    String title = rawTitle.replaceAll(RegExp(r'\.[A-Za-z0-9]+$'), '');
+    
+    // Remove common quality/codec tags
+    title = title.replaceAll(RegExp(r'\b(1080p|720p|480p|2160p|4K|UHD|HDR|BluRay|BRRip|DVDRip|WEBRip|WEB-DL|x264|x265|HEVC|AVC|10bit|10-bit|AAC|AC3|DDP|DDPA|5\.1|7\.1|DS4K|ESub|Org)\b', caseSensitive: false), '');
+    
+    // Clean up empty brackets and trailing hyphens/spaces
+    title = title.replaceAll(RegExp(r'\[\s*\]|\(\s*\)'), '');
+    title = title.replaceAll(RegExp(r'[-—–_.\s]+$'), '');
+    
+    return title.trim().isNotEmpty ? title.trim() : 'Episode $epNum';
   }
 
   static List<Episode> groupEpisodes(List<td.Message> messages) {

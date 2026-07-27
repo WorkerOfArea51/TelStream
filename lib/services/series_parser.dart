@@ -48,7 +48,7 @@ class SeriesParser {
     final baseName = TitleNormalizer.normalizeSeriesName(fullTitle, isMovie: isMovie);
     
     final canonicalKey = baseName.toLowerCase().replaceAll(RegExp(r'[^\p{L}\p{N}]', unicode: true), '');
-    String matchedKey = isMovie ? '${canonicalKey}_${pMsg.id}' : canonicalKey;
+    String matchedKey = canonicalKey;
 
     if (!isMovie) {
       for (final existingKey in seriesMap.keys) {
@@ -126,7 +126,7 @@ class SeriesParser {
           ? epFileName.replaceAll(RegExp(r'\.(mkv|mp4|avi|mov|webm|flv|wmv|ts|m4v|3gp)$', caseSensitive: false), '').replaceAll('_', ' ').trim()
           : 'Video ${ep.id}';
       final epBaseName = TitleNormalizer.normalizeSeriesName(epTitle, isMovie: isMovie);
-      final epKey = isMovie ? '${epBaseName}_${ep.id}' : epBaseName.toLowerCase().replaceAll(RegExp(r'[^\p{L}\p{N}]', unicode: true), '');
+      final epKey = epBaseName.toLowerCase().replaceAll(RegExp(r'[^\p{L}\p{N}]', unicode: true), '');
 
       // Try to find an existing series this orphan episode belongs to
       String? matchedExistingKey;
