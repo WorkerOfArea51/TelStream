@@ -12,42 +12,17 @@ class EpisodeGrouper {
   );
 
   /// Extracts a descriptive episode title from the filename.
-  /// Tries to return just the text AFTER the episode-number marker
-  /// (e.g. for "Series - EP 05 - Vegeta Attacks", returns "Vegeta Attacks").
-  /// Preserves leading emojis (🎬📥✨ etc.) as part of the title.
+  /// Builds a display title for an episode from its filename.
+  /// Preserves the full title format (e.g. "EP - 01 - The Magic That Started Everything")
+  /// but strips file extension, quality/codec tags, and bracketed release-group info.
+  /// Leading emojis are preserved.
   static String _buildEpisodeTitle(td.Message msg, int epNum) {
     final rawTitle = TitleNormalizer.getMessageFileName(msg);
-    var title = TitleNormalizer.cleanDisplayTitle(rawTitle);
+    final cleaned = TitleNormalizer.cleanDisplayTitle(rawTitle);
 
-    if (title.isEmpty) return 'Episode $epNum';
+    if (cleaned.isEmpty) return 'Episode $epNum';
 
-    // Preserve leading emojis before extraction (they're part of the user's
-    // intended naming style — see the separate emoji-preservation fix).
-    // ignore: valid_regexps
-    final leadingEmojiMatch = RegExp(r'^(\p{Extended_Pictographic}(?:\p{Extended_Pictographic}|\s)*)', unicode: true).firstMatch(title);
-    final leadingEmoji = leadingEmojiMatch?.group(1) ?? '';
-    var workingTitle = leadingEmoji.isEmpty ? title : title.substring(leadingEmoji.length).trim();
-
-    // Try to extract the descriptive name that appears AFTER an episode-number marker.
-    final epMarkerRegex = RegExp(
-      r'(?:s\d{1,2}\s*[ex]\s*\d{1,3}|ep(?:isode)?\.?\s*\d{1,3}|e\d{1,3}|\b\d{1,3}\b)'
-      r'[\s\-—–_:|.]*'
-      r'(.+)$',
-      caseSensitive: false,
-    );
-    final epMarkerMatch = epMarkerRegex.firstMatch(workingTitle);
-    if (epMarkerMatch != null) {
-      final descriptive = epMarkerMatch.group(1)!.trim();
-      if (descriptive.isNotEmpty) {
-        return '$leadingEmoji$descriptive'.trim();
-      }
-    }
-
-    // No episode-number marker found, or descriptive part is empty.
-    // Return the cleaned full title with the leading emoji prepended.
-    return '$leadingEmoji$workingTitle'.trim().isNotEmpty
-        ? '$leadingEmoji$workingTitle'.trim()
-        : 'Episode $epNum';
+    return cleaned;
   }
 
   static List<Episode> groupEpisodes(List<td.Message> messages) {
@@ -135,6 +110,7 @@ class EpisodeGrouper {
     final tdHeight = extractTdlibHeight(msg);
     final tdDuration = extractTdlibDurationSeconds(msg);
     final minithumbnail = extractMinithumbnailData(msg);
+    final thumbnailFileId = extractThumbnailFileId(msg);
 
     // For MessageVideo, TDLib gives us width/height/duration directly.
     // Pre-populate the metadata so the UI can display quality + duration
@@ -159,6 +135,7 @@ class EpisodeGrouper {
       mimeType: extractMimeType(msg),
       receivedAt: DateTime.fromMillisecondsSinceEpoch(msg.date * 1000),
       minithumbnailData: minithumbnail,
+      thumbnailFileId: thumbnailFileId,
       tdlibDurationSeconds: tdDuration,
       metadata: initialMetadata,
     );

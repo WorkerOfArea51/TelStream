@@ -166,7 +166,7 @@ abstract class HomeController extends AsyncNotifier<List<AnimeSeries>> {
   /// invalidates previously-cached catalogs. The cache file is namespaced by
   /// this version, so old caches are simply ignored (and will be re-fetched
   /// from TDLib's local DB on next launch).
-  static const int _catalogCacheVersion = 4;
+  static const int _catalogCacheVersion = 5;
 
   void _scheduleCatalogCacheWrite() {
     _cacheWriteDebounce?.cancel();

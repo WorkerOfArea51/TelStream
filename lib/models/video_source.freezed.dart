@@ -16,7 +16,10 @@ mixin _$VideoSource {
 
  int get messageId; int get chatId; int get fileSizeBytes; String get fileName; String get mimeType; DateTime get receivedAt; VideoMetadata? get metadata;/// Base64-encoded JPEG minithumbnail from TDLib (instant display, no network).
 /// Null for messages where Telegram didn't generate a thumbnail.
- String? get minithumbnailData;/// TDLib-provided duration in seconds (only for MessageVideo, null for
+ String? get minithumbnailData;/// TDLib file ID of the full-quality thumbnail (typically 320x180+ JPEG).
+/// Null when Telegram didn't generate a thumbnail for this message.
+/// Used by TdThumbnail widget to download and display the full thumbnail.
+ int? get thumbnailFileId;/// TDLib-provided duration in seconds (only for MessageVideo, null for
 /// MessageDocument). Used as a fallback when container parsing hasn't
 /// completed yet.
  int? get tdlibDurationSeconds;
@@ -30,16 +33,16 @@ $VideoSourceCopyWith<VideoSource> get copyWith => _$VideoSourceCopyWithImpl<Vide
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is VideoSource&&(identical(other.messageId, messageId) || other.messageId == messageId)&&(identical(other.chatId, chatId) || other.chatId == chatId)&&(identical(other.fileSizeBytes, fileSizeBytes) || other.fileSizeBytes == fileSizeBytes)&&(identical(other.fileName, fileName) || other.fileName == fileName)&&(identical(other.mimeType, mimeType) || other.mimeType == mimeType)&&(identical(other.receivedAt, receivedAt) || other.receivedAt == receivedAt)&&(identical(other.metadata, metadata) || other.metadata == metadata)&&(identical(other.minithumbnailData, minithumbnailData) || other.minithumbnailData == minithumbnailData)&&(identical(other.tdlibDurationSeconds, tdlibDurationSeconds) || other.tdlibDurationSeconds == tdlibDurationSeconds));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is VideoSource&&(identical(other.messageId, messageId) || other.messageId == messageId)&&(identical(other.chatId, chatId) || other.chatId == chatId)&&(identical(other.fileSizeBytes, fileSizeBytes) || other.fileSizeBytes == fileSizeBytes)&&(identical(other.fileName, fileName) || other.fileName == fileName)&&(identical(other.mimeType, mimeType) || other.mimeType == mimeType)&&(identical(other.receivedAt, receivedAt) || other.receivedAt == receivedAt)&&(identical(other.metadata, metadata) || other.metadata == metadata)&&(identical(other.minithumbnailData, minithumbnailData) || other.minithumbnailData == minithumbnailData)&&(identical(other.thumbnailFileId, thumbnailFileId) || other.thumbnailFileId == thumbnailFileId)&&(identical(other.tdlibDurationSeconds, tdlibDurationSeconds) || other.tdlibDurationSeconds == tdlibDurationSeconds));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,messageId,chatId,fileSizeBytes,fileName,mimeType,receivedAt,metadata,minithumbnailData,tdlibDurationSeconds);
+int get hashCode => Object.hash(runtimeType,messageId,chatId,fileSizeBytes,fileName,mimeType,receivedAt,metadata,minithumbnailData,thumbnailFileId,tdlibDurationSeconds);
 
 @override
 String toString() {
-  return 'VideoSource(messageId: $messageId, chatId: $chatId, fileSizeBytes: $fileSizeBytes, fileName: $fileName, mimeType: $mimeType, receivedAt: $receivedAt, metadata: $metadata, minithumbnailData: $minithumbnailData, tdlibDurationSeconds: $tdlibDurationSeconds)';
+  return 'VideoSource(messageId: $messageId, chatId: $chatId, fileSizeBytes: $fileSizeBytes, fileName: $fileName, mimeType: $mimeType, receivedAt: $receivedAt, metadata: $metadata, minithumbnailData: $minithumbnailData, thumbnailFileId: $thumbnailFileId, tdlibDurationSeconds: $tdlibDurationSeconds)';
 }
 
 
@@ -50,7 +53,7 @@ abstract mixin class $VideoSourceCopyWith<$Res>  {
   factory $VideoSourceCopyWith(VideoSource value, $Res Function(VideoSource) _then) = _$VideoSourceCopyWithImpl;
 @useResult
 $Res call({
- int messageId, int chatId, int fileSizeBytes, String fileName, String mimeType, DateTime receivedAt, VideoMetadata? metadata, String? minithumbnailData, int? tdlibDurationSeconds
+ int messageId, int chatId, int fileSizeBytes, String fileName, String mimeType, DateTime receivedAt, VideoMetadata? metadata, String? minithumbnailData, int? thumbnailFileId, int? tdlibDurationSeconds
 });
 
 
@@ -67,7 +70,7 @@ class _$VideoSourceCopyWithImpl<$Res>
 
 /// Create a copy of VideoSource
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? messageId = null,Object? chatId = null,Object? fileSizeBytes = null,Object? fileName = null,Object? mimeType = null,Object? receivedAt = null,Object? metadata = freezed,Object? minithumbnailData = freezed,Object? tdlibDurationSeconds = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? messageId = null,Object? chatId = null,Object? fileSizeBytes = null,Object? fileName = null,Object? mimeType = null,Object? receivedAt = null,Object? metadata = freezed,Object? minithumbnailData = freezed,Object? thumbnailFileId = freezed,Object? tdlibDurationSeconds = freezed,}) {
   return _then(_self.copyWith(
 messageId: null == messageId ? _self.messageId : messageId // ignore: cast_nullable_to_non_nullable
 as int,chatId: null == chatId ? _self.chatId : chatId // ignore: cast_nullable_to_non_nullable
@@ -77,7 +80,8 @@ as String,mimeType: null == mimeType ? _self.mimeType : mimeType // ignore: cast
 as String,receivedAt: null == receivedAt ? _self.receivedAt : receivedAt // ignore: cast_nullable_to_non_nullable
 as DateTime,metadata: freezed == metadata ? _self.metadata : metadata // ignore: cast_nullable_to_non_nullable
 as VideoMetadata?,minithumbnailData: freezed == minithumbnailData ? _self.minithumbnailData : minithumbnailData // ignore: cast_nullable_to_non_nullable
-as String?,tdlibDurationSeconds: freezed == tdlibDurationSeconds ? _self.tdlibDurationSeconds : tdlibDurationSeconds // ignore: cast_nullable_to_non_nullable
+as String?,thumbnailFileId: freezed == thumbnailFileId ? _self.thumbnailFileId : thumbnailFileId // ignore: cast_nullable_to_non_nullable
+as int?,tdlibDurationSeconds: freezed == tdlibDurationSeconds ? _self.tdlibDurationSeconds : tdlibDurationSeconds // ignore: cast_nullable_to_non_nullable
 as int?,
   ));
 }
@@ -175,10 +179,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( int messageId,  int chatId,  int fileSizeBytes,  String fileName,  String mimeType,  DateTime receivedAt,  VideoMetadata? metadata,  String? minithumbnailData,  int? tdlibDurationSeconds)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( int messageId,  int chatId,  int fileSizeBytes,  String fileName,  String mimeType,  DateTime receivedAt,  VideoMetadata? metadata,  String? minithumbnailData,  int? thumbnailFileId,  int? tdlibDurationSeconds)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _VideoSource() when $default != null:
-return $default(_that.messageId,_that.chatId,_that.fileSizeBytes,_that.fileName,_that.mimeType,_that.receivedAt,_that.metadata,_that.minithumbnailData,_that.tdlibDurationSeconds);case _:
+return $default(_that.messageId,_that.chatId,_that.fileSizeBytes,_that.fileName,_that.mimeType,_that.receivedAt,_that.metadata,_that.minithumbnailData,_that.thumbnailFileId,_that.tdlibDurationSeconds);case _:
   return orElse();
 
 }
@@ -196,10 +200,10 @@ return $default(_that.messageId,_that.chatId,_that.fileSizeBytes,_that.fileName,
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( int messageId,  int chatId,  int fileSizeBytes,  String fileName,  String mimeType,  DateTime receivedAt,  VideoMetadata? metadata,  String? minithumbnailData,  int? tdlibDurationSeconds)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( int messageId,  int chatId,  int fileSizeBytes,  String fileName,  String mimeType,  DateTime receivedAt,  VideoMetadata? metadata,  String? minithumbnailData,  int? thumbnailFileId,  int? tdlibDurationSeconds)  $default,) {final _that = this;
 switch (_that) {
 case _VideoSource():
-return $default(_that.messageId,_that.chatId,_that.fileSizeBytes,_that.fileName,_that.mimeType,_that.receivedAt,_that.metadata,_that.minithumbnailData,_that.tdlibDurationSeconds);case _:
+return $default(_that.messageId,_that.chatId,_that.fileSizeBytes,_that.fileName,_that.mimeType,_that.receivedAt,_that.metadata,_that.minithumbnailData,_that.thumbnailFileId,_that.tdlibDurationSeconds);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -216,10 +220,10 @@ return $default(_that.messageId,_that.chatId,_that.fileSizeBytes,_that.fileName,
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( int messageId,  int chatId,  int fileSizeBytes,  String fileName,  String mimeType,  DateTime receivedAt,  VideoMetadata? metadata,  String? minithumbnailData,  int? tdlibDurationSeconds)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( int messageId,  int chatId,  int fileSizeBytes,  String fileName,  String mimeType,  DateTime receivedAt,  VideoMetadata? metadata,  String? minithumbnailData,  int? thumbnailFileId,  int? tdlibDurationSeconds)?  $default,) {final _that = this;
 switch (_that) {
 case _VideoSource() when $default != null:
-return $default(_that.messageId,_that.chatId,_that.fileSizeBytes,_that.fileName,_that.mimeType,_that.receivedAt,_that.metadata,_that.minithumbnailData,_that.tdlibDurationSeconds);case _:
+return $default(_that.messageId,_that.chatId,_that.fileSizeBytes,_that.fileName,_that.mimeType,_that.receivedAt,_that.metadata,_that.minithumbnailData,_that.thumbnailFileId,_that.tdlibDurationSeconds);case _:
   return null;
 
 }
@@ -231,7 +235,7 @@ return $default(_that.messageId,_that.chatId,_that.fileSizeBytes,_that.fileName,
 
 
 class _VideoSource extends VideoSource {
-  const _VideoSource({required this.messageId, required this.chatId, required this.fileSizeBytes, required this.fileName, required this.mimeType, required this.receivedAt, this.metadata, this.minithumbnailData = null, this.tdlibDurationSeconds = null}): super._();
+  const _VideoSource({required this.messageId, required this.chatId, required this.fileSizeBytes, required this.fileName, required this.mimeType, required this.receivedAt, this.metadata, this.minithumbnailData = null, this.thumbnailFileId = null, this.tdlibDurationSeconds = null}): super._();
   
 
 @override final  int messageId;
@@ -244,6 +248,10 @@ class _VideoSource extends VideoSource {
 /// Base64-encoded JPEG minithumbnail from TDLib (instant display, no network).
 /// Null for messages where Telegram didn't generate a thumbnail.
 @override@JsonKey() final  String? minithumbnailData;
+/// TDLib file ID of the full-quality thumbnail (typically 320x180+ JPEG).
+/// Null when Telegram didn't generate a thumbnail for this message.
+/// Used by TdThumbnail widget to download and display the full thumbnail.
+@override@JsonKey() final  int? thumbnailFileId;
 /// TDLib-provided duration in seconds (only for MessageVideo, null for
 /// MessageDocument). Used as a fallback when container parsing hasn't
 /// completed yet.
@@ -259,16 +267,16 @@ _$VideoSourceCopyWith<_VideoSource> get copyWith => __$VideoSourceCopyWithImpl<_
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _VideoSource&&(identical(other.messageId, messageId) || other.messageId == messageId)&&(identical(other.chatId, chatId) || other.chatId == chatId)&&(identical(other.fileSizeBytes, fileSizeBytes) || other.fileSizeBytes == fileSizeBytes)&&(identical(other.fileName, fileName) || other.fileName == fileName)&&(identical(other.mimeType, mimeType) || other.mimeType == mimeType)&&(identical(other.receivedAt, receivedAt) || other.receivedAt == receivedAt)&&(identical(other.metadata, metadata) || other.metadata == metadata)&&(identical(other.minithumbnailData, minithumbnailData) || other.minithumbnailData == minithumbnailData)&&(identical(other.tdlibDurationSeconds, tdlibDurationSeconds) || other.tdlibDurationSeconds == tdlibDurationSeconds));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _VideoSource&&(identical(other.messageId, messageId) || other.messageId == messageId)&&(identical(other.chatId, chatId) || other.chatId == chatId)&&(identical(other.fileSizeBytes, fileSizeBytes) || other.fileSizeBytes == fileSizeBytes)&&(identical(other.fileName, fileName) || other.fileName == fileName)&&(identical(other.mimeType, mimeType) || other.mimeType == mimeType)&&(identical(other.receivedAt, receivedAt) || other.receivedAt == receivedAt)&&(identical(other.metadata, metadata) || other.metadata == metadata)&&(identical(other.minithumbnailData, minithumbnailData) || other.minithumbnailData == minithumbnailData)&&(identical(other.thumbnailFileId, thumbnailFileId) || other.thumbnailFileId == thumbnailFileId)&&(identical(other.tdlibDurationSeconds, tdlibDurationSeconds) || other.tdlibDurationSeconds == tdlibDurationSeconds));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,messageId,chatId,fileSizeBytes,fileName,mimeType,receivedAt,metadata,minithumbnailData,tdlibDurationSeconds);
+int get hashCode => Object.hash(runtimeType,messageId,chatId,fileSizeBytes,fileName,mimeType,receivedAt,metadata,minithumbnailData,thumbnailFileId,tdlibDurationSeconds);
 
 @override
 String toString() {
-  return 'VideoSource(messageId: $messageId, chatId: $chatId, fileSizeBytes: $fileSizeBytes, fileName: $fileName, mimeType: $mimeType, receivedAt: $receivedAt, metadata: $metadata, minithumbnailData: $minithumbnailData, tdlibDurationSeconds: $tdlibDurationSeconds)';
+  return 'VideoSource(messageId: $messageId, chatId: $chatId, fileSizeBytes: $fileSizeBytes, fileName: $fileName, mimeType: $mimeType, receivedAt: $receivedAt, metadata: $metadata, minithumbnailData: $minithumbnailData, thumbnailFileId: $thumbnailFileId, tdlibDurationSeconds: $tdlibDurationSeconds)';
 }
 
 
@@ -279,7 +287,7 @@ abstract mixin class _$VideoSourceCopyWith<$Res> implements $VideoSourceCopyWith
   factory _$VideoSourceCopyWith(_VideoSource value, $Res Function(_VideoSource) _then) = __$VideoSourceCopyWithImpl;
 @override @useResult
 $Res call({
- int messageId, int chatId, int fileSizeBytes, String fileName, String mimeType, DateTime receivedAt, VideoMetadata? metadata, String? minithumbnailData, int? tdlibDurationSeconds
+ int messageId, int chatId, int fileSizeBytes, String fileName, String mimeType, DateTime receivedAt, VideoMetadata? metadata, String? minithumbnailData, int? thumbnailFileId, int? tdlibDurationSeconds
 });
 
 
@@ -296,7 +304,7 @@ class __$VideoSourceCopyWithImpl<$Res>
 
 /// Create a copy of VideoSource
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? messageId = null,Object? chatId = null,Object? fileSizeBytes = null,Object? fileName = null,Object? mimeType = null,Object? receivedAt = null,Object? metadata = freezed,Object? minithumbnailData = freezed,Object? tdlibDurationSeconds = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? messageId = null,Object? chatId = null,Object? fileSizeBytes = null,Object? fileName = null,Object? mimeType = null,Object? receivedAt = null,Object? metadata = freezed,Object? minithumbnailData = freezed,Object? thumbnailFileId = freezed,Object? tdlibDurationSeconds = freezed,}) {
   return _then(_VideoSource(
 messageId: null == messageId ? _self.messageId : messageId // ignore: cast_nullable_to_non_nullable
 as int,chatId: null == chatId ? _self.chatId : chatId // ignore: cast_nullable_to_non_nullable
@@ -306,7 +314,8 @@ as String,mimeType: null == mimeType ? _self.mimeType : mimeType // ignore: cast
 as String,receivedAt: null == receivedAt ? _self.receivedAt : receivedAt // ignore: cast_nullable_to_non_nullable
 as DateTime,metadata: freezed == metadata ? _self.metadata : metadata // ignore: cast_nullable_to_non_nullable
 as VideoMetadata?,minithumbnailData: freezed == minithumbnailData ? _self.minithumbnailData : minithumbnailData // ignore: cast_nullable_to_non_nullable
-as String?,tdlibDurationSeconds: freezed == tdlibDurationSeconds ? _self.tdlibDurationSeconds : tdlibDurationSeconds // ignore: cast_nullable_to_non_nullable
+as String?,thumbnailFileId: freezed == thumbnailFileId ? _self.thumbnailFileId : thumbnailFileId // ignore: cast_nullable_to_non_nullable
+as int?,tdlibDurationSeconds: freezed == tdlibDurationSeconds ? _self.tdlibDurationSeconds : tdlibDurationSeconds // ignore: cast_nullable_to_non_nullable
 as int?,
   ));
 }

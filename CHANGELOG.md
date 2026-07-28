@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.13.4] - 2026-07-28
+
+### Fixed
+- **Movie Grouping for User-Added Channels**: Multi-quality movies (720p/1080p/480p) now group into a single library card for ALL channel types, not just channels tagged with the "movie" icon. Release-token stripping (1080p, x265, HEVC, etc.) now runs unconditionally in `normalizeSeriesName`, so quality tokens no longer pollute the grouping key.
+- **Full-Quality Episode Thumbnails**: Episode list thumbnails now download and display the full TDLib thumbnail (320x180+ pixels) instead of the tiny minithumbnail (~50x50). Thumbnails are crisp and match Telegram's quality. A new `thumbnailFileId` field is persisted in `VideoSource` for cache-load instant display.
+- **Episode Title Format Preserved**: Episode titles now show the full cleaned format (e.g. "EP - 01 - The Magic That Started Everything") instead of just the descriptive name. The `EP - 01 -` prefix is preserved as the uploader intended. Quality/codec tags and file extensions are still stripped.
+- **Quality Badge Accuracy**: Quality badges no longer show wrong labels (e.g. "720p" for a 1920x816 video). When container metadata hasn't been confirmed yet, the badge shows "..." instead of a potentially-wrong TDLib-provided label. Added "Refresh Metadata" option in episode long-press menu to force re-extraction.
+- **`cleanDisplayTitle` Ordering Fix**: Release tokens are now stripped BEFORE dots are replaced with spaces, so `5.1` (with a dot) is correctly stripped instead of becoming `5 1` (which doesn't match the regex).
+- **Player Quality Picker Gating**: The quality-picker gear icon in the player is now gated on `enableInPlayerQualitySwitch` (the correct setting) instead of `showQualityBadges` (the library-chip setting). Users who turned off quality badges but enabled in-player switching now see the gear icon.
+- **Player Title Cleaning**: Player header title now uses `cleanDisplayTitle` for both the series name and episode title, eliminating raw-filename noise. Movie titles are no longer duplicated ("Nagabandham 2026 - Nagabandham 2026" -> just "Nagabandham 2026").
+- **Cache Version Bump**: Catalog cache version bumped to 5, forcing a fresh re-parse on next launch so users see the new grouping immediately.
+
 ## [2.13.3] - 2026-07-27
 
 ### Fixed

@@ -37,6 +37,7 @@ class TitleNormalizer {
     r'hindi|english|tamil|telugu|korean|japanese|chinese|spanish|french|german|'
     r'dual|multi|'
     r'repack|proper|extended|uncut|theatrical|'
+    r'hdhub4u|godfather|ripit|ms|' // release groups
     r'~\w+' // release group prefix like ~Godfather
     r')\b',
     caseSensitive: false,
@@ -74,25 +75,23 @@ class TitleNormalizer {
     // 4. Remove bracketed text at the end again
     normalized = normalized.replaceAll(_bracketSuffixRegex, '');
 
-    // If it's a movie, we should strip quality tags out so they can group properly!
-    if (isMovie) {
-      // For movies, let's aggressively strip known quality tags anywhere in the string
-      normalized = normalized.replaceAll(releaseTokenRegex, ' ');
-      
-      // Capture everything up to (and including) the year, dropping any
-      // opening parenthesis that immediately precedes the year.
-      final yearMatch = RegExp(r'^\s*([^(]+?)\s*\(?\s*(19\d{2}|20\d{2})\b').firstMatch(normalized);
-      if (yearMatch != null) {
-        final name = yearMatch.group(1)!.trim();
-        final year = yearMatch.group(2)!;
-        normalized = '$name $year';
-      }
-      
-      // Remove all brackets just to be safe
-      normalized = normalized.replaceAll(RegExp(r'\[.*?\]|\(.*?\)'), '');
+    // 5. ALWAYS strip release tokens (quality, codec, audio, source, language, etc.)
+    //    These are filename noise regardless of whether the channel is movies, anime, or series.
+    normalized = normalized.replaceAll(releaseTokenRegex, ' ');
+
+    // 6. ALWAYS try to extract a clean "Title Year" format.
+    //    This collapses "Title.2026.1080p..." → "Title 2026" so all qualities group together.
+    final yearMatch = RegExp(r'^\s*([^(]+?)\s*\(?\s*(19\d{2}|20\d{2})\b').firstMatch(normalized);
+    if (yearMatch != null) {
+      final namePart = yearMatch.group(1)!.trim();
+      final yearPart = yearMatch.group(2)!;
+      normalized = '$namePart $yearPart';
     }
 
-    // Clean up any trailing dashes, colons, or punctuation
+    // 7. Remove all remaining brackets (release group tags, etc.)
+    normalized = normalized.replaceAll(RegExp(r'\[.*?\]|\(.*?\)'), '');
+
+    // 8. Clean up any trailing dashes, colons, or punctuation
     normalized = normalized.replaceAll(_trailingPunctuationRegex, '');
 
     return normalized.trim();
@@ -194,16 +193,18 @@ class TitleNormalizer {
 
   static String cleanDisplayTitle(String raw) {
     var t = raw;
-    // Strip file extension.
+    // Strip file extension FIRST (before dot replacement, so we don't break the extension regex).
     t = t.replaceAll(RegExp(r'\.(mkv|mp4|avi|mov|webm|flv|wmv|ts|m4v|3gp)$', caseSensitive: false), '');
-    // Replace dots/underscores with spaces.
+    // Strip release tokens BEFORE replacing dots — otherwise `5.1` becomes `5 1` and `5\.1` regex won't match.
+    t = t.replaceAll(releaseTokenRegex, ' ');
+    // NOW replace remaining dots/underscores with spaces.
     t = t.replaceAll(RegExp(r'[._]'), ' ');
     // Remove square-bracketed content (release group, codec info, etc.).
     t = t.replaceAll(RegExp(r'\[[^\]]*\]'), ' ');
     // Remove parenthesized content UNLESS it's exactly a 4-digit year (e.g. preserve "(2026)").
     t = t.replaceAll(RegExp(r'\((?!\d{4}\))[^)]*\)'), ' ');
-    // Strip all known release-name tokens.
-    t = t.replaceAll(releaseTokenRegex, ' ');
+    // Strip trailing "- ReleaseGroup" pattern (hyphen followed by a single alphanumeric word)
+    t = t.replaceAll(RegExp(r'\s*-\s*[A-Za-z0-9]{1,20}$'), '');
     // Collapse multiple spaces.
     t = t.replaceAll(RegExp(r'\s+'), ' ').trim();
     // Strip leading/trailing punctuation.

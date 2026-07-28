@@ -1023,6 +1023,18 @@ class _AndroidEpisodeListScreenState extends ConsumerState<AndroidEpisodeListScr
                   }
                 },
               ),
+              ListTile(
+                leading: const Icon(
+                  Icons.refresh_outlined,
+                  color: Colors.blueAccent,
+                ),
+                title: const Text('Refresh Metadata'),
+                onTap: () {
+                  ref.read(metadataExtractionServiceProvider.notifier)
+                     .extractMetadataForEpisode(ep);
+                  Navigator.pop(context);
+                },
+              ),
               const SizedBox(height: 8),
             ],
           ),
@@ -1107,6 +1119,24 @@ class _EpisodeCardItemState extends ConsumerState<_EpisodeCardItem> {
   void dispose() {
     _glowTimer?.cancel();
     super.dispose();
+  }
+
+  /// Builds a clean title for the player header.
+  /// For movies: just the episode title (e.g. "Nagabandham 2026").
+  /// For series: "Series Name - EP - 01 - Episode Title".
+  String _buildPlayerTitle(String coreName, String episodeTitle) {
+    final cleanCore = TitleNormalizer.cleanDisplayTitle(coreName);
+    final cleanEp = TitleNormalizer.cleanDisplayTitle(episodeTitle);
+
+    // If the core name and episode title are the same (movie case), don't duplicate.
+    if (cleanCore.toLowerCase() == cleanEp.toLowerCase()) {
+      return cleanEp;
+    }
+    // If the episode title already starts with the core name, don't duplicate.
+    if (cleanEp.toLowerCase().startsWith(cleanCore.toLowerCase())) {
+      return cleanEp;
+    }
+    return '$cleanCore - $cleanEp';
   }
 
   @override
@@ -1265,7 +1295,7 @@ class _EpisodeCardItemState extends ConsumerState<_EpisodeCardItem> {
               context,
               messageId: epMsgId,
               videoFileId: fileId!,
-              videoTitle: '${widget.series.coreName} - $fileTitle',
+              videoTitle: _buildPlayerTitle(widget.series.coreName, fileTitle),
               episodeList: widget.season.episodes,
               currentEpisodeIndex: widget.index,
               seriesName: widget.series.coreName,
@@ -1502,7 +1532,27 @@ class _EpisodeCardItemState extends ConsumerState<_EpisodeCardItem> {
   }
 
   Widget _buildEpisodeThumbnail() {
+    final thumbnailFileId = widget.ep.defaultSource?.thumbnailFileId;
     final minithumbnailData = widget.ep.defaultSource?.minithumbnailData;
+
+    if (thumbnailFileId != null && thumbnailFileId != 0) {
+      return TdThumbnail(
+        file: td.File(
+          id: thumbnailFileId,
+          size: 0,
+          expectedSize: 0,
+          local: const td.LocalFile(path: '', canBeDownloaded: true, canBeDeleted: false, isDownloadingActive: false, isDownloadingCompleted: false, downloadOffset: 0, downloadedPrefixSize: 0, downloadedSize: 0),
+          remote: const td.RemoteFile(id: '', uniqueId: '', isUploadingActive: false, isUploadingCompleted: false, uploadedSize: 0),
+        ),
+        minithumbnail: minithumbnailData != null && minithumbnailData.isNotEmpty 
+            ? td.Minithumbnail(width: 160, height: 90, data: minithumbnailData) 
+            : null,
+        width: 160,
+        height: 90,
+        fit: BoxFit.cover,
+      );
+    }
+    
     if (minithumbnailData != null && minithumbnailData.isNotEmpty) {
       try {
         final bytes = base64Decode(minithumbnailData);

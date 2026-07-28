@@ -19,6 +19,11 @@ abstract class VideoSource with _$VideoSource {
     /// Null for messages where Telegram didn't generate a thumbnail.
     @Default(null) String? minithumbnailData,
 
+    /// TDLib file ID of the full-quality thumbnail (typically 320x180+ JPEG).
+    /// Null when Telegram didn't generate a thumbnail for this message.
+    /// Used by TdThumbnail widget to download and display the full thumbnail.
+    @Default(null) int? thumbnailFileId,
+
     /// TDLib-provided duration in seconds (only for MessageVideo, null for
     /// MessageDocument). Used as a fallback when container parsing hasn't
     /// completed yet.
@@ -30,6 +35,9 @@ abstract class VideoSource with _$VideoSource {
   /// Convenience getter — derives from metadata, never stored.
   String get qualityLabel {
     if (metadata != null && metadata!.height > 0) {
+      if (metadata!.container == VideoContainer.unknown) {
+        return '...';
+      }
       return metadata!.qualityLabel;
     }
     return 'Unknown';
@@ -39,7 +47,7 @@ abstract class VideoSource with _$VideoSource {
   int get qualityRank => metadata?.height ?? -1;
 
   /// True when this source has confirmed real metadata (not just a guess).
-  bool get hasMetadata => metadata != null && metadata!.height > 0;
+  bool get hasMetadata => metadata != null && metadata!.height > 0 && metadata!.container != VideoContainer.unknown;
 
   /// Returns the best-known duration in milliseconds. Prefers container-parsed
   /// metadata; falls back to TDLib's duration for MessageVideo.
@@ -74,6 +82,7 @@ abstract class VideoSource with _$VideoSource {
           ? VideoMetadata.fromFlatJson(json['metadata'] as Map<String, dynamic>)
           : null,
       minithumbnailData: json['minithumbnailData'] as String?,
+      thumbnailFileId: json['thumbnailFileId'] as int?,
       tdlibDurationSeconds: json['tdlibDurationSeconds'] as int?,
     );
   }
@@ -88,6 +97,7 @@ abstract class VideoSource with _$VideoSource {
       'receivedAt': receivedAt.toIso8601String(),
       if (metadata != null) 'metadata': metadata!.toFlatJson(),
       if (minithumbnailData != null) 'minithumbnailData': minithumbnailData,
+      if (thumbnailFileId != null) 'thumbnailFileId': thumbnailFileId,
       if (tdlibDurationSeconds != null) 'tdlibDurationSeconds': tdlibDurationSeconds,
     };
   }

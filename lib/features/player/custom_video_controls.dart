@@ -1925,7 +1925,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
         : null;
     final hasMultipleQualities =
         currentItem?.episode?.hasMultipleQualities == true &&
-        ref.read(videoSettingsProvider).showQualityBadges;
+        ref.read(videoSettingsProvider).enableInPlayerQualitySwitch;
 
 
     return Shortcuts(

@@ -30,6 +30,15 @@ String? extractMinithumbnailData(td.Message msg) {
   return null;
 }
 
+/// Extracts the TDLib file ID of the full-quality thumbnail from a video or
+/// document message. Returns null if Telegram didn't generate a thumbnail.
+int? extractThumbnailFileId(td.Message msg) {
+  final c = msg.content;
+  if (c is td.MessageVideo) return c.video.thumbnail?.file.id;
+  if (c is td.MessageDocument) return c.document.thumbnail?.file.id;
+  return null;
+}
+
 /// Extracts TDLib-provided duration in seconds. Only MessageVideo has this —
 /// MessageDocument returns null (needs container parsing).
 int? extractTdlibDurationSeconds(td.Message msg) {
