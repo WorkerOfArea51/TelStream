@@ -33,12 +33,20 @@ abstract class VideoSource with _$VideoSource {
   const VideoSource._();
 
   /// Convenience getter — derives from metadata, never stored.
+  /// Best-known quality label. Always returns a label when height is known,
+  /// even if the container hasn't been parsed yet (TDLib-provided dimensions
+  /// are usually accurate enough for a badge).
+  ///
+  /// Returns:
+  ///   - "1080p" / "720p" / etc. when height > 0 (regardless of container)
+  ///   - "Unknown" when height is 0
   String get qualityLabel {
-    if (metadata != null && metadata!.height > 0) {
-      if (metadata!.container == VideoContainer.unknown) {
-        return '...';
-      }
-      return metadata!.qualityLabel;
+    final meta = metadata;
+    if (meta != null && meta.height > 0) {
+      // Use VideoMetadata.qualityLabel, which derives from width/height.
+      // This works for both confirmed (container known) and unconfirmed
+      // (container unknown, TDLib-provided) metadata.
+      return meta.qualityLabel;
     }
     return 'Unknown';
   }
@@ -46,8 +54,19 @@ abstract class VideoSource with _$VideoSource {
   /// Sort rank — higher = better quality. -1 means metadata not yet extracted.
   int get qualityRank => metadata?.height ?? -1;
 
-  /// True when this source has confirmed real metadata (not just a guess).
-  bool get hasMetadata => metadata != null && metadata!.height > 0 && metadata!.container != VideoContainer.unknown;
+  /// True when this source has dimensions (width AND height > 0), regardless
+  /// of whether the container has been parsed. Used to decide whether to show
+  /// a quality badge and whether to count this source in
+  /// `Episode.hasMultipleQualities`.
+  ///
+  /// Container-parsed metadata is "more confirmed" but TDLib-provided metadata
+  /// is still reliable enough for badge display.
+  bool get hasMetadata => metadata != null && metadata!.height > 0;
+
+  /// True when the container type has been confirmed by parsing the file header.
+  /// Use this to decide whether to show a "confirmed" indicator in the UI
+  /// (e.g. a checkmark next to the quality badge).
+  bool get isContainerParsed => metadata != null && metadata!.container != VideoContainer.unknown;
 
   /// Returns the best-known duration in milliseconds. Prefers container-parsed
   /// metadata; falls back to TDLib's duration for MessageVideo.

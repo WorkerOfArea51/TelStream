@@ -11,6 +11,8 @@ import 'video_metadata_cache.dart';
 import 'tdlib_service.dart';
 import '../core/video_metadata/video_metadata.dart';
 import '../features/home/home_controller.dart';
+import '../features/home/user_channels_provider.dart';
+import '../core/constants.dart';
 
 final metadataExtractionServiceProvider = NotifierProvider<MetadataExtractionNotifier, Map<int, Episode>>(
   MetadataExtractionNotifier.new,
@@ -78,12 +80,30 @@ class MetadataExtractionNotifier extends Notifier<Map<int, Episode>> {
     state = {};
   }
 
-  Future<void> extractMetadataForEpisode(Episode episode) async {
+  /// Extracts metadata for all sources in [episode].
+  ///
+  /// If [forceRefresh] is true (default false), the per-source cache is
+  /// cleared and extraction is re-run even if it was previously attempted.
+  /// Use this for the "Refresh Metadata" UI action.
+  Future<void> extractMetadataForEpisode(Episode episode, {bool forceRefresh = false}) async {
     if (episode.sources.isEmpty) return;
 
     final episodeKey = _episodeKey(episode);
     if (episodeKey < 0) return;
-    if (state[episodeKey]?.isMetadataExtracted == true) return;
+
+    // Skip if already extracted — UNLESS forceRefresh is true.
+    if (!forceRefresh && state[episodeKey]?.isMetadataExtracted == true) return;
+
+    // If forceRefresh, clear the cache for every source so extraction re-runs.
+    if (forceRefresh) {
+      for (final source in episode.sources) {
+        await VideoMetadataCache.clearForMessage(source.messageId);
+      }
+      // Also clear the in-memory marker.
+      final newState = Map<int, Episode>.from(state);
+      newState.remove(episodeKey);
+      state = newState;
+    }
 
     final proxy = await ref.read(streamingProxyServiceProvider.future);
     final tdlib = ref.read(tdlibServiceProvider);
@@ -95,7 +115,10 @@ class MetadataExtractionNotifier extends Notifier<Map<int, Episode>> {
       // Skip if we already have FULL metadata (container known + height > 0).
       // For MessageVideo, TDLib gives us height/width/duration but container
       // is unknown — we still want to parse the container to get the codec.
-      if (source.hasMetadata && source.metadata!.container != VideoContainer.unknown) {
+      // When forceRefresh is true, we always re-extract.
+      if (!forceRefresh &&
+          source.hasMetadata &&
+          source.metadata!.container != VideoContainer.unknown) {
         updatedSources.add(source);
         continue;
       }
@@ -107,6 +130,8 @@ class MetadataExtractionNotifier extends Notifier<Map<int, Episode>> {
           anyChanged = true;
           continue;
         case CachedFailure():
+          // On forceRefresh, treat CachedFailure as a cache miss and re-extract.
+          if (forceRefresh) break;
           updatedSources.add(source);
           continue;
         case CacheMiss():
@@ -139,8 +164,6 @@ class MetadataExtractionNotifier extends Notifier<Map<int, Episode>> {
     };
 
     // Propagate only to controllers that actually contain this episode.
-    // (Calling updateEpisode on a controller whose category doesn't contain
-    // the episode is a no-op but wasteful — it walks the entire catalog.)
     if (anyChanged) {
       final controllers = [
         ref.read(animeControllerProvider.notifier),
@@ -155,6 +178,38 @@ class MetadataExtractionNotifier extends Notifier<Map<int, Episode>> {
             isMetadataExtracted: true,
           ),
         );
+      }
+    }
+
+    // Also try to propagate to user-channel controllers. They are family
+    // providers keyed by ChannelCategory, so we iterate the user-added channels
+    // and try each one. This is best-effort — if the episode isn't in that
+    // controller, updateEpisode is a no-op.
+    if (anyChanged) {
+      try {
+        final userChannels = ref.read(userChannelsProvider);
+        for (final uc in userChannels) {
+          final category = ChannelCategory(
+            title: uc.title,
+            channelId: uc.channelId,
+            inviteLink: uc.inviteLink ?? '',
+            isMovie: uc.isMovie,
+          );
+          try {
+            final controller = ref.read(userChannelControllerProvider(category).notifier);
+            await controller.updateEpisode(
+              episodeKey,
+              (existing) => existing.copyWith(
+                sources: _mergeSources(existing.sources, updatedSources),
+                isMetadataExtracted: true,
+              ),
+            );
+          } catch (e) {
+            // Provider may not be initialized yet — skip.
+          }
+        }
+      } catch (e) {
+        Log.w('Failed to propagate metadata to user channel controllers: $e');
       }
     }
   }

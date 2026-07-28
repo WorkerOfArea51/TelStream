@@ -1029,10 +1029,52 @@ class _AndroidEpisodeListScreenState extends ConsumerState<AndroidEpisodeListScr
                   color: Colors.blueAccent,
                 ),
                 title: const Text('Refresh Metadata'),
-                onTap: () {
-                  ref.read(metadataExtractionServiceProvider.notifier)
-                     .extractMetadataForEpisode(ep);
-                  Navigator.pop(context);
+                onTap: () async {
+                  Navigator.pop(context);  // Close the bottom sheet first.
+                  if (!context.mounted) return;
+
+                  // Show a "refreshing" snackbar.
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Row(
+                        children: [
+                          SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          ),
+                          SizedBox(width: 12),
+                          Text('Refreshing metadata...'),
+                        ],
+                      ),
+                      duration: Duration(seconds: 2),
+                    ),
+                  );
+
+                  try {
+                    await ref.read(metadataExtractionServiceProvider.notifier)
+                       .extractMetadataForEpisode(ep, forceRefresh: true);
+
+                    if (!context.mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Metadata refreshed.'),
+                        duration: Duration(seconds: 2),
+                      ),
+                    );
+                  } catch (e) {
+                    if (!context.mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Failed to refresh metadata: $e'),
+                        backgroundColor: Colors.redAccent,
+                        duration: const Duration(seconds: 3),
+                      ),
+                    );
+                  }
                 },
               ),
               const SizedBox(height: 8),
@@ -1300,6 +1342,7 @@ class _EpisodeCardItemState extends ConsumerState<_EpisodeCardItem> {
               currentEpisodeIndex: widget.index,
               seriesName: widget.series.coreName,
               networkUrl: isDownloaded ? task?.localPath : null,
+              chatId: widget.ep.defaultSource?.chatId,
             );
       },
       onLongPress: () {
@@ -1494,8 +1537,16 @@ class _EpisodeCardItemState extends ConsumerState<_EpisodeCardItem> {
                           spacing: 4,
                           runSpacing: 4,
                           children: widget.ep.sources.map((src) {
-                            final hasHeight = (src.metadata?.height ?? 0) > 0;
-                            final label = src.hasMetadata ? src.qualityLabel : '...';
+                            // hasMetadata is now true whenever height > 0, so
+                            // qualityLabel returns a real label (e.g. "1080p").
+                            // Show "..." only when height is genuinely unknown
+                            // (metadata extraction hasn't run or returned no dimensions).
+                            final hasHeight = src.hasMetadata;
+                            final label = hasHeight ? src.qualityLabel : '...';
+                            // isContainerParsed is true only when the container
+                            // has been parsed from the file header. Use it to
+                            // visually distinguish confirmed vs unconfirmed.
+                            final isConfirmed = src.isContainerParsed;
                             return Container(
                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                               decoration: BoxDecoration(
@@ -1511,7 +1562,13 @@ class _EpisodeCardItemState extends ConsumerState<_EpisodeCardItem> {
                                 style: TextStyle(
                                   fontSize: 9,
                                   fontWeight: FontWeight.bold,
-                                  color: hasHeight ? settingsAccent : settingsAccent.withValues(alpha: 0.5),
+                                  // Unconfirmed badges are slightly faded so the
+                                  // user can tell which ones have been parsed.
+                                  color: hasHeight
+                                      ? (isConfirmed
+                                          ? settingsAccent
+                                          : settingsAccent.withValues(alpha: 0.7))
+                                      : settingsAccent.withValues(alpha: 0.5),
                                 ),
                               ),
                             );

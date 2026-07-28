@@ -14,6 +14,7 @@ import '../../services/tdlib_service.dart';
 import '../../services/storage_service.dart';
 import '../../services/download_service.dart';
 import '../settings/settings_provider.dart';
+import '../home/user_channels_provider.dart';
 import 'pip_manager.dart';
 import 'custom_video_controls.dart';
 import '../../core/logger.dart';
@@ -34,6 +35,7 @@ class VideoPlayerScreen extends ConsumerStatefulWidget {
   final bool isPip;
   final String? networkUrl;
   final bool isDesktopMode;
+  final int? chatId;
   
   const VideoPlayerScreen({
     super.key, 
@@ -46,6 +48,7 @@ class VideoPlayerScreen extends ConsumerStatefulWidget {
     this.isPip = false,
     this.networkUrl,
     this.isDesktopMode = false,
+    this.chatId,
   });
 
   @override
@@ -550,13 +553,14 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
     // Pre-emptively resolve the fresh file ID from TDLib to prevent stale file ID errors
     Log.i('Resolving fresh file ID for message ${widget.messageId}...');
     int? freshFileId;
-    for (final category in Constants.categories) {
+
+    // PREFERRED PATH: use widget.chatId directly (works for user-added channels too).
+    if (widget.chatId != null && widget.chatId! != 0) {
       try {
         final res = await _tdlibService.sendAsync(td.GetMessage(
-          chatId: category.channelId,
+          chatId: widget.chatId!,
           messageId: widget.messageId,
         )).timeout(const Duration(seconds: 3));
-        
         if (res is td.Message) {
           if (res.content is td.MessageVideo) {
             freshFileId = (res.content as td.MessageVideo).video.video.id;
@@ -564,17 +568,76 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
             freshFileId = (res.content as td.MessageDocument).document.document.id;
           }
           if (freshFileId != null && freshFileId != 0) {
-            Log.i('Successfully resolved fresh file ID $freshFileId (previous was $_resolvedVideoFileId) for message ${widget.messageId} in category ${category.title}');
-            break;
+            Log.i('Resolved fresh file ID $freshFileId via chatId=${widget.chatId} for message ${widget.messageId}');
           }
         }
       } catch (e) {
-        Log.w('Failed to check category ${category.title} for message ${widget.messageId}: $e');
+        Log.w('Failed to resolve file ID via chatId=${widget.chatId}: $e');
+      }
+    }
+
+    // FALLBACK PATH: iterate Constants.categories + user-added channels.
+    // This preserves backwards compatibility for callers that don't pass chatId.
+    if (freshFileId == null || freshFileId == 0) {
+      // 1. Try the 3 hardcoded categories.
+      for (final category in Constants.categories) {
+        try {
+          final res = await _tdlibService.sendAsync(td.GetMessage(
+            chatId: category.channelId,
+            messageId: widget.messageId,
+          )).timeout(const Duration(seconds: 3));
+          if (res is td.Message) {
+            if (res.content is td.MessageVideo) {
+              freshFileId = (res.content as td.MessageVideo).video.video.id;
+            } else if (res.content is td.MessageDocument) {
+              freshFileId = (res.content as td.MessageDocument).document.document.id;
+            }
+            if (freshFileId != null && freshFileId != 0) {
+              Log.i('Resolved fresh file ID $freshFileId via Constants.categories[${category.title}] for message ${widget.messageId}');
+              break;
+            }
+          }
+        } catch (e) {
+          Log.w('Failed to check category ${category.title} for message ${widget.messageId}: $e');
+        }
+      }
+    }
+
+    if (freshFileId == null || freshFileId == 0) {
+      // 2. Try user-added channels.
+      try {
+        final userChannels = ref.read(userChannelsProvider);
+        for (final uc in userChannels) {
+          try {
+            final res = await _tdlibService.sendAsync(td.GetMessage(
+              chatId: uc.channelId,
+              messageId: widget.messageId,
+            )).timeout(const Duration(seconds: 3));
+            if (res is td.Message) {
+              if (res.content is td.MessageVideo) {
+                freshFileId = (res.content as td.MessageVideo).video.video.id;
+              } else if (res.content is td.MessageDocument) {
+                freshFileId = (res.content as td.MessageDocument).document.document.id;
+              }
+              if (freshFileId != null && freshFileId != 0) {
+                Log.i('Resolved fresh file ID $freshFileId via user channel ${uc.title} for message ${widget.messageId}');
+                break;
+              }
+            }
+          } catch (e) {
+            Log.w('Failed to check user channel ${uc.title} for message ${widget.messageId}: $e');
+          }
+        }
+      } catch (e) {
+        Log.w('Failed to read userChannelsProvider during file ID resolution: $e');
       }
     }
 
     if (freshFileId != null && freshFileId != 0) {
       _resolvedVideoFileId = freshFileId;
+    } else {
+      // Last resort: keep widget.videoFileId. Log loudly so the user can report.
+      Log.e('Could not resolve fresh file ID for message ${widget.messageId} (chatId=${widget.chatId}). Falling back to widget.videoFileId=${widget.videoFileId}. Playback will likely fail.');
     }
 
     if (widget.seriesName.isNotEmpty && _resolvedVideoFileId != null && _resolvedVideoFileId != 0) {

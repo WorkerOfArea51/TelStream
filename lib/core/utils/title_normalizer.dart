@@ -203,8 +203,21 @@ class TitleNormalizer {
     t = t.replaceAll(RegExp(r'\[[^\]]*\]'), ' ');
     // Remove parenthesized content UNLESS it's exactly a 4-digit year (e.g. preserve "(2026)").
     t = t.replaceAll(RegExp(r'\((?!\d{4}\))[^)]*\)'), ' ');
-    // Strip trailing "- ReleaseGroup" pattern (hyphen followed by a single alphanumeric word)
-    t = t.replaceAll(RegExp(r'\s*-\s*[A-Za-z0-9]{1,20}$'), '');
+    // Strip trailing "- ReleaseGroup" pattern — but ONLY when preceded by a
+    // release-name token (quality / codec / source / audio / language / etc.).
+    // This prevents stripping descriptive episode titles like "EP - 01 - Arrival".
+    //
+    // Examples that SHOULD strip:
+    //   "Movie.2026.1080p.WEB-DL.x264 - GalaxyRG"  → "Movie.2026.1080p.WEB-DL.x264"
+    //   "Movie.2026.1080p - YIFY"                  → "Movie.2026.1080p"
+    //
+    // Examples that should NOT strip:
+    //   "EP - 01 - Arrival"                        → "EP - 01 - Arrival"  (preserved!)
+    //   "Series - Season 1 - The Beginning"        → "Series - Season 1 - The Beginning"
+    //
+    // We require the token immediately before the " - Word" to be a release token.
+    // If the preceding token is an episode number, a year, or a plain word, we leave it alone.
+    t = _stripReleaseGroupSuffix(t);
     // Collapse multiple spaces.
     t = t.replaceAll(RegExp(r'\s+'), ' ').trim();
     // Strip leading/trailing punctuation.
@@ -252,5 +265,51 @@ class TitleNormalizer {
     
     // 5. No match — return null (DO NOT return 9999)
     return null;
+  }
+
+  /// Strips a trailing "- ReleaseGroup" suffix from [t], but ONLY when the
+  /// token immediately before the suffix is a known release-name token.
+  /// Returns [t] unchanged if no release-group suffix is detected.
+  static String _stripReleaseGroupSuffix(String t) {
+    // Match: <release-token> - <1-20 alphanumeric chars> at end of string.
+    // Release tokens are the same set used by releaseTokenRegex, plus the
+    // standalone year pattern (handles "2026 - GalaxyRG").
+    final releaseGroupSuffixRegex = RegExp(
+      r'\s*[-—–]\s*([A-Za-z0-9]{1,20})\s*$',
+    );
+    final match = releaseGroupSuffixRegex.firstMatch(t);
+    if (match == null) return t;
+
+    final precedingText = t.substring(0, match.start).trim();
+
+    // If the preceding text is empty, nothing to validate — keep the suffix.
+    if (precedingText.isEmpty) return t;
+
+    // Get the last whitespace-separated token of the preceding text.
+    final lastSpaceIdx = precedingText.lastIndexOf(' ');
+    final lastToken = (lastSpaceIdx >= 0
+        ? precedingText.substring(lastSpaceIdx + 1)
+        : precedingText).replaceAll(RegExp(r'[^\w.]'), '');
+
+    // Never strip if the last token is a pure episode-number / season-number
+    // pattern like "01", "E01", "S01E02", "EP-01", etc.
+    final isEpisodeNumber = RegExp(r'^(?:s\d{1,2}e\d{1,3}|e\d{1,3}|ep\d{1,3}|\d{1,3})$', caseSensitive: false)
+        .hasMatch(lastToken);
+    if (isEpisodeNumber) return t;
+
+    // Strip if the last token is a release token (1080p, x264, WEB-DL, etc.).
+    final isReleaseToken = releaseTokenRegex.hasMatch(lastToken);
+    if (isReleaseToken) {
+      return precedingText;
+    }
+
+    // Strip if the last token is a 4-digit year.
+    final isYear = RegExp(r'^(19\d{2}|20\d{2})$').hasMatch(lastToken);
+    if (isYear) {
+      return precedingText;
+    }
+
+    // Otherwise, preserve the descriptive title.
+    return t;
   }
 }

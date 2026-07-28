@@ -168,6 +168,7 @@ class PipController extends Notifier<PipVideoState?> {
     int? currentEpisodeIndex,
     String seriesName = '',
     String? networkUrl,
+    int? chatId,
   }) {
     isTransitioning = true;
     final oldActivePlayer = ref.read(activePlayerProvider);
@@ -235,6 +236,7 @@ class PipController extends Notifier<PipVideoState?> {
         isPip: false,
         networkUrl: networkUrl,
         isDesktopMode: Platform.isWindows || Platform.isLinux || Platform.isMacOS,
+        chatId: chatId,
       ),
     );
 
@@ -290,6 +292,7 @@ class PipController extends Notifier<PipVideoState?> {
         isPip: false,
         networkUrl: item.networkUrl,
         isDesktopMode: Platform.isWindows || Platform.isLinux || Platform.isMacOS,
+        chatId: item.episode?.defaultSource?.chatId,
       ),
     );
 

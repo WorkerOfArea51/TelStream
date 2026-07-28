@@ -1,5 +1,22 @@
 # Changelog
 
+## [2.13.5] - 2026-07-28
+
+### ✨ What's New in v2.13.5+57
+
+#### 🚀 Major Fixes
+* **Player 0:01 Glitch Fixed**: Grouped movies on user-added channels now play correctly. The player now resolves the real Telegram file ID via the source's `chatId` directly, with a fallback to `Constants.categories` + user channels.
+* **Episode Titles Preserved**: Descriptive episode names like "EP - 01 - Arrival" are no longer stripped by the release-group cleaner. The cleaner now only strips suffixes that follow a known release token (1080p, x264, WEB-DL, etc.).
+* **Quality Badges Always Show**: Quality badges now display the real label (e.g. "1080p") immediately, using TDLib-provided dimensions. Badges brighten when the container is parsed for confirmation.
+* **Refresh Metadata Works**: The "Refresh Metadata" button now actually refreshes. It clears the cache, re-runs extraction, and shows a snackbar with progress and result.
+* **Quality Switcher Icon Appears**: The gear icon in the player header bar now appears for any episode with multiple qualities (even before container parsing completes), enabling in-player quality switching.
+
+#### 🔧 Technical
+* Catalog cache version bumped to v6 (old caches will be rebuilt on first launch).
+* `VideoSource.hasMetadata` now returns true when height > 0, regardless of container type.
+* Added `VideoSource.isContainerParsed` getter for confirming container-type detection.
+* `VideoPlayerScreen` now accepts an optional `chatId` parameter for direct file ID resolution.
+* `MetadataExtractionNotifier.extractMetadataForEpisode` now accepts `forceRefresh: bool`.
 ## [2.13.4] - 2026-07-28
 
 ### Fixed
