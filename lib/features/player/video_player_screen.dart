@@ -729,34 +729,17 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         if (cachedFile.local.isDownloadingCompleted) {
           Log.i('Instant playback: playing cached completed file path: $localPath');
           _startPlayback(localPath);
-          if (!_nextEpisodePreloaded) {
-            _nextEpisodePreloaded = true;
-            _preloadNextEpisode();
-          }
         } else {
-          Log.i('Instant playback: streaming active download via proxy: $localPath');
+          // File is partially downloaded or not downloaded at all.
+          // Fallback: start playback via proxy immediately.
+          Log.i('Instant playback: streaming active download via proxy for fileId: $_resolvedVideoFileId');
           _proxyService.setDownloadOffset(_resolvedVideoFileId!, _initialOffset, cachedFile.local.downloadedSize);
-          // ------------------------------------------------------------------
-          // v2.13.7 — PRE-BUFFER BEFORE PLAYBACK (real desktop freeze fix)
-          //
-          // Wait for TDLib to actually download at least 4 MB at offset 0
-          // before handing the proxy URL to MPV. v2.13.6 waited for only
-          // 2 MB which gave MPV ~1-2 sec of video — less than TDLib's
-          // download ramp-up time, so MPV drained the buffer and froze.
-          //
-          // 4 MB gives MPV ~3-4 sec of video headroom, which outlasts the
-      if (cachedFile != null && cachedFile.local.isDownloadingCompleted) {
-        Log.i('Instant playback: playing cached completed file path: ${cachedFile.local.path}');
-        _startPlayback(cachedFile.local.path);
-        if (!_nextEpisodePreloaded) {
-          _nextEpisodePreloaded = true;
-          _preloadNextEpisode();
+          final proxyUrl = _proxyService.getProxyUrl(_resolvedVideoFileId!, fileName: widget.videoTitle);
+          _startPlayback(proxyUrl);
         }
       } else {
-        // File is partially downloaded or not downloaded at all.
-        // Fallback: start playback via proxy immediately.
-        Log.i('Instant playback: streaming active download via proxy for fileId: $_resolvedVideoFileId');
-        _proxyService.setDownloadOffset(_resolvedVideoFileId!, _initialOffset, cachedFile?.local.downloadedSize ?? 0);
+        Log.i('Pre-emptive playback fallback: starting proxy streaming immediately for fileId: $_resolvedVideoFileId');
+        _proxyService.setDownloadOffset(_resolvedVideoFileId!, _initialOffset, 0);
         final proxyUrl = _proxyService.getProxyUrl(_resolvedVideoFileId!, fileName: widget.videoTitle);
         _startPlayback(proxyUrl);
       }
