@@ -1457,9 +1457,20 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         nativePlayer.setProperty('interpolation', 'yes');
         nativePlayer.setProperty('tscale', 'oversample');
 
-        nativePlayer.setProperty('framedrop', 'vo'); // Still keep VO drop as a safety net for extreme CPU spikes
+        if (Platform.isAndroid || Platform.isIOS) {
+          nativePlayer.setProperty('framedrop', 'decoder');
+        } else {
+          nativePlayer.setProperty('framedrop', 'vo');
+        }
         nativePlayer.setProperty('sub-fix-timing', 'yes');
         nativePlayer.setProperty('stream-buffer-size', '16777216');
+
+        if (Platform.isAndroid || Platform.isIOS) {
+          nativePlayer.setProperty('force-window', 'yes');
+          nativePlayer.setProperty('force-render', 'yes');
+          nativePlayer.setProperty('vid', '1');
+          nativePlayer.setProperty('hwdec-extra-frames', '64');
+        }
 
         nativePlayer.setProperty('vd-lavc-fast', 'yes');
         nativePlayer.setProperty('vd-lavc-skiploopfilter', 'default');
@@ -1473,17 +1484,16 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
 
         final hwDecMode = _storageService.getHardwareDecoderMode();
         if (Platform.isAndroid) {
-          String safeMode = hwDecMode;
-          // mediacodec-copy causes severe macroblocking on Android HEVC streams due to CPU RAM bottlenecks
-          if (safeMode == 'mediacodec-copy') {
-            safeMode = 'auto';
-          }
-          if (safeMode != 'no') {
-            nativePlayer.setProperty('hwdec', safeMode);
-            Log.i('Set hardware decoder mode to $safeMode on player init (Android sanitized)');
-          } else {
+          if (hwDecMode == 'no') {
             nativePlayer.setProperty('hwdec', 'no');
-            Log.i('Hardware decoder mode is disabled (no) on player init');
+            Log.i('Hardware decoder mode is disabled (no) on player init (Android)');
+          } else {
+            String mode = hwDecMode;
+            if (mode == 'auto-safe' || mode == 'auto-copy') {
+              mode = 'auto'; // map legacy/safe modes to auto
+            }
+            nativePlayer.setProperty('hwdec', mode);
+            Log.i('Set hardware decoder mode to $mode on player init (Android)');
           }
         } else {
           String safeMode = hwDecMode;
@@ -1572,12 +1582,10 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
     }
 
     final hwDecMode = _storageService.getHardwareDecoderMode();
-    // On Windows/Linux/macOS, ALWAYS enable hardware acceleration for the video output surface.
-    // This flag controls how the VIDEO RENDERING SURFACE connects to Flutter's rendering pipeline,
-    // NOT the decoder. Setting it to false causes the black screen bug — video frames decoded by
-    // mpv (whether via hwdec or software) never reach the Flutter Video widget.
-    // On Android, respect the user's hwdec choice since mediacodec handles rendering natively.
-    final enableHw = Platform.isAndroid ? (hwDecMode != 'no') : true;
+    // When the user picks SW, we disable HW acceleration on the
+    // VideoController too. This makes SW mode actually fully software.
+    // When the user picks HW or HW+, we use the SurfaceTexture path as before.
+    final enableHw = hwDecMode != 'no';
     Future.microtask(() {
       if (mounted) {
         _pipController.setActivePlayer(player);

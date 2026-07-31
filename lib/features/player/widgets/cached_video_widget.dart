@@ -67,6 +67,12 @@ class _CachedVideoWidgetState extends State<CachedVideoWidget> {
   @override
   Widget build(BuildContext context) {
     final isDesktop = Platform.isWindows || Platform.isLinux || Platform.isMacOS;
-    return isDesktop ? _cachedWidget : RepaintBoundary(child: _cachedWidget);
+    if (isDesktop) {
+      return _cachedWidget;
+    }
+    // v2.13.8 FIX — Android black-screen-with-audio.
+    // Wrapping media_kit's Video widget (SurfaceTexture) in a RepaintBoundary
+    // breaks texture frame propagation on many MediaTek/Mali/Adreno GPUs.
+    return _cachedWidget;
   }
 }
