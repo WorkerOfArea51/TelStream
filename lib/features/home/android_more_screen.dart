@@ -63,7 +63,10 @@ class _AndroidMoreScreenState extends ConsumerState<AndroidMoreScreen>
   Future<void> _loadTelegramUser() async {
     try {
       final tdlib = ref.read(tdlibServiceProvider);
-      final me = await tdlib.sendAsync(const td.GetMe());
+      // Timeout after 5 seconds to avoid blank screen if TDLib hangs
+      final me = await tdlib.sendAsync(const td.GetMe()).timeout(const Duration(seconds: 5), onTimeout: () {
+        return const td.TdError(code: 504, message: "Timeout getting user profile");
+      });
       if (!mounted) return;
       if (me is td.User) {
         setState(() {
@@ -79,14 +82,16 @@ class _AndroidMoreScreenState extends ConsumerState<AndroidMoreScreen>
               _isLoadingUser = false;
             });
           } else {
-            // Trigger download of the profile photo file
+            // Trigger download of the profile photo file with timeout
             final res = await tdlib.sendAsync(td.DownloadFile(
               fileId: smallFile.id,
               priority: 1,
               offset: 0,
               limit: 0,
               synchronous: true,
-            ));
+            )).timeout(const Duration(seconds: 5), onTimeout: () {
+              return const td.TdError(code: 504, message: "Timeout downloading profile photo");
+            });
             if (!mounted) return;
             if (res is td.File && res.local.path.isNotEmpty) {
               setState(() {

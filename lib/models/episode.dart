@@ -47,7 +47,7 @@ abstract class Episode with _$Episode {
   bool get hasMultipleQualities {
     if (sources.length < 2) return false;
     final labels = sources
-        .where((s) => s.hasMetadata)
+        .where((s) => s.hasQualityLabel)
         .map((s) => s.qualityLabel)
         .toSet();
     return labels.length > 1;

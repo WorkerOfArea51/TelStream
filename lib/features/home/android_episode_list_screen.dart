@@ -181,7 +181,7 @@ class _AndroidEpisodeListScreenState extends ConsumerState<AndroidEpisodeListScr
           maxSources = ep.sources.length;
         }
         for (final src in ep.sources) {
-          if (src.hasMetadata) {
+          if (src.hasQualityLabel) {
             availableQualities.add(src.qualityLabel);
           }
         }
@@ -1537,12 +1537,12 @@ class _EpisodeCardItemState extends ConsumerState<_EpisodeCardItem> {
                           spacing: 4,
                           runSpacing: 4,
                           children: widget.ep.sources.map((src) {
-                            // hasMetadata is now true whenever height > 0, so
-                            // qualityLabel returns a real label (e.g. "1080p").
-                            // Show "..." only when height is genuinely unknown
+                            // hasQualityLabel is true when filename label exists
+                            // or when height > 0.
+                            // Show "..." only when label is genuinely unknown
                             // (metadata extraction hasn't run or returned no dimensions).
-                            final hasHeight = src.hasMetadata;
-                            final label = hasHeight ? src.qualityLabel : '...';
+                            final hasLabel = src.hasQualityLabel;
+                            final label = hasLabel ? src.qualityLabel : '...';
                             // isContainerParsed is true only when the container
                             // has been parsed from the file header. Use it to
                             // visually distinguish confirmed vs unconfirmed.
@@ -1550,10 +1550,10 @@ class _EpisodeCardItemState extends ConsumerState<_EpisodeCardItem> {
                             return Container(
                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                               decoration: BoxDecoration(
-                                color: settingsAccent.withValues(alpha: hasHeight ? 0.2 : 0.1),
+                                color: settingsAccent.withValues(alpha: hasLabel ? 0.2 : 0.1),
                                 borderRadius: BorderRadius.circular(4),
                                 border: Border.all(
-                                  color: settingsAccent.withValues(alpha: hasHeight ? 0.5 : 0.2),
+                                  color: settingsAccent.withValues(alpha: hasLabel ? 0.5 : 0.2),
                                   width: 0.5,
                                 ),
                               ),
@@ -1564,7 +1564,7 @@ class _EpisodeCardItemState extends ConsumerState<_EpisodeCardItem> {
                                   fontWeight: FontWeight.bold,
                                   // Unconfirmed badges are slightly faded so the
                                   // user can tell which ones have been parsed.
-                                  color: hasHeight
+                                  color: hasLabel
                                       ? (isConfirmed
                                           ? settingsAccent
                                           : settingsAccent.withValues(alpha: 0.7))

@@ -42,10 +42,22 @@ class ChannelResolver {
       if (result is td.ChatInviteLinkInfo) {
         final info = result;
         if (info.chatId == 0) {
-          throw Exception('You are not a member of this channel. Join it first in Telegram.');
+          // Auto-join via the invite link instead of telling the user to do it manually.
+          final joinResult = await _tdlib.sendAsync(
+            td.JoinChatByInviteLink(inviteLink: cleaned),
+          ).timeout(const Duration(seconds: 15));
+          if (joinResult is td.Chat) {
+            channelId = joinResult.id;
+            title = joinResult.title;
+          } else if (joinResult is td.TdError) {
+            throw Exception('Failed to join channel via invite link: ${joinResult.message}');
+          } else {
+            throw Exception('Unexpected response from JoinChatByInviteLink');
+          }
+        } else {
+          channelId = info.chatId;
+          title = info.title;
         }
-        channelId = info.chatId;
-        title = info.title;
       } else if (result is td.TdError) {
         throw Exception('Telegram error: ${result.message}');
       } else {
