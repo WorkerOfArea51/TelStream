@@ -147,10 +147,10 @@ class _QualityPickerSheetState extends ConsumerState<QualityPickerSheet> {
                     subtitle: 'Automatically select best quality',
                     isSelected: _isAuto,
                     onTap: () {
-                      setState(() {
-                        _isAuto = true;
-                        _selectedSource = null;
-                      });
+                      Navigator.pop(context, QualityPickerResult(
+                        action: QualityPickerAction.play,
+                        source: null,
+                      ));
                     },
                   ),
                   const SizedBox(height: 8),
@@ -164,10 +164,10 @@ class _QualityPickerSheetState extends ConsumerState<QualityPickerSheet> {
                         subtitle: _formatBytes(source.fileSizeBytes),
                         isSelected: isSelected,
                         onTap: () {
-                          setState(() {
-                            _isAuto = false;
-                            _selectedSource = source;
-                          });
+                          Navigator.pop(context, QualityPickerResult(
+                            action: QualityPickerAction.play,
+                            source: source,
+                          ));
                         },
                       ),
                     );
@@ -190,19 +190,6 @@ class _QualityPickerSheetState extends ConsumerState<QualityPickerSheet> {
                   },
                   icon: const Icon(Icons.download),
                   label: const Text('Download'),
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: FilledButton.icon(
-                  onPressed: () {
-                    Navigator.pop(context, QualityPickerResult(
-                      action: QualityPickerAction.play,
-                      source: _isAuto ? widget.episode.defaultSource : _selectedSource,
-                    ));
-                  },
-                  icon: const Icon(Icons.play_arrow),
-                  label: const Text('Play'),
                 ),
               ),
             ],

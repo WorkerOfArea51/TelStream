@@ -42,6 +42,11 @@ class TdlibRangeFetch {
           final raf = await file.open(mode: FileMode.read);
           final data = await raf.read(bytes);
           await raf.close();
+          if (data.length < bytes) {
+            Log.d('Local prefix read returned partial data: ${data.length} / $bytes bytes');
+          } else {
+            Log.d('Local prefix read returned full data: ${data.length} bytes');
+          }
           return data;
         } catch (e, st) {
           Log.e('Failed to read local video file prefix', e, st);
@@ -63,7 +68,7 @@ class TdlibRangeFetch {
       });
       request.headers.add('Range', 'bytes=0-${bytes - 1}');
       
-      final response = await request.close().timeout(const Duration(seconds: 15));
+      final response = await request.close().timeout(const Duration(seconds: 30));
       if (response.statusCode == HttpStatus.ok || response.statusCode == HttpStatus.partialContent) {
         final builder = BytesBuilder();
         await for (final chunk in response) {
@@ -72,6 +77,8 @@ class TdlibRangeFetch {
         }
         
         final result = builder.toBytes();
+        Log.i('Proxy range prefix request received ${result.length} bytes (status: ${response.statusCode})');
+        
         if (result.length > bytes) {
           return result.sublist(0, bytes);
         }
@@ -119,6 +126,11 @@ class TdlibRangeFetch {
           await raf.setPosition(startByte);
           final data = await raf.read(bytes);
           await raf.close();
+          if (data.length < bytes) {
+            Log.d('Local suffix read returned partial data: ${data.length} / $bytes bytes');
+          } else {
+            Log.d('Local suffix read returned full data: ${data.length} bytes');
+          }
           return data;
         } catch (e, st) {
           Log.e('Failed to read local video file suffix', e, st);
@@ -140,7 +152,7 @@ class TdlibRangeFetch {
       });
       request.headers.add('Range', 'bytes=$startByte-${totalSize - 1}');
       
-      final response = await request.close().timeout(const Duration(seconds: 15));
+      final response = await request.close().timeout(const Duration(seconds: 20));
       if (response.statusCode == HttpStatus.ok || response.statusCode == HttpStatus.partialContent) {
         final builder = BytesBuilder();
         await for (final chunk in response) {
@@ -149,6 +161,8 @@ class TdlibRangeFetch {
         }
         
         final result = builder.toBytes();
+        Log.i('Proxy range suffix request received ${result.length} bytes (status: ${response.statusCode})');
+        
         if (result.length > bytes) {
           return result.sublist(0, bytes);
         }

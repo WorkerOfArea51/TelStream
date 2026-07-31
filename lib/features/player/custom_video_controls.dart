@@ -124,6 +124,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
 
   StreamSubscription<bool>? _bufferingSubscription;
   bool _isBuffering = false;
+  bool _isSwitchingQuality = false;
   bool _isBlendingSubtitles = false;
   StreamSubscription<Track>? _trackSubscription;
   StreamSubscription? _tracksListSubscription;
@@ -1995,7 +1996,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
               scaleNotifier: _scaleNotifier,
               panNotifier: _panNotifier,
               subtitleConfig: subtitleConfig,
-              isBuffering: _isBuffering,
+              isBuffering: _isBuffering || _isSwitchingQuality,
               customBuffering: widget.customBuffering,
             ),
 
@@ -2292,17 +2293,22 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                     return;
                   }
                   
-                  if (selectedSource == null || selectedSource.messageId == currentItem.messageId) return; // Same quality
+                  final effectiveSource = selectedSource ?? currentItem.episode!.defaultSource;
+                  if (effectiveSource == null) return;
+                  if (effectiveSource.messageId == currentItem.messageId) return; // Same quality
                   
+                  setState(() {
+                    _isSwitchingQuality = true;
+                  });
                   
                   try {
                     final position = await ref.read(pipControllerProvider.notifier)
-                        .switchQualityInPlace(selectedSource);
+                        .switchQualityInPlace(effectiveSource);
                     
                     if (context.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
-                          content: Text('Switched to ${selectedSource.qualityLabel} @ ${_formatPosition(position)}'),
+                          content: Text('Switching to ${effectiveSource.qualityLabel} @ ${_formatPosition(position)}'),
                           duration: const Duration(seconds: 2),
                         ),
                       );
@@ -2316,6 +2322,12 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
                           backgroundColor: Colors.redAccent,
                         ),
                       );
+                    }
+                  } finally {
+                    if (mounted) {
+                      setState(() {
+                        _isSwitchingQuality = false;
+                      });
                     }
                   }
                 },

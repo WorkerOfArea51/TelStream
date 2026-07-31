@@ -210,8 +210,12 @@ class MkvParser {
                 offset += subSize;
               }
             }
-          } else if (id == 0x1F43B675) { // Cluster - stop parsing tracks and info
-            break;
+          } else if (id == 0x1F43B675) { // Cluster - skip past it instead of breaking
+            if (size != -1) {
+              offset += size;
+            } else {
+              break;
+            }
           } else {
             if (size != -1) {
               offset += size;

@@ -54,12 +54,12 @@ abstract class VideoMetadata with _$VideoMetadata {
   String get qualityLabel {
     final w = width;
     final h = height;
+    if (w == 0 && h == 0) return 'Unknown';
     if (w >= 3840 || h >= 2160) return '2160p';
     if (w >= 2560 || h >= 1440) return '1440p';
     if (w >= 1920 || h >= 1080) return '1080p';
     if (w >= 1280 || h >= 720) return '720p';
     if (w >= 854 || h >= 480) return '480p';
-    if (w == 0 && h == 0) return 'Unknown';
-    return 'SD';
+    return '480p';
   }
 }

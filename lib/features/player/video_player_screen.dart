@@ -1191,24 +1191,26 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         final nativePlayer = player.platform as NativePlayer;
         final profile = _settings.streamingProfile;
         
+        final isMobile = Platform.isAndroid || Platform.isIOS;
+        
         if (profile == 'Aggressive Buffer') {
           nativePlayer.setProperty('demuxer-max-bytes', '629145600'); // 600 MB
           nativePlayer.setProperty('demuxer-max-back-bytes', '209715200'); // 200 MB
           nativePlayer.setProperty('demuxer-readahead-secs', '240');
-          nativePlayer.setProperty('cache-pause-wait', '2');
+          nativePlayer.setProperty('cache-pause-wait', isMobile ? '10' : '2');
           Log.i('Applied Aggressive Buffer Profile: 600MB buffer, 200MB back buffer, 240s prefetch');
         } else if (profile == 'Mobile Saver') {
           nativePlayer.setProperty('demuxer-max-bytes', '104857600'); // 100 MB
           nativePlayer.setProperty('demuxer-max-back-bytes', '31457280'); // 30 MB
           nativePlayer.setProperty('demuxer-readahead-secs', '75');
-          nativePlayer.setProperty('cache-pause-wait', '6');
+          nativePlayer.setProperty('cache-pause-wait', isMobile ? '10' : '6');
           Log.i('Applied Mobile Saver Profile: 100MB buffer, 30MB back buffer, 75s prefetch');
         } else {
           // Balanced profile
           nativePlayer.setProperty('demuxer-max-bytes', '314572800'); // 300 MB
           nativePlayer.setProperty('demuxer-max-back-bytes', '104857600'); // 100 MB
           nativePlayer.setProperty('demuxer-readahead-secs', '150');
-          nativePlayer.setProperty('cache-pause-wait', '4');
+          nativePlayer.setProperty('cache-pause-wait', isMobile ? '10' : '4');
           Log.i('Applied Balanced Profile: 300MB buffer, 100MB back buffer, 150s prefetch');
         }
       }
@@ -1446,17 +1448,27 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         nativePlayer.setProperty('cache', 'yes');
         nativePlayer.setProperty('demuxer-max-bytes', '209715200'); // 200 MB cache (prevents connection stalls)
         nativePlayer.setProperty('demuxer-max-back-bytes', '52428800'); // 50 MB back buffer (fast seeking)
-        nativePlayer.setProperty('demuxer-readahead-secs', '180'); // Cache up to 180 seconds ahead
+        nativePlayer.setProperty('demuxer-hysteresis', 'yes'); // Prevent thrashing
         
-        // Prevent artificial freeze/stall on first load by disabling hard pause-initial locks
-        nativePlayer.setProperty('cache-pause', 'yes'); 
-        nativePlayer.setProperty('cache-pause-initial', 'no');  // Start playing immediately — don't show black screen while buffering
-        nativePlayer.setProperty('cache-pause-wait', '2'); // Shorter wait (2s) when re-buffering during playback
+        final isMobile = Platform.isAndroid || Platform.isIOS;
+        
+        if (isMobile) {
+          nativePlayer.setProperty('demuxer-readahead-secs', '30'); // Buffer fills faster on mobile
+          nativePlayer.setProperty('cache-pause', 'yes'); 
+          nativePlayer.setProperty('cache-pause-initial', 'yes'); // Prevent 2s freeze on mobile by waiting to fill buffer
+          nativePlayer.setProperty('cache-pause-wait', '10'); // Wait longer on mobile networks
+          nativePlayer.setProperty('audio-buffer', '1.0'); // 1.0s audio buffer on mobile
+        } else {
+          nativePlayer.setProperty('demuxer-readahead-secs', '180'); // Cache up to 180 seconds ahead
+          nativePlayer.setProperty('cache-pause', 'yes'); 
+          nativePlayer.setProperty('cache-pause-initial', 'no');  // Start playing immediately — don't show black screen while buffering
+          nativePlayer.setProperty('cache-pause-wait', '2'); // Shorter wait (2s) when re-buffering during playback
+          nativePlayer.setProperty('audio-buffer', '0.2'); // 0.2s audio buffer
+        }
+        
         nativePlayer.setProperty('cache-secs', '180'); // Max caching seconds
         nativePlayer.setProperty('hr-seek', 'no'); // Disable high-precision seeking to avoid frame decoding stalls
-        
         nativePlayer.setProperty('audio-pitch-correction', 'yes');
-        nativePlayer.setProperty('audio-buffer', '0.2'); // 0.2s audio buffer
         
         // Ultimate smoothness: Sync video to the display refresh rate (e.g., 60Hz/120Hz)
         nativePlayer.setProperty('video-sync', 'display-resample');
@@ -1483,12 +1495,13 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         final hwDecMode = _storageService.getHardwareDecoderMode();
         if (Platform.isAndroid) {
           String safeMode = hwDecMode;
-          // mediacodec-copy causes severe macroblocking on Android HEVC streams due to CPU RAM bottlenecks
-          if (safeMode == 'mediacodec-copy') {
-            safeMode = 'auto';
+          // Android black-screen bug: auto or mediacodec bypasses vo=gpu. Fix: force mediacodec-copy
+          if (safeMode == 'auto' || safeMode == 'auto-copy' || safeMode == 'mediacodec') {
+            safeMode = 'mediacodec-copy';
           }
           if (safeMode != 'no') {
             nativePlayer.setProperty('hwdec', safeMode);
+            nativePlayer.setProperty('vo', 'gpu'); // Explicitly force GPU output to fix black screen
             Log.i('Set hardware decoder mode to $safeMode on player init (Android sanitized)');
           } else {
             nativePlayer.setProperty('hwdec', 'no');

@@ -16,7 +16,8 @@ class CachedMetadata extends VideoMetadataCacheResult {
 }
 
 class CachedFailure extends VideoMetadataCacheResult {
-  const CachedFailure();
+  final String? reason;
+  const CachedFailure({this.reason});
 }
 
 class CacheMiss extends VideoMetadataCacheResult {
@@ -40,7 +41,7 @@ class VideoMetadataCache {
       if (data['isFailure'] == true) {
         final timestamp = DateTime.fromMillisecondsSinceEpoch(data['timestamp'] as int);
         if (DateTime.now().difference(timestamp) < _failureTtl) {
-          return const CachedFailure();
+          return CachedFailure(reason: data['reason'] as String?);
         } else {
           await _storage.delete(key: _getKey(messageId));
           return const CacheMiss();
@@ -71,11 +72,12 @@ class VideoMetadataCache {
     }
   }
 
-  static Future<void> saveFailure(int messageId) async {
+  static Future<void> saveFailure(int messageId, {String? reason}) async {
     try {
       final data = {
         'isFailure': true,
         'timestamp': DateTime.now().millisecondsSinceEpoch,
+        if (reason != null) 'reason': reason,
       };
       await _storage.write(key: _getKey(messageId), value: jsonEncode(data));
     } catch (e, st) {

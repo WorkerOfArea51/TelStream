@@ -139,16 +139,19 @@ class MetadataExtractionNotifier extends Notifier<Map<int, Episode>> {
       }
 
       // Need to extract
-      final meta = await _pool.withResource(() async {
+      final extractRes = await _pool.withResource(() async {
         return await _extractWithRetry(source, proxy, tdlib);
       });
+
+      final meta = extractRes.$1;
+      final reason = extractRes.$2;
 
       if (meta != null) {
         await VideoMetadataCache.save(source.messageId, meta);
         updatedSources.add(source.copyWith(metadata: meta));
         anyChanged = true;
       } else {
-        await VideoMetadataCache.saveFailure(source.messageId);
+        await VideoMetadataCache.saveFailure(source.messageId, reason: reason);
         updatedSources.add(source);
       }
     }
@@ -248,12 +251,12 @@ class MetadataExtractionNotifier extends Notifier<Map<int, Episode>> {
       ..addAll(updated.where((u) => !existing.any((e) => e.messageId == u.messageId)));
   }
 
-  Future<VideoMetadata?> _extractWithRetry(VideoSource source, StreamingProxyService proxy, TdlibService tdlib) async {
+  Future<(VideoMetadata?, String?)> _extractWithRetry(VideoSource source, StreamingProxyService proxy, TdlibService tdlib) async {
     int maxRetries = 2;
     for (int attempt = 1; attempt <= maxRetries; attempt++) {
       try {
         final msg = await tdlib.getMessage(source.chatId, source.messageId);
-        if (msg == null) return null;
+        if (msg == null) return (null, 'message_not_found');
 
         return await _extract(source, msg, proxy);
       } catch (e, st) {
@@ -265,14 +268,14 @@ class MetadataExtractionNotifier extends Notifier<Map<int, Episode>> {
             continue;
           }
         }
-        Log.e('Failed to extract metadata for message ${source.messageId}', e, st);
-        return null;
+        Log.w('Failed to extract metadata for message ${source.messageId} (attempt $attempt) - Reason: $e');
+        return (null, 'tdlib_error: $e');
       }
     }
-    return null;
+    return (null, 'max_retries_exceeded');
   }
 
-  Future<VideoMetadata?> _extract(VideoSource source, td.Message msg, StreamingProxyService proxy) async {
+  Future<(VideoMetadata?, String?)> _extract(VideoSource source, td.Message msg, StreamingProxyService proxy) async {
     // 1. Try prefix (first 2 MB).
     try {
       final prefixBytes = await TdlibRangeFetch.fetchPrefix(msg, proxy);
@@ -282,12 +285,14 @@ class MetadataExtractionNotifier extends Notifier<Map<int, Episode>> {
           mimeType: source.mimeType,
           fileName: source.fileName,
         );
-        if (meta != null) return meta;
+        if (meta != null) return (meta, null);
+        Log.w('Prefix extraction returned null metadata for ${source.messageId}');
+      } else {
+        Log.w('Prefix fetch returned null or empty bytes for ${source.messageId}');
       }
     } catch (e) {
-      // Fall through to suffix attempt below.
       if (!e.toString().contains('moov_not_found')) {
-        Log.w('Prefix extraction error for ${source.messageId}: $e');
+        Log.w('Prefix extraction error for ${source.messageId} - Reason: $e');
       }
     }
 
@@ -298,21 +303,26 @@ class MetadataExtractionNotifier extends Notifier<Map<int, Episode>> {
         lowerName.endsWith('.mov') ||
         lowerName.endsWith('.m4v') ||
         lowerMime == 'video/mp4';
-    if (!isMp4Family) return null;
+    if (!isMp4Family) return (null, 'not_mp4_family_and_prefix_failed');
 
     Log.i('moov not found in prefix for ${source.messageId}, fetching suffix...');
     try {
       final suffixBytes = await TdlibRangeFetch.fetchSuffix(msg, proxy);
       if (suffixBytes != null && suffixBytes.isNotEmpty) {
-        return await VideoMetadataExtractor.extractFromSuffix(
+        final meta = await VideoMetadataExtractor.extractFromSuffix(
           suffix: suffixBytes,
           mimeType: source.mimeType,
           fileName: source.fileName,
         );
+        if (meta != null) return (meta, null);
+        Log.w('Suffix extraction returned null metadata for ${source.messageId}');
+      } else {
+        Log.w('Suffix fetch returned null or empty bytes for ${source.messageId}');
       }
     } catch (e, st) {
-      Log.e('Suffix extraction failed for ${source.messageId}', e, st);
+      Log.w('Suffix extraction error for ${source.messageId} - Reason: $e');
+      return (null, 'suffix_error: $e');
     }
-    return null;
+    return (null, 'extraction_failed_completely');
   }
 }

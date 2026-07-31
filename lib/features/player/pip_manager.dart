@@ -118,8 +118,8 @@ class PipController extends Notifier<PipVideoState?> {
   /// Waits up to 2 seconds for the player to report a non-zero duration
   /// (i.e. the new media has been parsed by MPV). Falls back to a fixed
   /// 100ms delay if the duration stream doesn't emit in time.
-  Future<void> _waitForPlayerReady(Player player) async {
-    final deadline = DateTime.now().add(const Duration(seconds: 2));
+  Future<void> _waitForPlayerReady(Player player, {int timeoutSeconds = 2}) async {
+    final deadline = DateTime.now().add(Duration(seconds: timeoutSeconds));
     while (DateTime.now().isBefore(deadline)) {
       if (player.state.duration.inMilliseconds > 0) return;
       await Future.delayed(const Duration(milliseconds: 50));
@@ -325,6 +325,12 @@ class PipController extends Notifier<PipVideoState?> {
     final currentItem = currentState.queue[currentState.currentIndex];
     final episode = currentItem.episode;
     if (episode == null) return 0;
+
+    if (newSource.messageId == currentItem.messageId) {
+      // Nothing to switch — just resume playback.
+      try { await player.play(); } catch (_) {}
+      return player.state.position.inSeconds;
+    }
     
     // 1. Capture current position BEFORE any state change.
     final position = player.state.position.inSeconds;
@@ -363,16 +369,46 @@ class PipController extends Notifier<PipVideoState?> {
     //    loads the media without auto-playing, so we can seek first.
     await player.open(Media(newUrl, httpHeaders: proxy.getAuthHeaders()), play: false);
     
-    // 5. Wait for the new media to be loaded enough to seek, then seek.
+    // 5. Wait for the new media's duration to be reported. Use 8 s — large
+    //    files over a loopback proxy can take a few seconds to parse the
+    //    header before MPV reports a non-zero duration.
+    await _waitForPlayerReady(player, timeoutSeconds: 8);
+
+    // 6. Abort any active proxy reads for the new file. This frees MPV's HTTP
+    //    reader thread so the seek call doesn't deadlock.
+    proxy.abortActiveRequests(tdFile.id);
+    
+    // 7. Robust seek: up to 3 attempts, with verification + delay between
+    //    attempts.
     if (position > 0) {
-      await _waitForPlayerReady(player);
-      await player.seek(Duration(seconds: position));
+      for (int i = 0; i < 3; i++) {
+        try {
+          await player.seek(Duration(seconds: position));
+        } catch (e, st) {
+          Log.w('switchQualityInPlace seek attempt ${i + 1} failed: $e');
+        }
+        await Future.delayed(Duration(milliseconds: 400 + (i * 200)));
+
+        final currentPos = player.state.position.inSeconds;
+        if (currentPos > 0 && (currentPos - position).abs() <= 5) {
+          Log.i('switchQualityInPlace seek successful at attempt ${i + 1}');
+          break;
+        }
+        // Re-abort proxy reads before each retry — the previous seek may have
+        // started a new HTTP read that's now blocking.
+        proxy.abortActiveRequests(tdFile.id);
+        Log.w('switchQualityInPlace seek retry ${i + 1} — currentPos=$currentPos, target=$position');
+      }
     }
     
-    // 6. Resume playback.
-    await player.play();
+    // 8. Resume playback.
+    try {
+      await player.play();
+    } catch (e, st) {
+      Log.e('switchQualityInPlace player.play() failed', e, st);
+    }
     
-    // 7. Persist the position to storage
+    // 9. Persist the position to storage
     if (position > 0) {
       final storage = ref.read(storageServiceProvider);
       storage.saveWatchPosition(newSource.messageId, position);

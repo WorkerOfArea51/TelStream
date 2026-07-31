@@ -1547,7 +1547,7 @@ class _EpisodeCardItemState extends ConsumerState<_EpisodeCardItem> {
                             // has been parsed from the file header. Use it to
                             // visually distinguish confirmed vs unconfirmed.
                             final isConfirmed = src.isContainerParsed;
-                            return Container(
+                            Widget badge = Container(
                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                               decoration: BoxDecoration(
                                 color: settingsAccent.withValues(alpha: hasLabel ? 0.2 : 0.1),
@@ -1572,6 +1572,23 @@ class _EpisodeCardItemState extends ConsumerState<_EpisodeCardItem> {
                                 ),
                               ),
                             );
+                            
+                            if (label == '...') {
+                              badge = GestureDetector(
+                                onTap: () {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Extracting metadata...'),
+                                      duration: Duration(seconds: 1),
+                                    ),
+                                  );
+                                  ref.read(metadataExtractionServiceProvider.notifier)
+                                     .extractMetadataForEpisode(widget.ep, forceRefresh: true);
+                                },
+                                child: badge,
+                              );
+                            }
+                            return badge;
                           }).toList(),
                         ),
                       ],

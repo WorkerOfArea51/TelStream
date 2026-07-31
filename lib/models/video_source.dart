@@ -153,7 +153,8 @@ abstract class VideoSource with _$VideoSource {
   /// Returns null if no quality token is found.
   static String? _extractQualityFromFilename(String filename) {
     if (filename.isEmpty) return null;
-    final lower = filename.toLowerCase();
+    // Replace underscores with spaces so \b matches correctly
+    final lower = filename.toLowerCase().replaceAll('_', ' ');
 
     // Ordered list of (regex, label) pairs. First match wins.
     final patterns = <(RegExp, String)>[

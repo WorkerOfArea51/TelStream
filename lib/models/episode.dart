@@ -30,27 +30,16 @@ abstract class Episode with _$Episode {
     return [...sources]..sort((a, b) => b.qualityRank.compareTo(a.qualityRank));
   }
 
-  /// True only when there are 2+ sources with non-zero height AND their
-  /// quality labels differ.
-  ///
-  /// This uses the relaxed `VideoSource.hasMetadata` (height > 0, regardless
-  /// of container type), so the gear icon appears immediately for grouped
-  /// movies — even before container parsing has completed.
-  ///
-  /// If all sources have height 0 (metadata extraction hasn't run), this
-  /// returns false. That's correct: we can't claim "multiple qualities" if
-  /// we don't know any dimensions.
-  ///
-  /// Also handles the edge case where all sources have the same height
-  /// (e.g. two copies of the same 1080p encode) — that's NOT multiple
-  /// qualities, so we return false.
   bool get hasMultipleQualities {
     if (sources.length < 2) return false;
-    final labels = sources
-        .where((s) => s.hasQualityLabel)
-        .map((s) => s.qualityLabel)
-        .toSet();
-    return labels.length > 1;
+    // If we know every source's quality, only show the gear when they differ.
+    if (sources.every((s) => s.hasQualityLabel)) {
+      final labels = sources.map((s) => s.qualityLabel).toSet();
+      return labels.length > 1;
+    }
+    // Otherwise, show the gear — the user may want to pick a specific source
+    // even if we don't yet know its dimensions.
+    return true;
   }
 
   /// For backwards compat — many call sites expect a single messageId / chatId.
