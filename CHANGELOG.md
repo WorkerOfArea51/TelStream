@@ -1,5 +1,23 @@
 # Changelog
 
+## [2.13.6] - 2026-07-31
+
+### ✨ What's New in v2.13.6+58
+
+#### 🚀 Critical Playback Fixes
+* **Android Black-Screen-With-Audio Fixed**: Videos on Android no longer play audio while showing a black screen. The root cause was `hwdec=auto-safe` resolving to `mediacodec-copy`, which decodes to CPU RAM instead of the SurfaceTexture — incompatible with `vo=gpu` set by `enableHardwareAcceleration=true`. Now uses `hwdec=mediacodec` (surface rendering) by default, which works correctly with `vo=gpu`. MPV still auto-falls-back to software decoding if a codec fails.
+* **Desktop 2-Second Freeze Fixed**: Videos on desktop no longer play for 2-3 seconds then freeze on first playback. Two changes fix this:
+  - **Pre-buffering before `player.open()`**: The player now waits for TDLib to download at least 2 MB at the start of the file (up to 5 seconds max) before handing the proxy URL to MPV. This ensures MPV has data ready to read immediately on connect.
+  - **`cache-pause-wait` increased from 1s to 3s on desktop**: Gives MPV enough time to fill its demuxer cache before starting playback, preventing the buffer-drain-then-freeze pattern.
+* **Quality Fetching Fixed for Files Without Filename Labels**: Quality badges no longer stay stuck as "..." for files whose filenames don't contain a quality token (e.g. `1080p`, `720p`). The streaming proxy's auto-shift logic now triggers a TDLib download at offset 0 when no download is active — previously it only shifted when an existing download was "out of bounds", which left metadata-extraction requests waiting forever for bytes that never arrived.
+
+#### 🔧 Technical
+* `StreamingProxyService._handleRequest`: Rewrote the auto-shift decision logic. Added `noActiveDownload` detection — when `activeOffset == 0 && baseDownloaded == 0 && prefixSize == 0`, the proxy immediately issues `td.DownloadFile` at the requested offset instead of waiting for the 20-second timeout.
+* `TdlibRangeFetch.fetchPrefix`: Now reads directly from disk when `downloadedPrefixSize >= bytes` (not just when the file is fully downloaded). This skips the HTTP roundtrip entirely when TDLib has already cached the first 2 MB — common after the user has played or scrubbed the video once.
+* `VideoPlayerScreen._initDownload`: Added `_waitForPrefixDownload()` helper that polls `td.GetFile` every 150 ms until `downloadedPrefixSize >= 2 MB` or 5 s elapse, called before `_startPlayback(proxyUrl)` on both the active-download and pre-emptive-fallback paths.
+* `VideoPlayerScreen._initPlayerInstance`: Android `hwdec` mapping rewritten. `auto`, `auto-safe`, `auto-copy`, and `mediacodec` all map to `mediacodec` (surface rendering). `mediacodec-copy` is respected if the user explicitly chose it (for Native Blending subtitle compatibility). `no` remains `no` (software decoding).
+* `VideoPlayerScreen._initPlayerInstance`: Desktop `cache-pause-wait` increased from `1` to `3` seconds.
+
 ## [2.13.5] - 2026-07-28
 
 ### ✨ What's New in v2.13.5+57

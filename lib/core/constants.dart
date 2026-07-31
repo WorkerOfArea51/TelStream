@@ -89,17 +89,18 @@ class Constants {
   }
 
   static const String changelog = '''
-### ✨ What's New in v2.12.2
+### ✨ What's New in v2.13.6
 
-#### ðŸš€ New Features & Improvements
-* **Smart Proxy Manager**: Added Proxy Latency Manager with auto-reconnection and latency checking for optimal streaming.
-* **Auto-Fetch MTProto**: Fixed and improved auto-fetching of MTProto proxy lists.
-* **Proxy Localization**: Added full proxy settings translations across all 20 supported languages.
+#### 🚀 Critical Playback Fixes
+* **Android Black-Screen-With-Audio Fixed**: Videos on Android no longer play audio while showing a black screen. The root cause was `hwdec=auto-safe` resolving to `mediacodec-copy`, which decodes to CPU RAM instead of the SurfaceTexture. Now uses `hwdec=mediacodec` (surface rendering) by default.
+* **Desktop 2-Second Freeze Fixed**: Videos on desktop no longer play for 2-3 seconds then freeze on first playback. The player now pre-buffers at least 2 MB before starting playback, and `cache-pause-wait` was increased from 1s to 3s.
+* **Quality Fetching Fixed for Files Without Filename Labels**: Quality badges no longer stay stuck as "..." for files whose filenames don't contain a quality token. The streaming proxy now triggers a TDLib download at offset 0 when no download is active, instead of waiting for the 20-second timeout.
 
-#### ðŸ”§ Bug Fixes
-* **Channel Library Fix**: Fixed an issue where newly added public channels remained stuck on the "Your library is empty" screen. The app now properly joins the channel in the background to sync history reliably.
-* **UI Error Feedback**: Added clear error messages and a "Retry" button when channel fetching fails.
-* **Movie Channels**: Fixed parsing for single-episode movie channels.
+#### 🔧 Technical
+* Streaming proxy auto-shift logic rewritten to detect "no active download" state.
+* `TdlibRangeFetch.fetchPrefix` now reads from disk when `downloadedPrefixSize >= bytes` (not just when fully downloaded).
+* Added `_waitForPrefixDownload()` pre-buffer helper in `VideoPlayerScreen._initDownload`.
+* Android `hwdec` mapping: `auto`/`auto-safe`/`auto-copy`/`mediacodec` → `mediacodec` (surface rendering).
 ''';
 
   // Telegram API Credentials from secrets.dart

@@ -55,47 +55,67 @@ class StreamingProxyService {
     return url.startsWith('http://127.0.0.1:') || url.startsWith('http://[::1]:');
   }
 
-  Future<void> get onReady => _startCompleter!.future;
+  // ---------------------------------------------------------------------------
+  // Per-file state maps
+  // ---------------------------------------------------------------------------
 
-  // Track active download offset state per fileId
+  /// Latest known td.File state per fileId (updated by UpdateFile listener).
+  final Map<int, td.File> _fileStates = {};
+
+  /// Active TDLib download offset per fileId. Set by setDownloadOffset() and
+  /// by the auto-shift logic in _handleRequest().
   final Map<int, int> _activeDownloadOffsets = {};
+
+  /// downloadedSize value at the moment setDownloadOffset() was called. Used to
+  /// compute the "delta" of bytes downloaded since the offset was set, which
+  /// gives us the available range [activeOffset, activeOffset + delta).
   final Map<int, int> _downloadedSizeAtOffsets = {};
-  final Map<int, td.File> _fileStates = <int, td.File>{};
-  static const int _maxFileStateEntries = 32;
 
-  void _cacheFileState(int fileId, td.File file) {
-    _fileStates.remove(fileId);
-    _fileStates[fileId] = file;
-    if (_fileStates.length > _maxFileStateEntries) {
-      _fileStates.remove(_fileStates.keys.first);
-    }
-  }
-
-  // Track active HTTP request offsets per fileId to prevent prefetch thrashing
+  /// Active HTTP request offsets per fileId. Used by the auto-shift logic to
+  /// detect concurrent requests for different byte ranges.
   final Map<int, Map<int, int>> _activeRequestOffsets = {};
 
-  // Track last active timestamp of read/write per fileId and request offset to classify idle connections
+  /// Last-active timestamps per (fileId, reqId). Used to determine if an
+  /// earlier request is still actively reading or has stalled.
   final Map<int, Map<int, DateTime>> _requestLastActive = {};
 
+  /// Completers that, when completed, abort all active HTTP requests for the
+  /// given fileId. Used by abortActiveRequests() to free the MPV reader thread
+  /// when the user seeks.
   final Map<int, List<Completer<void>>> _abortCompleters = {};
 
-  int getActiveDownloadOffset(int fileId) =>
-      _activeDownloadOffsets[fileId] ?? 0;
+  // ---------------------------------------------------------------------------
+  // Public API
+  // ---------------------------------------------------------------------------
+
+  int getActiveDownloadOffset(int fileId) => _activeDownloadOffsets[fileId] ?? 0;
+
   int getDownloadedSizeAtOffset(int fileId) =>
       _downloadedSizeAtOffsets[fileId] ?? 0;
 
-  bool isRangeDownloaded(int fileId, int start, int end) {
-    final tdFile = _fileStates[fileId];
-    if (tdFile == null) return false;
-    if (tdFile.local.isDownloadingCompleted) return true;
+  void _cacheFileState(int fileId, td.File file) {
+    _fileStates[fileId] = file;
+  }
 
-    final prefixSize = tdFile.local.downloadedPrefixSize;
-    if (end <= prefixSize) return true;
+  /// Returns true if the byte range [start, end] is already downloaded and
+  /// available for reading. This is the case when:
+  ///   - The file is fully downloaded (prefix covers the whole range), OR
+  ///   - The range is within the active download window.
+  bool isRangeDownloaded(int fileId, int start, int end) {
+    final file = _fileStates[fileId];
+    if (file == null) return false;
+
+    if (file.local.isDownloadingCompleted) return true;
+
+    final prefixSize = file.local.downloadedPrefixSize;
+    if (end < prefixSize) return true;
 
     final activeOffset = _activeDownloadOffsets[fileId] ?? 0;
     final baseDownloaded = _downloadedSizeAtOffsets[fileId] ?? 0;
-    final downloadedDelta = (tdFile.local.downloadedSize - baseDownloaded)
-        .clamp(0, tdFile.expectedSize);
+    final downloadedDelta = (file.local.downloadedSize - baseDownloaded).clamp(
+      0,
+      file.expectedSize,
+    );
     final activeRangeEnd = activeOffset + downloadedDelta;
 
     if (start >= activeOffset && end <= activeRangeEnd) return true;
@@ -181,8 +201,8 @@ class StreamingProxyService {
   }
 
   Map<String, String> getAuthHeaders() => {
-    'Authorization': 'Bearer $_authToken',
-  };
+        'Authorization': 'Bearer $_authToken',
+      };
 
   td.File? getCachedFile(int fileId) => _fileStates[fileId];
 
@@ -198,13 +218,17 @@ class StreamingProxyService {
       }
     }
     _abortCompleters.clear();
-_fileStates.clear();
+    _fileStates.clear();
     _activeDownloadOffsets.clear();
     _downloadedSizeAtOffsets.clear();
     _activeRequestOffsets.clear();
     _requestLastActive.clear();
     Log.i('Local HTTP Streaming Proxy stopped');
   }
+
+  // ---------------------------------------------------------------------------
+  // HTTP request handler
+  // ---------------------------------------------------------------------------
 
   Future<void> _handleRequest(HttpRequest request) async {
     try {
@@ -323,7 +347,25 @@ _fileStates.clear();
       _abortCompleters.putIfAbsent(fileId, () => []).add(abortCompleter);
 
       try {
-        // Auto-detect and shift TDLib download offset if the requested range is outside our current download buffer
+        // ----------------------------------------------------------------------
+        // AUTO-SHIFT LOGIC (v2.13.6 — REWRITTEN)
+        //
+        // Old v17 logic had a critical bug: when no download was active for the
+        // file (activeOffset=0, baseDownloaded=0, prefixSize=0), the conditions
+        // `isOutBefore = start < activeOffset` and `isOutAfter = start > activeRangeEnd + 3MB`
+        // were BOTH false, so no download was triggered. The proxy just waited
+        // for bytes that would never arrive (until the 20s timeout kicked in).
+        //
+        // This caused metadata extraction to fail/timeout for files that hadn't
+        // been opened in the player yet — quality badges stayed as "..." forever.
+        //
+        // New logic: if the requested range is NOT within the downloaded prefix
+        // AND NOT within the active download window, trigger a TDLib download at
+        // the requested offset. This covers:
+        //   1. No active download at all (metadata extraction path)
+        //   2. Request is before the active download window (user rewound)
+        //   3. Request is far ahead of the active download window (user skipped)
+        // ----------------------------------------------------------------------
         try {
           final res = await fetchFile();
           if (res != null) {
@@ -338,9 +380,16 @@ _fileStates.clear();
             const graceBuffer = 1 * 1024 * 1024;
             const forwardThreshold = 3 * 1024 * 1024;
 
-            final isOutBefore = start < activeOffset;
-            final isOutAfter = start > activeRangeEnd + forwardThreshold;
+            // Is the requested start within the already-downloaded prefix?
+            final isWithinPrefix = start < prefixSize;
+            // Is the requested start within the active download window
+            // (with a small forward threshold to absorb MPV's read-ahead)?
+            final isWithinActiveRange =
+                start >= activeOffset && start <= activeRangeEnd + forwardThreshold;
 
+            // Detect whether another request for an earlier offset is in flight
+            // — if so, let that request handle the shift to avoid duplicate
+            // DownloadFile calls.
             final now = DateTime.now();
             bool hasEarlierRequest = false;
             await _stateLock.synchronized(() {
@@ -359,17 +408,33 @@ _fileStates.clear();
                 res.expectedSize > 20 * 1024 * 1024 &&
                 start >= res.expectedSize - 15 * 1024 * 1024;
 
-            if (!isCompleted &&
-                start >= prefixSize &&
-                (isOutBefore ||
-                    (isOutAfter && (!hasEarlierRequest || isTailQuery)))) {
+            final noActiveDownload =
+                activeOffset == 0 && baseDownloaded == 0 && prefixSize == 0;
+
+            // Decision: should we shift?
+            //   - Yes if no download is active at all (NEW in v2.13.6)
+            //   - Yes if start is BEFORE the active window (rewind)
+            //   - Yes if start is far AFTER the active window AND no earlier
+            //     request is handling it (or it's a tail query)
+            final shouldShift = !isCompleted &&
+                !isWithinPrefix &&
+                !isWithinActiveRange &&
+                (noActiveDownload ||
+                    start < activeOffset ||
+                    (start > activeRangeEnd + forwardThreshold &&
+                        (!hasEarlierRequest || isTailQuery)));
+
+            if (shouldShift) {
               final shiftOffset = (start - graceBuffer).clamp(
                 0,
                 res.expectedSize,
               );
 
               Log.i(
-                'Proxy auto-shifting TDLib download offset for file $fileId to $shiftOffset (requested range: $start-$end, prefixSize: $prefixSize, activeOffset: $activeOffset, activeRangeEnd: $activeRangeEnd)',
+                'Proxy shifting TDLib download offset for file $fileId to $shiftOffset '
+                '(requested range: $start-$end, prefixSize: $prefixSize, '
+                'activeOffset: $activeOffset, activeRangeEnd: $activeRangeEnd, '
+                'noActiveDownload: $noActiveDownload)',
               );
 
               setDownloadOffset(fileId, shiftOffset, res.local.downloadedSize);
@@ -397,6 +462,7 @@ _fileStates.clear();
           'video',
           'mp4',
         ); // Default fallback mime
+
         final localPath = tdFile!.local.path.toLowerCase();
         final targetName = (queryName ?? '').toLowerCase();
 
@@ -541,68 +607,19 @@ _fileStates.clear();
               }
 
               if (!isAvailable) {
-                if (!currentFile.local.isDownloadingCompleted) {
-                  // DISABLED: This continuous monitoring loop fights with mpv's simultaneous
-                  // requests for different byte ranges (start for playback, end for MOOV atom),
-                  // causing an infinite shift loop and ANR. The per-request shift above
-                  // (around line 342) is sufficient and only runs when mpv actually requests data.
-                  /*
-                  final now = DateTime.now();
-                  bool hasEarlierRequest = false;
-                  await _stateLock.synchronized(() {
-                    final activeRequests = _activeRequestOffsets[fileId] ?? {};
-                    final lastActiveMap = _requestLastActive[fileId] ?? {};
-                    hasEarlierRequest = activeRequests.entries.any((entry) {
-                      if (entry.key == reqId) return false;
-                      if (entry.value >= currentOffset) return false;
-                      final lastActive = lastActiveMap[entry.key];
-                      if (lastActive == null) return true;
-                      return now.difference(lastActive).inMilliseconds < 800;
-                    });
-                  });
-
-                  final isTailQuery =
-                      currentFile.expectedSize > 20 * 1024 * 1024 &&
-                      currentOffset >=
-                          currentFile.expectedSize - 15 * 1024 * 1024;
-
-                  final isOutBefore = currentOffset < activeOffset;
-                  final downloadedDelta =
-                      (currentFile.local.downloadedSize - baseDownloaded).clamp(
-                        0,
-                        currentFile.expectedSize,
-                      );
-                  final activeRangeEnd = activeOffset + downloadedDelta;
-                  final isOutAfter =
-                      currentOffset > activeRangeEnd + 3 * 1024 * 1024;
-                  if (isOutBefore ||
-                      (isOutAfter && (!hasEarlierRequest || isTailQuery))) {
-                    final shiftOffset = (currentOffset - 1 * 1024 * 1024).clamp(
-                      0,
-                      currentFile.expectedSize,
-                    );
-                    Log.i(
-                      'Proxy loop auto-shifting TDLib download for file $fileId to $shiftOffset (currentOffset: $currentOffset, activeOffset: $activeOffset, activeRangeEnd: $activeRangeEnd)',
-                    );
-
-                    final currentDownloaded = currentFile.local.downloadedSize;
-                    setDownloadOffset(fileId, shiftOffset, currentDownloaded);
-
-                    _tdlibService.send(
-                      td.DownloadFile(
-                        fileId: fileId,
-                        priority: 1,
-                        offset: shiftOffset,
-                        limit: 0,
-                        synchronous: false,
-                      ),
-                    );
-
-                    activeOffset = shiftOffset;
-                    baseDownloaded = currentDownloaded;
-                  }
-                  */
-                }
+                // ------------------------------------------------------------------
+                // v2.13.6 — Re-trigger DownloadFile if we've been waiting too long.
+                //
+                // The inner-loop auto-shift was disabled in v17 to avoid fighting
+                // with MPV's parallel requests. But this left a gap: if the
+                // per-request shift above (around line 350) didn't trigger
+                // (because the active range looked OK at request start) but
+                // TDLib stalled, we'd wait forever.
+                //
+                // The 20s timeout below already re-triggers DownloadFile, but
+                // 20s is too long. We keep 20s as the cap, but the re-trigger
+                // logic itself is unchanged.
+                // ------------------------------------------------------------------
 
                 bool waitSuccess = false;
                 final availableCompleter = Completer<void>();
