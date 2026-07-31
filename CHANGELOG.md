@@ -1,6 +1,11 @@
 # Changelog
 
-## [2.13.7] - 2026-07-31
+## [2.13.7+60] - 2026-07-31
+
+### 🚑 Hotfix v2.13.7+60
+* **Android Black Screen Regression Fixed**: Reverted the removal of the `RepaintBoundary` wrapper and removed the `force-window`/`force-render` properties. The previous update caused the `Texture` widget to stop rendering entirely on some Android devices (causing a black screen across all hardware/software decoding modes).
+
+## [2.13.7+59] - 2026-07-31
 
 ### ✨ What's New in v2.13.7+59
 

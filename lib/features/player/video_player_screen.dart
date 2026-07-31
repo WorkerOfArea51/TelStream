@@ -1514,18 +1514,6 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         nativePlayer.setProperty('cache-pause', 'yes');
         nativePlayer.setProperty('cache-pause-initial', 'yes');
 
-        // v2.13.7 — Force the video output to keep rendering frames even when
-        // the player is paused or buffering. Without this, on Android the
-        // SurfaceTexture can sit at frame 0 (black) until the first decoded
-        // frame is explicitly pushed. Combined with hwdec=mediacodec-copy
-        // (see below), this eliminates the "audio plays, video stays black"
-        // symptom on Android.
-        nativePlayer.setProperty('force-window', 'yes');
-        nativePlayer.setProperty('force-render', 'yes');
-        // Ensure the video track is selected even if MPV encounters an
-        // initialization hiccup with the audio track.
-        nativePlayer.setProperty('vid', '1');
-
         final isMobile = Platform.isAndroid || Platform.isIOS;
 
         if (isMobile) {
