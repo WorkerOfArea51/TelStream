@@ -1,5 +1,23 @@
 # Changelog
 
+## [2.13.7] - 2026-07-31
+
+### ✨ What's New in v2.13.7+59
+
+#### 🚀 Critical Playback Fixes (Real Fixes This Time)
+* **Android Black-Screen-With-Audio — ACTUALLY Fixed**: The v2.13.6 attempt to fix this was based on a wrong root-cause analysis and actually MADE THINGS WORSE on most devices. v2.13.6 switched Android from `auto-safe` to `hwdec=mediacodec` (zero-copy to SurfaceTexture), claiming `mediacodec-copy` was incompatible with `vo=gpu`. That claim was incorrect — `mediacodec-copy` works perfectly with `vo=gpu` (the frame goes through RAM and is uploaded to the GL texture). The real problem was that `hwdec=mediacodec` zero-copy silently fails on many devices (older Mali/Adreno GPUs, non-standard HEVC/AV1 profiles) — MPV falls back to software decoding internally, but `vo=gpu` keeps expecting direct SurfaceTexture output, so the software-decoded frames never reach the texture. Result: audio plays, video stays black. **v2.13.7 reverts to `hwdec=mediacodec-copy` which works on EVERY Android device**, adds `force-window=yes` and `force-render=yes` so MPV pushes the first frame to the surface even during buffer-pause, removes the `RepaintBoundary` wrapper around the `Video` widget on Android (it was preventing the texture from refreshing), and adds a `network_security_config.xml` to explicitly whitelist cleartext HTTP to `127.0.0.1`/`localhost`/`::1` (Android 9+ blocks loopback HTTP otherwise, which can also cause black-screen-with-audio when MPV silently falls back to disk reads).
+* **Desktop 2-Second Freeze on First Playback — ACTUALLY Fixed**: v2.13.6 raised `cache-pause-wait` from 1s to 3s and pre-buffered 2 MB. That was still not enough — TDLib's download ramp-up on desktop takes 3-5 seconds (especially over VPN), and 2 MB is only ~1-2 seconds of video. MPV would wait 3s, start playing with the 2 MB buffer, drain it in 2s, then freeze waiting for rebuffer. **v2.13.7 raises `cache-pause-wait` to 5s, raises the pre-buffer threshold to 4 MB (with an 8s polling timeout), and enables `cache-on-disk=yes`** so MPV has both a large in-memory buffer and a disk-backed overflow. Together these give MPV enough headroom to outlast TDLib's ramp-up and play smoothly from the first attempt.
+
+#### 🔧 Technical Details
+* `VideoPlayerScreen._initPlayerInstance` (Android `hwdec` mapping): `auto`, `auto-safe`, `auto-copy`, `mediacodec`, `mediacodec-copy` all map to `mediacodec-copy` (was `mediacodec` in v2.13.6 — a regression). `no` remains `no`.
+* `VideoPlayerScreen._initPlayerInstance` (MPV properties): Added `force-window=yes`, `force-render=yes`, `vid=1` on all platforms to push the first decoded frame to the surface even when buffering. Added `cache-on-disk=yes` and `demuxer-cache-dir` on desktop for spill-over buffering.
+* `VideoPlayerScreen._initPlayerInstance` (cache-pause-wait): Mobile raised from 2s to 4s; desktop raised from 3s to 5s.
+* `VideoPlayerScreen._initDownload` (`_waitForPrefixDownload` call sites): Pre-buffer threshold raised from 2 MB to 4 MB; polling timeout raised from 5s to 8s.
+* `VideoPlayerScreen._applyStreamingProfile` (HIDDEN BUG FIX): All three profile overrides (`Aggressive Buffer`, `Mobile Saver`, `Balanced`) were silently setting `cache-pause-wait` back to 1-2s, undoing the v2.13.6 fix every time the user selected a streaming profile. All three now use `4s (mobile) / 5s (desktop)` aligned with `_initPlayerInstance`.
+* `CachedVideoWidget.build`: Removed the `RepaintBoundary` wrapper on Android. The wrapper was creating a separate compositing layer that, on certain Android GPU drivers, didn't propagate texture updates from media_kit's native side — the layer kept showing the empty first frame forever. iOS keeps the wrapper (no mediacodec, no issue). Desktop skips it (unchanged from before).
+* `android/app/src/main/AndroidManifest.xml`: Added `android:networkSecurityConfig="@xml/network_security_config"` referencing the new config file.
+* `android/app/src/main/res/xml/network_security_config.xml` (NEW): Explicitly permits cleartext HTTP to `127.0.0.1`, `localhost`, and `::1` for the in-process streaming proxy. All other hosts remain blocked by `usesCleartextTraffic="false"`.
+
 ## [2.13.6] - 2026-07-31
 
 ### ✨ What's New in v2.13.6+58

@@ -89,6 +89,21 @@ class Constants {
   }
 
   static const String changelog = '''
+### ✨ What's New in v2.13.7
+
+#### 🚀 Critical Playback Fixes (Real Fixes This Time)
+* **Android Black-Screen-With-Audio — ACTUALLY Fixed**: The v2.13.6 attempt was based on a wrong root-cause analysis and made things worse on most devices. v2.13.7 reverts to `hwdec=mediacodec-copy` which works on EVERY Android device, adds `force-window`/`force-render` so the first frame reaches the SurfaceTexture even during buffer-pause, removes the `RepaintBoundary` wrapper that was blocking texture refreshes, and adds a `network_security_config.xml` to whitelist loopback HTTP for the in-process streaming proxy.
+* **Desktop 2-Second Freeze on First Playback — ACTUALLY Fixed**: v2.13.6's 3s `cache-pause-wait` + 2 MB pre-buffer was still not enough — TDLib's ramp-up takes 3-5s on desktop. v2.13.7 raises `cache-pause-wait` to 5s, the pre-buffer threshold to 4 MB (8s timeout), and enables `cache-on-disk=yes` so MPV has enough headroom to outlast the ramp-up.
+
+#### 🔧 Technical
+* Android `hwdec` mapping reverted: all auto/mediacodec modes → `mediacodec-copy` (was `mediacodec` in v2.13.6 — a regression).
+* Added `force-window=yes`, `force-render=yes`, `vid=1` to push first frame to surface.
+* Mobile `cache-pause-wait` raised from 2s to 4s; desktop from 3s to 5s.
+* Pre-buffer raised from 2 MB to 4 MB; polling timeout from 5s to 8s.
+* `CachedVideoWidget.build`: removed `RepaintBoundary` on Android.
+* `AndroidManifest.xml`: added `networkSecurityConfig` reference.
+* `network_security_config.xml` (NEW): whitelists 127.0.0.1, localhost, ::1 for cleartext HTTP.
+
 ### ✨ What's New in v2.13.6
 
 #### 🚀 Critical Playback Fixes

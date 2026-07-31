@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!--
+        v2.13.7 — CRITICAL FIX for Android black-screen-with-audio.
+
+        TelStream's video player routes MP4/MKV bytes through an in-process
+        HTTP proxy bound to 127.0.0.1 (loopback). The MPV media player (used
+        by media_kit) then opens http://127.0.0.1:<port>/<fileId> to read
+        the stream.
+
+        AndroidManifest.xml sets android:usesCleartextTraffic="false" to
+        prevent accidental plain-HTTP traffic to remote servers. On Android
+        9+ (API 28+), that flag also blocks HTTP to 127.0.0.1 UNLESS a
+        network-security-config explicitly allows it.
+
+        Without this config, MPV's HTTP request to the loopback proxy can
+        be silently blocked — depending on the device, this either makes
+        playback fail outright (no audio, no video) or, in some MPV builds,
+        makes MPV fall back to reading the partial file from disk. Disk
+        reads can decode audio (cheap, near start of file) but fail to
+        decode video (needs moov atom at end of file) — giving the
+        "audio plays, video black" symptom this release fixes.
+
+        This config explicitly whitelists 127.0.0.1, localhost, and ::1
+        for cleartext HTTP, while keeping all other hosts blocked.
+    -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">127.0.0.1</domain>
+        <domain includeSubdomains="false">localhost</domain>
+        <domain includeSubdomains="false">::1</domain>
+    </domain-config>
+</network-security-config>
