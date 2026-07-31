@@ -1573,9 +1573,44 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         nativePlayer.setProperty('interpolation', 'yes');
         nativePlayer.setProperty('tscale', 'oversample');
 
-        nativePlayer.setProperty('framedrop', 'vo');
+        // v2.13.8 FIX: framedrop=decoder on mobile, vo on desktop.
+        // See Patch 3 comment for full rationale.
+        if (Platform.isAndroid || Platform.isIOS) {
+          nativePlayer.setProperty('framedrop', 'decoder');
+        } else {
+          nativePlayer.setProperty('framedrop', 'vo');
+        }
         nativePlayer.setProperty('sub-fix-timing', 'yes');
         nativePlayer.setProperty('stream-buffer-size', '16777216');
+
+        // ===================================================================
+        // v2.13.8 FIX — Android black-screen-with-audio (all decoder modes).
+        //
+        // The v2.13.7 changelog claimed these were added; they were not.
+        // Without them, on Android with cache-pause-initial=no (set below
+        // around line 1521), mpv may never open the video output during
+        // initial buffer-fill. mpv successfully decodes audio (which
+        // arrives first) but the video VO is never opened, leaving the
+        // SurfaceTexture uninitialised → permanent black screen.
+        //
+        //   force-window=yes  → pre-create the VO window even before the
+        //                       first video packet arrives.
+        //   force-render=yes  → push a placeholder frame to initialise the
+        //                       SurfaceTexture immediately.
+        //   vid=1             → never auto-deselect the video track.
+        //   hwdec-extra-frames → keep decoded frames in the decoder output
+        //                       queue so the VO has something to render
+        //                       the moment it becomes ready.
+        //
+        // This fix is independent of decoder mode — it affects SW, HW,
+        // and HW+ equally because all three render to the same VO.
+        // ===================================================================
+        if (Platform.isAndroid || Platform.isIOS) {
+          nativePlayer.setProperty('force-window', 'yes');
+          nativePlayer.setProperty('force-render', 'yes');
+          nativePlayer.setProperty('vid', '1');
+          nativePlayer.setProperty('hwdec-extra-frames', '64');
+        }
 
         nativePlayer.setProperty('vd-lavc-fast', 'yes');
         nativePlayer.setProperty('vd-lavc-skiploopfilter', 'default');
@@ -1715,11 +1750,21 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
     }
 
     final hwDecMode = _storageService.getHardwareDecoderMode();
-    // On Windows/Linux/macOS, ALWAYS enable hardware acceleration for the video output surface.
-    // On Android, ALWAYS enable it too — media_kit's SurfaceTexture is used for GL rendering via vo=gpu.
-    // Even if hwdec is 'no' (software decoding), we still want vo=gpu to render the software-decoded
-    // frames onto the Flutter SurfaceTexture, rather than falling back to broken CPU texture copying.
-    final enableHw = Platform.isAndroid ? true : (hwDecMode != 'no');
+    // v2.13.8 FIX — Android black-screen-with-audio in SW mode.
+    //
+    // Previously this was hardcoded to `true` on Android, which meant that
+    // even when the user explicitly picked SW (hwdec=no in mpv), the
+    // VideoController was still configured for the SurfaceTexture HW path.
+    // The SW-decode + HW-render combo requires mpv to upload each libavcodec
+    // frame to a GL texture and blit it to the SurfaceTexture. On some
+    // MediaTek/Mali devices this upload silently fails — black screen.
+    //
+    // Now: when the user picks SW, we disable HW acceleration on the
+    // VideoController too. This makes SW mode actually fully software
+    // (decoder + renderer), which is the safest fallback if HW and HW+
+    // both fail. When the user picks HW or HW+, we use the SurfaceTexture
+    // path as before.
+    final enableHw = hwDecMode != 'no';
     Future.microtask(() {
       if (mounted) {
         _pipController.setActivePlayer(player);
