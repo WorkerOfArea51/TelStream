@@ -1604,39 +1604,20 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
           //       This works on some devices but FAILS silently on many
           //       others — particularly older Mali/Adreno GPUs, devices with
           //       non-standard codec profiles (HEVC Main 10, AV1), and
-          //       devices where the SurfaceTexture attachToContext call
-          //       doesn't pick up MediaCodec's output. When this fails,
-          //       MPV falls back to software decoding internally, but vo=gpu
-          //       is still configured for direct SurfaceTexture output — so
-          //       the software-decoded frames never reach the texture.
-          //       Result: audio plays (decode works), video stays black.
-          //
-          // FIX (v2.13.7):
-          //   - Revert to 'mediacodec-copy' for all auto/mediacodec modes.
-          //     This works on EVERY Android device because the frame goes
-          //     through RAM, then is uploaded to the GPU texture via vo=gpu.
-          //     The slight CPU cost is worth 100% device coverage.
-          //   - Add force-window=yes and force-render=yes (above) so MPV
-          //     pushes the first decoded frame to the surface even when
-          //     the player is in the paused-for-buffering state.
-          //   - Keep 'mediacodec-copy' as a respected explicit user choice
-          //     (no longer flagged as "may show black screen" — it's the
-          //     DEFAULT now and is the safe option).
-          //   - Keep 'no' as software-only.
-          //
-          // Why not 'auto-safe'? 'auto-safe' is opaque — on different MPV
-          // builds it resolves to different things. Being explicit with
-          // 'mediacodec-copy' gives us deterministic behavior across devices.
-          // ===================================================================
           if (hwDecMode == 'no') {
             nativePlayer.setProperty('hwdec', 'no');
             Log.i('Hardware decoder mode is disabled (no) on player init (Android)');
           } else {
-            // 'auto', 'auto-safe', 'auto-copy', 'mediacodec', 'mediacodec-copy'
-            // → all map to 'mediacodec-copy' for maximum device compatibility.
-            nativePlayer.setProperty('hwdec', 'mediacodec-copy');
-            Log.i('Set hardware decoder mode to mediacodec-copy on player init (Android) — '
-                'v2.13.7: compatible with vo=gpu on all devices');
+            // We must allow the user to explicitly choose mediacodec or mediacodec-copy.
+            // Some devices (like older Mali) only work with mediacodec-copy.
+            // Other devices (like Mediatek HEVC) drop all frames with mediacodec-copy and require mediacodec.
+            // If they choose auto, let MPV decide.
+            String mode = hwDecMode;
+            if (mode == 'auto-safe' || mode == 'auto-copy') {
+              mode = 'auto'; // map legacy/safe modes to auto
+            }
+            nativePlayer.setProperty('hwdec', mode);
+            Log.i('Set hardware decoder mode to $mode on player init (Android)');
           }
         } else {
           String safeMode = hwDecMode;
@@ -1726,9 +1707,10 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
 
     final hwDecMode = _storageService.getHardwareDecoderMode();
     // On Windows/Linux/macOS, ALWAYS enable hardware acceleration for the video output surface.
-    // On Android, enable it too — media_kit's SurfaceTexture is used for GL rendering.
-    // The auto-safe hwdec mode works with enableHardwareAcceleration=true.
-    final enableHw = hwDecMode != 'no';
+    // On Android, ALWAYS enable it too — media_kit's SurfaceTexture is used for GL rendering via vo=gpu.
+    // Even if hwdec is 'no' (software decoding), we still want vo=gpu to render the software-decoded
+    // frames onto the Flutter SurfaceTexture, rather than falling back to broken CPU texture copying.
+    final enableHw = Platform.isAndroid ? true : (hwDecMode != 'no');
     Future.microtask(() {
       if (mounted) {
         _pipController.setActivePlayer(player);

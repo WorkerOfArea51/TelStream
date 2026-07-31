@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.13.7+62] - 2026-07-31
+
+### 🚑 Hotfix 3 (v2.13.7+62)
+* **Android MediaCodec Freeze Fixed**: Fixed an issue introduced in v2.13.7 where forcing `mediacodec-copy` across all Android devices caused catastrophic frame dropping and rendering pipeline failures on Mediatek and older Mali GPUs, resulting in a black screen (and sometimes crashing the player completely). The `hwdec` settings now correctly respect user configurations, allowing devices that require `mediacodec` (zero-copy) to function correctly. 
+* **Software Decoder Surface Mapping Fixed**: Fixed an issue where selecting Software Decoder (`hwdec=no`) disabled the SurfaceTexture entirely on Android, causing a black screen. Software rendering now correctly outputs frames via OpenGL to the app's texture.
+
 ## [2.13.7+61] - 2026-07-31
 
 ### 🚑 Hotfix 2 (v2.13.7+61)
