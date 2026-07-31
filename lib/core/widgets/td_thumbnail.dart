@@ -106,13 +106,19 @@ class _TdThumbnailState extends ConsumerState<TdThumbnail> {
       });
       
       if (widget.autoDownload) {
-        _tdlibService.send(td.DownloadFile(
+        _tdlibService.sendAsync(td.DownloadFile(
           fileId: file.id,
           priority: 32,
           offset: 0,
           limit: 0,
           synchronous: false,
-        ));
+        )).then((response) {
+          if (mounted && response is td.File) {
+            if (response.local.path.isNotEmpty && File(response.local.path).existsSync()) {
+              setState(() => _localPath = response.local.path);
+            }
+          }
+        });
       }
     }
   }

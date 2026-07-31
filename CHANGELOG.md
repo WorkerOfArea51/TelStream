@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.13.7+61] - 2026-07-31
+
+### 🚑 Hotfix 2 (v2.13.7+61)
+* **Android 0-Second Freeze Fixed**: Removed `cache-pause-initial` for Android, which was causing playback to hang at 0 seconds until manually scrubbed.
+* **Thumbnail Loading Fixed**: Fixed an issue where episode thumbnails stayed blurry because the full-resolution thumbnail download wasn't properly checking if the file was already locally cached.
+
 ## [2.13.7+60] - 2026-07-31
 
 ### 🚑 Hotfix v2.13.7+60

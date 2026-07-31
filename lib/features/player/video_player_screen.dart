@@ -1512,7 +1512,9 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         // enough data to outlast the TDLib download ramp-up.
         nativePlayer.setProperty('cache', 'yes');
         nativePlayer.setProperty('cache-pause', 'yes');
-        nativePlayer.setProperty('cache-pause-initial', 'yes');
+        if (!Platform.isAndroid && !Platform.isIOS) {
+          nativePlayer.setProperty('cache-pause-initial', 'yes');
+        }
 
         final isMobile = Platform.isAndroid || Platform.isIOS;
 
