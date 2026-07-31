@@ -1514,6 +1514,11 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         nativePlayer.setProperty('cache-pause', 'yes');
         if (!Platform.isAndroid && !Platform.isIOS) {
           nativePlayer.setProperty('cache-pause-initial', 'yes');
+        } else {
+          // CRITICAL: On Android, cache-pause-initial=yes causes MPV to start in a paused state.
+          // This breaks the vo=gpu SurfaceTexture initialization on some Mediatek/Mali devices,
+          // resulting in a permanent black screen even after audio starts playing.
+          nativePlayer.setProperty('cache-pause-initial', 'no');
         }
 
         final isMobile = Platform.isAndroid || Platform.isIOS;

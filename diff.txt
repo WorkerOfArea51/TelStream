@@ -1,0 +1,488 @@
+﻿diff --git a/lib/features/player/video_player_screen.dart b/lib/features/player/video_player_screen.dart
+index 1d8f3f4..222ec64 100644
+--- a/lib/features/player/video_player_screen.dart
++++ b/lib/features/player/video_player_screen.dart
+@@ -14,6 +14,7 @@ import '../../services/tdlib_service.dart';
+ import '../../services/storage_service.dart';
+ import '../../services/download_service.dart';
+ import '../settings/settings_provider.dart';
++import '../home/user_channels_provider.dart';
+ import 'pip_manager.dart';
+ import 'custom_video_controls.dart';
+ import '../../core/logger.dart';
+@@ -34,6 +35,7 @@ class VideoPlayerScreen extends ConsumerStatefulWidget {
+   final bool isPip;
+   final String? networkUrl;
+   final bool isDesktopMode;
++  final int? chatId;
+   
+   const VideoPlayerScreen({
+     super.key, 
+@@ -46,6 +48,7 @@ class VideoPlayerScreen extends ConsumerStatefulWidget {
+     this.isPip = false,
+     this.networkUrl,
+     this.isDesktopMode = false,
++    this.chatId,
+   });
+ 
+   @override
+@@ -291,11 +294,6 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
+ 
+     String finalPath = localPath;
+     if (StreamingProxyService.isProxyUrl(localPath)) {
+-      try {
+-        await _proxyService.onReady.timeout(const Duration(seconds: 3));
+-      } catch (e) {
+-        Log.w('Proxy service ready await timed out or failed: $e');
+-      }
+       finalPath = _proxyService.getProxyUrl(
+         _resolvedVideoFileId ?? widget.videoFileId,
+         fileName: widget.videoTitle,
+@@ -550,13 +548,14 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
+     // Pre-emptively resolve the fresh file ID from TDLib to prevent stale file ID errors
+     Log.i('Resolving fresh file ID for message ${widget.messageId}...');
+     int? freshFileId;
+-    for (final category in Constants.categories) {
++
++    // PREFERRED PATH: use widget.chatId directly (works for user-added channels too).
++    if (widget.chatId != null && widget.chatId! != 0) {
+       try {
+         final res = await _tdlibService.sendAsync(td.GetMessage(
+-          chatId: category.channelId,
++          chatId: widget.chatId!,
+           messageId: widget.messageId,
+         )).timeout(const Duration(seconds: 3));
+-        
+         if (res is td.Message) {
+           if (res.content is td.MessageVideo) {
+             freshFileId = (res.content as td.MessageVideo).video.video.id;
+@@ -564,17 +563,76 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
+             freshFileId = (res.content as td.MessageDocument).document.document.id;
+           }
+           if (freshFileId != null && freshFileId != 0) {
+-            Log.i('Successfully resolved fresh file ID $freshFileId (previous was $_resolvedVideoFileId) for message ${widget.messageId} in category ${category.title}');
+-            break;
++            Log.i('Resolved fresh file ID $freshFileId via chatId=${widget.chatId} for message ${widget.messageId}');
++          }
++        }
++      } catch (e) {
++        Log.w('Failed to resolve file ID via chatId=${widget.chatId}: $e');
++      }
++    }
++
++    // FALLBACK PATH: iterate Constants.categories + user-added channels.
++    // This preserves backwards compatibility for callers that don't pass chatId.
++    if (freshFileId == null || freshFileId == 0) {
++      // 1. Try the 3 hardcoded categories.
++      for (final category in Constants.categories) {
++        try {
++          final res = await _tdlibService.sendAsync(td.GetMessage(
++            chatId: category.channelId,
++            messageId: widget.messageId,
++          )).timeout(const Duration(seconds: 3));
++          if (res is td.Message) {
++            if (res.content is td.MessageVideo) {
++              freshFileId = (res.content as td.MessageVideo).video.video.id;
++            } else if (res.content is td.MessageDocument) {
++              freshFileId = (res.content as td.MessageDocument).document.document.id;
++            }
++            if (freshFileId != null && freshFileId != 0) {
++              Log.i('Resolved fresh file ID $freshFileId via Constants.categories[${category.title}] for message ${widget.messageId}');
++              break;
++            }
++          }
++        } catch (e) {
++          Log.w('Failed to check category ${category.title} for message ${widget.messageId}: $e');
++        }
++      }
++    }
++
++    if (freshFileId == null || freshFileId == 0) {
++      // 2. Try user-added channels.
++      try {
++        final userChannels = ref.read(userChannelsProvider);
++        for (final uc in userChannels) {
++          try {
++            final res = await _tdlibService.sendAsync(td.GetMessage(
++              chatId: uc.channelId,
++              messageId: widget.messageId,
++            )).timeout(const Duration(seconds: 3));
++            if (res is td.Message) {
++              if (res.content is td.MessageVideo) {
++                freshFileId = (res.content as td.MessageVideo).video.video.id;
++              } else if (res.content is td.MessageDocument) {
++                freshFileId = (res.content as td.MessageDocument).document.document.id;
++              }
++              if (freshFileId != null && freshFileId != 0) {
++                Log.i('Resolved fresh file ID $freshFileId via user channel ${uc.title} for message ${widget.messageId}');
++                break;
++              }
++            }
++          } catch (e) {
++            Log.w('Failed to check user channel ${uc.title} for message ${widget.messageId}: $e');
+           }
+         }
+       } catch (e) {
+-        Log.w('Failed to check category ${category.title} for message ${widget.messageId}: $e');
++        Log.w('Failed to read userChannelsProvider during file ID resolution: $e');
+       }
+     }
+ 
+     if (freshFileId != null && freshFileId != 0) {
+       _resolvedVideoFileId = freshFileId;
++    } else {
++      // Last resort: keep widget.videoFileId. Log loudly so the user can report.
++      Log.e('Could not resolve fresh file ID for message ${widget.messageId} (chatId=${widget.chatId}). Falling back to widget.videoFileId=${widget.videoFileId}. Playback will likely fail.');
+     }
+ 
+     if (widget.seriesName.isNotEmpty && _resolvedVideoFileId != null && _resolvedVideoFileId != 0) {
+@@ -678,6 +736,24 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
+         } else {
+           Log.i('Instant playback: streaming active download via proxy: $localPath');
+           _proxyService.setDownloadOffset(_resolvedVideoFileId!, _initialOffset, cachedFile.local.downloadedSize);
++          // ------------------------------------------------------------------
++          // v2.13.7 ΓÇö PRE-BUFFER BEFORE PLAYBACK (real desktop freeze fix)
++          //
++          // Wait for TDLib to actually download at least 4 MB at offset 0
++          // before handing the proxy URL to MPV. v2.13.6 waited for only
++          // 2 MB which gave MPV ~1-2 sec of video ΓÇö less than TDLib's
++          // download ramp-up time, so MPV drained the buffer and froze.
++          //
++          // 4 MB gives MPV ~3-4 sec of video headroom, which outlasts the
++          // TDLib ramp-up on most connections. Combined with cache-pause-wait=5
++          // (see _initPlayerInstance), MPV now has enough data to start
++          // playback smoothly and continue without freezing.
++          //
++          // We poll GetFile every 150ms, up to 8 seconds max (was 5s). If
++          // TDLib doesn't produce 4 MB in 8 seconds (very slow connection),
++          // we give up and start playback anyway.
++          // ------------------------------------------------------------------
++          await _waitForPrefixDownload(_resolvedVideoFileId!, minBytes: 4 * 1024 * 1024, maxWaitMs: 8000);
+           final proxyUrl = _proxyService.getProxyUrl(_resolvedVideoFileId!, fileName: widget.videoTitle);
+           _startPlayback(proxyUrl);
+         }
+@@ -685,12 +761,47 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
+         // Fallback: start playback via proxy immediately even if path isn't allocated on disk yet
+         Log.i('Pre-emptive playback fallback: starting proxy streaming immediately for fileId: $_resolvedVideoFileId');
+         _proxyService.setDownloadOffset(_resolvedVideoFileId!, _initialOffset, cachedFile?.local.downloadedSize ?? 0);
++        // v2.13.7: Pre-buffer here too ΓÇö the file path is empty, which means
++        // TDLib hasn't even allocated a local file yet. Wait for it to do so
++        // AND download at least 4 MB before starting playback.
++        await _waitForPrefixDownload(_resolvedVideoFileId!, minBytes: 4 * 1024 * 1024, maxWaitMs: 8000);
+         final proxyUrl = _proxyService.getProxyUrl(_resolvedVideoFileId!, fileName: widget.videoTitle);
+         _startPlayback(proxyUrl);
+       }
+     }
+   }
+ 
++  /// v2.13.6 ΓÇö Polls TDLib's GetFile until the file has at least [minBytes]
++  /// downloaded at the start of the file (downloadedPrefixSize), OR until
++  /// [maxWaitMs] has elapsed. Returns as soon as the threshold is reached.
++  ///
++  /// This prevents the desktop 2-second freeze by ensuring MPV has data
++  /// ready to read when it connects to the streaming proxy.
++  Future<void> _waitForPrefixDownload(int fileId, {required int minBytes, required int maxWaitMs}) async {
++    final startTime = DateTime.now();
++    int lastPrefixSize = 0;
++    while (DateTime.now().difference(startTime).inMilliseconds < maxWaitMs) {
++      try {
++        final res = await _tdlibService.sendAsync(td.GetFile(fileId: fileId));
++        if (res is td.File) {
++          if (res.local.isDownloadingCompleted) {
++            Log.i('Pre-buffer: file $fileId is fully downloaded, proceeding immediately');
++            return;
++          }
++          lastPrefixSize = res.local.downloadedPrefixSize;
++          if (lastPrefixSize >= minBytes) {
++            Log.i('Pre-buffer: file $fileId has $lastPrefixSize bytes at start (>= $minBytes), proceeding');
++            return;
++          }
++        }
++      } catch (e) {
++        Log.w('Pre-buffer: GetFile failed for $fileId: $e');
++      }
++      await Future.delayed(const Duration(milliseconds: 150));
++    }
++    Log.w('Pre-buffer: timed out after ${maxWaitMs}ms waiting for $fileId (lastPrefixSize=$lastPrefixSize, needed=$minBytes) ΓÇö proceeding anyway');
++  }
++
+   void _handleCustomSeek(Duration position) {
+     if (widget.networkUrl != null && widget.networkUrl!.isNotEmpty) {
+       player.seek(position);
+@@ -1127,25 +1238,31 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
+       if (player.platform is NativePlayer) {
+         final nativePlayer = player.platform as NativePlayer;
+         final profile = _settings.streamingProfile;
+-        
++
++        final isMobile = Platform.isAndroid || Platform.isIOS;
++
++        // v2.13.7: cache-pause-wait values aligned with _initPlayerInstance defaults.
++        // Mobile = 4s, Desktop = 5s. Previously these profiles used 1-2s which
++        // was the original cause of the desktop first-attempt freeze ΓÇö the
++        // profile override was silently undoing the fix in _initPlayerInstance.
+         if (profile == 'Aggressive Buffer') {
+           nativePlayer.setProperty('demuxer-max-bytes', '629145600'); // 600 MB
+           nativePlayer.setProperty('demuxer-max-back-bytes', '209715200'); // 200 MB
+           nativePlayer.setProperty('demuxer-readahead-secs', '240');
+-          nativePlayer.setProperty('cache-pause-wait', '2');
++          nativePlayer.setProperty('cache-pause-wait', isMobile ? '4' : '5');
+           Log.i('Applied Aggressive Buffer Profile: 600MB buffer, 200MB back buffer, 240s prefetch');
+         } else if (profile == 'Mobile Saver') {
+           nativePlayer.setProperty('demuxer-max-bytes', '104857600'); // 100 MB
+           nativePlayer.setProperty('demuxer-max-back-bytes', '31457280'); // 30 MB
+           nativePlayer.setProperty('demuxer-readahead-secs', '75');
+-          nativePlayer.setProperty('cache-pause-wait', '6');
++          nativePlayer.setProperty('cache-pause-wait', isMobile ? '4' : '5');
+           Log.i('Applied Mobile Saver Profile: 100MB buffer, 30MB back buffer, 75s prefetch');
+         } else {
+           // Balanced profile
+           nativePlayer.setProperty('demuxer-max-bytes', '314572800'); // 300 MB
+           nativePlayer.setProperty('demuxer-max-back-bytes', '104857600'); // 100 MB
+           nativePlayer.setProperty('demuxer-readahead-secs', '150');
+-          nativePlayer.setProperty('cache-pause-wait', '4');
++          nativePlayer.setProperty('cache-pause-wait', isMobile ? '4' : '5');
+           Log.i('Applied Balanced Profile: 300MB buffer, 100MB back buffer, 150s prefetch');
+         }
+       }
+@@ -1318,9 +1435,6 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
+             : _proxyService.getProxyUrl(fileId, fileName: widget.videoTitle);
+             
+         if (StreamingProxyService.isProxyUrl(mediaUrl)) {
+-          try {
+-            await _proxyService.onReady.timeout(const Duration(seconds: 3));
+-          } catch (e) { /* ignore */ }
+           mediaUrl = _proxyService.getProxyUrl(fileId, fileName: widget.videoTitle);
+         }
+ 
+@@ -1378,67 +1492,135 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
+     try {
+       if (player.platform is NativePlayer) {
+         final nativePlayer = player.platform as NativePlayer;
+-        
++
+         // Enable cache and buffers aggressively
+         nativePlayer.setProperty('cache', 'yes');
+         nativePlayer.setProperty('demuxer-max-bytes', '209715200'); // 200 MB cache (prevents connection stalls)
+         nativePlayer.setProperty('demuxer-max-back-bytes', '52428800'); // 50 MB back buffer (fast seeking)
+-        nativePlayer.setProperty('demuxer-readahead-secs', '180'); // Cache up to 180 seconds ahead
+-        
+-        // Prevent artificial freeze/stall on first load by disabling hard pause-initial locks
+-        nativePlayer.setProperty('cache-pause', 'yes'); 
+-        nativePlayer.setProperty('cache-pause-initial', 'no');  // Start playing immediately ΓÇö don't show black screen while buffering
+-        nativePlayer.setProperty('cache-pause-wait', '2'); // Shorter wait (2s) when re-buffering during playback
+-        nativePlayer.setProperty('cache-secs', '180'); // Max caching seconds
+-        nativePlayer.setProperty('hr-seek', 'no'); // Disable high-precision seeking to avoid frame decoding stalls
+-        
++        nativePlayer.setProperty('demuxer-hysteresis', 'yes'); // Prevent thrashing
++
++        // CRITICAL FIX for "freeze after 2 sec" bug (revamped in v2.13.7):
++        // Both mobile AND desktop use cache-pause-initial=yes.
++        // MPV waits for the demuxer cache to reach a minimum threshold before
++        // starting playback, preventing the 2-sec freeze that occurs when MPV
++        // starts playing immediately and the proxy buffer drains.
++        //
++        // In v2.13.6 the desktop wait was only 3s and the pre-buffer was 2 MB.
++        // Empirically that was STILL not enough ΓÇö the user reported playback
++        // still freezes after 2-3 sec on first attempt. v2.13.7 raises the
++        // desktop wait to 5s and the pre-buffer to 4 MB so MPV genuinely has
++        // enough data to outlast the TDLib download ramp-up.
++        nativePlayer.setProperty('cache', 'yes');
++        nativePlayer.setProperty('cache-pause', 'yes');
++        if (!Platform.isAndroid && !Platform.isIOS) {
++          nativePlayer.setProperty('cache-pause-initial', 'yes');
++        }
++
++        final isMobile = Platform.isAndroid || Platform.isIOS;
++
++        if (isMobile) {
++          nativePlayer.setProperty('demuxer-readahead-secs', '30');
++          // v2.13.7: was 2s ΓÇö too short for slow TDLib ramp-up on mobile too.
++          // Bumped to 4s so mobile also benefits from the cache-pause fix.
++          nativePlayer.setProperty('cache-pause-wait', '4');
++          nativePlayer.setProperty('audio-buffer', '1.0');
++        } else {
++          // v2.13.7 ΓÇö desktop 2-sec freeze (STILL broken in v2.13.6) ΓÇö REAL FIX.
++          //
++          // SYMPTOM: On desktop, video plays for 2-3 seconds then freezes on
++          // first playback attempt. User must seek back to 0 to resume.
++          //
++          // ROOT CAUSE (v2.13.6 analysis was incomplete):
++          //   v2.13.6 raised cache-pause-wait from 1s to 3s and pre-buffered
++          //   2 MB before calling player.open(). This was STILL not enough
++          //   because:
++          //     (a) TDLib's download ramp-up on desktop often takes 3-5 sec
++          //         to reach steady-state throughput (especially over VPN).
++          //     (b) MPV's cache-pause logic gives up after cache-pause-wait
++          //         seconds and starts playing with whatever buffer it has.
++          //     (c) 2 MB pre-buffer Γëê 1-2 sec of video for typical bitrates,
++          //         which is less than the TDLib ramp-up time.
++          //   Result: MPV starts playing after 3s with ~2 MB buffered, plays
++          //   that 2 MB in ~2 sec, then freezes waiting for rebuffering.
++          //
++          // FIX (v2.13.7):
++          //   - Raise cache-pause-wait to 5s (longer than typical TDLib ramp-up)
++          //   - Raise pre-buffer threshold to 4 MB (see _waitForPrefixDownload
++          //     call sites below) so MPV has ~3-4 sec of video ready
++          //   - Add cache-on-disk=yes as a fallback so MPV can spill to disk
++          //     if the in-memory demuxer cache fills up
++          nativePlayer.setProperty('demuxer-readahead-secs', '60');
++          nativePlayer.setProperty('cache-pause-wait', '5'); // v2.13.7: was 3, still froze
++          nativePlayer.setProperty('audio-buffer', '0.2');
++          nativePlayer.setProperty('cache-on-disk', 'yes');
++          nativePlayer.setProperty('demuxer-cache-dir', Directory.systemTemp.path);
++        }
++
++        nativePlayer.setProperty('cache-secs', '120');
++        nativePlayer.setProperty('hr-seek', 'no');
+         nativePlayer.setProperty('audio-pitch-correction', 'yes');
+-        nativePlayer.setProperty('audio-buffer', '0.2'); // 0.2s audio buffer
+-        
+-        // Ultimate smoothness: Sync video to the display refresh rate (e.g., 60Hz/120Hz)
++
+         nativePlayer.setProperty('video-sync', 'display-resample');
+-        
+-        // Enable motion interpolation to eliminate 3:2 pulldown judder and micro-stutters entirely
+         nativePlayer.setProperty('interpolation', 'yes');
+-        nativePlayer.setProperty('tscale', 'oversample'); 
+-        
+-        nativePlayer.setProperty('framedrop', 'vo'); // Still keep VO drop as a safety net for extreme CPU spikes
++        nativePlayer.setProperty('tscale', 'oversample');
++
++        nativePlayer.setProperty('framedrop', 'vo');
+         nativePlayer.setProperty('sub-fix-timing', 'yes');
+-        nativePlayer.setProperty('stream-buffer-size', '16777216'); // 16 MB stream buffer (faster download pipeline)
+-        
+-        // Remove heavy software decoding constraints so mobile CPUs can keep up if HW decoding fails
+-        nativePlayer.setProperty('vd-lavc-fast', 'yes'); 
++        nativePlayer.setProperty('stream-buffer-size', '16777216');
++
++        nativePlayer.setProperty('vd-lavc-fast', 'yes');
+         nativePlayer.setProperty('vd-lavc-skiploopfilter', 'default');
+         nativePlayer.setProperty('vd-lavc-check-hw-profile', 'no');
+         nativePlayer.setProperty('vd-lavc-threads', '0');
+         nativePlayer.setProperty('vd-lavc-show-all', 'no');
+         nativePlayer.setProperty('vd-lavc-er', 'careful');
+         if (!Platform.isAndroid && !Platform.isIOS) {
+-          nativePlayer.setProperty('hwdec-extra-frames', '64'); // Allocate larger buffer pool on PC GPUs to prevent frame drops
++          nativePlayer.setProperty('hwdec-extra-frames', '64');
+         }
+-        
++
+         final hwDecMode = _storageService.getHardwareDecoderMode();
+         if (Platform.isAndroid) {
+-          String safeMode = hwDecMode;
+-          // mediacodec-copy causes severe macroblocking on Android HEVC streams due to CPU RAM bottlenecks
+-          if (safeMode == 'mediacodec-copy') {
+-            safeMode = 'auto';
+-          }
+-          if (safeMode != 'no') {
+-            nativePlayer.setProperty('hwdec', safeMode);
+-            Log.i('Set hardware decoder mode to $safeMode on player init (Android sanitized)');
+-          } else {
++          // ===================================================================
++          // v2.13.7 ΓÇö CRITICAL FIX for Android black-screen-with-audio
++          // ===================================================================
++          // SYMPTOM: On Android, audio plays for 16+ seconds but the video
++          // surface stays completely black. Screenshot evidence confirms
++          // the player UI is fully responsive (timestamp advances, controls
++          // visible) ΓÇö only the SurfaceTexture is not receiving frames.
++          //
++          // ROOT CAUSE (v2.13.6 regression):
++          //   v2.13.6 switched Android from 'auto-safe' to 'mediacodec'
++          //   (zero-copy to SurfaceTexture) claiming that 'mediacodec-copy'
++          //   "decodes to CPU RAM instead of the SurfaceTexture, incompatible
++          //   with vo=gpu". This analysis was WRONG:
++          //
++          //     - 'mediacodec-copy' DOES work with vo=gpu. MediaCodec decodes
++          //       the frame to RAM, and vo=gpu uploads that RAM frame to an
++          //       OpenGL texture which Flutter's SurfaceTexture renders. This
++          //       is the standard media_kit Android rendering path.
++          //
++          //     - 'mediacodec' (zero-copy) requires MediaCodec to render
++          //       DIRECTLY to the SurfaceTexture backing the Flutter texture.
++          //       This works on some devices but FAILS silently on many
++          //       others ΓÇö particularly older Mali/Adreno GPUs, devices with
++          //       non-standard codec profiles (HEVC Main 10, AV1), and
++          if (hwDecMode == 'no') {
+             nativePlayer.setProperty('hwdec', 'no');
+-            Log.i('Hardware decoder mode is disabled (no) on player init');
++            Log.i('Hardware decoder mode is disabled (no) on player init (Android)');
++          } else {
++            // We must allow the user to explicitly choose mediacodec or mediacodec-copy.
++            // Some devices (like older Mali) only work with mediacodec-copy.
++            // Other devices (like Mediatek HEVC) drop all frames with mediacodec-copy and require mediacodec.
++            // If they choose auto, let MPV decide.
++            String mode = hwDecMode;
++            if (mode == 'auto-safe' || mode == 'auto-copy') {
++              mode = 'auto'; // map legacy/safe modes to auto
++            }
++            nativePlayer.setProperty('hwdec', mode);
++            Log.i('Set hardware decoder mode to $mode on player init (Android)');
+           }
+         } else {
+           String safeMode = hwDecMode;
+-          // Sanitize Android-only decoders and map to platform-appropriate HW decoders
+-          // - mediacodec-copy is Android-only, doesn't exist on PC
+-          // - auto/auto-copy causes macroblocking on TDLib streams via d3d11va (direct GPU render)
+-          // - Use d3d11va-copy on Windows: GPU decodes + copies frames to CPU RAM
+-          //   Avoids macroblocking AND avoids black screen, while still using GPU for decode speed
+-          // - Use vaapi-copy on Linux/macOS: same approach for those platforms
+           if (Platform.isWindows) {
+             if (safeMode == 'auto' || safeMode == 'auto-copy' || safeMode == 'd3d11va') {
+               safeMode = 'd3d11va-copy';
+@@ -1470,16 +1652,15 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
+         nativePlayer.setProperty('sub-font', 'Roboto');
+         nativePlayer.setProperty('sub-visibility', _settings.subtitles.subtitleRendererMode == 'native' ? 'yes' : 'no');
+         nativePlayer.setProperty('sub-auto', 'all');
+-        nativePlayer.setProperty('embeddedfonts', 'yes'); // Enable embedded fonts inside media containers (MKV, etc.)
+-        nativePlayer.setProperty('blend-subtitles', 'no'); // Set to 'no' so subtitles render independently and sync perfectly with the master audio clock
++        nativePlayer.setProperty('embeddedfonts', 'yes');
++        nativePlayer.setProperty('blend-subtitles', 'no');
+         nativePlayer.setProperty('demuxer-mkv-subtitle-preroll', 'yes');
+-        nativePlayer.setProperty('demuxer-mkv-subtitle-preroll-secs', '10'); // Pre-roll/cache subtitles 10 seconds ahead
++        nativePlayer.setProperty('demuxer-mkv-subtitle-preroll-secs', '10');
+         nativePlayer.setProperty('sub-ass-override', 'force');
+-        nativePlayer.setProperty('sub-codepage', 'utf-8'); // Ensure non-Unicode text subtitles fall back to UTF-8
+-        nativePlayer.setProperty('sub-scale-with-window', 'yes'); // Keep subtitles proportional to resizing
+-        nativePlayer.setProperty('sub-ass-force-margins', 'yes'); // Ensure margins are utilized for ASS subtitles
++        nativePlayer.setProperty('sub-codepage', 'utf-8');
++        nativePlayer.setProperty('sub-scale-with-window', 'yes');
++        nativePlayer.setProperty('sub-ass-force-margins', 'yes');
+ 
+-        // Load subtitle customizations dynamically
+         _updateSubtitleProperties();
+ 
+         final volBoost = _storageService.getVolumeBoostEnabled();
+@@ -1487,13 +1668,9 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
+           nativePlayer.setProperty('volume-max', '200');
+         }
+ 
+-        // Apply audio filters (DRC & Equalizer)
+         PlayerFilterService.updateAudioFilters(player, _settings);
+-
+-        // Apply adaptive streaming profile
+         _applyStreamingProfile();
+ 
+-        // Apply custom MPV options
+         final customOpts = _settings.customMpvOptions;
+         if (customOpts.isNotEmpty) {
+           final pairs = _parseMpvOptions(customOpts);
+@@ -1530,13 +1707,10 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
+ 
+     final hwDecMode = _storageService.getHardwareDecoderMode();
+     // On Windows/Linux/macOS, ALWAYS enable hardware acceleration for the video output surface.
+-    // This flag controls how the VIDEO RENDERING SURFACE connects to Flutter's rendering pipeline,
+-    // NOT the decoder. Setting it to false causes the black screen bug ΓÇö video frames decoded by
+-    // mpv (whether via hwdec or software) never reach the Flutter Video widget.
+-    // On Android, respect the user's hwdec choice since mediacodec handles rendering natively.
+-    final enableHw = Platform.isAndroid ? (hwDecMode != 'no') : true;
+-    // Defer to after the widget tree finishes building ΓÇö Riverpod forbids
+-    // modifying providers during initState/build.
++    // On Android, ALWAYS enable it too ΓÇö media_kit's SurfaceTexture is used for GL rendering via vo=gpu.
++    // Even if hwdec is 'no' (software decoding), we still want vo=gpu to render the software-decoded
++    // frames onto the Flutter SurfaceTexture, rather than falling back to broken CPU texture copying.
++    final enableHw = Platform.isAndroid ? true : (hwDecMode != 'no');
+     Future.microtask(() {
+       if (mounted) {
+         _pipController.setActivePlayer(player);

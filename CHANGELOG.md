@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.13.7+63] - 2026-07-31
+
+### 🚑 Hotfix 4 (v2.13.7+63)
+* **Android MediaCodec SurfaceTexture Initialization Bug**: Fixed a critical race condition on Android where MPV would start in a paused state (`cache-pause-initial=yes`) waiting for the video buffer. This paused state prevented the first frame from being decoded and pushed to the Flutter OpenGL context immediately. On devices like MediaTek and some older Mali GPUs, the SurfaceTexture initialization failed if a frame wasn't pushed instantly, causing a permanent black screen even after the video resumed and audio started playing. `cache-pause-initial` has been disabled on Android to guarantee instant frame push.
+
 ## [2.13.7+62] - 2026-07-31
 
 ### 🚑 Hotfix 3 (v2.13.7+62)
