@@ -745,61 +745,22 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
           // download ramp-up time, so MPV drained the buffer and froze.
           //
           // 4 MB gives MPV ~3-4 sec of video headroom, which outlasts the
-          // TDLib ramp-up on most connections. Combined with cache-pause-wait=5
-          // (see _initPlayerInstance), MPV now has enough data to start
-          // playback smoothly and continue without freezing.
-          //
-          // We poll GetFile every 150ms, up to 8 seconds max (was 5s). If
-          // TDLib doesn't produce 4 MB in 8 seconds (very slow connection),
-          // we give up and start playback anyway.
-          // ------------------------------------------------------------------
-          await _waitForPrefixDownload(_resolvedVideoFileId!, minBytes: 4 * 1024 * 1024, maxWaitMs: 8000);
-          final proxyUrl = _proxyService.getProxyUrl(_resolvedVideoFileId!, fileName: widget.videoTitle);
-          _startPlayback(proxyUrl);
+      if (cachedFile != null && cachedFile.local.isDownloadingCompleted) {
+        Log.i('Instant playback: playing cached completed file path: ${cachedFile.local.path}');
+        _startPlayback(cachedFile.local.path);
+        if (!_nextEpisodePreloaded) {
+          _nextEpisodePreloaded = true;
+          _preloadNextEpisode();
         }
       } else {
-        // Fallback: start playback via proxy immediately even if path isn't allocated on disk yet
-        Log.i('Pre-emptive playback fallback: starting proxy streaming immediately for fileId: $_resolvedVideoFileId');
+        // File is partially downloaded or not downloaded at all.
+        // Fallback: start playback via proxy immediately.
+        Log.i('Instant playback: streaming active download via proxy for fileId: $_resolvedVideoFileId');
         _proxyService.setDownloadOffset(_resolvedVideoFileId!, _initialOffset, cachedFile?.local.downloadedSize ?? 0);
-        // v2.13.7: Pre-buffer here too — the file path is empty, which means
-        // TDLib hasn't even allocated a local file yet. Wait for it to do so
-        // AND download at least 4 MB before starting playback.
-        await _waitForPrefixDownload(_resolvedVideoFileId!, minBytes: 4 * 1024 * 1024, maxWaitMs: 8000);
         final proxyUrl = _proxyService.getProxyUrl(_resolvedVideoFileId!, fileName: widget.videoTitle);
         _startPlayback(proxyUrl);
       }
     }
-  }
-
-  /// v2.13.6 — Polls TDLib's GetFile until the file has at least [minBytes]
-  /// downloaded at the start of the file (downloadedPrefixSize), OR until
-  /// [maxWaitMs] has elapsed. Returns as soon as the threshold is reached.
-  ///
-  /// This prevents the desktop 2-second freeze by ensuring MPV has data
-  /// ready to read when it connects to the streaming proxy.
-  Future<void> _waitForPrefixDownload(int fileId, {required int minBytes, required int maxWaitMs}) async {
-    final startTime = DateTime.now();
-    int lastPrefixSize = 0;
-    while (DateTime.now().difference(startTime).inMilliseconds < maxWaitMs) {
-      try {
-        final res = await _tdlibService.sendAsync(td.GetFile(fileId: fileId));
-        if (res is td.File) {
-          if (res.local.isDownloadingCompleted) {
-            Log.i('Pre-buffer: file $fileId is fully downloaded, proceeding immediately');
-            return;
-          }
-          lastPrefixSize = res.local.downloadedPrefixSize;
-          if (lastPrefixSize >= minBytes) {
-            Log.i('Pre-buffer: file $fileId has $lastPrefixSize bytes at start (>= $minBytes), proceeding');
-            return;
-          }
-        }
-      } catch (e) {
-        Log.w('Pre-buffer: GetFile failed for $fileId: $e');
-      }
-      await Future.delayed(const Duration(milliseconds: 150));
-    }
-    Log.w('Pre-buffer: timed out after ${maxWaitMs}ms waiting for $fileId (lastPrefixSize=$lastPrefixSize, needed=$minBytes) — proceeding anyway');
   }
 
   void _handleCustomSeek(Duration position) {
@@ -1499,15 +1460,15 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         nativePlayer.setProperty('demuxer-max-back-bytes', '52428800'); // 50 MB back buffer (fast seeking)
         nativePlayer.setProperty('demuxer-readahead-secs', '180'); // Cache up to 180 seconds ahead
 
-        // PREVENT 2-SEC FREEZE: Pause MPV on start until buffer fills
+        // Prevent artificial freeze/stall on first load by disabling hard pause-initial locks
         nativePlayer.setProperty('cache-pause', 'yes');
-        nativePlayer.setProperty('cache-pause-initial', 'yes'); 
-        nativePlayer.setProperty('cache-pause-wait', '5'); // Wait up to 5s for buffer (TDLib ramp-up is slow)
+        nativePlayer.setProperty('cache-pause-initial', 'no');  // Start playing immediately — don't show black screen while buffering
+        nativePlayer.setProperty('cache-pause-wait', '2'); // Shorter wait (2s) when re-buffering during playback
         nativePlayer.setProperty('cache-secs', '180'); // Max caching seconds
         nativePlayer.setProperty('hr-seek', 'no'); // Disable high-precision seeking to avoid frame decoding stalls
 
         nativePlayer.setProperty('audio-pitch-correction', 'yes');
-        nativePlayer.setProperty('audio-buffer', '0.2'); // 0.2s audio buffer (CRITICAL for Android sync)
+        nativePlayer.setProperty('audio-buffer', '0.2'); // 0.2s audio buffer
 
         nativePlayer.setProperty('video-sync', 'display-resample');
         nativePlayer.setProperty('interpolation', 'yes');
@@ -1516,17 +1477,6 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         nativePlayer.setProperty('framedrop', 'vo'); // Still keep VO drop as a safety net for extreme CPU spikes
         nativePlayer.setProperty('sub-fix-timing', 'yes');
         nativePlayer.setProperty('stream-buffer-size', '16777216');
-
-        // FIX FOR BLACK SCREEN WHEN PAUSED: When cache-pause-initial=yes, MPV stays paused
-        // and doesn't push the first frame. On Android, this prevents the SurfaceTexture
-        // from initializing, leading to a permanent black screen even after audio starts.
-        // force-render=yes forces MPV to push a frame immediately.
-        if (Platform.isAndroid || Platform.isIOS) {
-          nativePlayer.setProperty('force-window', 'yes');
-          nativePlayer.setProperty('force-render', 'yes');
-          nativePlayer.setProperty('vid', '1');
-          nativePlayer.setProperty('hwdec-extra-frames', '64');
-        }
 
         nativePlayer.setProperty('vd-lavc-fast', 'yes');
         nativePlayer.setProperty('vd-lavc-skiploopfilter', 'default');
