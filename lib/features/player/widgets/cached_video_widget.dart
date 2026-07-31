@@ -47,8 +47,8 @@ class _CachedVideoWidgetState extends State<CachedVideoWidget> {
         ? videoWidth / videoHeight
         : 16.0 / 9.0;
 
-    // Build the video widget once - desktop/mobile differentiation is handled
-    // in build() where RepaintBoundary is skipped on ALL platforms.
+    // Build the video widget once — desktop/mobile differentiation is handled
+    // in build() where RepaintBoundary is skipped on desktop
     _cachedWidget = Center(
       child: AspectRatio(
         aspectRatio: widget.customAspectRatio ?? fallbackRatio,
@@ -67,21 +67,6 @@ class _CachedVideoWidgetState extends State<CachedVideoWidget> {
   @override
   Widget build(BuildContext context) {
     final isDesktop = Platform.isWindows || Platform.isLinux || Platform.isMacOS;
-    if (isDesktop) {
-      return _cachedWidget;
-    }
-    // v2.13.8 FIX — Android black-screen-with-audio.
-    //
-    // The v2.13.7 changelog claimed RepaintBoundary was removed on Android;
-    // it was not. Wrapping media_kit's Video widget (which is a Texture
-    // widget backed by an asynchronously-updated SurfaceTexture) in a
-    // RepaintBoundary breaks texture frame propagation on many
-    // MediaTek/Mali/Adreno GPU+driver combinations. The offscreen layer
-    // composites once and then never refreshes, producing a permanent
-    // black screen even though mpv is correctly decoding frames.
-    //
-    // The comment at line ~51 already claims this is skipped on Android
-    // — v2.13.7 shipped without actually applying it. This is the fix.
-    return _cachedWidget;
+    return isDesktop ? _cachedWidget : RepaintBoundary(child: _cachedWidget);
   }
 }

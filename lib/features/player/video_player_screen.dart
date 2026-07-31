@@ -1497,120 +1497,25 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         nativePlayer.setProperty('cache', 'yes');
         nativePlayer.setProperty('demuxer-max-bytes', '209715200'); // 200 MB cache (prevents connection stalls)
         nativePlayer.setProperty('demuxer-max-back-bytes', '52428800'); // 50 MB back buffer (fast seeking)
-        nativePlayer.setProperty('demuxer-hysteresis', 'yes'); // Prevent thrashing
+        nativePlayer.setProperty('demuxer-readahead-secs', '180'); // Cache up to 180 seconds ahead
 
-        // CRITICAL FIX for "freeze after 2 sec" bug (revamped in v2.13.7):
-        // Both mobile AND desktop use cache-pause-initial=yes.
-        // MPV waits for the demuxer cache to reach a minimum threshold before
-        // starting playback, preventing the 2-sec freeze that occurs when MPV
-        // starts playing immediately and the proxy buffer drains.
-        //
-        // In v2.13.6 the desktop wait was only 3s and the pre-buffer was 2 MB.
-        // Empirically that was STILL not enough — the user reported playback
-        // still freezes after 2-3 sec on first attempt. v2.13.7 raises the
-        // desktop wait to 5s and the pre-buffer to 4 MB so MPV genuinely has
-        // enough data to outlast the TDLib download ramp-up.
-        nativePlayer.setProperty('cache', 'yes');
+        // Prevent artificial freeze/stall on first load by disabling hard pause-initial locks
         nativePlayer.setProperty('cache-pause', 'yes');
-        if (!Platform.isAndroid && !Platform.isIOS) {
-          nativePlayer.setProperty('cache-pause-initial', 'yes');
-        } else {
-          // CRITICAL: On Android, cache-pause-initial=yes causes MPV to start in a paused state.
-          // This breaks the vo=gpu SurfaceTexture initialization on some Mediatek/Mali devices,
-          // resulting in a permanent black screen even after audio starts playing.
-          nativePlayer.setProperty('cache-pause-initial', 'no');
-        }
+        nativePlayer.setProperty('cache-pause-initial', 'no');  // Start playing immediately — don't show black screen while buffering
+        nativePlayer.setProperty('cache-pause-wait', '2'); // Shorter wait (2s) when re-buffering during playback
+        nativePlayer.setProperty('cache-secs', '180'); // Max caching seconds
+        nativePlayer.setProperty('hr-seek', 'no'); // Disable high-precision seeking to avoid frame decoding stalls
 
-        final isMobile = Platform.isAndroid || Platform.isIOS;
-
-        if (isMobile) {
-          nativePlayer.setProperty('demuxer-readahead-secs', '30');
-          // v2.13.7: was 2s — too short for slow TDLib ramp-up on mobile too.
-          // Bumped to 4s so mobile also benefits from the cache-pause fix.
-          nativePlayer.setProperty('cache-pause-wait', '4');
-          // CRITICAL: audio-buffer MUST be 0.2 on Android!
-          // Values like 1.0 cause the Android AudioTrack to report an advanced
-          // audio clock, tricking MPV into thinking the video is severely lagging
-          // and dropping 100% of video frames (Drop: 120, Render: 0).
-          nativePlayer.setProperty('audio-buffer', '0.2');
-        } else {
-          // v2.13.7 — desktop 2-sec freeze (STILL broken in v2.13.6) — REAL FIX.
-          //
-          // SYMPTOM: On desktop, video plays for 2-3 seconds then freezes on
-          // first playback attempt. User must seek back to 0 to resume.
-          //
-          // ROOT CAUSE (v2.13.6 analysis was incomplete):
-          //   v2.13.6 raised cache-pause-wait from 1s to 3s and pre-buffered
-          //   2 MB before calling player.open(). This was STILL not enough
-          //   because:
-          //     (a) TDLib's download ramp-up on desktop often takes 3-5 sec
-          //         to reach steady-state throughput (especially over VPN).
-          //     (b) MPV's cache-pause logic gives up after cache-pause-wait
-          //         seconds and starts playing with whatever buffer it has.
-          //     (c) 2 MB pre-buffer ≈ 1-2 sec of video for typical bitrates,
-          //         which is less than the TDLib ramp-up time.
-          //   Result: MPV starts playing after 3s with ~2 MB buffered, plays
-          //   that 2 MB in ~2 sec, then freezes waiting for rebuffering.
-          //
-          // FIX (v2.13.7):
-          //   - Raise cache-pause-wait to 5s (longer than typical TDLib ramp-up)
-          //   - Raise pre-buffer threshold to 4 MB (see _waitForPrefixDownload
-          //     call sites below) so MPV has ~3-4 sec of video ready
-          //   - Add cache-on-disk=yes as a fallback so MPV can spill to disk
-          //     if the in-memory demuxer cache fills up
-          nativePlayer.setProperty('demuxer-readahead-secs', '60');
-          nativePlayer.setProperty('cache-pause-wait', '5'); // v2.13.7: was 3, still froze
-          nativePlayer.setProperty('audio-buffer', '0.2');
-          nativePlayer.setProperty('cache-on-disk', 'yes');
-          nativePlayer.setProperty('demuxer-cache-dir', Directory.systemTemp.path);
-        }
-
-        nativePlayer.setProperty('cache-secs', '120');
-        nativePlayer.setProperty('hr-seek', 'no');
         nativePlayer.setProperty('audio-pitch-correction', 'yes');
+        nativePlayer.setProperty('audio-buffer', '0.2'); // 0.2s audio buffer
 
         nativePlayer.setProperty('video-sync', 'display-resample');
         nativePlayer.setProperty('interpolation', 'yes');
         nativePlayer.setProperty('tscale', 'oversample');
 
-        // v2.13.8 FIX: framedrop=decoder on mobile, vo on desktop.
-        // See Patch 3 comment for full rationale.
-        if (Platform.isAndroid || Platform.isIOS) {
-          nativePlayer.setProperty('framedrop', 'decoder');
-        } else {
-          nativePlayer.setProperty('framedrop', 'vo');
-        }
+        nativePlayer.setProperty('framedrop', 'vo'); // Still keep VO drop as a safety net for extreme CPU spikes
         nativePlayer.setProperty('sub-fix-timing', 'yes');
         nativePlayer.setProperty('stream-buffer-size', '16777216');
-
-        // ===================================================================
-        // v2.13.8 FIX — Android black-screen-with-audio (all decoder modes).
-        //
-        // The v2.13.7 changelog claimed these were added; they were not.
-        // Without them, on Android with cache-pause-initial=no (set below
-        // around line 1521), mpv may never open the video output during
-        // initial buffer-fill. mpv successfully decodes audio (which
-        // arrives first) but the video VO is never opened, leaving the
-        // SurfaceTexture uninitialised → permanent black screen.
-        //
-        //   force-window=yes  → pre-create the VO window even before the
-        //                       first video packet arrives.
-        //   force-render=yes  → push a placeholder frame to initialise the
-        //                       SurfaceTexture immediately.
-        //   vid=1             → never auto-deselect the video track.
-        //   hwdec-extra-frames → keep decoded frames in the decoder output
-        //                       queue so the VO has something to render
-        //                       the moment it becomes ready.
-        //
-        // This fix is independent of decoder mode — it affects SW, HW,
-        // and HW+ equally because all three render to the same VO.
-        // ===================================================================
-        if (Platform.isAndroid || Platform.isIOS) {
-          nativePlayer.setProperty('force-window', 'yes');
-          nativePlayer.setProperty('force-render', 'yes');
-          nativePlayer.setProperty('vid', '1');
-          nativePlayer.setProperty('hwdec-extra-frames', '64');
-        }
 
         nativePlayer.setProperty('vd-lavc-fast', 'yes');
         nativePlayer.setProperty('vd-lavc-skiploopfilter', 'default');
@@ -1624,44 +1529,21 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
 
         final hwDecMode = _storageService.getHardwareDecoderMode();
         if (Platform.isAndroid) {
-          // ===================================================================
-          // v2.13.7 — CRITICAL FIX for Android black-screen-with-audio
-          // ===================================================================
-          // SYMPTOM: On Android, audio plays for 16+ seconds but the video
-          // surface stays completely black. Screenshot evidence confirms
-          // the player UI is fully responsive (timestamp advances, controls
-          // visible) — only the SurfaceTexture is not receiving frames.
-          //
-          // ROOT CAUSE (v2.13.6 regression):
-          //   v2.13.6 switched Android from 'auto-safe' to 'mediacodec'
-          //   (zero-copy to SurfaceTexture) claiming that 'mediacodec-copy'
-          //   "decodes to CPU RAM instead of the SurfaceTexture, incompatible
-          //   with vo=gpu". This analysis was WRONG:
-          //
-          //     - 'mediacodec-copy' DOES work with vo=gpu. MediaCodec decodes
-          //       the frame to RAM, and vo=gpu uploads that RAM frame to an
-          //       OpenGL texture which Flutter's SurfaceTexture renders. This
-          //       is the standard media_kit Android rendering path.
-          //
-          //     - 'mediacodec' (zero-copy) requires MediaCodec to render
-          //       DIRECTLY to the SurfaceTexture backing the Flutter texture.
-          //       This works on some devices but FAILS silently on many
-          //       others — particularly older Mali/Adreno GPUs, devices with
-          //       non-standard codec profiles (HEVC Main 10, AV1), and
-          if (hwDecMode == 'no') {
-            nativePlayer.setProperty('hwdec', 'no');
-            Log.i('Hardware decoder mode is disabled (no) on player init (Android)');
+          String safeMode = hwDecMode;
+          // mediacodec-copy causes severe macroblocking on Android HEVC streams due to CPU RAM bottlenecks
+          // (and on MediaTek HEVC specifically, it drops ALL frames — black screen with audio).
+          // Sanitize to 'auto' so mpv picks the best decoder for each codec.
+          // This is the WORKING logic from commit 8889634 (Jul 27) — restored after
+          // today's f20cbda commit removed it and broke playback on MediaTek devices.
+          if (safeMode == 'mediacodec-copy') {
+            safeMode = 'auto';
+          }
+          if (safeMode != 'no') {
+            nativePlayer.setProperty('hwdec', safeMode);
+            Log.i('Set hardware decoder mode to $safeMode on player init (Android sanitized)');
           } else {
-            // We must allow the user to explicitly choose mediacodec or mediacodec-copy.
-            // Some devices (like older Mali) only work with mediacodec-copy.
-            // Other devices (like Mediatek HEVC) drop all frames with mediacodec-copy and require mediacodec.
-            // If they choose auto, let MPV decide.
-            String mode = hwDecMode;
-            if (mode == 'auto-safe' || mode == 'auto-copy') {
-              mode = 'auto'; // map legacy/safe modes to auto
-            }
-            nativePlayer.setProperty('hwdec', mode);
-            Log.i('Set hardware decoder mode to $mode on player init (Android)');
+            nativePlayer.setProperty('hwdec', 'no');
+            Log.i('Hardware decoder mode is disabled (no) on player init');
           }
         } else {
           String safeMode = hwDecMode;
@@ -1750,21 +1632,12 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
     }
 
     final hwDecMode = _storageService.getHardwareDecoderMode();
-    // v2.13.8 FIX — Android black-screen-with-audio in SW mode.
-    //
-    // Previously this was hardcoded to `true` on Android, which meant that
-    // even when the user explicitly picked SW (hwdec=no in mpv), the
-    // VideoController was still configured for the SurfaceTexture HW path.
-    // The SW-decode + HW-render combo requires mpv to upload each libavcodec
-    // frame to a GL texture and blit it to the SurfaceTexture. On some
-    // MediaTek/Mali devices this upload silently fails — black screen.
-    //
-    // Now: when the user picks SW, we disable HW acceleration on the
-    // VideoController too. This makes SW mode actually fully software
-    // (decoder + renderer), which is the safest fallback if HW and HW+
-    // both fail. When the user picks HW or HW+, we use the SurfaceTexture
-    // path as before.
-    final enableHw = hwDecMode != 'no';
+    // On Windows/Linux/macOS, ALWAYS enable hardware acceleration for the video output surface.
+    // This flag controls how the VIDEO RENDERING SURFACE connects to Flutter's rendering pipeline,
+    // NOT the decoder. Setting it to false causes the black screen bug — video frames decoded by
+    // mpv (whether via hwdec or software) never reach the Flutter Video widget.
+    // On Android, respect the user's hwdec choice since mediacodec handles rendering natively.
+    final enableHw = Platform.isAndroid ? (hwDecMode != 'no') : true;
     Future.microtask(() {
       if (mounted) {
         _pipController.setActivePlayer(player);
