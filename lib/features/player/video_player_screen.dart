@@ -1499,15 +1499,15 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         nativePlayer.setProperty('demuxer-max-back-bytes', '52428800'); // 50 MB back buffer (fast seeking)
         nativePlayer.setProperty('demuxer-readahead-secs', '180'); // Cache up to 180 seconds ahead
 
-        // Prevent artificial freeze/stall on first load by disabling hard pause-initial locks
+        // PREVENT 2-SEC FREEZE: Pause MPV on start until buffer fills
         nativePlayer.setProperty('cache-pause', 'yes');
-        nativePlayer.setProperty('cache-pause-initial', 'no');  // Start playing immediately — don't show black screen while buffering
-        nativePlayer.setProperty('cache-pause-wait', '2'); // Shorter wait (2s) when re-buffering during playback
+        nativePlayer.setProperty('cache-pause-initial', 'yes'); 
+        nativePlayer.setProperty('cache-pause-wait', '5'); // Wait up to 5s for buffer (TDLib ramp-up is slow)
         nativePlayer.setProperty('cache-secs', '180'); // Max caching seconds
         nativePlayer.setProperty('hr-seek', 'no'); // Disable high-precision seeking to avoid frame decoding stalls
 
         nativePlayer.setProperty('audio-pitch-correction', 'yes');
-        nativePlayer.setProperty('audio-buffer', '0.2'); // 0.2s audio buffer
+        nativePlayer.setProperty('audio-buffer', '0.2'); // 0.2s audio buffer (CRITICAL for Android sync)
 
         nativePlayer.setProperty('video-sync', 'display-resample');
         nativePlayer.setProperty('interpolation', 'yes');
@@ -1516,6 +1516,17 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         nativePlayer.setProperty('framedrop', 'vo'); // Still keep VO drop as a safety net for extreme CPU spikes
         nativePlayer.setProperty('sub-fix-timing', 'yes');
         nativePlayer.setProperty('stream-buffer-size', '16777216');
+
+        // FIX FOR BLACK SCREEN WHEN PAUSED: When cache-pause-initial=yes, MPV stays paused
+        // and doesn't push the first frame. On Android, this prevents the SurfaceTexture
+        // from initializing, leading to a permanent black screen even after audio starts.
+        // force-render=yes forces MPV to push a frame immediately.
+        if (Platform.isAndroid || Platform.isIOS) {
+          nativePlayer.setProperty('force-window', 'yes');
+          nativePlayer.setProperty('force-render', 'yes');
+          nativePlayer.setProperty('vid', '1');
+          nativePlayer.setProperty('hwdec-extra-frames', '64');
+        }
 
         nativePlayer.setProperty('vd-lavc-fast', 'yes');
         nativePlayer.setProperty('vd-lavc-skiploopfilter', 'default');
