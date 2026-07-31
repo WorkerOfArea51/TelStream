@@ -107,6 +107,7 @@ class Constants {
   static const String apiHash = Secrets.apiHash;
 
   static const String tmdbApiKey = Secrets.tmdbApiKey;
+  static const String malClientId = Secrets.malClientId;
   static const int adminUserId = Secrets.adminUserId;
 
   // Categories & Channels

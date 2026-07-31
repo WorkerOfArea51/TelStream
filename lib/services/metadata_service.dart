@@ -209,8 +209,6 @@ class MetadataService {
   }
 
   static const String _tmdbBaseUrl = 'https://api.themoviedb.org/3';
-  static const String _jikanBaseUrl = 'https://api.jikan.moe/v4';
-  
   static final LruCache<String, SeriesMetadata> _cache = LruCache<String, SeriesMetadata>(
     maxSize: 100,
     ttl: const Duration(minutes: 30),
@@ -637,15 +635,17 @@ class MetadataService {
     }
   }
 
-  Future<SeriesMetadata?> fetchJikanByMalId(String malId) async {
+  Future<SeriesMetadata?> fetchMyAnimeListByMalId(String malId) async {
     final cached = _cache.get(malId);
     if (cached != null) return cached;
     
     try {
-      final url = Uri.parse('$_jikanBaseUrl/anime/$malId/full');
+      final fields = 'id,title,alternative_titles,main_picture,synopsis,mean,rank,genres,media_type,status,start_date,end_date,num_episodes,source,rating,recommendations,studios,average_episode_duration';
+      final url = Uri.parse('https://api.myanimelist.net/v2/anime/$malId?fields=$fields');
+      final headers = {'X-MAL-CLIENT-ID': Constants.malClientId};
       http.Response? res;
       for (int attempt = 0; attempt < 3; attempt++) {
-        res = await http.get(url).timeout(const Duration(seconds: 10));
+        res = await http.get(url, headers: headers).timeout(const Duration(seconds: 10));
         if (res.statusCode == 429 || res.statusCode >= 500) {
           if (attempt < 2) {
             await Future.delayed(Duration(milliseconds: 1000 * (attempt + 1)));
@@ -656,23 +656,9 @@ class MetadataService {
       }
       if (res == null || res.statusCode != 200) return null;
 
-      final json = jsonDecode(res.body);
-      final data = json['data'];
+      final data = jsonDecode(res.body);
 
-      if (data == null) return null;
-
-      String trailerId = '';
-      if (data['trailer'] != null) {
-        if (data['trailer']['youtube_id'] != null) {
-          trailerId = data['trailer']['youtube_id'];
-        } else if (data['trailer']['embed_url'] != null) {
-          final embedUrl = data['trailer']['embed_url'].toString();
-          final match = RegExp(r'embed\/([a-zA-Z0-9_-]+)').firstMatch(embedUrl);
-          if (match != null && match.groupCount >= 1) {
-            trailerId = match.group(1)!;
-          }
-        }
-      }
+      String trailerId = ''; // MAL API doesn't provide trailer directly in this endpoint
 
       List<String> genres = [];
       if (data['genres'] != null) {
@@ -680,11 +666,16 @@ class MetadataService {
         genres = g.map((e) => e['name'].toString()).toList();
       }
 
-      final dateStr = data['aired'] != null ? (data['aired']['from'] ?? '') : '';
-      final year = dateStr.isNotEmpty && dateStr.length >= 4 ? dateStr.substring(0, 4) : '';
+      final startDateStr = data['start_date'] ?? '';
+      final year = startDateStr.isNotEmpty && startDateStr.length >= 4 ? startDateStr.substring(0, 4) : '';
       
-      final status = data['status'] ?? '';
-      final runtime = data['duration'] ?? '';
+      final status = data['status']?.toString().replaceAll('_', ' ') ?? '';
+      
+      String runtime = '';
+      if (data['average_episode_duration'] != null) {
+        final seconds = data['average_episode_duration'] as int;
+        runtime = '${seconds ~/ 60} min';
+      }
       
       String productionCompanies = '';
       if (data['studios'] != null) {
@@ -693,43 +684,24 @@ class MetadataService {
       }
 
       List<RelatedContent> recs = [];
-      try {
-        final recUrl = Uri.parse('$_jikanBaseUrl/anime/$malId/recommendations');
-        http.Response? recRes;
-        for (int attempt = 0; attempt < 3; attempt++) {
-          recRes = await http.get(recUrl).timeout(const Duration(seconds: 10));
-          if (recRes.statusCode == 429 || recRes.statusCode >= 500) {
-            if (attempt < 2) {
-              await Future.delayed(Duration(milliseconds: 1000 * (attempt + 1)));
-              continue;
-            }
-          }
-          break;
-        }
-        if (recRes != null && recRes.statusCode == 200) {
-          final recJson = jsonDecode(recRes.body);
-          if (recJson['data'] != null) {
-            final List r = recJson['data'];
-            for (int i = 0; i < r.length && i < 10; i++) {
-              final entry = r[i]['entry'];
-              if (entry != null) {
-                recs.add(RelatedContent(
-                  id: entry['mal_id'] ?? 0,
-                  title: entry['title'] ?? '',
-                  posterUrl: entry['images']?['jpg']?['large_image_url'] ?? '',
-                  synopsis: '',
-                ));
-              }
-            }
+      if (data['recommendations'] != null) {
+        final List r = data['recommendations'];
+        for (int i = 0; i < r.length && i < 10; i++) {
+          final node = r[i]['node'];
+          if (node != null) {
+            recs.add(RelatedContent(
+              id: node['id'] ?? 0,
+              title: node['title'] ?? '',
+              posterUrl: node['main_picture']?['large'] ?? node['main_picture']?['medium'] ?? '',
+              synopsis: '',
+            ));
           }
         }
-      } catch (e) {
-        Log.e('Failed to fetch Jikan recommendations', e);
       }
       
       String userScore = '';
-      if (data['score'] != null) {
-        userScore = '${data['score']} / 10';
+      if (data['mean'] != null) {
+        userScore = '${data['mean']} / 10';
       }
 
       String rank = '';
@@ -737,87 +709,31 @@ class MetadataService {
         rank = '#${data['rank']}';
       }
 
-      String castStr = '';
-      try {
-        final castUrl = Uri.parse('$_jikanBaseUrl/anime/$malId/characters');
-        http.Response? castRes;
-        for (int attempt = 0; attempt < 3; attempt++) {
-          castRes = await http.get(castUrl).timeout(const Duration(seconds: 10));
-          if (castRes.statusCode == 429 || castRes.statusCode >= 500) {
-            if (attempt < 2) {
-              await Future.delayed(Duration(milliseconds: 1000 * (attempt + 1)));
-              continue;
-            }
-          }
-          break;
-        }
-        if (castRes != null && castRes.statusCode == 200) {
-          final castJson = jsonDecode(castRes.body);
-          if (castJson['data'] != null) {
-            final List c = castJson['data'];
-            List<String> actors = [];
-            for (int i = 0; i < c.length && actors.length < 8; i++) {
-              final character = c[i]['character'];
-              final voiceActors = c[i]['voice_actors'] as List?;
-              String actorName = '';
-              if (voiceActors != null && voiceActors.isNotEmpty) {
-                 final jpActor = voiceActors.firstWhere(
-                   (v) => v['language'] == 'Japanese', 
-                   orElse: () => voiceActors.first
-                 );
-                 if (jpActor['person'] != null) {
-                   actorName = jpActor['person']['name'] ?? '';
-                 }
-              }
-              if (actorName.isNotEmpty) {
-                if (actorName.contains(',')) {
-                  final parts = actorName.split(',');
-                  if (parts.length == 2) {
-                    actorName = '${parts[1].trim()} ${parts[0].trim()}';
-                  }
-                }
-                actors.add(actorName.trim());
-              } else if (character != null && character['name'] != null) {
-                String charName = character['name'];
-                if (charName.contains(',')) {
-                  final parts = charName.split(',');
-                  if (parts.length == 2) {
-                    charName = '${parts[1].trim()} ${parts[0].trim()}';
-                  }
-                }
-                actors.add(charName.trim());
-              }
-            }
-            if (actors.isNotEmpty) {
-              castStr = actors.join(', ');
-            }
-          }
-        }
-      } catch (e) {
-        Log.e('Failed to fetch Jikan cast', e);
-      }
-
-      String source = data['source'] ?? '';
+      String castStr = ''; // MAL official API does not provide cast/characters
       
-      String airedDates = '';
-      if (data['aired'] != null && data['aired']['string'] != null) {
-        airedDates = data['aired']['string'];
+      String source = data['source']?.toString().replaceAll('_', ' ') ?? '';
+      
+      String airedDates = startDateStr;
+      if (data['end_date'] != null && data['end_date'].toString().isNotEmpty) {
+        airedDates += ' to ${data['end_date']}';
       }
 
       String episodesCount = '';
-      if (data['episodes'] != null) {
-        episodesCount = '${data['episodes']} Episodes';
+      if (data['num_episodes'] != null && data['num_episodes'] > 0) {
+        episodesCount = '${data['num_episodes']} Episodes';
       }
 
       final metadata = SeriesMetadata(
-        title: data['title_english'] ?? data['title'] ?? '',
+        title: data['alternative_titles']?['en']?.toString().isNotEmpty == true 
+            ? data['alternative_titles']['en'] 
+            : data['title'] ?? '',
         synopsis: data['synopsis'] ?? '',
-        posterUrl: data['images']?['jpg']?['large_image_url'] ?? '',
-        backdropUrl: trailerId.isNotEmpty ? 'https://img.youtube.com/vi/$trailerId/maxresdefault.jpg' : (data['images']?['jpg']?['large_image_url'] ?? ''), // Jikan has no backdrop
+        posterUrl: data['main_picture']?['large'] ?? data['main_picture']?['medium'] ?? '',
+        backdropUrl: data['main_picture']?['large'] ?? data['main_picture']?['medium'] ?? '',
         releaseYear: year,
         genres: genres,
         cast: castStr, 
-        maturityRating: data['rating'] ?? 'NR',
+        maturityRating: data['rating']?.toString().toUpperCase() ?? 'NR',
         trailerYoutubeId: trailerId,
         status: status,
         runtime: runtime,
@@ -833,7 +749,7 @@ class MetadataService {
       _cache.set(malId, metadata);
       return metadata;
     } catch (e) {
-      Log.e('Failed to fetch Jikan details', e);
+      Log.e('Failed to fetch MAL details', e);
       return null;
     }
   }

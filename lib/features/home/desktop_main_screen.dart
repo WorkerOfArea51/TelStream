@@ -22,7 +22,7 @@ import '../player/pip_manager.dart';
 import '../player/video_player_screen.dart';
 import '../player/widgets/track_selector_panel.dart';
 import 'package:media_kit/media_kit.dart';
-import 'airing_calendar_screen.dart';
+
 import '../../services/update_service.dart';
 import 'widgets/custom_about_dialog.dart';
 import '../../l10n/app_localizations.dart';
@@ -208,21 +208,6 @@ class _DesktopMainScreenState extends ConsumerState<DesktopMainScreen> with Tick
                       CustomAboutDialog.show(context);
                     } else if (value == 'open') {
                       _showOpenStreamDialog(context);
-                    } else if (value == 'calendar') {
-                      showDialog(
-                        context: context,
-                        builder: (context) => Dialog(
-                          backgroundColor: Colors.transparent,
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(12),
-                            child: const SizedBox(
-                              width: 800,
-                              height: 600,
-                              child: AiringCalendarScreen(),
-                            ),
-                          ),
-                        ),
-                      );
                     } else if (value == 'exit') {
                       windowManager.close();
                     }
@@ -231,7 +216,6 @@ class _DesktopMainScreenState extends ConsumerState<DesktopMainScreen> with Tick
                     _buildMenuItem('open', AppLocalizations.of(context)!.openStreamMenu, shortcut: 'Ctrl+O'),
                     _buildMenuItem('downloads', AppLocalizations.of(context)!.downloads, shortcut: 'Ctrl+D'),
                     _buildMenuItem('history', AppLocalizations.of(context)!.historyPlayback, shortcut: 'Ctrl+H'),
-                    _buildMenuItem('calendar', AppLocalizations.of(context)!.airingCalendar, shortcut: 'Ctrl+Cal'),
                     _buildMenuItem('mychannels', AppLocalizations.of(context)!.myChannels, shortcut: 'Ctrl+M'),
                     _buildMenuItem('div1', '', isDivider: true),
                     _buildMenuItem('video', AppLocalizations.of(context)!.video, hasSubmenu: true),

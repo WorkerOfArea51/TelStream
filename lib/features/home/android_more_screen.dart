@@ -15,7 +15,6 @@ import 'history_screen.dart';
 import 'network_stream_screen.dart';
 import 'downloads_screen.dart';
 import 'global_search_screen.dart';
-import 'airing_calendar_screen.dart';
 import '../settings/user_channels_screen.dart';
 import '../../l10n/app_localizations.dart';
 
@@ -529,19 +528,7 @@ class _AndroidMoreScreenState extends ConsumerState<AndroidMoreScreen>
                     },
                   ),
                 ),
-                _buildIndividualBar(
-                  child: M3AnimatedMenuTile(
-                    icon: Icons.calendar_month_rounded,
-                    title: l10n.airingCalendar,
-                    subtitle: l10n.airingCalendarSubtitle,
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (context) => const AiringCalendarScreen()),
-                      );
-                    },
-                  ),
-                ),
+
                 _buildIndividualBar(
                   child: M3AnimatedMenuTile(
                     icon: Icons.settings,

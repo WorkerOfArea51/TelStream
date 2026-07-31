@@ -519,7 +519,7 @@ class _AndroidEpisodeListScreenState extends ConsumerState<AndroidEpisodeListScr
             if (id.startsWith('tt')) {
               meta = await metadataService.fetchTmdbByImdbId(id);
             } else {
-              meta = await metadataService.fetchJikanByMalId(id);
+              meta = await metadataService.fetchMyAnimeListByMalId(id);
             }
             if (meta != null) preloadedData.add(meta);
           }

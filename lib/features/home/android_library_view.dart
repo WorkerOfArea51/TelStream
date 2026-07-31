@@ -1103,7 +1103,7 @@ class _FeaturedCarouselState extends ConsumerState<FeaturedCarousel> {
                       if (firstId.startsWith('tt')) {
                         meta = await metadataService.fetchTmdbByImdbId(firstId);
                       } else {
-                        meta = await metadataService.fetchJikanByMalId(firstId);
+                        meta = await metadataService.fetchMyAnimeListByMalId(firstId);
                       }
 
                       if (context.mounted) Navigator.pop(context);
@@ -1890,7 +1890,7 @@ class LibraryItemActionHandler {
         if (firstId.startsWith('tt')) {
           meta = await metadataService.fetchTmdbByImdbId(firstId);
         } else {
-          meta = await metadataService.fetchJikanByMalId(firstId);
+          meta = await metadataService.fetchMyAnimeListByMalId(firstId);
         }
         if (context.mounted) Navigator.pop(context);
       }
@@ -1973,7 +1973,7 @@ class LibraryItemActionHandler {
             if (id.startsWith('tt')) {
               meta = await metadataService.fetchTmdbByImdbId(id);
             } else {
-              meta = await metadataService.fetchJikanByMalId(id);
+              meta = await metadataService.fetchMyAnimeListByMalId(id);
             }
             if (meta != null) {
               preloadedData.add(meta);

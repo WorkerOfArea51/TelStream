@@ -80,40 +80,31 @@ class ReleaseYearService {
   Future<int?> fetchAnimeReleaseYearFromMal(String title) async {
     try {
       final query = Uri.encodeComponent(title);
-      final url = 'https://api.jikan.moe/v4/anime?q=$query&limit=1';
-      final response = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 10));
+      final url = 'https://api.myanimelist.net/v2/anime?q=$query&limit=1&fields=start_date';
+      final headers = {'X-MAL-CLIENT-ID': Constants.malClientId};
+      final response = await http.get(Uri.parse(url), headers: headers).timeout(const Duration(seconds: 10));
       
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         if (data['data'] != null && (data['data'] as List).isNotEmpty) {
-          final anime = data['data'][0];
-          int? year;
-          if (anime['year'] != null) {
-            year = anime['year'] as int?;
-          }
-          if (year == null && anime['aired'] != null) {
-            final prop = anime['aired']['prop'];
-            if (prop != null && prop['from'] != null) {
-              year = prop['from']['year'] as int?;
+          final animeNode = data['data'][0]['node'];
+          if (animeNode != null && animeNode['start_date'] != null) {
+            final startDate = animeNode['start_date'] as String;
+            final year = DateTime.tryParse(startDate)?.year ?? int.tryParse(startDate.split('-').first);
+            if (year != null) {
+              return year;
             }
-            if (year == null && anime['aired']['from'] != null) {
-              final fromStr = anime['aired']['from'] as String;
-              year = DateTime.tryParse(fromStr)?.year;
-            }
-          }
-          if (year != null) {
-            return year;
           }
         }
         return 0; // No results found, cache 0
       } else if (response.statusCode == 404) {
         return 0; // Not found, cache 0
       } else {
-        Log.w('Jikan API returned status code ${response.statusCode} for query "$title"');
+        Log.w('MAL API returned status code ${response.statusCode} for query "$title"');
         return null; // HTTP error, retry later
       }
     } catch (e, stack) {
-      Log.e('Error calling Jikan API for query "$title"', e, stack);
+      Log.e('Error calling MAL API for query "$title"', e, stack);
       return null;
     }
   }

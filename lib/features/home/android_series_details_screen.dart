@@ -95,7 +95,7 @@ class _AndroidSeriesDetailsScreenState extends ConsumerState<AndroidSeriesDetail
         if (targetId.startsWith('tt')) {
           newMeta = await metadataService.fetchTmdbByImdbId(targetId);
         } else {
-          newMeta = await metadataService.fetchJikanByMalId(targetId);
+          newMeta = await metadataService.fetchMyAnimeListByMalId(targetId);
         }
       } catch (e) {
         debugPrint('Error prefetching metadata: $e');
@@ -181,7 +181,7 @@ class _AndroidSeriesDetailsScreenState extends ConsumerState<AndroidSeriesDetail
       if (targetId.startsWith('tt')) {
         newMeta = await metadataService.fetchTmdbSeasonByImdbId(targetId, seasonNumber);
       } else {
-        newMeta = await metadataService.fetchJikanByMalId(targetId);
+        newMeta = await metadataService.fetchMyAnimeListByMalId(targetId);
       }
       
       if (mounted) {
@@ -314,7 +314,7 @@ class _AndroidSeriesDetailsScreenState extends ConsumerState<AndroidSeriesDetail
       // Season numbers are 1-indexed (index 0 = Season 1)
       newMeta = await metadataService.fetchTmdbSeasonByImdbId(targetId, newIndex + 1);
     } else {
-      newMeta = await metadataService.fetchJikanByMalId(targetId);
+      newMeta = await metadataService.fetchMyAnimeListByMalId(targetId);
     }
 
     if (mounted) {
@@ -354,14 +354,14 @@ class _AndroidSeriesDetailsScreenState extends ConsumerState<AndroidSeriesDetail
         builder: (c) => const Center(child: CircularProgressIndicator(color: Colors.orange)),
       );
       try {
-        fetchedMeta = await MetadataService().fetchJikanByMalId(rec.id.toString());
+        fetchedMeta = await MetadataService().fetchMyAnimeListByMalId(rec.id.toString());
       } catch (_) {
-        // Retry with alternative Jikan endpoint (v4 full URL)
+        // Retry with alternative MyAnimeList endpoint (v4 full URL)
         try {
-          fetchedMeta = await MetadataService().fetchJikanByMalId(rec.id.toString());
+          fetchedMeta = await MetadataService().fetchMyAnimeListByMalId(rec.id.toString());
         } catch (_) {}
       }
-      // If Jikan failed, try TMDB as fallback (some anime are also on TMDB)
+      // If MyAnimeList failed, try TMDB as fallback (some anime are also on TMDB)
       if (fetchedMeta == null && rec.posterUrl.isNotEmpty) {
         try {
           // Use the title to search TMDB
@@ -395,7 +395,7 @@ class _AndroidSeriesDetailsScreenState extends ConsumerState<AndroidSeriesDetail
               Text(
                 fetchedMeta?.synopsis.isNotEmpty == true 
                     ? fetchedMeta!.synopsis 
-                    : (rec.synopsis.isNotEmpty ? rec.synopsis : 'Recommendation from TMDB/Jikan.'),
+                    : (rec.synopsis.isNotEmpty ? rec.synopsis : 'Recommendation from TMDB/MyAnimeList.'),
                 style: const TextStyle(color: Colors.white70),
               ),
               const SizedBox(height: 24),
@@ -587,7 +587,7 @@ class _AndroidSeriesDetailsScreenState extends ConsumerState<AndroidSeriesDetail
         final metadataService = MetadataService();
 
         if (widget.categoryTitle.toLowerCase() == 'anime') {
-          newMeta = await metadataService.fetchJikanByMalId(firstId);
+          newMeta = await metadataService.fetchMyAnimeListByMalId(firstId);
         } else {
           newMeta = await metadataService.fetchTmdbByImdbId(firstId);
         }
