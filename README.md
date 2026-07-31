@@ -1,151 +1,144 @@
-# TelStream v2.13.6+58 — Fixed Code for Copy-Paste
+# 📱 TelStream
 
-This folder contains **complete, ready-to-copy-paste fixed code files** for the three issues reported in v2.13.5+57:
+<p align="center">
+  <strong>Stream Telegram Videos Seamlessly</strong>
+</p>
 
-1. **Quality fetching still broken** for files without filename quality labels
-2. **Desktop video freeze after 2 seconds** of playback (first attempt)
-3. **Android black screen with audio** when playing video
+<p align="center">
+  <img src="assets/icon.png" alt="TelStream Logo" width="128" height="128" style="border-radius: 20%;" />
+</p>
 
-Plus version bump and changelog updates.
-
----
-
-## 📋 Files to Copy-Paste
-
-Replace these files in the repo with the versions from this folder:
-
-| # | Source (in this folder) | Target (in repo) |
-|---|------------------------|------------------|
-| 1 | `lib/services/streaming_proxy_service.dart` | `lib/services/streaming_proxy_service.dart` |
-| 2 | `lib/services/network/tdlib_range_fetch.dart` | `lib/services/network/tdlib_range_fetch.dart` |
-| 3 | `lib/features/player/video_player_screen.dart` | `lib/features/player/video_player_screen.dart` |
-| 4 | `lib/core/constants.dart` | `lib/core/constants.dart` |
-| 5 | `pubspec.yaml` | `pubspec.yaml` |
-| 6 | `CHANGELOG.md` | `CHANGELOG.md` |
-
-**Just overwrite the existing files with these versions and push.** No other files need to be changed.
+<p align="center">
+  <a href="https://github.com/WorkerOfArea51/TelStream/releases">
+    <img src="https://img.shields.io/github/v/release/WorkerOfArea51/TelStream?include_prereleases&logo=github&color=3b82f6" alt="Latest Release" />
+  </a>
+  <a href="https://github.com/WorkerOfArea51/TelStream/actions">
+    <img src="https://img.shields.io/github/actions/workflow/status/WorkerOfArea51/TelStream/build-release.yml?branch=main&logo=github-actions&color=10b981" alt="Build Status" />
+  </a>
+  <img src="https://img.shields.io/badge/platform-Android-34d399?logo=android" alt="Android" />
+  <img src="https://img.shields.io/badge/platform-Windows-0078D4?logo=windows" alt="Windows" />
+  <img src="https://img.shields.io/badge/framework-Flutter-02569B?logo=flutter" alt="Built with Flutter" />
+</p>
 
 ---
 
-## 🔍 What Was Fixed and Why
+## 🌟 Introduction
 
-### Fix 1: Quality Fetching for Files Without Filename Labels
+**TelStream** is a lightweight, high-performance Flutter-based Telegram client designed specifically to stream Telegram videos seamlessly. Leveraging the official **Telegram Database Library (TDLib)** and the hardware-accelerated **MediaKit** engine, TelStream delivers instantaneous video playback without requiring full video downloads.
 
-**Symptom**: Quality badges stay stuck as "..." for files whose filenames don't contain a quality token like `1080p`, `720p`, etc. The badge never resolves to a real label.
+Available on **Android** and **Windows** — stream your Telegram channels on mobile and desktop.
 
-**Root cause**: When metadata extraction runs (on the episode list screen, before playback), it calls `TdlibRangeFetch.fetchPrefix()` which goes through the streaming proxy. The proxy's auto-shift logic had a bug:
+---
 
+## 🚀 Key Features
+
+*   ⚡ **Instant Video Streaming**: Stream media directly using Telegram's MTProto servers via FFI-based TDLib bindings.
+*   🎬 **Advanced Video Engine**: High-performance playback engine powered by `media_kit` (MPV integration) offering hardware acceleration, custom scaling, audio track options, and playback speed controls.
+*   🔑 **Secure Telegram Authentication**: Direct and secure login flow supporting Phone Number verification, Login Code, and 2-Factor Authentication (2FA) passwords.
+*   💾 **Smart Cache Controller**: An in-app storage optimizer that lets you sweep and purge cached media to prevent local storage bloat.
+*   ⭐ **Favorites Management**: Save channels, chats, and specific episodes/videos to your favorites list for quick access.
+*   ⚙️ **Modern Slate UI**: Responsive dark theme with a clean interface tailored for video browsing and media playback.
+*   📡 **Dynamic Metadata Fetching**: Automatically resolves season-specific TMDB metadata (posters, cast, plot, and recommendations) for accurate UI rendering.
+*   ⚡ **Persistent Metadata Caching**: Optimized instant loading utilizing local secure caching for season metadata.
+*   📚 **Batch Download**: Download entire seasons with one tap!
+*   📶 **WiFi-Only Downloads**: Toggle to pause downloads on cellular data.
+*   ⏸️ **Pause All / Resume All**: Bulk control all downloads from the Downloads screen.
+*   💬 **Auto-Download Subtitles**: One-tap auto-download of the first subtitle match with 16 languages supported.
+*   📝 **User-Added Channels**: Add your own Telegram channels/groups via More → My Channels.
+*   🖥️ **Desktop Support**: Full native desktop experience on Windows with custom window management, keyboard shortcuts, and mouse-driven controls.
+*   🔒 **Proxy Support**: Configure SOCKS5 or MTProto proxy for login — essential for regions where Telegram is banned. Auto-fetch MTProto proxy lists from public repositories.
+
+---
+
+## 📦 How to Install
+
+### Android
+
+Download the latest precompiled, production-ready APKs directly from the **[GitHub Releases Page](https://github.com/WorkerOfArea51/TelStream/releases)**.
+
+We offer optimized **split-ABI** builds to keep application sizes minimal:
+*   **`telstream-arm64.apk`**: Recommended for all modern 64-bit Android devices (arm64-v8a).
+*   **`telstream-arm32.apk`**: Recommended for older 32-bit Android devices (armeabi-v7a).
+
+### Windows
+
+Download the Windows executable from the **[GitHub Releases Page](https://github.com/WorkerOfArea51/TelStream/releases)**:
+*   **Run `TelStream.exe`. No installer required — portable application.
+
+## 🛠️ CI/CD Pipeline
+
+TelStream uses a fully automated **GitHub Actions** pipeline configuration:
+*   **Continuous Integration**: Every push to the `main` branch automatically triggers a new workflow run.
+*   **Dependency Injection**: Automatically pulls secure API credentials and bundles native shared libraries (`libtdjson.so` for Android, `tdjson.dll` for Windows) for all target architectures.
+*   **Optimized Compiles**: Uses Gradle caching and limits Flutter compile targets to maximize pipeline speed.
+*   **Auto-Release**: Publishes compiled APKs, and Windows executables directly to GitHub Releases.
+
+---
+
+## 💻 Developer Setup
+
+If you wish to build or run the project locally, follow these steps:
+
+### 1. Prerequisites
+*   [Flutter SDK](https://docs.flutter.dev/get-started/install) (matching version in `pubspec.yaml`)
+*   Android SDK / Command Line Tools (for Android builds)
+*   Visual Studio with C++ Desktop Development tools (for Windows builds)
+
+### 2. Native Library Configuration
+
+TDLib requires native binary files to run. The workflow download is automated on GitHub Actions, but for **local development**:
+
+**Android:**
+1. Download `jniLibs.tar.gz` from [up9cloud/android-libtdjson Releases](https://github.com/up9cloud/android-libtdjson/releases).
+2. Extract the archive into: `android/app/src/main/` so the ABI folders are placed under `android/app/src/main/jniLibs/`.
+
+**Windows:**
+1. Download `tdjson.dll` and supporting libraries (OpenSSL, zlib) from [TDLib Releases](https://github.com/tdlib/td/releases) or the project's native library storage.
+2. Place all `.dll` files into: `windows/runner/libs/`.
+
+### 3. API Secrets
+Create a local file `lib/core/secrets.dart` (which is git-ignored) to specify your Telegram API credentials:
 ```dart
-// v17 BUG: This condition is false when no download is active
-final isOutBefore = start < activeOffset;       // 0 < 0 = false
-final isOutAfter = start > activeRangeEnd + 3MB; // 0 > 0 + 3MB = false
-if (!isCompleted && start >= prefixSize &&
-    (isOutBefore || (isOutAfter && ...))) {
-  // NEVER ENTERED — no download is triggered
+class Secrets {
+  static const int apiId = YOUR_TELEGRAM_API_ID;
+  static const String apiHash = 'YOUR_TELEGRAM_API_HASH';
 }
 ```
+> Get your API credentials from [my.telegram.org](https://my.telegram.org).
 
-When no download was active (`activeOffset=0`, `baseDownloaded=0`, `prefixSize=0`), both conditions were false, so the proxy never triggered a TDLib download. It just waited for bytes that would never arrive (until the 20-second timeout kicked in).
+### 4. Build and Run
+```bash
+# Get pub dependencies
+flutter pub get
 
-**Fix** (`streaming_proxy_service.dart`): Rewrote the auto-shift decision logic. Added a `noActiveDownload` check that triggers a TDLib download at the requested offset immediately when no download is active:
+# Generate localization files
+flutter gen-l10n
 
-```dart
-final noActiveDownload = activeOffset == 0 && baseDownloaded == 0 && prefixSize == 0;
-final shouldShift = !isCompleted && !isWithinPrefix && !isWithinActiveRange &&
-    (noActiveDownload || start < activeOffset ||
-     (start > activeRangeEnd + forwardThreshold && (!hasEarlierRequest || isTailQuery)));
+# Run the app on a connected device/emulator
+flutter run
+
+# Build for specific platforms
+flutter build apk --split-per-abi   # Android
+flutter build windows               # Windows
 ```
 
-**Additional fix** (`tdlib_range_fetch.dart`): `fetchPrefix` now reads directly from disk when `downloadedPrefixSize >= bytes` (not just when the file is fully downloaded). This skips the HTTP roundtrip entirely when TDLib has already cached the first 2 MB — common after the user has played or scrubbed the video once.
+---
+
+## 🤝 Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request. For major changes, please open an Issue first to discuss what you would like to change.
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
 ---
 
-### Fix 2: Desktop Video Freeze After 2 Seconds
+## ⚖️ License
 
-**Symptom**: On desktop (Windows/Linux/macOS), video plays for 2-3 seconds on first attempt, then freezes. User must seek back to 0 to resume playback.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+All TDLib components are subject to the [official TDLib License](https://github.com/tdlib/td/blob/master/LICENSE).
 
-**Root cause**: Two issues combined:
 
-1. `_initDownload()` sent `td.DownloadFile(synchronous: false)` and immediately called `_startPlayback(proxyUrl)`. MPV connected to the proxy, but TDLib had barely started downloading — the proxy had no bytes to serve.
-
-2. v17 set `cache-pause-wait=1` on desktop. This tells MPV to wait only 1 second for the demuxer cache to fill before giving up. With a near-empty buffer, MPV starts playing, plays the first 2 seconds from whatever bytes arrived, then freezes when the buffer drains.
-
-**Fix** (`video_player_screen.dart`): Two changes:
-
-1. **Pre-buffer before `player.open()`**: Added `_waitForPrefixDownload()` helper that polls `td.GetFile` every 150 ms until `downloadedPrefixSize >= 2 MB` or 5 seconds elapse. Called before `_startPlayback(proxyUrl)` on both the active-download and pre-emptive-fallback paths.
-
-2. **`cache-pause-wait` increased from 1s to 3s on desktop**: Gives MPV enough time to fill its demuxer cache before starting playback.
-
----
-
-### Fix 3: Android Black Screen With Audio
-
-**Symptom**: On Android, video plays audio but the video display area is completely black. Player shows it's playing (waveform visible, time advancing), but no video frames are rendered.
-
-**Root cause**: v17 mapped all `auto*` and `mediacodec*` modes to `hwdec=auto-safe`:
-
-```dart
-// v17 BUG
-if (safeMode == 'mediacodec' || safeMode == 'mediacodec-copy' ||
-    safeMode == 'auto' || safeMode == 'auto-copy') {
-  safeMode = 'auto-safe';  // ← This is the problem
-}
-```
-
-On most Android devices, `auto-safe` resolves to `mediacodec-copy`, which decodes video frames to CPU RAM instead of directly to the SurfaceTexture. Combined with `enableHardwareAcceleration=true` (set in `VideoController`), which configures `vo=gpu` for SurfaceTexture rendering, this creates a mismatch:
-
-- **Audio path**: works (decoded from RAM)
-- **Video path**: `vo=gpu` waits for SurfaceTexture frames that never arrive → black screen
-
-**Fix** (`video_player_screen.dart`): Use `hwdec=mediacodec` (NOT `mediacodec-copy`, NOT `auto-safe`) by default on Android:
-
-```dart
-// v2.13.6 FIX
-if (hwDecMode == 'no') {
-  nativePlayer.setProperty('hwdec', 'no');
-} else if (hwDecMode == 'mediacodec-copy') {
-  // Respect explicit user choice (subtitle compatibility mode)
-  nativePlayer.setProperty('hwdec', 'mediacodec-copy');
-} else {
-  // 'auto', 'auto-safe', 'auto-copy', 'mediacodec' → all map to 'mediacodec'
-  nativePlayer.setProperty('hwdec', 'mediacodec');
-}
-```
-
-`mediacodec` (without `-copy`) makes MediaCodec output directly to the SurfaceTexture, which `vo=gpu` then renders. If a specific codec fails on a device, MPV automatically falls back to software decoding.
-
-The only exception is when the user **explicitly** chose `mediacodec-copy` (e.g., for Native Blending subtitle compatibility) — in that case we respect their choice, but note that it may show a black screen with `vo=gpu`. This trade-off is documented in the diagnostics screen.
-
----
-
-## ✅ Verification Steps After Pushing
-
-After Gemini pushes these changes, the user should verify:
-
-1. **Android video playback**: Open any video on Android — video should now render (not just audio). The black screen issue should be gone.
-
-2. **Desktop first-playback freeze**: Open any video on desktop — it should play smoothly from the start without freezing after 2 seconds. There may be a brief 1-3 second delay before playback starts (this is the pre-buffering).
-
-3. **Quality badges for files without filename labels**: Navigate to an episode list containing files without `1080p`/`720p`/etc. in their filenames. The quality badges should resolve from "..." to a real label (e.g., `1080p`, `720p`) within a few seconds, not stay stuck forever.
-
-4. **In-app changelog**: Open Settings → About → Changelog. Should show "What's New in v2.13.6" with the three fixes listed.
-
-5. **App version**: Should show `2.13.6+58` in Settings → About.
-
----
-
-## 📝 Version & Changelog Updates
-
-- `pubspec.yaml`: `version: 2.13.5+57` → `version: 2.13.6+58`
-- `CHANGELOG.md`: Prepended `[2.13.6] - 2026-07-31` entry with full details
-- `lib/core/constants.dart`: Updated `changelog` constant to show v2.13.6 (also fixes the broken UTF-8 emoji encoding `ðŸš€` → `🚀` that was in the old v2.12.2 entry)
-
----
-
-## ⚠️ Notes for Gemini
-
-- **Do NOT run `flutter pub run build_runner build`** — these changes don't touch any `@freezed` or `@jsonSerializable` annotated classes, so no code generation is needed.
-- **Do NOT modify any other files** — only the 6 files listed above need to be changed.
-- **The `video_player_screen.dart` file is large (1919 lines)** — just overwrite it completely with the version in this folder. Don't try to apply patches manually.
-- **All braces/parens/brackets are balanced** — verified with a Python script.
-- **No new imports were added** — all imports in the fixed files already exist in v17.
