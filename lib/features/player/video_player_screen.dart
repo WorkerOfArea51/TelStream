@@ -1474,13 +1474,12 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         final hwDecMode = _storageService.getHardwareDecoderMode();
         if (Platform.isAndroid) {
           String safeMode = hwDecMode;
-          // Android black-screen bug: auto or mediacodec bypasses vo=gpu. Fix: force mediacodec-copy
-          if (safeMode == 'auto' || safeMode == 'auto-copy' || safeMode == 'mediacodec') {
-            safeMode = 'mediacodec-copy';
+          // mediacodec-copy causes severe macroblocking on Android HEVC streams due to CPU RAM bottlenecks
+          if (safeMode == 'mediacodec-copy') {
+            safeMode = 'auto';
           }
           if (safeMode != 'no') {
             nativePlayer.setProperty('hwdec', safeMode);
-            nativePlayer.setProperty('vo', 'gpu'); // Explicitly force GPU output to fix black screen
             Log.i('Set hardware decoder mode to $safeMode on player init (Android sanitized)');
           } else {
             nativePlayer.setProperty('hwdec', 'no');
