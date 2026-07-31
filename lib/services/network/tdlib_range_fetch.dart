@@ -20,18 +20,6 @@ class TdlibRangeFetch {
     _sharedClient = null;
   }
 
-  /// Fetch the first [bytes] bytes of the file referenced by [message].
-  ///
-  /// Resolution order (v2.13.6):
-  ///   1. If the file is fully downloaded locally → read directly from disk.
-  ///   2. If TDLib has already downloaded a prefix of at least [bytes] bytes
-  ///      (via downloadedPrefixSize) → read directly from disk. This is the
-  ///      key fix: in v17 we only read from disk when the file was FULLY
-  ///      downloaded, which meant we always hit the HTTP path for streaming
-  ///      files — even when TDLib had already cached the first 2 MB.
-  ///   3. Otherwise, issue an HTTP range request via the streaming proxy.
-  ///      The proxy will trigger a TDLib download at offset 0 if none is
-  ///      active (fixed in v2.13.6 streaming_proxy_service.dart).
   static Future<Uint8List?> fetchPrefix(
     td.Message message,
     StreamingProxyService proxyService, {
@@ -46,22 +34,8 @@ class TdlibRangeFetch {
 
     if (tdFile == null) return null;
 
-    // ------------------------------------------------------------------
-    // v2.13.6 — Read directly from disk when enough prefix is available.
-    //
-    // TDLib maintains a "downloaded prefix" (downloadedPrefixSize) which is
-    // the number of bytes available from the START of the file, regardless
-    // of the current download offset. If this prefix is >= bytes, we can
-    // skip the HTTP roundtrip entirely and read from disk.
-    //
-    // This is the common case after the user has played or scrubbed through
-    // a video — TDLib keeps the first few MB cached for fast re-open.
-    // ------------------------------------------------------------------
-    final hasEnoughPrefix = tdFile.local.downloadedPrefixSize >= bytes;
-    final canReadFromDisk = tdFile.local.path.isNotEmpty &&
-        (tdFile.local.isDownloadingCompleted || hasEnoughPrefix);
-
-    if (canReadFromDisk) {
+    // Check if fully downloaded locally
+    if (tdFile.local.isDownloadingCompleted && tdFile.local.path.isNotEmpty) {
       final file = File(tdFile.local.path);
       if (await file.exists()) {
         try {
@@ -69,17 +43,11 @@ class TdlibRangeFetch {
           final data = await raf.read(bytes);
           await raf.close();
           if (data.length < bytes) {
-            Log.d('Local prefix read returned partial data: ${data.length} / $bytes bytes '
-                '(prefixSize=${tdFile.local.downloadedPrefixSize}, completed=${tdFile.local.isDownloadingCompleted})');
+            Log.d('Local prefix read returned partial data: ${data.length} / $bytes bytes');
           } else {
             Log.d('Local prefix read returned full data: ${data.length} bytes');
           }
-          // If we got partial data AND the file isn't fully downloaded,
-          // we don't have enough to parse metadata. Fall through to HTTP.
-          if (data.length >= bytes || tdFile.local.isDownloadingCompleted) {
-            return data;
-          }
-          Log.d('Local prefix was partial and file is still downloading — falling through to HTTP');
+          return data;
         } catch (e, st) {
           Log.e('Failed to read local video file prefix', e, st);
         }
@@ -99,9 +67,8 @@ class TdlibRangeFetch {
       });
       request.headers.add('Range', 'bytes=0-${bytes - 1}');
 
-      // 60s timeout — large files (1GB+) over slow connections can take
-      // 30-50 seconds to serve 2MB through the proxy on first request
-      // (TDLib needs to start the download + write bytes to disk).
+      // Increased from 30s to 60s — large files (1GB+) over slow connections
+      // can take 30-50 seconds to serve 2MB through the proxy.
       final response = await request.close().timeout(const Duration(seconds: 60));
       if (response.statusCode == HttpStatus.ok || response.statusCode == HttpStatus.partialContent) {
         final builder = BytesBuilder();
@@ -127,8 +94,6 @@ class TdlibRangeFetch {
     return null;
   }
 
-  /// Fetch the last [bytes] bytes of the file referenced by [message].
-  /// Used to find the moov atom in MP4 files where it's stored at the end.
   static Future<Uint8List?> fetchSuffix(
     td.Message message,
     StreamingProxyService proxyService, {
@@ -150,11 +115,7 @@ class TdlibRangeFetch {
 
     final startByte = totalSize - bytes;
 
-    // ------------------------------------------------------------------
-    // v2.13.6 — Read directly from disk when the file is fully downloaded.
-    // We can't use downloadedPrefixSize here because the suffix is at the
-    // END of the file, and TDLib's prefix is from the START.
-    // ------------------------------------------------------------------
+    // Check if fully downloaded locally
     if (tdFile.local.isDownloadingCompleted && tdFile.local.path.isNotEmpty) {
       final file = File(tdFile.local.path);
       if (await file.exists()) {
@@ -188,9 +149,9 @@ class TdlibRangeFetch {
       });
       request.headers.add('Range', 'bytes=$startByte-${totalSize - 1}');
 
-      // 60s timeout — suffix requests are slower because the proxy must
-      // seek to the end of the file (TDLib may need to download from
-      // scratch if the suffix isn't cached).
+      // Increased from 20s to 60s — suffix requests are slower because the
+      // proxy must seek to the end of the file (TDLib may need to download
+      // from scratch if the suffix isn't cached).
       final response = await request.close().timeout(const Duration(seconds: 60));
       if (response.statusCode == HttpStatus.ok || response.statusCode == HttpStatus.partialContent) {
         final builder = BytesBuilder();
