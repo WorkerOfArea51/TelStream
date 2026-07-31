@@ -1528,7 +1528,11 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
           // v2.13.7: was 2s — too short for slow TDLib ramp-up on mobile too.
           // Bumped to 4s so mobile also benefits from the cache-pause fix.
           nativePlayer.setProperty('cache-pause-wait', '4');
-          nativePlayer.setProperty('audio-buffer', '1.0');
+          // CRITICAL: audio-buffer MUST be 0.2 on Android!
+          // Values like 1.0 cause the Android AudioTrack to report an advanced
+          // audio clock, tricking MPV into thinking the video is severely lagging
+          // and dropping 100% of video frames (Drop: 120, Render: 0).
+          nativePlayer.setProperty('audio-buffer', '0.2');
         } else {
           // v2.13.7 — desktop 2-sec freeze (STILL broken in v2.13.6) — REAL FIX.
           //

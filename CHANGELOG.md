@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.13.7+64] - 2026-07-31
+
+### 🚑 Hotfix 5 (v2.13.7+64)
+* **Android MediaCodec Aggressive Frame Drop Fix**: Fixed a critical A/V synchronization bug introduced in `v2.13.7`. The Android AudioTrack buffer was incorrectly increased to 1.0 seconds on mobile, which caused the internal audio clock to falsely report that the video was permanently lagging. This tricked `libmpv` into dropping 100% of all decoded video frames in a futile attempt to catch up to the audio (`Drop: 120, Render: 0`), resulting in a perfect black screen with flawless audio. The audio buffer has been reverted to the correct 0.2 seconds for mobile devices, fully restoring hardware acceleration on MediaTek and Snapdragon chips.
+
 ## [2.13.7+63] - 2026-07-31
 
 ### 🚑 Hotfix 4 (v2.13.7+63)

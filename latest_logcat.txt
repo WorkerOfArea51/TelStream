@@ -1,0 +1,45 @@
+﻿
+07-31 19:21:40.775 25699 26241 I MediaCodec: [mId: 1] [video-debug-dec] Stats over last 5001ms:
+07-31 19:21:40.775 25699 26241 I MediaCodec: [mId: 1] [video-debug-dec] ClientName: com.darkmatter.telstream 
+ComponentName: c2.mtk.hevc.decoder
+07-31 19:21:40.775 25699 26241 I MediaCodec: [mId: 1] [video-debug-dec] Qinput: 126, DQinput: 127 success out of 130 
+tries
+07-31 19:21:40.775 25699 26241 I MediaCodec: [mId: 1] [video-debug-dec] Render: 0, Drop: 119, DQoutput: 120 success 
+out of 495 tries
+07-31 19:21:45.783 25699 26241 I MediaCodec: [mId: 1] [video-debug-dec] Stats over last 5008ms:
+07-31 19:21:45.783 25699 26241 I MediaCodec: [mId: 1] [video-debug-dec] ClientName: com.darkmatter.telstream 
+ComponentName: c2.mtk.hevc.decoder
+07-31 19:21:45.783 25699 26241 I MediaCodec: [mId: 1] [video-debug-dec] Qinput: 114, DQinput: 114 success out of 120 
+tries
+07-31 19:21:45.783 25699 26241 I MediaCodec: [mId: 1] [video-debug-dec] Render: 0, Drop: 121, DQoutput: 120 success 
+out of 463 tries
+07-31 19:21:50.788 25699 26241 I MediaCodec: [mId: 1] [video-debug-dec] Stats over last 5005ms:
+07-31 19:21:50.788 25699 26241 I MediaCodec: [mId: 1] [video-debug-dec] ClientName: com.darkmatter.telstream 
+ComponentName: c2.mtk.hevc.decoder
+07-31 19:21:50.788 25699 26241 I MediaCodec: [mId: 1] [video-debug-dec] Qinput: 128, DQinput: 127 success out of 139 
+tries
+07-31 19:21:50.788 25699 26241 I MediaCodec: [mId: 1] [video-debug-dec] Render: 0, Drop: 120, DQoutput: 120 success 
+out of 503 tries
+07-31 19:21:55.790 25699 26241 I MediaCodec: [mId: 1] [video-debug-dec] Stats over last 5002ms:
+07-31 19:21:55.790 25699 26241 I MediaCodec: [mId: 1] [video-debug-dec] ClientName: com.darkmatter.telstream 
+ComponentName: c2.mtk.hevc.decoder
+07-31 19:21:55.790 25699 26241 I MediaCodec: [mId: 1] [video-debug-dec] Qinput: 120, DQinput: 120 success out of 134 
+tries
+07-31 19:21:55.790 25699 26241 I MediaCodec: [mId: 1] [video-debug-dec] Render: 0, Drop: 120, DQoutput: 120 success 
+out of 480 tries
+07-31 19:22:00.800 25699 26241 I MediaCodec: [mId: 1] [video-debug-dec] Stats over last 5010ms:
+07-31 19:22:00.800 25699 26241 I MediaCodec: [mId: 1] [video-debug-dec] ClientName: com.darkmatter.telstream 
+ComponentName: c2.mtk.hevc.decoder
+07-31 19:22:00.800 25699 26241 I MediaCodec: [mId: 1] [video-debug-dec] Qinput: 118, DQinput: 119 success out of 125 
+tries
+07-31 19:22:00.800 25699 26241 I MediaCodec: [mId: 1] [video-debug-dec] Render: 0, Drop: 120, DQoutput: 120 success 
+out of 473 tries
+07-31 19:22:05.803 25699 26241 I MediaCodec: [mId: 1] [video-debug-dec] Stats over last 5003ms:
+07-31 19:22:05.803 25699 26241 I MediaCodec: [mId: 1] [video-debug-dec] ClientName: com.darkmatter.telstream 
+ComponentName: c2.mtk.hevc.decoder
+07-31 19:22:05.803 25699 26241 I MediaCodec: [mId: 1] [video-debug-dec] Qinput: 116, DQinput: 115 success out of 127 
+tries
+07-31 19:22:05.803 25699 26241 I MediaCodec: [mId: 1] [video-debug-dec] Render: 0, Drop: 120, DQoutput: 120 success 
+out of 467 tries
+
+
