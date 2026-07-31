@@ -1474,16 +1474,13 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         final hwDecMode = _storageService.getHardwareDecoderMode();
         if (Platform.isAndroid) {
           String safeMode = hwDecMode;
-          // mediacodec-copy causes severe macroblocking on Android HEVC streams due to CPU RAM bottlenecks
-          // (and on MediaTek HEVC specifically, it drops ALL frames — black screen with audio).
-          // Sanitize to 'auto' so mpv picks the best decoder for each codec.
-          // This is the WORKING logic from commit 8889634 (Jul 27) — restored after
-          // today's f20cbda commit removed it and broke playback on MediaTek devices.
-          if (safeMode == 'mediacodec-copy') {
-            safeMode = 'auto';
+          // Android black-screen bug: auto or mediacodec bypasses vo=gpu. Fix: force mediacodec-copy
+          if (safeMode == 'auto' || safeMode == 'auto-copy' || safeMode == 'mediacodec') {
+            safeMode = 'mediacodec-copy';
           }
           if (safeMode != 'no') {
             nativePlayer.setProperty('hwdec', safeMode);
+            nativePlayer.setProperty('vo', 'gpu'); // Explicitly force GPU output to fix black screen
             Log.i('Set hardware decoder mode to $safeMode on player init (Android sanitized)');
           } else {
             nativePlayer.setProperty('hwdec', 'no');
