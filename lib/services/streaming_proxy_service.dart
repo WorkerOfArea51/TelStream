@@ -364,7 +364,7 @@ _fileStates.clear();
       return;
     }
 
-    final totalSize = tdFile!.expectedSize;
+    final totalSize = tdFile.expectedSize;
     if (end == null || end >= totalSize) {
       end = totalSize - 1;
     }
@@ -406,7 +406,7 @@ _fileStates.clear();
     if (isAvailable) {
       await _serveFromDisk(
         request: request,
-        tdFile: tdFile!,
+        tdFile: tdFile,
         start: start,
         end: end,
         fileId: fileId,
@@ -416,7 +416,7 @@ _fileStates.clear();
     } else {
       await _serveWithWait(
         request: request,
-        tdFile: tdFile!,
+        tdFile: tdFile,
         start: start,
         end: end,
         fileId: fileId,
