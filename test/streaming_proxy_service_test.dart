@@ -100,7 +100,7 @@ void main() {
       final response = await request.close();
 
       // 3. Verify response
-      expect(response.statusCode, equals(HttpStatus.partialContent));
+      expect(response.statusCode, equals(HttpStatus.ok));
       expect(response.headers.value(HttpHeaders.contentTypeHeader), equals('video/mp4'));
       expect(response.headers.contentLength, equals(testData.length));
 

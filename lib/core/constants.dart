@@ -89,6 +89,31 @@ class Constants {
   }
 
   static const String changelog = '''
+  ## [2.13.7+65] - 2026-08-01
+
+  ### dYs` Hotfix 6 (v2.13.7+65)
+  * **Android Black Screen With Audio — ACTUALLY Fixed (For Real This Time)**:
+    Restored `streaming_proxy_service.dart` to v20 working version. The v23
+    rewrite shipped with a stub `fetchFile()` method hardcoded to
+    `fileId: 0`, which silently broke the auto-shift logic — TDLib was
+    never told to download at the byte offsets mpv was requesting. The
+    proxy would hang for 20 seconds per request, re-triggering
+    `DownloadFile` at the wrong offset, while mpv's audio decoder happily
+    consumed bytes from the start of the file. Result: `Render: 0, Drop: 120`
+    in MediaCodec stats — every decoded video frame dropped as "late".
+  * **Anime & More Tabs Empty/White — Fixed**: Same root cause as above.
+    The v23 `tdlib_range_fetch.dart` lost the disk-read optimization for
+    partial prefixes, so every quality-badge extraction hit the broken
+    proxy, flooding TDLib with stuck requests. Simple calls like `GetMe()`
+    and `GetChatHistory()` timed out, leaving the Anime grid and More
+    screen in their placeholder (gray/white) state. Restored
+    `tdlib_range_fetch.dart` to v20 — now reads directly from disk when
+    `downloadedPrefixSize >= bytes`, bypassing the proxy entirely for the
+    common case.
+  * **No other files changed.** `video_player_screen.dart`,
+    `cached_video_widget.dart`, and `td_thumbnail.dart` are functionally
+    identical between v20 and v23 (only comments differ).
+
 ### ✨ What's New in v2.13.7
 
 #### 🚀 Critical Playback Fixes (Real Fixes This Time)
