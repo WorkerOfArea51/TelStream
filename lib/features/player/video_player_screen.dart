@@ -1484,11 +1484,18 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
 
         final hwDecMode = _storageService.getHardwareDecoderMode();
         if (Platform.isAndroid) {
-          if (hwDecMode == 'no') {
+          String safeMode = hwDecMode;
+          // CRITICAL: Many MediaTek HEVC decoders drop 100% of frames with mediacodec-copy.
+          // Map to auto (which uses mediacodec zero-copy) to fix the black screen!
+          if (safeMode == 'mediacodec-copy') {
+            safeMode = 'auto';
+          }
+          
+          if (safeMode == 'no') {
             nativePlayer.setProperty('hwdec', 'no');
             Log.i('Hardware decoder mode is disabled (no) on player init (Android)');
           } else {
-            String mode = hwDecMode;
+            String mode = safeMode;
             if (mode == 'auto-safe' || mode == 'auto-copy') {
               mode = 'auto'; // map legacy/safe modes to auto
             }
