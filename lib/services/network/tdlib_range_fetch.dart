@@ -8,8 +8,8 @@ class TdlibRangeFetch {
   static HttpClient? _sharedClient;
   static HttpClient _client() {
     _sharedClient ??= HttpClient()
-      ..connectionTimeout = const Duration(seconds: 10)
-      ..idleTimeout = const Duration(seconds: 30);
+      ..connectionTimeout = const Duration(seconds: 15)
+      ..idleTimeout = const Duration(seconds: 60);
     return _sharedClient!;
   }
 
@@ -55,30 +55,31 @@ class TdlibRangeFetch {
     }
 
     // Attempt HTTP range request via proxy
-    HttpClient? client;
     try {
       final url = proxyService.getProxyUrl(tdFile.id);
       final headers = proxyService.getAuthHeaders();
-      
-      client = _client();
-      
+
+      final client = _client();
+
       final request = await client.getUrl(Uri.parse(url));
       headers.forEach((key, value) {
         request.headers.add(key, value);
       });
       request.headers.add('Range', 'bytes=0-${bytes - 1}');
-      
-      final response = await request.close().timeout(const Duration(seconds: 30));
+
+      // Increased from 30s to 60s — large files (1GB+) over slow connections
+      // can take 30-50 seconds to serve 2MB through the proxy.
+      final response = await request.close().timeout(const Duration(seconds: 60));
       if (response.statusCode == HttpStatus.ok || response.statusCode == HttpStatus.partialContent) {
         final builder = BytesBuilder();
         await for (final chunk in response) {
           builder.add(chunk);
           if (builder.length >= bytes) break;
         }
-        
+
         final result = builder.toBytes();
         Log.i('Proxy range prefix request received ${result.length} bytes (status: ${response.statusCode})');
-        
+
         if (result.length > bytes) {
           return result.sublist(0, bytes);
         }
@@ -88,9 +89,6 @@ class TdlibRangeFetch {
       }
     } catch (e, st) {
       Log.e('Proxy range request failed for file ${tdFile.id}', e, st);
-    } finally {
-      // Don't close the shared client — it's reused for the next call.
-      // Just close the request/response, which HttpClient handles automatically.
     }
 
     return null;
@@ -116,7 +114,7 @@ class TdlibRangeFetch {
     if (totalSize <= bytes) return null;
 
     final startByte = totalSize - bytes;
-    
+
     // Check if fully downloaded locally
     if (tdFile.local.isDownloadingCompleted && tdFile.local.path.isNotEmpty) {
       final file = File(tdFile.local.path);
@@ -139,30 +137,32 @@ class TdlibRangeFetch {
     }
 
     // Attempt HTTP range request via proxy
-    HttpClient? client;
     try {
       final url = proxyService.getProxyUrl(tdFile.id);
       final headers = proxyService.getAuthHeaders();
-      
-      client = _client();
-      
+
+      final client = _client();
+
       final request = await client.getUrl(Uri.parse(url));
       headers.forEach((key, value) {
         request.headers.add(key, value);
       });
       request.headers.add('Range', 'bytes=$startByte-${totalSize - 1}');
-      
-      final response = await request.close().timeout(const Duration(seconds: 20));
+
+      // Increased from 20s to 60s — suffix requests are slower because the
+      // proxy must seek to the end of the file (TDLib may need to download
+      // from scratch if the suffix isn't cached).
+      final response = await request.close().timeout(const Duration(seconds: 60));
       if (response.statusCode == HttpStatus.ok || response.statusCode == HttpStatus.partialContent) {
         final builder = BytesBuilder();
         await for (final chunk in response) {
           builder.add(chunk);
           if (builder.length >= bytes) break;
         }
-        
+
         final result = builder.toBytes();
         Log.i('Proxy range suffix request received ${result.length} bytes (status: ${response.statusCode})');
-        
+
         if (result.length > bytes) {
           return result.sublist(0, bytes);
         }
@@ -172,9 +172,6 @@ class TdlibRangeFetch {
       }
     } catch (e, st) {
       Log.e('Proxy range suffix request failed for file ${tdFile.id}', e, st);
-    } finally {
-      // Don't close the shared client — it's reused for the next call.
-      // Just close the request/response, which HttpClient handles automatically.
     }
 
     return null;

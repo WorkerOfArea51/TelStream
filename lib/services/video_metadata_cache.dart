@@ -27,7 +27,14 @@ class CacheMiss extends VideoMetadataCacheResult {
 class VideoMetadataCache {
   static const String _keyPrefix = 'meta_cache_';
   static const _storage = FlutterSecureStorage();
-  static const Duration _failureTtl = Duration(hours: 1);
+
+  /// Reduced from 1 hour to 5 minutes.
+  ///
+  /// The 1-hour TTL caused quality badges to stay as "..." for an entire hour
+  /// after a single transient failure (proxy not ready, network hiccup, TDLib
+  /// flood-wait). Most failures are transient — retrying after 5 minutes gives
+  /// the proxy time to recover without making the user wait too long.
+  static const Duration _failureTtl = Duration(minutes: 5);
 
   static String _getKey(int messageId) => '$_keyPrefix$messageId';
 
@@ -77,7 +84,6 @@ class VideoMetadataCache {
       final data = {
         'isFailure': true,
         'timestamp': DateTime.now().millisecondsSinceEpoch,
-        // ignore: use_null_aware_elements
         if (reason != null) 'reason': reason,
       };
       await _storage.write(key: _getKey(messageId), value: jsonEncode(data));
@@ -86,7 +92,7 @@ class VideoMetadataCache {
     }
   }
 
-  
+
   static Future<void> clearForMessage(int messageId) async {
     try {
       await _storage.delete(key: _getKey(messageId));

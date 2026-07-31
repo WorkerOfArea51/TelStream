@@ -17,7 +17,7 @@ class MkvParser {
     for (int i = 1; i < numBytes; i++) {
       value = (value << 8) | data[offset + i];
     }
-    
+
     int maxVal = (1 << (7 * numBytes)) - 1;
     if (value == maxVal) value = -1;
     return (value, numBytes);
@@ -40,7 +40,7 @@ class MkvParser {
     }
     return (value, numBytes);
   }
-  
+
   static int? readUint(Uint8List data, int offset, int size) {
     if (offset + size > data.length) return null;
     int value = 0;
@@ -77,31 +77,41 @@ class MkvParser {
       double? durationFloat;
 
       bool inSegment = false;
+      // segmentEnd = data.length means "unknown / rest of buffer"
       int segmentEnd = data.length;
 
-      while (offset < data.length) {
+      // Safety counter to avoid infinite loops on malformed data
+      int iterations = 0;
+      const int maxIterations = 100000;
+
+      while (offset < data.length && iterations < maxIterations) {
+        iterations++;
         var idRes = readId(data, offset);
         if (idRes == null) break;
         int id = idRes.$1;
         offset += idRes.$2;
-        
+
         var sizeRes = readVInt(data, offset);
         if (sizeRes == null) break;
         int size = sizeRes.$1;
         offset += sizeRes.$2;
 
         if (id == 0x18538067) {
+          // Segment element
           inSegment = true;
           if (size != -1) {
             segmentEnd = offset + size;
             if (segmentEnd > data.length) segmentEnd = data.length;
           }
+          // If size == -1 (unknown, common in streamed MKV), segmentEnd stays at data.length
           continue;
         }
 
         if (inSegment) {
           if (id == 0x1549A966) {
+            // Info element — parse duration
             int infoEnd = (size == -1) ? segmentEnd : offset + size;
+            if (infoEnd > data.length) infoEnd = data.length;
             while (offset < infoEnd) {
               var subIdRes = readId(data, offset);
               if (subIdRes == null) break;
@@ -111,7 +121,7 @@ class MkvParser {
               if (subSizeRes == null) break;
               int subSize = subSizeRes.$1;
               offset += subSizeRes.$2;
-              
+
               if (subId == 0x2AD7B1) {
                 timecodeScale = readUint(data, offset, subSize) ?? timecodeScale;
                 offset += subSize;
@@ -123,7 +133,9 @@ class MkvParser {
               }
             }
           } else if (id == 0x1654AE6B) {
+            // Tracks element — parse video track
             int tracksEnd = (size == -1) ? segmentEnd : offset + size;
+            if (tracksEnd > data.length) tracksEnd = data.length;
             while (offset < tracksEnd) {
               var subIdRes = readId(data, offset);
               if (subIdRes == null) break;
@@ -136,6 +148,7 @@ class MkvParser {
 
               if (subId == 0xAE) {
                 int entryEnd = (subSize == -1) ? tracksEnd : offset + subSize;
+                if (entryEnd > data.length) entryEnd = data.length;
                 bool isVideo = false;
                 int? w, h;
                 String? cHint;
@@ -179,7 +192,7 @@ class MkvParser {
                       if (vIdRes == null) break;
                       int vId = vIdRes.$1;
                       offset += vIdRes.$2;
-                      
+
                       var vSizeRes = readVInt(data, offset);
                       if (vSizeRes == null) break;
                       int vSize = vSizeRes.$1;
@@ -210,16 +223,16 @@ class MkvParser {
                 offset += subSize;
               }
             }
-          } else if (id == 0x1F43B675) { // Cluster - skip past it instead of breaking
-            if (size != -1) {
-              offset += size;
-            } else {
-              break;
-            }
+          } else if (id == 0x1F43B675) {
+            // Cluster element — STOP parsing. Tracks/Info always come BEFORE
+            // the first Cluster in a valid MKV. If we hit Cluster, we've passed
+            // the metadata section.
+            break;
           } else {
             if (size != -1) {
               offset += size;
             } else {
+              // Unknown size on a non-Cluster element inside Segment — stop.
               break;
             }
           }
@@ -247,7 +260,7 @@ class MkvParser {
         );
       }
     } catch (e) {
-      // Ignore
+      // Ignore — return null
     }
     return null;
   }
