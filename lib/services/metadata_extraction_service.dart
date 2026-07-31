@@ -259,7 +259,7 @@ class MetadataExtractionNotifier extends Notifier<Map<int, Episode>> {
         if (msg == null) return (null, 'message_not_found');
 
         return await _extract(source, msg, proxy);
-      } catch (e, st) {
+      } catch (e) {
         final errStr = e.toString().toLowerCase();
         if (errStr.contains('429') || errStr.contains('flood_wait') || errStr.contains('timeout')) {
           if (attempt < maxRetries) {
@@ -319,7 +319,7 @@ class MetadataExtractionNotifier extends Notifier<Map<int, Episode>> {
       } else {
         Log.w('Suffix fetch returned null or empty bytes for ${source.messageId}');
       }
-    } catch (e, st) {
+    } catch (e) {
       Log.w('Suffix extraction error for ${source.messageId} - Reason: $e');
       return (null, 'suffix_error: $e');
     }

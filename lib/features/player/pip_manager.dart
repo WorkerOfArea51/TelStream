@@ -8,6 +8,7 @@ import '../../models/video_source.dart';
 import '../../services/storage_service.dart';
 import '../../services/streaming_proxy_service.dart';
 import '../../services/tdlib_service.dart';
+import '../../core/logger.dart';
 import 'package:tdlib/td_api.dart' as td;
 
 class PlayQueueItem {
@@ -384,7 +385,7 @@ class PipController extends Notifier<PipVideoState?> {
       for (int i = 0; i < 3; i++) {
         try {
           await player.seek(Duration(seconds: position));
-        } catch (e, st) {
+        } catch (e) {
           Log.w('switchQualityInPlace seek attempt ${i + 1} failed: $e');
         }
         await Future.delayed(Duration(milliseconds: 400 + (i * 200)));

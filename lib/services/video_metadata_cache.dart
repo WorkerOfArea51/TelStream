@@ -77,6 +77,7 @@ class VideoMetadataCache {
       final data = {
         'isFailure': true,
         'timestamp': DateTime.now().millisecondsSinceEpoch,
+        // ignore: use_null_aware_elements
         if (reason != null) 'reason': reason,
       };
       await _storage.write(key: _getKey(messageId), value: jsonEncode(data));
