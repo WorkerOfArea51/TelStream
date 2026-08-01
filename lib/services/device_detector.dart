@@ -51,14 +51,14 @@ class DeviceDetector {
     final info = await _getAndroidInfo();
     if (info == null) return false;
 
-    final brand = (info.brand ?? '').toLowerCase();
-    final board = (info.board ?? '').toLowerCase();
-    final hardware = (info.hardware ?? '').toLowerCase();
-    final manufacturer = (info.manufacturer ?? '').toLowerCase();
-    final display = (info.display ?? '').toLowerCase();
-    final host = (info.host ?? '').toLowerCase();
-    final model = (info.model ?? '').toLowerCase();
-    final device = (info.device ?? '').toLowerCase();
+    final brand = info.brand.toLowerCase();
+    final board = info.board.toLowerCase();
+    final hardware = info.hardware.toLowerCase();
+    final manufacturer = info.manufacturer.toLowerCase();
+    final display = info.display.toLowerCase();
+    final host = info.host.toLowerCase();
+    final model = info.model.toLowerCase();
+    final device = info.device.toLowerCase();
 
     // Check 1: Explicit brand marking.
     if (brand.contains('mediatek') || manufacturer.contains('mediatek')) {
@@ -98,9 +98,9 @@ class DeviceDetector {
     final info = await _getAndroidInfo();
     if (info == null) return false;
 
-    final board = (info.board ?? '').toLowerCase();
-    final hardware = (info.hardware ?? '').toLowerCase();
-    final brand = (info.brand ?? '').toLowerCase();
+    final board = info.board.toLowerCase();
+    final hardware = info.hardware.toLowerCase();
+    final brand = info.brand.toLowerCase();
 
     if (board.contains('snapdragon') || board.contains('msm') ||
         board.contains('sdm') || board.contains('sm8')) {
@@ -125,10 +125,9 @@ class DeviceDetector {
     final info = await _getAndroidInfo();
     if (info == null) return 'Unknown';
 
-    final board = info.board ?? '';
-    final hardware = info.hardware ?? '';
-    final brand = info.brand ?? '';
-    final model = info.model ?? '';
+    final board = info.board;
+    final brand = info.brand;
+    final model = info.model;
 
     if (await isMediaTekSoC) {
       return 'MediaTek $board ($model)';
