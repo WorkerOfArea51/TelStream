@@ -89,6 +89,16 @@ class Constants {
   }
 
   static const String changelog = '''
+  ## [2.13.7+68] - 2026-08-01
+
+  ### 🚀 Hotfix 8 (v2.13.7+68)
+  * **Android Black Screen — Disabled Impeller (Vulkan)**:
+    Added `<meta-data android:name="io.flutter.embedding.android.EnableImpeller" android:value="false" />`
+    to `AndroidManifest.xml`. Flutter 3.16+ defaults to Impeller (Vulkan) on Android 14+,
+    but media_kit's `enableHardwareAcceleration=true` requires the Skia/GL texture path.
+    Forcing Skia fixes the black screen where MediaCodec decoded frames successfully but
+    the SurfaceTexture failed to composite with the Vulkan backend.
+
   ## [2.13.7+66] - 2026-08-01
 
   ### dYs` Hotfix 7 (v2.13.7+66)
