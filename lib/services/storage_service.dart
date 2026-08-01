@@ -128,6 +128,8 @@ class StorageService {
   Future<void> setHardwareAcceleration(bool value) => settings.setHardwareAcceleration(value);
   String getHardwareDecoderMode() => settings.getHardwareDecoderMode();
   Future<void> setHardwareDecoderMode(String value) => settings.setHardwareDecoderMode(value);
+  bool getHdrToneMappingEnabled() => settings.getHdrToneMappingEnabled();
+  Future<void> setHdrToneMappingEnabled(bool value) => settings.setHdrToneMappingEnabled(value);
   bool getVolumeBoostEnabled() => settings.getVolumeBoostEnabled();
   Future<void> setVolumeBoostEnabled(bool value) => settings.setVolumeBoostEnabled(value);
   String getNetworkProfileMode() => settings.getNetworkProfileMode();
