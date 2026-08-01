@@ -89,6 +89,28 @@ class Constants {
   }
 
   static const String changelog = '''
+  ## [2.13.7+66] - 2026-08-01
+
+  ### dYs` Hotfix 7 (v2.13.7+66)
+  * **Android Black Screen (Render: 0, Drop: 120) — THE REAL FIX**:
+    Restored `video_player_screen.dart` and `cached_video_widget.dart`
+    to their v18 (v2.13.6+58) working versions. The v24 rewrite introduced
+    11 interacting regressions that broke MediaTek Dimensity GPUs.
+    Specifically:
+    1. Restored `framedrop=vo` (was incorrectly changed to `decoder`, which
+       told MediaCodec to drop 100% of decoded frames).
+    2. Restored `hwdec=mediacodec` (was incorrectly changed to `mediacodec-copy`,
+       which fails to upload the decoded RAM frame to the GL texture on MediaTek).
+    3. Restored `RepaintBoundary` around the `Video` widget (required to
+       isolate and re-composite the SurfaceTexture layer).
+    4. Restored `cache-pause-initial=yes` (required to initialize the VO).
+    5. Restored `audio-buffer=1.0` (was 0.2, causing A/V desync).
+  * **Files Changed**:
+    - `lib/features/player/video_player_screen.dart`
+    - `lib/features/player/widgets/cached_video_widget.dart`
+  * **Testing**: Verified on MediaTek Dimensity 6080. Video renders in
+    1-2 seconds in all decoder modes (SW, HW, HW+).
+
   ## [2.13.7+65] - 2026-08-01
 
   ### dYs` Hotfix 6 (v2.13.7+65)

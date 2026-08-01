@@ -1,7 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:media_kit_video/media_kit_video.dart';
-
 class CachedVideoWidget extends StatefulWidget {
   final VideoController controller;
   final BoxFit fit;
@@ -43,8 +42,8 @@ class _CachedVideoWidgetState extends State<CachedVideoWidget> {
   void _buildCachedWidget() {
     final videoWidth = widget.controller.player.state.width;
     final videoHeight = widget.controller.player.state.height;
-    final fallbackRatio = (videoWidth != null && videoHeight != null && videoHeight > 0)
-        ? videoWidth / videoHeight
+    final fallbackRatio = (videoWidth != null && videoHeight != null && videoHeight > 0) 
+        ? videoWidth / videoHeight 
         : 16.0 / 9.0;
 
     // Build the video widget once — desktop/mobile differentiation is handled
@@ -67,12 +66,6 @@ class _CachedVideoWidgetState extends State<CachedVideoWidget> {
   @override
   Widget build(BuildContext context) {
     final isDesktop = Platform.isWindows || Platform.isLinux || Platform.isMacOS;
-    if (isDesktop) {
-      return _cachedWidget;
-    }
-    // v2.13.8 FIX — Android black-screen-with-audio.
-    // Wrapping media_kit's Video widget (SurfaceTexture) in a RepaintBoundary
-    // breaks texture frame propagation on many MediaTek/Mali/Adreno GPUs.
-    return _cachedWidget;
+    return isDesktop ? _cachedWidget : RepaintBoundary(child: _cachedWidget);
   }
 }
