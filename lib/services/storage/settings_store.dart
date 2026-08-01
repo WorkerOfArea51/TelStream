@@ -192,6 +192,26 @@ class SettingsStore {
     await save();
   }
 
+  /// Whether to apply HDR → SDR tone-mapping on Android (v3 fix for the
+  /// black-screen bug on MediaTek Mali-G57 GPUs).
+  ///
+  /// Default: `true` — required for HDR content to be visible on devices
+  /// where Flutter Impeller (Vulkan) cannot tone-map HDR External OES
+  /// textures (confirmed on Dimensity 6080 / Mali-G57 MC2).
+  ///
+  /// Users can disable this if:
+  ///   - They want to verify the fix (toggle off → black screen returns).
+  ///   - They have an HDR-capable display (currently no phones have this,
+  ///     but future devices might).
+  bool getHdrToneMappingEnabled() {
+    return data['hdr_tone_mapping_enabled'] as bool? ?? true;
+  }
+
+  Future<void> setHdrToneMappingEnabled(bool value) async {
+    data['hdr_tone_mapping_enabled'] = value;
+    await save();
+  }
+
   bool getVolumeBoostEnabled() => data['volume_boost_enabled'] as bool? ?? false;
   Future<void> setVolumeBoostEnabled(bool value) async {
     data['volume_boost_enabled'] = value;
