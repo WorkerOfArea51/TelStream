@@ -1394,8 +1394,11 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
       await player.dispose();
 
       _initialTrackSelectionDone = false;
-      // Reset HDR fallback flag for the recreated player.
-      _hdrFallbackApplied = false;
+      // NOTE: We intentionally do NOT reset _hdrFallbackApplied here.
+      // The flag must persist across player recreations so that the
+      // watchdog's Mode A (HDR proactive detection) does not re-trigger
+      // on the recreated player. The flag is only cleared when a NEW
+      // video is loaded (see _startPlayback and _initDownload).
       _initPlayerInstance();
       _setupPlayerListeners();
 
@@ -1545,7 +1548,12 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
             t.tick >= 2) {
           _watchdogHdrChecked = true;
           final isHdr = await _isCurrentVideoHdr();
-          if (isHdr && _watchdogFallbackStage == 0) {
+          // _hdrFallbackApplied guards against re-triggering Mode A after
+          // the HDR fallback has already been applied for this video.
+          // The flag persists across player recreations (it is only reset
+          // when a NEW video is loaded), so once we've switched to software
+          // decoding + tone-mapping for this content, we don't try again.
+          if (isHdr && _watchdogFallbackStage == 0 && !_hdrFallbackApplied) {
             final currentHwdec = await nativePlayer
                 .getProperty('hwdec')
                 .catchError((_) => '');
