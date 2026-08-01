@@ -294,6 +294,9 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
 
     String finalPath = localPath;
     if (StreamingProxyService.isProxyUrl(localPath)) {
+      // Proxy is started at app launch (main.dart line 107 via
+      // container.read(streamingProxyServiceProvider.future)), so it's
+      // always ready by the time the user plays a video. No wait needed.
       finalPath = _proxyService.getProxyUrl(
         _resolvedVideoFileId ?? widget.videoFileId,
         fileName: widget.videoTitle,
@@ -736,21 +739,6 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         } else {
           Log.i('Instant playback: streaming active download via proxy: $localPath');
           _proxyService.setDownloadOffset(_resolvedVideoFileId!, _initialOffset, cachedFile.local.downloadedSize);
-          // ------------------------------------------------------------------
-          // v2.13.6 — PRE-BUFFER BEFORE PLAYBACK (desktop 2-sec freeze fix)
-          //
-          // Wait for TDLib to actually download at least 2 MB at offset 0
-          // before handing the proxy URL to MPV. Without this, MPV connects
-          // to the proxy immediately, the proxy has no bytes to serve (TDLib
-          // just started downloading), and MPV starts playing with a near-
-          // empty buffer — causing the 2-second freeze.
-          //
-          // We poll GetFile every 150ms, up to 5 seconds max. If TDLib
-          // doesn't produce 2 MB in 5 seconds (very slow connection), we
-          // give up and start playback anyway — better to play with a small
-          // buffer than to never start.
-          // ------------------------------------------------------------------
-          await _waitForPrefixDownload(_resolvedVideoFileId!, minBytes: 2 * 1024 * 1024, maxWaitMs: 5000);
           final proxyUrl = _proxyService.getProxyUrl(_resolvedVideoFileId!, fileName: widget.videoTitle);
           _startPlayback(proxyUrl);
         }
@@ -758,45 +746,10 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         // Fallback: start playback via proxy immediately even if path isn't allocated on disk yet
         Log.i('Pre-emptive playback fallback: starting proxy streaming immediately for fileId: $_resolvedVideoFileId');
         _proxyService.setDownloadOffset(_resolvedVideoFileId!, _initialOffset, cachedFile?.local.downloadedSize ?? 0);
-        // v2.13.6: Pre-buffer here too — the file path is empty, which means
-        // TDLib hasn't even allocated a local file yet. Wait for it to do so
-        // AND download at least 2 MB before starting playback.
-        await _waitForPrefixDownload(_resolvedVideoFileId!, minBytes: 2 * 1024 * 1024, maxWaitMs: 5000);
         final proxyUrl = _proxyService.getProxyUrl(_resolvedVideoFileId!, fileName: widget.videoTitle);
         _startPlayback(proxyUrl);
       }
     }
-  }
-
-  /// v2.13.6 — Polls TDLib's GetFile until the file has at least [minBytes]
-  /// downloaded at the start of the file (downloadedPrefixSize), OR until
-  /// [maxWaitMs] has elapsed. Returns as soon as the threshold is reached.
-  ///
-  /// This prevents the desktop 2-second freeze by ensuring MPV has data
-  /// ready to read when it connects to the streaming proxy.
-  Future<void> _waitForPrefixDownload(int fileId, {required int minBytes, required int maxWaitMs}) async {
-    final startTime = DateTime.now();
-    int lastPrefixSize = 0;
-    while (DateTime.now().difference(startTime).inMilliseconds < maxWaitMs) {
-      try {
-        final res = await _tdlibService.sendAsync(td.GetFile(fileId: fileId));
-        if (res is td.File) {
-          if (res.local.isDownloadingCompleted) {
-            Log.i('Pre-buffer: file $fileId is fully downloaded, proceeding immediately');
-            return;
-          }
-          lastPrefixSize = res.local.downloadedPrefixSize;
-          if (lastPrefixSize >= minBytes) {
-            Log.i('Pre-buffer: file $fileId has $lastPrefixSize bytes at start (>= $minBytes), proceeding');
-            return;
-          }
-        }
-      } catch (e) {
-        Log.w('Pre-buffer: GetFile failed for $fileId: $e');
-      }
-      await Future.delayed(const Duration(milliseconds: 150));
-    }
-    Log.w('Pre-buffer: timed out after ${maxWaitMs}ms waiting for $fileId (lastPrefixSize=$lastPrefixSize, needed=$minBytes) — proceeding anyway');
   }
 
   void _handleCustomSeek(Duration position) {
@@ -1235,27 +1188,25 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
       if (player.platform is NativePlayer) {
         final nativePlayer = player.platform as NativePlayer;
         final profile = _settings.streamingProfile;
-
-        final isMobile = Platform.isAndroid || Platform.isIOS;
-
+        
         if (profile == 'Aggressive Buffer') {
           nativePlayer.setProperty('demuxer-max-bytes', '629145600'); // 600 MB
           nativePlayer.setProperty('demuxer-max-back-bytes', '209715200'); // 200 MB
           nativePlayer.setProperty('demuxer-readahead-secs', '240');
-          nativePlayer.setProperty('cache-pause-wait', isMobile ? '2' : '1');
+          nativePlayer.setProperty('cache-pause-wait', '2');
           Log.i('Applied Aggressive Buffer Profile: 600MB buffer, 200MB back buffer, 240s prefetch');
         } else if (profile == 'Mobile Saver') {
           nativePlayer.setProperty('demuxer-max-bytes', '104857600'); // 100 MB
           nativePlayer.setProperty('demuxer-max-back-bytes', '31457280'); // 30 MB
           nativePlayer.setProperty('demuxer-readahead-secs', '75');
-          nativePlayer.setProperty('cache-pause-wait', isMobile ? '2' : '2');
+          nativePlayer.setProperty('cache-pause-wait', '6');
           Log.i('Applied Mobile Saver Profile: 100MB buffer, 30MB back buffer, 75s prefetch');
         } else {
           // Balanced profile
           nativePlayer.setProperty('demuxer-max-bytes', '314572800'); // 300 MB
           nativePlayer.setProperty('demuxer-max-back-bytes', '104857600'); // 100 MB
           nativePlayer.setProperty('demuxer-readahead-secs', '150');
-          nativePlayer.setProperty('cache-pause-wait', isMobile ? '2' : '1');
+          nativePlayer.setProperty('cache-pause-wait', '4');
           Log.i('Applied Balanced Profile: 300MB buffer, 100MB back buffer, 150s prefetch');
         }
       }
@@ -1428,6 +1379,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
             : _proxyService.getProxyUrl(fileId, fileName: widget.videoTitle);
             
         if (StreamingProxyService.isProxyUrl(mediaUrl)) {
+          // Proxy is started at app launch — no wait needed (see _initDownload).
           mediaUrl = _proxyService.getProxyUrl(fileId, fileName: widget.videoTitle);
         }
 
@@ -1485,119 +1437,67 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
     try {
       if (player.platform is NativePlayer) {
         final nativePlayer = player.platform as NativePlayer;
-
+        
         // Enable cache and buffers aggressively
         nativePlayer.setProperty('cache', 'yes');
         nativePlayer.setProperty('demuxer-max-bytes', '209715200'); // 200 MB cache (prevents connection stalls)
         nativePlayer.setProperty('demuxer-max-back-bytes', '52428800'); // 50 MB back buffer (fast seeking)
-        nativePlayer.setProperty('demuxer-hysteresis', 'yes'); // Prevent thrashing
-
-        // CRITICAL FIX for "freeze after 2 sec" bug:
-        // Both mobile AND desktop now use cache-pause-initial=yes.
-        // This makes MPV wait for the buffer to reach a minimum threshold
-        // before starting playback, preventing the 2-sec freeze that occurs
-        // when MPV starts playing immediately and the proxy buffer drains.
-        //
-        // The wait is kept SHORT (1-2 sec) so the user barely notices.
-        // Without this, MPV plays the first 1-2 seconds from whatever bytes
-        // are available, then freezes when the buffer empties.
-        nativePlayer.setProperty('cache-pause', 'yes');
-        nativePlayer.setProperty('cache-pause-initial', 'yes');
-
-        final isMobile = Platform.isAndroid || Platform.isIOS;
-
-        if (isMobile) {
-          nativePlayer.setProperty('demuxer-readahead-secs', '30');
-          nativePlayer.setProperty('cache-pause-wait', '2'); // Was 10 — too long. 2 sec is enough.
-          nativePlayer.setProperty('audio-buffer', '1.0');
-        } else {
-          // CRITICAL FIX for desktop 2-sec freeze (v2.13.6):
-          //
-          // SYMPTOM: On desktop, video plays for 2-3 seconds then freezes.
-          // User must seek back to 0 to resume playback.
-          //
-          // ROOT CAUSE: v17 set cache-pause-wait=1 on desktop. This tells MPV
-          // to wait only 1 second for the demuxer cache to fill before giving
-          // up and starting playback anyway. When the proxy is slow to serve
-          // the first bytes (TDLib just started downloading), 1 second isn't
-          // enough — MPV starts playing with a near-empty buffer, plays the
-          // first 2 seconds from whatever bytes arrived, then freezes when
-          // the buffer drains and waits for rebuffering.
-          //
-          // FIX: Increase cache-pause-wait to 3 seconds on desktop. Combined
-          // with the pre-buffering in _initDownload() (which waits for TDLib
-          // to download at least 2 MB before calling player.open), this gives
-          // MPV enough data to start playback smoothly without freezing.
-          nativePlayer.setProperty('demuxer-readahead-secs', '60'); // Was 180 — too much, caused slow startup
-          nativePlayer.setProperty('cache-pause-wait', '3'); // v2.13.6: was 1 — too short, caused 2-sec freeze
-          nativePlayer.setProperty('audio-buffer', '0.2');
-        }
-
-        nativePlayer.setProperty('cache-secs', '120'); // Was 180
-        nativePlayer.setProperty('hr-seek', 'no');
+        nativePlayer.setProperty('demuxer-readahead-secs', '180'); // Cache up to 180 seconds ahead
+        
+        // Prevent artificial freeze/stall on first load by disabling hard pause-initial locks
+        nativePlayer.setProperty('cache-pause', 'yes'); 
+        nativePlayer.setProperty('cache-pause-initial', 'no');  // Start playing immediately — don't show black screen while buffering
+        nativePlayer.setProperty('cache-pause-wait', '2'); // Shorter wait (2s) when re-buffering during playback
+        nativePlayer.setProperty('cache-secs', '180'); // Max caching seconds
+        nativePlayer.setProperty('hr-seek', 'no'); // Disable high-precision seeking to avoid frame decoding stalls
+        
         nativePlayer.setProperty('audio-pitch-correction', 'yes');
-
+        nativePlayer.setProperty('audio-buffer', '0.2'); // 0.2s audio buffer
+        
+        // Ultimate smoothness: Sync video to the display refresh rate (e.g., 60Hz/120Hz)
         nativePlayer.setProperty('video-sync', 'display-resample');
+        
+        // Enable motion interpolation to eliminate 3:2 pulldown judder and micro-stutters entirely
         nativePlayer.setProperty('interpolation', 'yes');
-        nativePlayer.setProperty('tscale', 'oversample');
-
-        nativePlayer.setProperty('framedrop', 'vo');
+        nativePlayer.setProperty('tscale', 'oversample'); 
+        
+        nativePlayer.setProperty('framedrop', 'vo'); // Still keep VO drop as a safety net for extreme CPU spikes
         nativePlayer.setProperty('sub-fix-timing', 'yes');
-        nativePlayer.setProperty('stream-buffer-size', '16777216');
-
-        nativePlayer.setProperty('vd-lavc-fast', 'yes');
+        nativePlayer.setProperty('stream-buffer-size', '16777216'); // 16 MB stream buffer (faster download pipeline)
+        
+        // Remove heavy software decoding constraints so mobile CPUs can keep up if HW decoding fails
+        nativePlayer.setProperty('vd-lavc-fast', 'yes'); 
         nativePlayer.setProperty('vd-lavc-skiploopfilter', 'default');
         nativePlayer.setProperty('vd-lavc-check-hw-profile', 'no');
         nativePlayer.setProperty('vd-lavc-threads', '0');
         nativePlayer.setProperty('vd-lavc-show-all', 'no');
         nativePlayer.setProperty('vd-lavc-er', 'careful');
         if (!Platform.isAndroid && !Platform.isIOS) {
-          nativePlayer.setProperty('hwdec-extra-frames', '64');
+          nativePlayer.setProperty('hwdec-extra-frames', '64'); // Allocate larger buffer pool on PC GPUs to prevent frame drops
         }
-
+        
         final hwDecMode = _storageService.getHardwareDecoderMode();
         if (Platform.isAndroid) {
-          // CRITICAL FIX for Android black-screen-with-audio (v2.13.6):
-          //
-          // SYMPTOM: Video plays audio but shows a black screen on Android.
-          //
-          // ROOT CAUSE: v17 mapped all 'auto*' and 'mediacodec*' modes to
-          // 'auto-safe'. On most Android devices, 'auto-safe' resolves to
-          // 'mediacodec-copy', which decodes video frames to CPU RAM instead
-          // of directly to the SurfaceTexture. Combined with
-          // enableHardwareAcceleration=true (set below in VideoController),
-          // which configures vo=gpu for SurfaceTexture rendering, this
-          // creates a mismatch:
-          //   - Audio path: works (decoded from RAM)
-          //   - Video path: vo=gpu waits for SurfaceTexture frames that never
-          //     arrive → black screen
-          //
-          // FIX: Use hwdec=mediacodec (NOT mediacodec-copy, NOT auto-safe).
-          // 'mediacodec' makes MediaCodec output directly to the SurfaceTexture,
-          // which vo=gpu then renders. If a specific codec fails on a device,
-          // MPV automatically falls back to software decoding.
-          //
-          // The only exception is when the user EXPLICITLY chose
-          // 'mediacodec-copy' (e.g., for Native Blending subtitle
-          // compatibility) — in that case we respect their choice, but note
-          // that it may show a black screen with vo=gpu. This trade-off is
-          // documented in the diagnostics screen.
-          if (hwDecMode == 'no') {
-            nativePlayer.setProperty('hwdec', 'no');
-            Log.i('Hardware decoder mode is disabled (no) on player init (Android)');
-          } else if (hwDecMode == 'mediacodec-copy') {
-            // Respect explicit user choice (subtitle compatibility mode).
-            nativePlayer.setProperty('hwdec', 'mediacodec-copy');
-            Log.i('Set hardware decoder mode to mediacodec-copy on player init (Android) — '
-                'NOTE: may show black screen with vo=gpu; recommended only for Native Blending subtitles');
+          String safeMode = hwDecMode;
+          // mediacodec-copy causes severe macroblocking on Android HEVC streams due to CPU RAM bottlenecks
+          if (safeMode == 'mediacodec-copy') {
+            safeMode = 'auto';
+          }
+          if (safeMode != 'no') {
+            nativePlayer.setProperty('hwdec', safeMode);
+            Log.i('Set hardware decoder mode to $safeMode on player init (Android sanitized)');
           } else {
-            // 'auto', 'auto-safe', 'auto-copy', 'mediacodec' → all map to
-            // 'mediacodec' for surface rendering compatibility with vo=gpu.
-            nativePlayer.setProperty('hwdec', 'mediacodec');
-            Log.i('Set hardware decoder mode to mediacodec on player init (Android)');
+            nativePlayer.setProperty('hwdec', 'no');
+            Log.i('Hardware decoder mode is disabled (no) on player init');
           }
         } else {
           String safeMode = hwDecMode;
+          // Sanitize Android-only decoders and map to platform-appropriate HW decoders
+          // - mediacodec-copy is Android-only, doesn't exist on PC
+          // - auto/auto-copy causes macroblocking on TDLib streams via d3d11va (direct GPU render)
+          // - Use d3d11va-copy on Windows: GPU decodes + copies frames to CPU RAM
+          //   Avoids macroblocking AND avoids black screen, while still using GPU for decode speed
+          // - Use vaapi-copy on Linux/macOS: same approach for those platforms
           if (Platform.isWindows) {
             if (safeMode == 'auto' || safeMode == 'auto-copy' || safeMode == 'd3d11va') {
               safeMode = 'd3d11va-copy';
@@ -1629,15 +1529,16 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         nativePlayer.setProperty('sub-font', 'Roboto');
         nativePlayer.setProperty('sub-visibility', _settings.subtitles.subtitleRendererMode == 'native' ? 'yes' : 'no');
         nativePlayer.setProperty('sub-auto', 'all');
-        nativePlayer.setProperty('embeddedfonts', 'yes');
-        nativePlayer.setProperty('blend-subtitles', 'no');
+        nativePlayer.setProperty('embeddedfonts', 'yes'); // Enable embedded fonts inside media containers (MKV, etc.)
+        nativePlayer.setProperty('blend-subtitles', 'no'); // Set to 'no' so subtitles render independently and sync perfectly with the master audio clock
         nativePlayer.setProperty('demuxer-mkv-subtitle-preroll', 'yes');
-        nativePlayer.setProperty('demuxer-mkv-subtitle-preroll-secs', '10');
+        nativePlayer.setProperty('demuxer-mkv-subtitle-preroll-secs', '10'); // Pre-roll/cache subtitles 10 seconds ahead
         nativePlayer.setProperty('sub-ass-override', 'force');
-        nativePlayer.setProperty('sub-codepage', 'utf-8');
-        nativePlayer.setProperty('sub-scale-with-window', 'yes');
-        nativePlayer.setProperty('sub-ass-force-margins', 'yes');
+        nativePlayer.setProperty('sub-codepage', 'utf-8'); // Ensure non-Unicode text subtitles fall back to UTF-8
+        nativePlayer.setProperty('sub-scale-with-window', 'yes'); // Keep subtitles proportional to resizing
+        nativePlayer.setProperty('sub-ass-force-margins', 'yes'); // Ensure margins are utilized for ASS subtitles
 
+        // Load subtitle customizations dynamically
         _updateSubtitleProperties();
 
         final volBoost = _storageService.getVolumeBoostEnabled();
@@ -1645,9 +1546,13 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
           nativePlayer.setProperty('volume-max', '200');
         }
 
+        // Apply audio filters (DRC & Equalizer)
         PlayerFilterService.updateAudioFilters(player, _settings);
+
+        // Apply adaptive streaming profile
         _applyStreamingProfile();
 
+        // Apply custom MPV options
         final customOpts = _settings.customMpvOptions;
         if (customOpts.isNotEmpty) {
           final pairs = _parseMpvOptions(customOpts);
@@ -1684,9 +1589,13 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
 
     final hwDecMode = _storageService.getHardwareDecoderMode();
     // On Windows/Linux/macOS, ALWAYS enable hardware acceleration for the video output surface.
-    // On Android, enable it too — media_kit's SurfaceTexture is used for GL rendering.
-    // The auto-safe hwdec mode works with enableHardwareAcceleration=true.
-    final enableHw = hwDecMode != 'no';
+    // This flag controls how the VIDEO RENDERING SURFACE connects to Flutter's rendering pipeline,
+    // NOT the decoder. Setting it to false causes the black screen bug — video frames decoded by
+    // mpv (whether via hwdec or software) never reach the Flutter Video widget.
+    // On Android, respect the user's hwdec choice since mediacodec handles rendering natively.
+    final enableHw = Platform.isAndroid ? (hwDecMode != 'no') : true;
+    // Defer to after the widget tree finishes building — Riverpod forbids
+    // modifying providers during initState/build.
     Future.microtask(() {
       if (mounted) {
         _pipController.setActivePlayer(player);

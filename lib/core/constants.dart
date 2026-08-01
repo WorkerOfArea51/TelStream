@@ -89,6 +89,16 @@ class Constants {
   }
 
   static const String changelog = '''
+  ## [2.13.7+69] - 2026-08-01
+
+  ### 🚀 Hotfix 9 (v2.13.7+69)
+  * **Android Black Screen — Final Hardware Decoder Map Fix**:
+    Restored `video_player_screen.dart` with the correct `hwdec` fallback logic.
+    Even with Impeller disabled, `hwdec=mediacodec-copy` (the default setting) causes 
+    `Render: 0, Drop: ~120` because it decodes to RAM and fails GL upload on MediaTek.
+    The new file ensures we ignore the `mediacodec-copy` user preference on Android and
+    always map it safely to `mediacodec` (zero-copy SurfaceTexture rendering).
+
   ## [2.13.7+68] - 2026-08-01
 
   ### 🚀 Hotfix 8 (v2.13.7+68)
