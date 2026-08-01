@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../services/storage_service.dart';
 import '../settings/settings_provider.dart';
 import '../../core/utils/path_helper.dart';
+import '../../services/device_detector.dart';
+
 
 import '../../l10n/app_localizations.dart';
 
@@ -264,6 +266,24 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
               padding: const EdgeInsets.all(16.0),
               child: Column(
                 children: [
+                  
+                  FutureBuilder<String>(
+                    future: DeviceDetector.socDescription,
+                    builder: (context, snapshot) {
+                      final soc = snapshot.data ?? 'Detecting...';
+                      final isMediaTek = soc.startsWith('MediaTek');
+                      return ListTile(
+                        title: Text('SoC Vendor', style: TextStyle(color: textColor)),
+                        subtitle: Text(
+                          isMediaTek
+                              ? '$soc\nMediaTek detected — software decoding is forced for reliability.'
+                              : soc,
+                          style: TextStyle(color: isMediaTek ? Colors.orangeAccent : subTextColor, fontSize: 13),
+                        ),
+                      );
+                    },
+                  ),
+                  Divider(color: divColor),
                   _buildStatRow('Operating System', Platform.isAndroid ? 'Android' : Platform.isWindows ? 'Windows' : Platform.operatingSystem),
                   Divider(color: divColor),
                   _buildStatRow('Database Directory', _appDocsDir),

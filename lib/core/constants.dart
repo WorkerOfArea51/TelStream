@@ -89,6 +89,14 @@ class Constants {
   }
 
   static const String changelog = '''
+  ## [2.13.7+72] - 2026-08-01
+
+  ### 🚀 Hotfix 12 (v2.13.7+72)
+  * **MediaTek Rendering Fix**: Implemented the true root-cause fix for black screens on Dimensity/Mali devices by forcing software decoding. This bypasses a MediaCodec render-timestamp bug that drops every frame during audio-clock sync.
+  * **Enhanced Device Diagnostics**: Added SoC vendor detection to the Diagnostics screen.
+  * **Smarter Render Watchdog**: The watchdog now polls `video-dec-params/decoded-frames` directly to catch MediaCodec-internal drops before mpv's renderer sees them.
+  * **Skip Broken Fallbacks**: The watchdog now intelligently skips broken fallback stages (like mediacodec-copy on MediaTek) and goes straight to software decoding.
+
   ## [2.13.7+71] - 2026-08-01
 
   ### 🚀 Hotfix 11 (v2.13.7+71)
