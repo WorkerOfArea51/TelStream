@@ -89,6 +89,15 @@ class Constants {
   }
 
   static const String changelog = '''
+  ## [2.13.7+71] - 2026-08-01
+
+  ### 🚀 Hotfix 11 (v2.13.7+71)
+  * **Android Black Screen — Root-Cause Permanent Fix**:
+    - **`hwdec` mapping**: Finally mapped `mediacodec-copy` (the broken Android default) and all `auto` modes safely to `mediacodec` (zero-copy SurfaceTexture) to avoid GL→Vulkan interop bugs on MediaTek Dimensity 6080 under Impeller.
+    - **`hwdec-codecs` allowlist**: Explicitly blocks unsupported HW codecs (like AV1 on Dimensity 6080) from falling back to SW inside MediaCodec, routing them to safe lavc software decoding instead.
+    - **Desktop-only Motion Interpolation**: `video-sync=display-resample` and `interpolation=yes` are now restricted to desktop. Mobile uses rock-solid `audio` sync because battery-saver or variable refresh rates break `display-resample`.
+    - **Render Watchdog**: A runtime safety net that detects if a video decoder is stuck outputting `Render: 0` for 3 seconds. It auto-recovers by recreating the player with a fallback decoder. No more permanent black-screen regressions.
+
   ## [2.13.7+70] - 2026-08-01
 
   ### 🚀 Hotfix 10 (v2.13.7+70)

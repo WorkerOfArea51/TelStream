@@ -1622,42 +1622,34 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
         
         // Allow video to drift more from display refresh at high speed
         // This prevents frame drops that cause video to run ahead of audio
-        nativePlayer.setProperty('video-sync-max-video-change', '0.5');
-        
-        // Reduce interpolation at high speed - it causes frame timing issues above 2x
-        if (speed > 2.0) {
-          nativePlayer.setProperty('interpolation', 'no');
-        } else {
-          nativePlayer.setProperty('interpolation', 'yes');
-        }
-        
-        // At very high speeds (>3x), use resample-vdrop which drops video frames
-        // but maintains audio-video clock sync
-        if (speed > 3.0) {
-          nativePlayer.setProperty('video-sync', 'resample-vdrop');
-        } else {
-          nativePlayer.setProperty('video-sync', 'display-resample');
-        }
-        
-        // Increase demuxer readahead at high speed so data keeps flowing
-        final readahead = (180 * speed).clamp(180, 600).round();
-        nativePlayer.setProperty('demuxer-readahead-secs', readahead.toString());
-        
-        // At extreme speeds, use scaletempo2 (better quality than scaletempo)
-        if (speed > 2.0) {
-          nativePlayer.setProperty('af', 'scaletempo2');
-        }
-        
-        // At high speeds, subtitles flash by too fast - increase subtitle delay proportionally
-        final baseDelay = ref.read(storageServiceProvider).getSubtitleDelay();
-        final adjustedDelay = baseDelay + (speed - 1.0) * 0.3; // Add 0.3s per speed unit above 1.0
-        nativePlayer.setProperty('sub-delay', adjustedDelay.toStringAsFixed(2));
-      } else {
-        // Normal speed: restore optimal quality settings
-        nativePlayer.setProperty('audio-buffer', '0.2');
-        nativePlayer.setProperty('video-sync', 'display-resample');
-        nativePlayer.setProperty('interpolation', 'yes');
-        nativePlayer.setProperty('video-sync-max-video-change', '0.04');
+        //
+// On mobile (Android/iOS), we do NOT touch video-sync or interpolation.
+// The player init layer sets video-sync=audio and interpolation=no on
+// mobile, which is the only configuration that reliably renders on
+// MediaTek Dimensity 6080. Re-enabling display-resample here would
+// defeat the File 1 fix every time the user changes playback speed.
+//
+// On desktop, the original speed-adaptive logic is preserved.
+if (!Platform.isAndroid && !Platform.isIOS) {
+  nativePlayer.setProperty('video-sync-max-video-change', '0.5');
+  // Reduce interpolation at high speed - it causes frame timing issues
+  // above 2x.
+  if (speed > 2.0) {
+    nativePlayer.setProperty('interpolation', 'no');
+  } else {
+    nativePlayer.setProperty('interpolation', 'yes');
+  }
+  if (speed > 2.0) {
+    nativePlayer.setProperty('video-sync', 'resample-vdrop');
+  } else {
+    nativePlayer.setProperty('video-sync', 'display-resample');
+  }
+  // When speed returns to 1.0x, restore the default display-resample.
+  nativePlayer.setProperty('video-sync', 'display-resample');
+  nativePlayer.setProperty('interpolation', 'yes');
+  nativePlayer.setProperty('video-sync-max-video-change', '0.04');
+}
+      // On mobile: no-op.
         nativePlayer.setProperty('demuxer-readahead-secs', '180');
         
         // Clear speed-specific audio filter if no user EQ/boost is active

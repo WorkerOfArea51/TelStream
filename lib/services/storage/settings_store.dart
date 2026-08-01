@@ -166,11 +166,26 @@ class SettingsStore {
   String getHardwareDecoderMode() {
     final mode = data['hardware_decoder_mode'] as String?;
     if (mode != null) return mode;
+    // Migrated default: 'auto' instead of platform-specific copy modes.
+    //
+    // The player layer (_initPlayerInstance) normalizes 'auto' to:
+    //   - 'mediacodec'      (zero-copy SurfaceTexture) on Android
+    //   - 'd3d11va-copy'    on Windows
+    //   - 'vaapi-copy'      on Linux/macOS
+    //
+    // 'auto' is the safest default because it lets TelStream pick the
+    // best decoder for the device at runtime, rather than committing to
+    // a mode that may not work on all SoCs (e.g., 'mediacodec-copy' is
+    // broken on MediaTek Dimensity 6080 under Flutter Impeller).
+    //
+    // Existing users with an explicitly-stored value (including
+    // 'mediacodec-copy') are unaffected — their value is returned as-is
+    // and normalized by the player layer.
     final oldAcc = getHardwareAcceleration();
     if (Platform.isWindows) {
-      return oldAcc ? 'd3d11va-copy' : 'no';
+      return oldAcc ? 'auto' : 'no';
     }
-    return oldAcc ? 'mediacodec-copy' : 'no';
+    return oldAcc ? 'auto' : 'no';
   }
   Future<void> setHardwareDecoderMode(String value) async {
     data['hardware_decoder_mode'] = value;

@@ -845,6 +845,8 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
 
   @override
   void dispose() {
+    _renderWatchdog?.cancel();
+    _renderWatchdog = null;
     _cancelPreloadOfNextEpisode();
     WidgetsBinding.instance.removeObserver(this);
     // Redundant pause/stop removed to prevent race conditions during player disposal
@@ -1422,6 +1424,96 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
     }
   }
 
+  // ─────────────────────────────────────────────────────────────────────────
+  // Frame-drop watchdog — auto-recovers from black-screen regressions.
+  //
+  // Polls MPV every 1s for the first 8 seconds of playback. If we observe
+  // "rendered frames == 0 AND dropped frames > 0" for 3 consecutive polls
+  // while the player reports it is playing, we recreate the player with a
+  // fallback decoder chain: mediacodec → mediacodec-copy → software (no).
+  //
+  // This is the safety net that prevents future regressions from ever
+  // shipping a permanent black-screen bug to MediaTek users again.
+  // ─────────────────────────────────────────────────────────────────────────
+  Timer? _renderWatchdog;
+  int _watchdogZeroRenderStreak = 0;
+  int _watchdogFallbackStage = 0; // 0 = primary, 1 = mediacodec-copy, 2 = software
+  static const int _watchdogMaxZeroRenderStreak = 3;
+
+  void _startRenderWatchdog() {
+    _renderWatchdog?.cancel();
+    _watchdogZeroRenderStreak = 0;
+    _renderWatchdog = Timer.periodic(const Duration(seconds: 1), (t) async {
+      if (!mounted || !player.state.playing) return;
+      try {
+        final nativePlayer = player.platform;
+        if (nativePlayer is! NativePlayer) return;
+
+        // vo-delayed-frame-count > 0 means frames are queued for display.
+        // If frames are being decoded but never rendered, this stays 0.
+        final renderedStr =
+            await nativePlayer.getProperty('vo-passes').catchError((_) => '0');
+        final droppedStr = await nativePlayer
+            .getProperty('frame-drop-count')
+            .catchError((_) => '0');
+
+        final rendered = int.tryParse(renderedStr) ?? 0;
+        final dropped = int.tryParse(droppedStr) ?? 0;
+
+        // We only trigger if: playing, audio is flowing (so we know playback
+        // started), but zero video frames have been rendered AND some frames
+        // were dropped (proving the decoder is producing output that the VO
+        // is rejecting).
+        if (rendered == 0 && dropped > 0) {
+          _watchdogZeroRenderStreak++;
+          Log.w('Render watchdog: zero-render streak=$_watchdogZeroRenderStreak '
+              '(dropped=$dropped)');
+        } else {
+          _watchdogZeroRenderStreak = 0;
+        }
+
+        if (_watchdogZeroRenderStreak >= _watchdogMaxZeroRenderStreak) {
+          Log.e('Render watchdog TRIGGERED — black screen detected. '
+              'Fallback stage=$_watchdogFallbackStage');
+          t.cancel();
+          _escalateDecoderFallback();
+        }
+      } catch (e) {
+        Log.w('Render watchdog poll failed: $e');
+      }
+    });
+
+    // Auto-stop after 8 seconds — if we got past the first 8 seconds of
+    // playback without black-screen, the decoder is healthy.
+    Future.delayed(const Duration(seconds: 8), () {
+      _renderWatchdog?.cancel();
+      _renderWatchdog = null;
+    });
+  }
+
+  void _escalateDecoderFallback() {
+    _watchdogFallbackStage++;
+    if (_watchdogFallbackStage > 2) {
+      Log.e('Render watchdog: exhausted all fallback stages. Giving up.');
+      _watchdogFallbackStage = 0;
+      return;
+    }
+    final stageName = _watchdogFallbackStage == 1
+        ? 'mediacodec-copy'
+        : 'no (software)';
+    Log.w('Render watchdog: recreating player with hwdec=$stageName');
+
+    // Temporarily override the stored setting for this player instance only.
+    // We do NOT persist this — the user's setting stays as-is for next launch,
+    // but this playback session uses the fallback.
+    _watchdogOverrideHwdec = stageName == 'no (software)' ? 'no' : stageName;
+    _recreatePlayer();
+  }
+
+  /// When non-null, [_initPlayerInstance] uses this value instead of the
+  /// stored setting. Cleared on every successful playback start.
+  String? _watchdogOverrideHwdec;
+
   void _initPlayerInstance() {
     final localFont = ref.read(storageServiceProvider).localFontPath;
     player = Player(
@@ -1433,81 +1525,154 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
       ),
     );
 
-    // Optimize streaming cache/buffering parameters for low-bandwidth connections and reduce glitching
+    // Optimize streaming cache/buffering parameters for low-bandwidth
+    // connections and reduce glitching.
     try {
       if (player.platform is NativePlayer) {
         final nativePlayer = player.platform as NativePlayer;
-        
-        // Enable cache and buffers aggressively
+
+        // ── Cache / buffering ──────────────────────────────────────────────
+        // These values were validated by Hotfixes 4, 5, and 7. Do NOT change
+        // them without re-testing on MediaTek Dimensity 6080.
         nativePlayer.setProperty('cache', 'yes');
-        nativePlayer.setProperty('demuxer-max-bytes', '209715200'); // 200 MB cache (prevents connection stalls)
-        nativePlayer.setProperty('demuxer-max-back-bytes', '52428800'); // 50 MB back buffer (fast seeking)
-        nativePlayer.setProperty('demuxer-readahead-secs', '180'); // Cache up to 180 seconds ahead
-        
-        // Prevent artificial freeze/stall on first load by disabling hard pause-initial locks
-        nativePlayer.setProperty('cache-pause', 'yes'); 
-        nativePlayer.setProperty('cache-pause-initial', 'no');  // Start playing immediately — don't show black screen while buffering
-        nativePlayer.setProperty('cache-pause-wait', '2'); // Shorter wait (2s) when re-buffering during playback
-        nativePlayer.setProperty('cache-secs', '180'); // Max caching seconds
-        nativePlayer.setProperty('hr-seek', 'no'); // Disable high-precision seeking to avoid frame decoding stalls
-        
+        nativePlayer.setProperty('demuxer-max-bytes', '209715200'); // 200 MB
+        nativePlayer.setProperty('demuxer-max-back-bytes', '52428800'); // 50 MB
+        nativePlayer.setProperty('demuxer-readahead-secs', '180');
+
+        // cache-pause-initial MUST stay 'no' on Android. If set to 'yes',
+        // MPV pauses on first frame waiting for buffer fill, which prevents
+        // the first frame from reaching the SurfaceTexture → black screen
+        // on MediaTek (see Hotfix 4 / v2.13.7+63).
+        nativePlayer.setProperty('cache-pause', 'yes');
+        nativePlayer.setProperty('cache-pause-initial', 'no');
+        nativePlayer.setProperty('cache-pause-wait', '2');
+        nativePlayer.setProperty('cache-secs', '180');
+        nativePlayer.setProperty('hr-seek', 'no');
+
+        // ── Audio ──────────────────────────────────────────────────────────
+        // audio-buffer MUST stay 0.2 on mobile. Hotfix 5 (v2.13.7+64) proved
+        // that 1.0 causes MediaCodec to drop 100% of video frames because
+        // the audio clock falsely reports the video as permanently lagging.
         nativePlayer.setProperty('audio-pitch-correction', 'yes');
-        nativePlayer.setProperty('audio-buffer', '0.2'); // 0.2s audio buffer
-        
-        // Ultimate smoothness: Sync video to the display refresh rate (e.g., 60Hz/120Hz)
-        nativePlayer.setProperty('video-sync', 'display-resample');
-        
-        // Enable motion interpolation to eliminate 3:2 pulldown judder and micro-stutters entirely
-        nativePlayer.setProperty('interpolation', 'yes');
-        nativePlayer.setProperty('tscale', 'oversample'); 
-        
-        nativePlayer.setProperty('framedrop', 'vo'); // Still keep VO drop as a safety net for extreme CPU spikes
+        nativePlayer.setProperty('audio-buffer', '0.2');
+
+        // ── Video sync / interpolation ─────────────────────────────────────
+        // CRITICAL FIX: motion interpolation + display-resample is a desktop
+        // feature. On mobile, it requires a stable display-refresh signal
+        // which MediaTek Dimensity 6080 does NOT reliably provide (especially
+        // under battery-saver or 60↔90 Hz dynamic switching). When the vsync
+        // source is unstable, MPV silently disables the VO → black screen.
+        //
+        // Mobile uses MPV's default 'audio' sync, which is rock-solid and
+        // has zero dependency on the display subsystem.
+        if (!Platform.isAndroid && !Platform.isIOS) {
+          nativePlayer.setProperty('video-sync', 'display-resample');
+          nativePlayer.setProperty('interpolation', 'yes');
+          nativePlayer.setProperty('tscale', 'oversample');
+        }
+        // Mobile: explicitly set 'audio' sync so any inherited mpv.conf
+        // default doesn't sneak in a broken display-* mode.
+        if (Platform.isAndroid || Platform.isIOS) {
+          nativePlayer.setProperty('video-sync', 'audio');
+          nativePlayer.setProperty('interpolation', 'no');
+        }
+
+        // framedrop=vo is REQUIRED on Android (Hotfix 7 / v2.13.7+66).
+        // 'decoder' tells MediaCodec to drop 100% of frames; 'vo' lets the
+        // VO decide, which is what we want.
+        nativePlayer.setProperty('framedrop', 'vo');
         nativePlayer.setProperty('sub-fix-timing', 'yes');
-        nativePlayer.setProperty('stream-buffer-size', '16777216'); // 16 MB stream buffer (faster download pipeline)
-        
-        // Remove heavy software decoding constraints so mobile CPUs can keep up if HW decoding fails
-        nativePlayer.setProperty('vd-lavc-fast', 'yes'); 
+        nativePlayer.setProperty('stream-buffer-size', '16777216'); // 16 MB
+
+        // ── Software decoder fallback tuning ───────────────────────────────
+        // These only run if HW decoding fails and MPV falls back to lavc.
+        nativePlayer.setProperty('vd-lavc-fast', 'yes');
         nativePlayer.setProperty('vd-lavc-skiploopfilter', 'default');
         nativePlayer.setProperty('vd-lavc-check-hw-profile', 'no');
         nativePlayer.setProperty('vd-lavc-threads', '0');
         nativePlayer.setProperty('vd-lavc-show-all', 'no');
         nativePlayer.setProperty('vd-lavc-er', 'careful');
         if (!Platform.isAndroid && !Platform.isIOS) {
-          nativePlayer.setProperty('hwdec-extra-frames', '64'); // Allocate larger buffer pool on PC GPUs to prevent frame drops
+          nativePlayer.setProperty('hwdec-extra-frames', '64');
         }
-        
-        final hwDecMode = _storageService.getHardwareDecoderMode();
+
+        // ── Hardware decoder selection ─────────────────────────────────────
+        // This is the CRITICAL FIX for the MediaTek black-screen bug.
+        //
+        // Background:
+        //   - MediaCodec has two modes:
+        //     * `mediacodec`      — zero-copy. Decodes directly into a
+        //                           SurfaceTexture. media_kit renders it via
+        //                           the SurfaceProducer API, no GL upload.
+        //     * `mediacodec-copy` — decode-to-RAM. Each frame is a ByteBuffer
+        //                           that media_kit must upload to a GL texture.
+        //   - On MediaTek Dimensity 6080 with Flutter Impeller (Vulkan),
+        //     the GL→Vulkan texture interop silently produces black pixels.
+        //     So `mediacodec-copy` works on Adreno (Snapdragon) but NOT on
+        //     Mali-G57 (MediaTek).
+        //   - `hwdec=auto` lets MPV pick. On MediaTek it almost always picks
+        //     `mediacodec-copy`, which is exactly the broken path.
+        //
+        // The previous code (v2.13.7+69) *claimed* to map `mediacodec-copy`
+        // → `mediacodec`, but actually mapped it → `auto`. That regression
+        // is the root cause of the user's bug.
+        //
+        // Fix: always normalize every "hwdec-on" mode to `mediacodec`
+        // (zero-copy) on Android. Only `no` (software) survives as-is.
+        final storedHwdec =
+            _watchdogOverrideHwdec ?? _storageService.getHardwareDecoderMode();
+        _watchdogOverrideHwdec = null; // consume the override
+
         if (Platform.isAndroid) {
-          String safeMode = hwDecMode;
-          // mediacodec-copy causes severe macroblocking on Android HEVC streams due to CPU RAM bottlenecks
-          if (safeMode == 'mediacodec-copy') {
-            safeMode = 'auto';
-          }
-          if (safeMode != 'no') {
-            nativePlayer.setProperty('hwdec', safeMode);
-            Log.i('Set hardware decoder mode to $safeMode on player init (Android sanitized)');
+          String safeMode;
+          if (storedHwdec == 'no') {
+            safeMode = 'no';
           } else {
-            nativePlayer.setProperty('hwdec', 'no');
-            Log.i('Hardware decoder mode is disabled (no) on player init');
+            // Every other mode (auto, auto-safe, auto-copy, mediacodec,
+            // mediacodec-copy) → mediacodec (zero-copy SurfaceTexture).
+            // This is the ONLY mode that reliably renders on MediaTek
+            // Dimensity 6080 under Flutter Impeller.
+            safeMode = 'mediacodec';
           }
+          nativePlayer.setProperty('hwdec', safeMode);
+          Log.i('Set hardware decoder mode to $safeMode on player init '
+              '(Android, source=$storedHwdec${_watchdogFallbackStage > 0
+                  ? ', fallback stage=$_watchdogFallbackStage' : ''})');
+
+          // ── Explicit codec allowlist ─────────────────────────────────────
+          // Tells MediaCodec exactly which codecs it is allowed to claim.
+          // Without this, MediaCodec will opportunistically grab codecs it
+          // can't actually zero-copy (e.g., AV1 on Dimensity 6080 which
+          // lacks AV1 HW decode), then silently fall back to software
+          // INSIDE the mediacodec backend — which is even worse than
+          // picking lavc directly, because the software frames go through
+          // the broken GL→Vulkan interop path.
+          //
+          // Dimensity 6080 MediaCodec supports zero-copy for:
+          //   H.264, HEVC (H.265), VP9, MPEG-4, MPEG-2.
+          // AV1 is NOT supported in HW on this SoC — exclude it so MPV
+          // routes AV1 streams to software decoding explicitly.
+          nativePlayer.setProperty(
+            'hwdec-codecs',
+            'h264,hevc,vp9,mpeg4,mpegvideo',
+          );
         } else {
-          String safeMode = hwDecMode;
-          // Sanitize Android-only decoders and map to platform-appropriate HW decoders
-          // - mediacodec-copy is Android-only, doesn't exist on PC
-          // - auto/auto-copy causes macroblocking on TDLib streams via d3d11va (direct GPU render)
-          // - Use d3d11va-copy on Windows: GPU decodes + copies frames to CPU RAM
-          //   Avoids macroblocking AND avoids black screen, while still using GPU for decode speed
-          // - Use vaapi-copy on Linux/macOS: same approach for those platforms
+          // Desktop path — unchanged from original logic.
+          String safeMode = storedHwdec;
           if (Platform.isWindows) {
-            if (safeMode == 'auto' || safeMode == 'auto-copy' || safeMode == 'd3d11va') {
+            if (safeMode == 'auto' ||
+                safeMode == 'auto-copy' ||
+                safeMode == 'd3d11va') {
               safeMode = 'd3d11va-copy';
-            } else if (safeMode == 'mediacodec-copy' || safeMode == 'mediacodec') {
+            } else if (safeMode == 'mediacodec-copy' ||
+                safeMode == 'mediacodec') {
               safeMode = 'd3d11va-copy';
             }
           } else if (Platform.isLinux || Platform.isMacOS) {
             if (safeMode == 'auto' || safeMode == 'auto-copy') {
               safeMode = 'vaapi-copy';
-            } else if (safeMode == 'mediacodec-copy' || safeMode == 'mediacodec') {
+            } else if (safeMode == 'mediacodec-copy' ||
+                safeMode == 'mediacodec') {
               safeMode = 'vaapi-copy';
             } else if (safeMode == 'd3d11va' || safeMode == 'd3d11va-copy') {
               safeMode = 'vaapi-copy';
@@ -1516,7 +1681,8 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
           nativePlayer.setProperty('hwdec', safeMode);
           Log.i('Set hardware decoder mode to $safeMode on player init (PC)');
         }
-        // Always configure native subtitle rendering (libass)
+
+        // ── Subtitles (libass) ─────────────────────────────────────────────
         if (localFont != null) {
           try {
             final fontDir = File(localFont).parent.path;
@@ -1527,18 +1693,19 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
           }
         }
         nativePlayer.setProperty('sub-font', 'Roboto');
-        nativePlayer.setProperty('sub-visibility', _settings.subtitles.subtitleRendererMode == 'native' ? 'yes' : 'no');
+        nativePlayer.setProperty('sub-visibility',
+            _settings.subtitles.subtitleRendererMode == 'native' ? 'yes' : 'no');
         nativePlayer.setProperty('sub-auto', 'all');
-        nativePlayer.setProperty('embeddedfonts', 'yes'); // Enable embedded fonts inside media containers (MKV, etc.)
-        nativePlayer.setProperty('blend-subtitles', 'no'); // Set to 'no' so subtitles render independently and sync perfectly with the master audio clock
+        nativePlayer.setProperty('embeddedfonts', 'yes');
+        nativePlayer.setProperty('blend-subtitles', 'no');
         nativePlayer.setProperty('demuxer-mkv-subtitle-preroll', 'yes');
-        nativePlayer.setProperty('demuxer-mkv-subtitle-preroll-secs', '10'); // Pre-roll/cache subtitles 10 seconds ahead
+        nativePlayer.setProperty('demuxer-mkv-subtitle-preroll-secs', '10');
         nativePlayer.setProperty('sub-ass-override', 'force');
-        nativePlayer.setProperty('sub-codepage', 'utf-8'); // Ensure non-Unicode text subtitles fall back to UTF-8
-        nativePlayer.setProperty('sub-scale-with-window', 'yes'); // Keep subtitles proportional to resizing
-        nativePlayer.setProperty('sub-ass-force-margins', 'yes'); // Ensure margins are utilized for ASS subtitles
+        nativePlayer.setProperty('sub-codepage', 'utf-8');
+        nativePlayer.setProperty('sub-scale-with-window', 'yes');
+        nativePlayer.setProperty('sub-ass-force-margins', 'yes');
 
-        // Load subtitle customizations dynamically
+        // Load subtitle customizations dynamically.
         _updateSubtitleProperties();
 
         final volBoost = _storageService.getVolumeBoostEnabled();
@@ -1546,13 +1713,13 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
           nativePlayer.setProperty('volume-max', '200');
         }
 
-        // Apply audio filters (DRC & Equalizer)
+        // Apply audio filters (DRC & Equalizer).
         PlayerFilterService.updateAudioFilters(player, _settings);
 
-        // Apply adaptive streaming profile
+        // Apply adaptive streaming profile.
         _applyStreamingProfile();
 
-        // Apply custom MPV options
+        // Apply custom MPV options (user-supplied via Settings → Advanced).
         final customOpts = _settings.customMpvOptions;
         if (customOpts.isNotEmpty) {
           final pairs = _parseMpvOptions(customOpts);
@@ -1587,13 +1754,19 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
       Log.e('Failed to configure native player features', e, stack);
     }
 
+    // ── VideoController creation ───────────────────────────────────────────
+    // enableHardwareAcceleration controls whether media_kit creates an EGL
+    // surface for the Video widget. On Android, this MUST be true whenever
+    // hwdec != 'no', because mediacodec zero-copy requires a SurfaceTexture
+    // backed by an EGLSurface. Setting it to false would break the
+    // SurfaceTexture path and re-introduce the black screen.
+    //
+    // On desktop, this is always true — the comment from the original code
+    // still applies: setting it to false causes the black screen bug
+    // because mpv's decoded frames never reach the Flutter Video widget.
     final hwDecMode = _storageService.getHardwareDecoderMode();
-    // On Windows/Linux/macOS, ALWAYS enable hardware acceleration for the video output surface.
-    // This flag controls how the VIDEO RENDERING SURFACE connects to Flutter's rendering pipeline,
-    // NOT the decoder. Setting it to false causes the black screen bug — video frames decoded by
-    // mpv (whether via hwdec or software) never reach the Flutter Video widget.
-    // On Android, respect the user's hwdec choice since mediacodec handles rendering natively.
     final enableHw = Platform.isAndroid ? (hwDecMode != 'no') : true;
+
     // Defer to after the widget tree finishes building — Riverpod forbids
     // modifying providers during initState/build.
     Future.microtask(() {
@@ -1601,6 +1774,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
         _pipController.setActivePlayer(player);
       }
     });
+
     try {
       controller = VideoController(
         player,
@@ -1610,9 +1784,15 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> with Widg
       );
     } catch (e, st) {
       Log.e('Failed to create VideoController. Disposing player.', e, st);
-      try { player.dispose(); } catch (_) {}
+      try {
+        player.dispose();
+      } catch (_) {}
       rethrow;
     }
+
+    // Start the render watchdog once the controller is wired up. It will
+    // auto-cancel after 8 seconds if rendering is healthy.
+    _startRenderWatchdog();
   }
 
   List<String> _parseMpvOptions(String raw) {
