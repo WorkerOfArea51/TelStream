@@ -89,6 +89,17 @@ class Constants {
   }
 
   static const String changelog = '''
+  ## [2.13.7+70] - 2026-08-01
+
+  ### 🚀 Hotfix 10 (v2.13.7+70)
+  * **Android Black Screen — Re-enabled Impeller (Vulkan)**:
+    Removed the Impeller opt-out (`EnableImpeller=false`) from `AndroidManifest.xml`.
+    It turns out disabling Impeller on Flutter 3.44+ breaks `media_kit`'s external
+    GL texture sampling on MediaTek Dimensity 6080 GPUs (resulting in Skia sampling
+    black pixels even when frames are successfully flowing through the SurfaceTexture).
+    With the `hwdec=mediacodec` fix successfully rendering frames (`Render: 120, Drop: 0`),
+    re-enabling Impeller allows the Vulkan compositor to properly display them.
+
   ## [2.13.7+69] - 2026-08-01
 
   ### 🚀 Hotfix 9 (v2.13.7+69)
