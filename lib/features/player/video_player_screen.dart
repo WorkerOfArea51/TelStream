@@ -1969,7 +1969,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
             // CRITICAL FIX: explicitly force vo=gpu to fix black screen.
             // This was removed on July 30 and caused 3 days of black screens
             // because it allowed mpv to choose the wrong video output.
-            nativePlayer.setProperty('vo', 'gpu');
+            // nativePlayer.setProperty('vo', 'gpu'); // REMOVED: causes mpv initialization crash with latest media_kit
             actualHwdec = safeMode;
             Log.i('Set hardware decoder mode to $safeMode + vo=gpu on player init (Android)');
           } else {
