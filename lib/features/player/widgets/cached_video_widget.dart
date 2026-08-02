@@ -6,16 +6,19 @@ import 'package:media_kit_video/media_kit_video.dart';
 /// compositing wrappers.
 ///
 /// ── Why RepaintBoundary on mobile? ─────────────────────────────────────────
-/// On Android, media_kit's `Video` widget is backed by a `SurfaceTexture`
-/// that receives frames from MediaCodec. The `SurfaceTexture` updates
-/// asynchronously on the GPU thread. Without a `RepaintBoundary`, Flutter's
-/// dirty-region propagation can skip the texture update notification,
-/// causing the layer to display a stale (or initial black) frame forever.
+/// On Android, media_kit's `Video` widget may be backed by a `SurfaceTexture`
+/// (when enableHardwareAcceleration=true / hwdec=mediacodec zero-copy) or by
+/// a CPU pixel buffer (when enableHardwareAcceleration=false / hwdec=mediacodec-
+/// copy or hwdec=no). With `mediacodec-copy`, the `SurfaceTexture` is NOT used
+/// for the Video widget — instead, mpv's GPU VO renders frames to its own GL
+/// framebuffer and the Video widget reads them from the CPU buffer.
 ///
-/// `RepaintBoundary` forces Flutter to treat the `Video` widget as an
-/// independent compositing layer. This isolates the SurfaceTexture updates
-/// from the rest of the widget tree and guarantees that every texture
-/// update triggers a layer recomposite.
+/// Without a `RepaintBoundary`, Flutter's dirty-region propagation can skip
+/// the texture update notification, causing the layer to display a stale (or
+/// initial black) frame forever. `RepaintBoundary` forces Flutter to treat the
+/// `Video` widget as an independent compositing layer. This isolates the
+/// updates from the rest of the widget tree and guarantees that every texture
+/// or buffer update triggers a layer recomposite.
 ///
 /// DO NOT REMOVE THE RepaintBoundary ON MOBILE. Removing it re-introduces
 /// the black-screen bug documented in TelStream v2.13.7+60 (Hotfix) and

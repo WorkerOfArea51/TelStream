@@ -1845,6 +1845,11 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
 
     // Optimize streaming cache/buffering parameters for low-bandwidth
     // connections and reduce glitching.
+
+    // Track the actual hwdec mode that will be set — needed later by
+    // VideoController creation to decide enableHardwareAcceleration.
+    String actualHwdec = 'auto';
+
     try {
       if (player.platform is NativePlayer) {
         final nativePlayer = player.platform as NativePlayer;
@@ -1923,9 +1928,13 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
         // routes frames through mpv's gpu VO for tone-mapping (HDR→SDR).
         //
         // With Impeller disabled (AndroidManifest.xml), the Skia renderer
-        // correctly composites SurfaceTexture-backed textures, so both
-        // `mediacodec` and `mediacodec-copy` paths work. We keep
-        // `mediacodec-copy` as the default because it enables tone-mapping.
+        // correctly composites textures from media_kit. With
+        // enableHardwareAcceleration=false in VideoControllerConfiguration
+        // (set below), the Video widget uses the CPU pixel buffer path,
+        // which correctly receives frames from mpv's GPU VO output.
+        //
+        // We keep `mediacodec-copy` as the default because it enables
+        // tone-mapping.
         final storedHwdec = _watchdogOverrideHwdec ??
             _storageService.getHardwareDecoderMode();
         _watchdogOverrideHwdec = null; // consume the override
@@ -1954,6 +1963,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
           }
 
           nativePlayer.setProperty('hwdec', safeMode);
+          actualHwdec = safeMode; // Save for VideoController creation below
           Log.i('Set hardware decoder mode to $safeMode on player init '
               '(Android, SoC=$socDesc, source=$storedHwdec'
               '${_watchdogFallbackStage > 0 ? ', fallback stage=$_watchdogFallbackStage' : ''})');
@@ -1972,7 +1982,8 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
           // With `mediacodec-copy`, frames go through mpv's gpu VO which
           // applies these tone-mapping properties. For SDR content they are
           // no-ops (same primaries/transfer). For HDR content they convert
-          // PQ → BT.1886 SDR so Impeller/Skia can display the frames.
+          // PQ → BT.1886 SDR so Skia can display the frames via the CPU
+          // pixel buffer path.
           if (_storageService.getHdrToneMappingEnabled()) {
             nativePlayer.setProperty('target-prim', 'bt709');
             nativePlayer.setProperty('target-trc', 'bt1886');
@@ -2021,6 +2032,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
             }
           }
           nativePlayer.setProperty('hwdec', safeMode);
+          actualHwdec = safeMode; // Save for VideoController creation below
           Log.i('Set hardware decoder mode to $safeMode on player init (PC)');
         }
 
@@ -2103,16 +2115,39 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
 
     // ── VideoController creation ───────────────────────────────────────────
     // enableHardwareAcceleration controls whether media_kit creates an EGL
-    // surface for the Video widget. On Android, this MUST be true whenever
-    // hwdec != 'no', because mediacodec zero-copy requires a SurfaceTexture
-    // backed by an EGLSurface. Setting it to false would break the
-    // SurfaceTexture path and re-introduce the black screen.
+    // SurfaceTexture for the Video widget.
+    //
+    // The correct value depends on the hwdec mode that was actually set above:
+    //
+    //   hwdec=mediacodec (zero-copy):
+    //     MediaCodec decodes directly INTO the Video widget's SurfaceTexture.
+    //     enableHardwareAcceleration MUST be true — the SurfaceTexture IS the
+    //     output surface. Setting it to false would break the zero-copy path.
+    //
+    //   hwdec=mediacodec-copy (copy-back):
+    //     MediaCodec decodes to its own SurfaceTexture, then mpv copies the
+    //     frames through its GPU VO for tone-mapping. The output goes to mpv's
+    //     internal GL framebuffer, NOT to the Video widget's EGL SurfaceTexture.
+    //     enableHardwareAcceleration MUST be false — the Video widget must use
+    //     the CPU pixel buffer path, which correctly receives frames from mpv's
+    //     GPU VO output. Setting it to true creates an EGL SurfaceTexture that
+    //     never receives frames → black screen on Mali-G57 MC2 and similar GPUs.
+    //
+    //   hwdec=no (software):
+    //     Frames are decoded by libavcodec and go through mpv's GPU VO → CPU
+    //     buffer. Same as mediacodec-copy: enableHardwareAcceleration MUST be
+    //     false.
     //
     // On desktop, this is always true — setting it to false causes the black
-    // screen bug because mpv's decoded frames never reach the Flutter Video
-    // widget.
-    final hwDecMode = _storageService.getHardwareDecoderMode();
-    final enableHw = Platform.isAndroid ? (hwDecMode != 'no') : true;
+    //     screen bug because mpv's decoded frames never reach the Flutter Video
+    //     widget.
+    //
+    // NOTE: We use actualHwdec (the mode that was actually set on the native
+    // player) rather than the stored setting, because the code above may
+    // override the stored setting (e.g., forcing mediacodec-copy on Android).
+    final enableHw = Platform.isAndroid
+        ? (actualHwdec == 'mediacodec')
+        : true;
 
     // Defer to after the widget tree finishes building — Riverpod forbids
     // modifying providers during initState/build.

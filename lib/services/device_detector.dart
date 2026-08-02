@@ -8,23 +8,34 @@ import 'package:device_info_plus/device_info_plus.dart';
 ///
 /// ── Why this exists ─────────────────────────────────────────────────────────
 /// The MediaTek Dimensity 6080 (and many other MediaTek SoCs with Mali-G57
-/// and earlier GPUs) have two known bugs in their MediaCodec implementation:
+/// and earlier GPUs) have known issues with the media_kit rendering pipeline:
 ///
 ///   1. `c2.mtk.*.decoder` drops every frame in zero-copy mode (`hwdec=
 ///      mediacodec`) when mpv's audio clock drifts ahead of the video clock
 ///      during the first-frame warmup. MediaTek's decoder has ZERO tolerance
 ///      for late render timestamps, unlike Qualcomm's ~100ms tolerance.
 ///
-///   2. The GL→Vulkan texture interop (used by Flutter Impeller) is broken
-///      on Mali-G57 MC2 drivers, so `mediacodec-copy` (decode-to-RAM + GL
-///      upload) renders black under Impeller.
+///   2. `hwdec=mediacodec-copy` with `enableHardwareAcceleration=true` in
+///      VideoControllerConfiguration creates an EGL SurfaceTexture for the
+///      Video widget, but mpv's GPU VO renders to its own GL framebuffer —
+///      the frames never reach the Video widget's SurfaceTexture → black
+///      screen. The fix is `enableHardwareAcceleration=false` so the Video
+///      widget uses the CPU pixel buffer path instead.
 ///
-/// The only reliable decoder path on these devices is SOFTWARE decoding
-/// (`hwdec=no`), which avoids both MediaCodec and the GL→Vulkan interop.
+///   3. The GL→Vulkan texture interop (used by Flutter Impeller) is broken
+///      on Mali-G57 MC2 drivers, so any SurfaceTexture-backed rendering
+///      produces black under Impeller. Disabling Impeller in AndroidManifest.xml
+///      forces Skia which handles SurfaceTextures correctly.
 ///
-/// This class detects MediaTek SoCs at runtime so the player can force
-/// software decoding automatically, without requiring the user to manually
-/// change the setting.
+/// With both fixes (Impeller disabled + enableHardwareAcceleration=false for
+/// mediacodec-copy), the reliable decoder path on these devices is:
+///   hwdec=mediacodec-copy (hardware decode + tone-mapping) with CPU buffer
+///   output to the Video widget.
+///
+/// This class detects MediaTek SoCs at runtime for diagnostics logging.
+/// The decoder selection logic in video_player_screen.dart now uses
+/// enableHardwareAcceleration=false for all non-zero-copy modes, so
+/// MediaTek-specific software decoding is no longer forced.
 class DeviceDetector {
   DeviceDetector._();
 
