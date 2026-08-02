@@ -2165,7 +2165,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
 
     // Defer to after the widget tree finishes building — Riverpod forbids
     // modifying providers during initState/build.
-    final enableHw = Platform.isAndroid ? (actualHwdec != 'no') : true;
+    final enableHw = true; // CRITICAL: Must ALWAYS be true for media_kit v2+ to create the VideoController surface on Android, even for software decoding!
 
     // Defer to after the widget tree finishes building - Riverpod forbids
     // modifying providers during initState/build.
