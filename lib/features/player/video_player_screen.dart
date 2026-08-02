@@ -2182,9 +2182,23 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
       controller = VideoController(
         player,
         configuration: VideoControllerConfiguration(
+          // IMPORTANT: media_kit_video's own docs (VideoControllerConfiguration
+          // in platform_video_controller.dart) state the default for `hwdec`
+          // on Android is `auto-safe`, NOT whatever was set via
+          // nativePlayer.setProperty('hwdec', ...) above. Leaving this out
+          // silently lets VideoController creation reset the decoder mode
+          // away from the mediacodec-copy we deliberately chose.
+          hwdec: actualHwdec,
           enableHardwareAcceleration: enableHw,
         ),
       );
+
+      // Safety net: re-apply hwdec after VideoController creation, in case
+      // creating the controller reset it back to VideoControllerConfiguration's
+      // own default (auto-safe on Android).
+      if (player.platform is NativePlayer) {
+        (player.platform as NativePlayer).setProperty('hwdec', actualHwdec);
+      }
     } catch (e, st) {
       Log.e('Failed to create VideoController. Disposing player.', e, st);
       try {
