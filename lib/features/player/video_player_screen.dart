@@ -2145,9 +2145,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
     // NOTE: We use actualHwdec (the mode that was actually set on the native
     // player) rather than the stored setting, because the code above may
     // override the stored setting (e.g., forcing mediacodec-copy on Android).
-    final enableHw = Platform.isAndroid
-        ? (actualHwdec == 'mediacodec')
-        : true;
+
 
     // Defer to after the widget tree finishes building — Riverpod forbids
     // modifying providers during initState/build.
@@ -2161,9 +2159,14 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
       controller = VideoController(
         player,
         configuration: VideoControllerConfiguration(
-          enableHardwareAcceleration: enableHw,
+          hwdec: actualHwdec,
         ),
       );
+      
+      // Safety net: re-apply hwdec after VideoController creation
+      if (player.platform is NativePlayer) {
+        (player.platform as NativePlayer).setProperty('hwdec', actualHwdec);
+      }
     } catch (e, st) {
       Log.e('Failed to create VideoController. Disposing player.', e, st);
       try {
