@@ -1961,6 +1961,11 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
           } else if (storedHwdec == 'no') {
             // User explicitly chose software decoding.
             safeMode = 'no';
+          } else if (isMediaTek) {
+            // GLM 5.1/Claude FIX: MediaTek hardware decoders and Mali GPUs are fundamentally
+            // broken on this pipeline (MediaCodec drops 100% in zero-copy, Mali driver fails
+            // to composite OpenGL ES in copy-back). Force software decoding to guarantee playback.
+            safeMode = 'no';
           } else {
             // v4 DEFAULT: `mediacodec-copy` on ALL Android devices,
             // including MediaTek.
