@@ -1768,16 +1768,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
         // Since we don't have vo-passes, and mediacodec_embed bypasses VO entirely, we just disable the watchdog
         // if we are using mediacodec_embed, or we just rely on decoded-frames delta.
         // Let's just track decoded delta to see if decoder is stalling.
-        final blackScreenDetected = false; // Disable broken watchdog for now
-
-        if (blackScreenDetected) {
-          _watchdogZeroRenderStreak++;
-          Log.w('Render watchdog: zero-render streak='
-              '$_watchdogZeroRenderStreak (decoded=$decoded, '
-              'rendered=N/A)');
-        } else {
-          _watchdogZeroRenderStreak = 0;
-        }
+        _watchdogZeroRenderStreak = 0;
 
         if (_watchdogZeroRenderStreak >= _watchdogMaxZeroRenderStreak) {
           Log.e('Render watchdog TRIGGERED — zero renders for '
@@ -1949,6 +1940,10 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
           } else if (storedHwdec == 'no') {
             // User explicitly chose software decoding.
             safeMode = 'no';
+          } else if (isMediaTek) {
+            // GLM 5.1 FIX: Use zero-copy MediaCodec embed on MediaTek
+            safeMode = 'mediacodec';
+            useMediaTekEmbed = true;
           } else {
             // v4 DEFAULT: `mediacodec-copy` on ALL Android devices.
             //
