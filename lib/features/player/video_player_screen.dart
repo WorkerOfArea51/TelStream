@@ -2159,7 +2159,14 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
 
     // Defer to after the widget tree finishes building — Riverpod forbids
     // modifying providers during initState/build.
-    final enableHw = true; // CRITICAL: Must ALWAYS be true for media_kit v2+ to create the VideoController surface on Android, even for software decoding!
+    // Per the rule documented directly above: enableHardwareAcceleration
+    // must be TRUE only for zero-copy hwdec=mediacodec. For mediacodec-copy
+    // and hwdec=no (the only two modes Android actually uses now),
+    // it must be FALSE — otherwise the Video widget creates an EGL
+    // SurfaceTexture that mpv's GPU VO never writes to, which is the exact
+    // black-screen-on-Mali-G57-MC2 mechanism described above. Desktop
+    // platforms always want it true.
+    final enableHw = !Platform.isAndroid || actualHwdec == 'mediacodec';
 
     // Defer to after the widget tree finishes building - Riverpod forbids
     // modifying providers during initState/build.
