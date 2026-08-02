@@ -1960,12 +1960,6 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
             safeMode = storedHwdec;
           } else if (storedHwdec == 'no') {
             safeMode = 'no';
-          } else if (isMediaTek) {
-            // CRITICAL FIX: The Mali-G57 GPU drivers on Dimensity 6080 physically cannot 
-            // handle Flutter's new SurfaceTexture rendering pipeline without throwing a 
-            // black screen (100% frame drops). The vo=gpu workaround now causes native
-            // crashes in the latest media_kit. We MUST fallback to software decoding.
-            safeMode = 'no';
           } else {
             safeMode = 'mediacodec-copy';
           }
@@ -1975,7 +1969,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
             // CRITICAL FIX: explicitly force vo=gpu to fix black screen.
             // This was removed on July 30 and caused 3 days of black screens
             // because it allowed mpv to choose the wrong video output.
-            // // nativePlayer.setProperty('vo', 'gpu'); // REMOVED to prevent initialization crash // REMOVED to prevent initialization crash
+            // nativePlayer.setProperty('vo', 'gpu'); // V4 FIX: explicit vo=gpu requires Impeller to be ENABLED so it doesn't crash Skia! // REMOVED to prevent initialization crash
             actualHwdec = safeMode;
             Log.i('Set hardware decoder mode to $safeMode + vo=gpu on player init (Android)');
           } else {

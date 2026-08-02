@@ -24,9 +24,10 @@
              decoded frames. Skia handles SurfaceTextures correctly via the
              GL path. This is safe for all devices — Skia is Flutter's
              well-tested default renderer. -->
+        <!-- Impeller re-enabled: Skia OpenGL conflicts with mpv vo=gpu on MediaTek -->
         <meta-data
             android:name="io.flutter.embedding.android.EnableImpeller"
-            android:value="false" />
+            android:value="true" />
 
         <activity
             android:name=".MainActivity"
