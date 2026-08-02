@@ -1959,36 +1959,24 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
             // Watchdog is in fallback mode — respect its override.
             safeMode = storedHwdec;
           } else if (storedHwdec == 'no') {
-            // User explicitly chose software decoding.
-            safeMode = 'no';
-          } else if (isMediaTek) {
-            // GLM 5.1/Claude FIX: MediaTek hardware decoders and Mali GPUs are fundamentally
-            // broken on this pipeline (MediaCodec drops 100% in zero-copy, Mali driver fails
-            // to composite OpenGL ES in copy-back). Force software decoding to guarantee playback.
             safeMode = 'no';
           } else {
-            // v4 DEFAULT: `mediacodec-copy` on ALL Android devices,
-            // including MediaTek.
-            //
-            // This routes frames through mpv's gpu VO, which applies
-            // tone-mapping (HDR→SDR). Works for both HDR and SDR.
-            // We ignore the user's stored 'auto'/'mediacodec' setting
-            // because 'mediacodec' (zero-copy, incl. the mediacodec_embed
-            // VO) bypasses tone-mapping AND is the mode that causes
-            // c2.mtk.*.decoder to decode successfully but render 0 frames
-            // on MediaTek SoCs — see the class doc in device_detector.dart.
-            // Do NOT special-case isMediaTek back to zero-copy here; that
-            // was tried (GLM 5.1 change) and reproduces the exact black
-            // screen this file exists to prevent. isMediaTek/socDesc are
-            // kept above only for diagnostic logging.
             safeMode = 'mediacodec-copy';
           }
 
-          nativePlayer.setProperty('hwdec', safeMode);
-          actualHwdec = safeMode; // Save for VideoController creation below
-          Log.i('Set hardware decoder mode to $safeMode on player init '
-              '(Android, SoC=$socDesc, source=$storedHwdec'
-              '${_watchdogFallbackStage > 0 ? ', fallback stage=$_watchdogFallbackStage' : ''})');
+          if (safeMode != 'no') {
+            nativePlayer.setProperty('hwdec', safeMode);
+            // CRITICAL FIX: explicitly force vo=gpu to fix black screen.
+            // This was removed on July 30 and caused 3 days of black screens
+            // because it allowed mpv to choose the wrong video output.
+            nativePlayer.setProperty('vo', 'gpu');
+            actualHwdec = safeMode;
+            Log.i('Set hardware decoder mode to $safeMode + vo=gpu on player init (Android)');
+          } else {
+            nativePlayer.setProperty('hwdec', 'no');
+            actualHwdec = 'no';
+            Log.i('Hardware decoder mode is disabled (no) on player init');
+          }
 
           // ── Explicit codec allowlist ─────────────────────────────────────
           // Only applied when hardware decoding is active (not for sw).
@@ -2171,9 +2159,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
 
     // Defer to after the widget tree finishes building — Riverpod forbids
     // modifying providers during initState/build.
-    final enableHw = Platform.isAndroid
-        ? (actualHwdec == 'mediacodec')
-        : true;
+    final enableHw = Platform.isAndroid ? (actualHwdec != 'no') : true;
 
     // Defer to after the widget tree finishes building - Riverpod forbids
     // modifying providers during initState/build.
