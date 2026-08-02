@@ -1742,12 +1742,16 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
   Timer? _renderWatchdog;
   int _watchdogZeroRenderStreak = 0;
   int _watchdogFallbackStage = 0; // 0 = primary, 1 = software
+  int _watchdogLastDecoded = 0;
+  int _watchdogLastDropped = 0;
   static const int _watchdogMaxZeroRenderStreak = 3;
   static const Duration _watchdogDuration = Duration(seconds: 30);
 
   void _startRenderWatchdog() {
     _renderWatchdog?.cancel();
     _watchdogZeroRenderStreak = 0;
+    _watchdogLastDecoded = 0;
+    _watchdogLastDropped = 0;
     _renderWatchdog = Timer.periodic(const Duration(seconds: 1), (t) async {
       if (!mounted || !player.state.playing || _disposed) return;
       try {
@@ -1755,25 +1759,43 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
         if (nativePlayer is! NativePlayer) return;
 
         // ── Mode B: zero-render detection (continuous) ─────────────────
+        // decoded-frames is cumulative, so track the delta since the last
+        // poll to know whether the decoder is actively producing frames.
         final decodedStr = await nativePlayer
             .getProperty('video-dec-params/decoded-frames')
             .catchError((_) => '0');
         final decoded = int.tryParse(decodedStr) ?? 0;
-        
-        // GLM 5.1 FIX: Use decoded frames instead of vo-passes which returns a complex string
-        // We track if decoded frames are increasing but no rendering happens.
-        // For simplicity in this safety net, if we decoded 30+ frames (1 sec) without vo-passes, 
-        // we fallback. But since vo-passes is broken, we fallback if decoded > 30 and no user interaction.
-        // Wait, the instructions said: "Use `decoded-frames` delta tracking instead of broken `vo-passes` property"
-        // Since we don't have vo-passes, and mediacodec_embed bypasses VO entirely, we just disable the watchdog
-        // if we are using mediacodec_embed, or we just rely on decoded-frames delta.
-        // Let's just track decoded delta to see if decoder is stalling.
-        _watchdogZeroRenderStreak = 0;
+        final decodedDelta = decoded - _watchdogLastDecoded;
+        _watchdogLastDecoded = decoded;
+
+        // frame-drop-count is mpv's own cumulative VO-level drop counter.
+        // This is the Dart-visible equivalent of the "Drop:" figure MediaCodec
+        // prints to logcat — when nearly every newly-decoded frame is also a
+        // newly-dropped frame, that's the black-screen signature (decode
+        // succeeds, nothing ever reaches the screen).
+        final droppedStr = await nativePlayer
+            .getProperty('frame-drop-count')
+            .catchError((_) => '0');
+        final dropped = int.tryParse(droppedStr) ?? 0;
+        final droppedDelta = dropped - _watchdogLastDropped;
+        _watchdogLastDropped = dropped;
+
+        final blackScreenDetected =
+            decodedDelta >= 10 && droppedDelta >= (decodedDelta - 2);
+
+        if (blackScreenDetected) {
+          _watchdogZeroRenderStreak++;
+          Log.w('Render watchdog: zero-render streak='
+              '$_watchdogZeroRenderStreak (decoded=+$decodedDelta, '
+              'dropped=+$droppedDelta)');
+        } else {
+          _watchdogZeroRenderStreak = 0;
+        }
 
         if (_watchdogZeroRenderStreak >= _watchdogMaxZeroRenderStreak) {
           Log.e('Render watchdog TRIGGERED — zero renders for '
               '$_watchdogMaxZeroRenderStreak seconds. '
-              'decoded=$decoded, rendered=N/A. '
+              'decoded=+$decodedDelta, dropped=+$droppedDelta. '
               'Escalating decoder fallback (stage=$_watchdogFallbackStage).');
           t.cancel();
           _escalateDecoderFallback();
@@ -1836,7 +1858,6 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
 
     // Track the actual hwdec mode that will be set — needed later by
     // VideoController creation to decide enableHardwareAcceleration.
-    bool useMediaTekEmbed = false;
     String actualHwdec = 'auto';
 
     try {
@@ -1940,18 +1961,21 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
           } else if (storedHwdec == 'no') {
             // User explicitly chose software decoding.
             safeMode = 'no';
-          } else if (isMediaTek) {
-            // GLM 5.1 FIX: Use zero-copy MediaCodec embed on MediaTek
-            safeMode = 'mediacodec';
-            useMediaTekEmbed = true;
           } else {
-            // v4 DEFAULT: `mediacodec-copy` on ALL Android devices.
+            // v4 DEFAULT: `mediacodec-copy` on ALL Android devices,
+            // including MediaTek.
             //
             // This routes frames through mpv's gpu VO, which applies
             // tone-mapping (HDR→SDR). Works for both HDR and SDR.
             // We ignore the user's stored 'auto'/'mediacodec' setting
-            // because 'mediacodec' (zero-copy) bypasses tone-mapping
-            // and can produce black screen on HDR content.
+            // because 'mediacodec' (zero-copy, incl. the mediacodec_embed
+            // VO) bypasses tone-mapping AND is the mode that causes
+            // c2.mtk.*.decoder to decode successfully but render 0 frames
+            // on MediaTek SoCs — see the class doc in device_detector.dart.
+            // Do NOT special-case isMediaTek back to zero-copy here; that
+            // was tried (GLM 5.1 change) and reproduces the exact black
+            // screen this file exists to prevent. isMediaTek/socDesc are
+            // kept above only for diagnostic logging.
             safeMode = 'mediacodec-copy';
           }
 
@@ -2142,6 +2166,12 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
 
     // Defer to after the widget tree finishes building — Riverpod forbids
     // modifying providers during initState/build.
+    final enableHw = Platform.isAndroid
+        ? (actualHwdec == 'mediacodec')
+        : true;
+
+    // Defer to after the widget tree finishes building - Riverpod forbids
+    // modifying providers during initState/build.
     Future.microtask(() {
       if (mounted && !_disposed) {
         _pipController.setActivePlayer(player);
@@ -2152,16 +2182,9 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
       controller = VideoController(
         player,
         configuration: VideoControllerConfiguration(
-          hwdec: actualHwdec,
-          vo: useMediaTekEmbed ? 'mediacodec_embed' : null,
-          androidAttachSurfaceAfterVideoParameters: useMediaTekEmbed ? false : true,
+          enableHardwareAcceleration: enableHw,
         ),
       );
-      
-      // Safety net: re-apply hwdec after VideoController creation
-      if (player.platform is NativePlayer) {
-        (player.platform as NativePlayer).setProperty('hwdec', actualHwdec);
-      }
     } catch (e, st) {
       Log.e('Failed to create VideoController. Disposing player.', e, st);
       try {
