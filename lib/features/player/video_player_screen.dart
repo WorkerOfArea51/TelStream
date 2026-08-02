@@ -1960,6 +1960,12 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
             safeMode = storedHwdec;
           } else if (storedHwdec == 'no') {
             safeMode = 'no';
+          } else if (isMediaTek) {
+            // CRITICAL FIX: The Mali-G57 GPU drivers on Dimensity 6080 physically cannot 
+            // handle Flutter's new SurfaceTexture rendering pipeline without throwing a 
+            // black screen (100% frame drops). The vo=gpu workaround now causes native
+            // crashes in the latest media_kit. We MUST fallback to software decoding.
+            safeMode = 'no';
           } else {
             safeMode = 'mediacodec-copy';
           }
