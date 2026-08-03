@@ -1908,14 +1908,14 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
         // Mobile: explicitly set 'audio' sync so any inherited mpv.conf
         // default doesn't sneak in a broken display-* mode.
         if (Platform.isAndroid || Platform.isIOS) {
-          nativePlayer.setProperty('video-sync', 'audio');
+          nativePlayer.setProperty('video-sync', 'desync'); // CLAUDE TEST: Disable AV-sync to prevent mpv from thinking frames are late
           nativePlayer.setProperty('interpolation', 'no');
         }
 
         // framedrop=vo is REQUIRED on Android (Hotfix 7 / v2.13.7+66).
         // 'decoder' tells MediaCodec to drop 100% of frames; 'vo' lets the
         // VO decide, which is what we want.
-        nativePlayer.setProperty('framedrop', 'vo');
+        nativePlayer.setProperty('framedrop', 'no'); // CLAUDE TEST: Disable frame dropping completely to bypass AV-sync drop bug on MediaTek
         nativePlayer.setProperty('sub-fix-timing', 'yes');
         nativePlayer.setProperty(
             'stream-buffer-size', '16777216'); // 16 MB
