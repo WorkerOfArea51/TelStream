@@ -30,7 +30,6 @@ import 'package:video_player/video_player.dart';
 import 'package:flutter_vlc_player/flutter_vlc_player.dart';
 import 'exo_player_unified_controller.dart';
 import 'vlc_unified_controller.dart';
-import 'media_kit_unified_controller.dart';
 
 
 import '../../models/episode.dart';
@@ -1161,7 +1160,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
     final p = activePlayer;
     Future.microtask(() async {
       try {
-        await p.dispose();
+        p.dispose();
       } catch (e, st) {
         Log.e('Failed to dispose Player async', e, st);
       }
