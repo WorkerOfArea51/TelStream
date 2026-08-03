@@ -18,7 +18,7 @@ class AudioSyncDialog extends StatefulWidget {
 
   static void show(
     BuildContext context, {
-    required Player player,
+    required UnifiedPlayerController player,
     required double currentDelay,
     required ValueChanged<double> onDelayChanged,
   }) {
@@ -58,9 +58,9 @@ class _AudioSyncDialogState extends State<AudioSyncDialog> {
     setState(() {
       _delay = roundedVal;
     });
-    if (widget.player.platform is NativePlayer && mounted) {
+    if ((widget.player.originalPlayer as Player).platform is NativePlayer && mounted) {
       try {
-        (widget.player.platform as NativePlayer).setProperty('audio-delay', roundedVal.toString());
+        ((widget.player.originalPlayer as Player).platform as NativePlayer).setProperty('audio-delay', roundedVal.toString());
       } catch (_) {}
     }
     widget.onDelayChanged(roundedVal);

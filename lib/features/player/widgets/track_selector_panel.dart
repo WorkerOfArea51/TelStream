@@ -66,9 +66,9 @@ class TrackSelectorPanelState extends ConsumerState<TrackSelectorPanel> {
 
   void _updateAudioDelay(double val) {
     final roundedVal = double.parse(val.toStringAsFixed(1));
-    if (widget.player.platform is NativePlayer) {
+    if ((widget.player.originalPlayer as Player).platform is NativePlayer) {
       try {
-        (widget.player.platform as NativePlayer).setProperty('audio-delay', roundedVal.toString());
+        ((widget.player.originalPlayer as Player).platform as NativePlayer).setProperty('audio-delay', roundedVal.toString());
       } catch (_) {}
     }
     widget.onAudioDelayChanged(roundedVal);

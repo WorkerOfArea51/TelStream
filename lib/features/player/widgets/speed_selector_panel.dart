@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:telstream/features/player/unified_player_controller.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:media_kit/media_kit.dart';
+
 import '../../../core/theme/app_theme.dart';
 import '../../settings/settings_provider.dart';
 import '../../../core/widgets/expressive_container.dart';

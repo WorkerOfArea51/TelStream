@@ -16,7 +16,7 @@ class SubtitleDownloaderDialog extends ConsumerStatefulWidget {
     required this.defaultQuery,
   });
 
-  static void show(BuildContext context, {required Player player, required String defaultQuery}) {
+  static void show(BuildContext context, {required UnifiedPlayerController player, required String defaultQuery}) {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.black.withValues(alpha: 0.95),

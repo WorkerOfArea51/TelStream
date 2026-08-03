@@ -2,7 +2,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:telstream/features/player/unified_player_controller.dart';
 
-import 'package:media_kit/media_kit.dart';
+
 
 class VideoChapter {
   final String title;

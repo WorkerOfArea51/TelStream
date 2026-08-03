@@ -7,6 +7,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../l10n/app_localizations.dart';
 import 'package:media_kit/media_kit.dart';
+import 'package:telstream/features/player/widgets/cached_video_widget.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:telstream/features/player/media_kit_unified_controller.dart';
 import 'package:tdlib/td_api.dart' as td;
@@ -1402,6 +1403,14 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                           wakelock: false)
                       : CustomVideoControls(
                           player: MediaKitUnifiedController(player),
+                          videoSurfaceBuilder: (context, fit, customAspectRatio) {
+                            return CachedVideoWidget(
+                              controller: controller,
+                              fit: fit,
+                              customAspectRatio: customAspectRatio,
+                              subtitleConfig: const SubtitleViewConfiguration(visible: false),
+                            );
+                          },
                           isDesktop: widget.isDesktopMode,
                           videoTitle: pipState
                                   ?.queue[pipState.currentIndex]

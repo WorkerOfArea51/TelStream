@@ -20,7 +20,8 @@ import '../settings/user_channels_screen.dart';
 import '../settings/settings_provider.dart';
 import '../player/pip_manager.dart';
 import '../player/video_player_screen.dart';
-import '../player/widgets/track_selector_panel.dart';
+import 'package:telstream/features/player/widgets/track_selector_panel.dart';
+import 'package:telstream/features/player/media_kit_unified_controller.dart';
 import 'package:media_kit/media_kit.dart';
 
 import '../../services/update_service.dart';
@@ -770,7 +771,7 @@ class _DesktopMainScreenState extends ConsumerState<DesktopMainScreen> with Tick
     final settings = ref.watch(videoSettingsProvider);
     
     return TrackSelectorPanel(
-      player: player,
+      player: MediaKitUnifiedController(player),
       trackCodecs: const {},
       currentAudioDelay: 0.0,
       onAudioDelayChanged: (val) {},

@@ -24,40 +24,40 @@ class MoreOptionsPanel extends ConsumerWidget {
     final settings = ref.read(videoSettingsProvider);
     switch (index) {
       case 0: // Order
-        player.setPlaylistMode(PlaylistMode.none);
-        player.setShuffle(false);
+        (player.originalPlayer as Player).setPlaylistMode(PlaylistMode.none);
+        (player.originalPlayer as Player).setShuffle(false);
         ref
             .read(videoSettingsProvider.notifier)
             .updateSettings(settings.copyWith(autoplayNextVideo: true));
         onShowToast('Repeat Mode: Order');
         break;
       case 1: // Repeat One
-        player.setPlaylistMode(PlaylistMode.single);
-        player.setShuffle(false);
+        (player.originalPlayer as Player).setPlaylistMode(PlaylistMode.single);
+        (player.originalPlayer as Player).setShuffle(false);
         ref
             .read(videoSettingsProvider.notifier)
             .updateSettings(settings.copyWith(autoplayNextVideo: true));
         onShowToast('Repeat Mode: Repeat One');
         break;
       case 2: // Shuffle
-        player.setPlaylistMode(PlaylistMode.none);
-        player.setShuffle(true);
+        (player.originalPlayer as Player).setPlaylistMode(PlaylistMode.none);
+        (player.originalPlayer as Player).setShuffle(true);
         ref
             .read(videoSettingsProvider.notifier)
             .updateSettings(settings.copyWith(autoplayNextVideo: true));
         onShowToast('Repeat Mode: Shuffle');
         break;
       case 3: // Repeat All
-        player.setPlaylistMode(PlaylistMode.loop);
-        player.setShuffle(false);
+        (player.originalPlayer as Player).setPlaylistMode(PlaylistMode.loop);
+        (player.originalPlayer as Player).setShuffle(false);
         ref
             .read(videoSettingsProvider.notifier)
             .updateSettings(settings.copyWith(autoplayNextVideo: true));
         onShowToast('Repeat Mode: Repeat All');
         break;
       case 4: // Single Play (Stop after current)
-        player.setPlaylistMode(PlaylistMode.none);
-        player.setShuffle(false);
+        (player.originalPlayer as Player).setPlaylistMode(PlaylistMode.none);
+        (player.originalPlayer as Player).setShuffle(false);
         ref
             .read(videoSettingsProvider.notifier)
             .updateSettings(settings.copyWith(autoplayNextVideo: false));
@@ -76,12 +76,12 @@ class MoreOptionsPanel extends ConsumerWidget {
     final settingsAccent = customTheme?.settingsAccent ?? theme.primaryColor;
 
     return StreamBuilder<PlaylistMode>(
-      stream: player.stream.playlistMode,
-      initialData: player.state.playlistMode,
+      stream: (player.originalPlayer as Player).stream.playlistMode,
+      initialData: (player.originalPlayer as Player).state.playlistMode,
       builder: (context, modeSnapshot) {
         return StreamBuilder<bool>(
-          stream: player.stream.shuffle,
-          initialData: player.state.shuffle,
+          stream: (player.originalPlayer as Player).stream.shuffle,
+          initialData: (player.originalPlayer as Player).state.shuffle,
           builder: (context, shuffleSnapshot) {
             final mode = modeSnapshot.data ?? PlaylistMode.none;
             final shuffle = shuffleSnapshot.data ?? false;

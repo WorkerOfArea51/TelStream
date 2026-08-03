@@ -7,6 +7,7 @@ class MediaKitUnifiedController extends UnifiedPlayerController {
   
   MediaKitUnifiedController(this._player);
 
+  @override
   Player get originalPlayer => _player;
 
   @override

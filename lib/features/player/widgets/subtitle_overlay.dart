@@ -45,7 +45,7 @@ class _SubtitleOverlayState extends ConsumerState<SubtitleOverlay> {
     }
 
     return StreamBuilder<List<String>>(
-      stream: widget.player.stream.subtitle,
+      stream: (widget.player.originalPlayer as Player).stream.subtitle,
       builder: (context, snapshot) {
         final subtitleLines = snapshot.data;
         if (subtitleLines == null || subtitleLines.isEmpty) {

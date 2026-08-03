@@ -16,7 +16,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../services/download_service.dart';
 import '../../l10n/app_localizations.dart';
 import 'package:media_kit/media_kit.dart';
-import 'package:media_kit_video/media_kit_video.dart';
+
 import 'widgets/gesture_overlay_indicators.dart';
 import 'widgets/sleep_timer_panel.dart';
 import 'widgets/video_gesture_handler.dart';
@@ -59,6 +59,7 @@ class _MuteIntent extends Intent { const _MuteIntent(); }
 
 class CustomVideoControls extends ConsumerStatefulWidget {
   final UnifiedPlayerController player;
+  final Widget Function(BuildContext context, BoxFit fit, double? customAspectRatio) videoSurfaceBuilder;
   final String videoTitle;
   final bool isPip;
   final int downloadedPrefixSize;
@@ -79,6 +80,7 @@ class CustomVideoControls extends ConsumerStatefulWidget {
   const CustomVideoControls({
     super.key,
     required this.player,
+    required this.videoSurfaceBuilder,
     required this.videoTitle,
     required this.isPip,
     required this.downloadedPrefixSize,
@@ -656,7 +658,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
       }
 
       final player = widget.player;
-      final nativePlayer = player.platform;
+      final nativePlayer = (player.originalPlayer as Player).platform;
       if (nativePlayer is NativePlayer) {
         try {
           final results = await Future.wait([
@@ -719,8 +721,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
               (widget.player.originalPlayer as Player).state.playlist.index >= 0 &&
                   (widget.player.originalPlayer as Player).state.playlist.index <
                       (widget.player.originalPlayer as Player).state.playlist.medias.length
-              ? widget
-                    .player
+              ? (widget.player.originalPlayer as Player)
                     .state
                     .playlist
                     .medias[(widget.player.originalPlayer as Player).state.playlist.index]
@@ -830,9 +831,9 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     _currentVolume = widget.player.state.volume;
     _initSystemVolumeAndBrightness();
     _initAspectRatio();
-    if (widget.player.platform is NativePlayer) {
+    if ((widget.player.originalPlayer as Player).platform is NativePlayer) {
       try {
-        (widget.player.platform as NativePlayer)
+        ((widget.player.originalPlayer as Player).platform as NativePlayer)
             .getProperty('audio-delay')
             .then((delayStr) {
               if (mounted) {
@@ -858,7 +859,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
       if (!_blendSubtitlesChecked && pos.inSeconds > 0) {
         _blendSubtitlesChecked = true;
         _updateBlendSubtitlesForTrack(
-          widget.player,
+          widget.player.originalPlayer as Player,
           (widget.player.originalPlayer as Player).state.track.subtitle,
         );
       }
@@ -867,17 +868,17 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
       if (dur.inSeconds > 0) {
         _loadChapters();
         _updateBlendSubtitlesForTrack(
-          widget.player,
+          widget.player.originalPlayer as Player,
           (widget.player.originalPlayer as Player).state.track.subtitle,
         );
       }
     });
     _trackSubscription = (widget.player.originalPlayer as Player).stream.track.listen((track) {
-      _updateBlendSubtitlesForTrack(widget.player, track.subtitle);
+      _updateBlendSubtitlesForTrack((widget.player.originalPlayer as Player), track.subtitle);
     });
     _tracksListSubscription = (widget.player.originalPlayer as Player).stream.tracks.listen((_) {
       _updateBlendSubtitlesForTrack(
-        widget.player,
+        (widget.player.originalPlayer as Player),
         (widget.player.originalPlayer as Player).state.track.subtitle,
       );
       if (_trackPanelKey.currentState?.isVisible ?? false) {
@@ -886,7 +887,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _updateBlendSubtitlesForTrack(
-        widget.player,
+        (widget.player.originalPlayer as Player),
         (widget.player.originalPlayer as Player).state.track.subtitle,
       );
     });
@@ -936,7 +937,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
         if (!_blendSubtitlesChecked && pos.inSeconds > 0) {
           _blendSubtitlesChecked = true;
           _updateBlendSubtitlesForTrack(
-            widget.player,
+            (widget.player.originalPlayer as Player),
             (widget.player.originalPlayer as Player).state.track.subtitle,
           );
         }
@@ -945,17 +946,17 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
         if (dur.inSeconds > 0) {
           _loadChapters();
           _updateBlendSubtitlesForTrack(
-            widget.player,
+            (widget.player.originalPlayer as Player),
             (widget.player.originalPlayer as Player).state.track.subtitle,
           );
         }
       });
       _trackSubscription = (widget.player.originalPlayer as Player).stream.track.listen((track) {
-        _updateBlendSubtitlesForTrack(widget.player, track.subtitle);
+        _updateBlendSubtitlesForTrack((widget.player.originalPlayer as Player), track.subtitle);
       });
       _tracksListSubscription = (widget.player.originalPlayer as Player).stream.tracks.listen((_) {
         _updateBlendSubtitlesForTrack(
-          widget.player,
+          widget.player.originalPlayer as Player,
           (widget.player.originalPlayer as Player).state.track.subtitle,
         );
         if (_trackPanelKey.currentState?.isVisible ?? false) {
@@ -979,7 +980,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
 
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _updateBlendSubtitlesForTrack(
-          widget.player,
+          widget.player.originalPlayer as Player,
           (widget.player.originalPlayer as Player).state.track.subtitle,
         );
       });
@@ -1443,7 +1444,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
   Future<void> _loadChapters() async {
     _chaptersRetryTimer?.cancel();
     try {
-      final dynamic platform = widget.player.platform;
+      final dynamic platform = (widget.player.originalPlayer as Player).platform;
       final countStr = await platform.getProperty('chapter-list/count');
       if (countStr != null) {
         final count = int.tryParse(countStr);
@@ -1550,8 +1551,8 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
 
   void _updateAudioFilters() {
     try {
-      if (widget.player.platform is NativePlayer) {
-        final nativePlayer = widget.player.platform as NativePlayer;
+      if ((widget.player.originalPlayer as Player).platform is NativePlayer) {
+        final nativePlayer = (widget.player.originalPlayer as Player).platform as NativePlayer;
         final filters = <String>[];
         if (_audioBoostActive) {
           filters.add('volume=volume=6dB:precision=fixed');
@@ -1611,8 +1612,8 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
   /// At higher speeds, audio needs larger buffers and video sync needs more tolerance
   /// to prevent A/V desynchronization.
   void _adjustSyncForSpeed(double speed) {
-    if (widget.player.platform is NativePlayer) {
-      final nativePlayer = widget.player.platform as NativePlayer;
+    if ((widget.player.originalPlayer as Player).platform is NativePlayer) {
+      final nativePlayer = (widget.player.originalPlayer as Player).platform as NativePlayer;
       
       if (speed > 1.5) {
         // High speed: increase audio buffer proportionally to prevent starvation
@@ -1762,8 +1763,8 @@ if (!Platform.isAndroid && !Platform.isIOS) {
 
   Future<void> _loadTrackCodecs() async {
     try {
-      if (widget.player.platform is NativePlayer) {
-        final nativePlayer = widget.player.platform as NativePlayer;
+      if ((widget.player.originalPlayer as Player).platform is NativePlayer) {
+        final nativePlayer = (widget.player.originalPlayer as Player).platform as NativePlayer;
         final countStr = await nativePlayer.getProperty('track-list/count');
         final count = int.tryParse(countStr) ?? 0;
         final Map<String, String> codecs = {};
@@ -1804,7 +1805,7 @@ if (!Platform.isAndroid && !Platform.isIOS) {
         'sub-visibility',
         (track.id == 'no' || !isNativeSub) ? 'no' : 'yes',
       );
-      _updateBlendSubtitlesForTrack(widget.player, track);
+      _updateBlendSubtitlesForTrack((widget.player.originalPlayer as Player), track);
 
       final activeAudio = (widget.player.originalPlayer as Player).state.track.audio;
       String audioLangCategory = 'other';
@@ -1875,7 +1876,7 @@ if (!Platform.isAndroid && !Platform.isIOS) {
           }
 
           (widget.player.originalPlayer as Player).setSubtitleTrack(matchedSub);
-          _updateBlendSubtitlesForTrack(widget.player, matchedSub);
+          _updateBlendSubtitlesForTrack((widget.player.originalPlayer as Player), matchedSub);
           Log.i(
             'Re-applied subtitle track after audio track change: ${matchedSub.id} (originally: ${activeSub.id})',
           );
@@ -1910,7 +1911,6 @@ if (!Platform.isAndroid && !Platform.isIOS) {
     final customTheme = theme.extension<AppThemeExtension>();
     final settingsAccent = customTheme?.settingsAccent ?? theme.primaryColor;
 
-    final subtitleConfig = const SubtitleViewConfiguration(visible: false);
 
     final pipState = ref.watch(pipControllerProvider);
     final currentItem = (pipState != null && pipState.currentIndex >= 0 && pipState.currentIndex < pipState.queue.length)
@@ -1982,12 +1982,12 @@ if (!Platform.isAndroid && !Platform.isIOS) {
         children: [
           // Video Layer with Pinch to Zoom
             VideoLayer(
-              controller: widget.controller,
+              videoSurfaceBuilder: widget.videoSurfaceBuilder,
               fitNotifier: _fitNotifier,
               customAspectRatioNotifier: _customAspectRatioNotifier,
               scaleNotifier: _scaleNotifier,
               panNotifier: _panNotifier,
-              subtitleConfig: subtitleConfig,
+              
               isBuffering: _isBuffering || _isSwitchingQuality,
               customBuffering: widget.customBuffering,
             ),
@@ -3105,8 +3105,8 @@ if (!Platform.isAndroid && !Platform.isIOS) {
 
   void _applySubtitleProperty(String name, String value) {
     try {
-      if (widget.player.platform is NativePlayer) {
-        final nativePlayer = widget.player.platform as NativePlayer;
+      if ((widget.player.originalPlayer as Player).platform is NativePlayer) {
+        final nativePlayer = (widget.player.originalPlayer as Player).platform as NativePlayer;
         nativePlayer.setProperty(name, value);
         Log.i('Applied subtitle property dynamically: $name = $value');
       }
@@ -3164,8 +3164,8 @@ if (!Platform.isAndroid && !Platform.isIOS) {
     await storage.setHardwareDecoderMode(nextMode);
 
     try {
-      if (widget.player.platform is NativePlayer) {
-        final nativePlayer = widget.player.platform as NativePlayer;
+      if ((widget.player.originalPlayer as Player).platform is NativePlayer) {
+        final nativePlayer = (widget.player.originalPlayer as Player).platform as NativePlayer;
         nativePlayer.setProperty('hwdec', nextMode);
       }
     } catch (e) {

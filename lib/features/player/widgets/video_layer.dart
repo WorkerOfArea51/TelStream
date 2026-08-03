@@ -1,26 +1,26 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:media_kit_video/media_kit_video.dart';
-import 'package:telstream/features/player/widgets/cached_video_widget.dart';
+
+
 
 class VideoLayer extends StatelessWidget {
-  final VideoController controller;
+  final Widget Function(BuildContext context, BoxFit fit, double? customAspectRatio) videoSurfaceBuilder;
   final ValueNotifier<BoxFit> fitNotifier;
   final ValueNotifier<double?> customAspectRatioNotifier;
   final ValueNotifier<double> scaleNotifier;
   final ValueNotifier<Offset> panNotifier;
-  final SubtitleViewConfiguration subtitleConfig;
+  
   final bool isBuffering;
   final bool customBuffering;
 
   const VideoLayer({
     super.key,
-    required this.controller,
+    required this.videoSurfaceBuilder,
     required this.fitNotifier,
     required this.customAspectRatioNotifier,
     required this.scaleNotifier,
     required this.panNotifier,
-    required this.subtitleConfig,
+    
     required this.isBuffering,
     required this.customBuffering,
   });
@@ -47,12 +47,7 @@ class VideoLayer extends StatelessWidget {
               customAspectRatioNotifier,
             ]),
             builder: (context, _) {
-              return CachedVideoWidget(
-                controller: controller,
-                fit: fitNotifier.value,
-                customAspectRatio: customAspectRatioNotifier.value,
-                subtitleConfig: subtitleConfig,
-              );
+              return videoSurfaceBuilder(context, fitNotifier.value, customAspectRatioNotifier.value);
             },
           ),
         ],
@@ -79,12 +74,7 @@ class VideoLayer extends StatelessWidget {
               offset: panNotifier.value,
               child: Transform.scale(
                 scale: scaleNotifier.value,
-                child: CachedVideoWidget(
-                  controller: controller,
-                  fit: fitNotifier.value,
-                  customAspectRatio: customAspectRatioNotifier.value,
-                  subtitleConfig: subtitleConfig,
-                ),
+                child: videoSurfaceBuilder(context, fitNotifier.value, customAspectRatioNotifier.value),
               ),
             );
           },
