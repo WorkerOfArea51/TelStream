@@ -24,6 +24,7 @@ import 'unified_player_controller.dart';
 class ExoPlayerUnifiedController extends BaseUnifiedPlayerController {
   VideoPlayerController? _controller;
   VideoPlayerController? get videoPlayerController => _controller;
+  bool _isLooping = false;            
 
   final Map<String, String> _httpHeaders;
 
@@ -75,6 +76,7 @@ class ExoPlayerUnifiedController extends BaseUnifiedPlayerController {
       rate: v.playbackSpeed,
       playing: v.isPlaying,
       buffering: v.isBuffering,
+      isLooping: _isLooping,          
       errorMessage: v.errorDescription,
     );
   }
@@ -137,6 +139,14 @@ class ExoPlayerUnifiedController extends BaseUnifiedPlayerController {
   Future<void> setRate(double rate) async {
     try {
       await _controller?.setPlaybackSpeed(rate);
+    } catch (_) {}
+  }
+
+  @override
+  Future<void> setLooping(bool enabled) async {    
+    _isLooping = enabled;
+    try {
+      await _controller?.setLooping(enabled);
     } catch (_) {}
   }
 

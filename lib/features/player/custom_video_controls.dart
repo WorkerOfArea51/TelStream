@@ -624,12 +624,18 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
             ),
           ),
           const SizedBox(height: 6),
-          Text(
-            label,
-            style: TextStyle(
-              color: isActive ? accentColor : Colors.white70,
-              fontSize: 10,
-              fontWeight: isActive ? FontWeight.bold : FontWeight.w500,
+          SizedBox(
+            width: 52,
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: isActive ? accentColor : Colors.white70,
+                fontSize: 10,
+                fontWeight: isActive ? FontWeight.bold : FontWeight.w500,
+              ),
             ),
           ),
         ],
@@ -2900,6 +2906,12 @@ if (mpvForBlend != null) _updateBlendSubtitlesForTrack(mpvForBlend, track);
                 quickActionRow: _buildQuickActionRow(),
                 onClose: () => setState(() => _showMoreOptionsPanel = false),
                 onShowToast: _showSkipToast,
+                isLooping: widget.player.state.isLooping,
+                onLoopChanged: () async {
+                  final next = !widget.player.state.isLooping;
+                  await widget.player.setLooping(next);
+                  setState(() {});
+                },
               ),
             ),
           ], // End of mobile-only panels

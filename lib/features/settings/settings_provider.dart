@@ -208,6 +208,7 @@ abstract class VideoSettings with _$VideoSettings {
       batchDownloadQuality: json['batchDownloadQuality'] ?? 'Ask Each Time',
       showQualityBadges: json['showQualityBadges'] ?? true,
       enableInPlayerQualitySwitch: json['enableInPlayerQualitySwitch'] ?? true,
+      videoEngine: json['videoEngine'] ?? 'MediaKit',
     );
   }
 
@@ -267,6 +268,7 @@ abstract class VideoSettings with _$VideoSettings {
       'batchDownloadQuality': batchDownloadQuality,
       'showQualityBadges': showQualityBadges,
       'enableInPlayerQualitySwitch': enableInPlayerQualitySwitch,
+      'videoEngine': videoEngine,
     };
   }
 }

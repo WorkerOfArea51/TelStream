@@ -96,6 +96,7 @@ class MediaKitUnifiedController extends UnifiedPlayerController {
         playing: _player.state.playing,
         buffering: _player.state.buffering,
         completed: _player.state.completed,
+        isLooping: _player.state.playlistMode == PlaylistMode.loop,  
       );
 
   @override
@@ -128,6 +129,10 @@ class MediaKitUnifiedController extends UnifiedPlayerController {
   Future<void> setVolume(double volume) => _player.setVolume(volume);
   @override
   Future<void> setRate(double rate) => _player.setRate(rate);
+  @override
+  Future<void> setLooping(bool enabled) => _player.setPlaylistMode(
+        enabled ? PlaylistMode.loop : PlaylistMode.none,
+      );
 
   // ── Track selection ──────────────────────────────────────────────────
   @override

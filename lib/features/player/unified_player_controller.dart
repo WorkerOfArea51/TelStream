@@ -15,6 +15,7 @@ class UnifiedPlayerStateData {
   final bool playing;
   final bool buffering;
   final bool completed;
+  final bool isLooping;          
   final String? errorMessage;
 
   const UnifiedPlayerStateData({
@@ -25,6 +26,7 @@ class UnifiedPlayerStateData {
     required this.playing,
     required this.buffering,
     this.completed = false,
+    this.isLooping = false,      
     this.errorMessage,
   });
 
@@ -36,6 +38,7 @@ class UnifiedPlayerStateData {
     bool? playing,
     bool? buffering,
     bool? completed,
+    bool? isLooping,             
     String? errorMessage,
   }) =>
       UnifiedPlayerStateData(
@@ -46,6 +49,7 @@ class UnifiedPlayerStateData {
         playing: playing ?? this.playing,
         buffering: buffering ?? this.buffering,
         completed: completed ?? this.completed,
+        isLooping: isLooping ?? this.isLooping,  
         errorMessage: errorMessage ?? this.errorMessage,
       );
 }
@@ -166,6 +170,9 @@ abstract class UnifiedPlayerController {
   Future<void> seek(Duration position);
   Future<void> setVolume(double volume); // 0.0 .. 100.0
   Future<void> setRate(double rate);
+  Future<void> setLooping(bool enabled) async {
+    throw UnsupportedError(' does not support looping');
+  }
 
   // ── Track selection (default: UnsupportedError) ─────────────────────
   Future<UnifiedTracks> getTracks() async => const UnifiedTracks();

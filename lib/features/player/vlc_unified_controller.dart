@@ -19,6 +19,7 @@ import 'unified_player_controller.dart';
 class VlcUnifiedController extends BaseUnifiedPlayerController {
   VlcPlayerController? _controller;
   VlcPlayerController? get vlcController => _controller;
+  bool _isLooping = false;            
 
   final Map<String, String> _httpHeaders;
   final List<String> _extraOptions;
@@ -123,6 +124,7 @@ class VlcUnifiedController extends BaseUnifiedPlayerController {
       playing: v.isPlaying,
       buffering: v.isBuffering,
       completed: v.isEnded,
+      isLooping: _isLooping,          
       errorMessage: v.hasError ? 'VLC playback error' : null,
     );
   }
@@ -183,6 +185,14 @@ class VlcUnifiedController extends BaseUnifiedPlayerController {
   Future<void> setRate(double rate) async {
     try {
       await _controller?.setPlaybackSpeed(rate);
+    } catch (_) {}
+  }
+
+  @override
+  Future<void> setLooping(bool enabled) async {    
+    _isLooping = enabled;
+    try {
+      await _controller?.setLoopMode(enabled);
     } catch (_) {}
   }
 

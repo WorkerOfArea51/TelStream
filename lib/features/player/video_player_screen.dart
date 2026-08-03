@@ -383,10 +383,10 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
 
     final isDesktop = Platform.isWindows || Platform.isLinux || Platform.isMacOS;
     
-    if (isDesktop || _settings.videoEngine == 'MediaKit') {
-      activePlayer.open(finalPath, httpHeaders: proxyHeaders, play: shouldPlayImmediately)
-          .timeout(const Duration(seconds: 30))
-          .then((_) {
+    // Always call open() on the active engine
+    activePlayer.open(finalPath, httpHeaders: proxyHeaders, play: shouldPlayImmediately)
+        .timeout(const Duration(seconds: 30))
+        .then((_) {
       if (!mounted || _disposed) return;
       if (savedPos > 0) {
         Future<void> performRobustStartupSeek(Duration knownDuration) async {
@@ -482,14 +482,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
         Navigator.of(context, rootNavigator: true).maybePop();
       }
     });
-    } else {
-      // Alternate engine is used, just mark initialization complete to dismiss loading spinner
-      if (mounted && !_disposed) {
-        setState(() {
-          _isInitializing = false;
-        });
-      }
-    }
+
     if (!_disposed) {
       activePlayer.setVolume(100.0);
     }
@@ -1389,11 +1382,22 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                                             : CustomVideoControls(
                           player: activePlayer,
                           videoSurfaceBuilder: (context, fit, customAspectRatio) {
-                            if (_settings.videoEngine == 'ExoPlayer' && _exoPlayerController != null) {
-                              return VideoPlayer(_exoPlayerController!);
-                            } else if (_settings.videoEngine == 'LibVLC' && _vlcPlayerController != null) {
-                              return VlcPlayer(controller: _vlcPlayerController!, aspectRatio: customAspectRatio ?? 16 / 9);
+                            // ExoPlayer: controller is created lazily in open(),
+                            // so read it from the unified controller at build time.
+                            final exoCtl = activePlayer.exoPlayerController
+                                as VideoPlayerController?;
+                            if (exoCtl != null) {
+                              return VideoPlayer(exoCtl);
                             }
+                            // VLC: controller exists right after VlcUnifiedController construction.
+                            final vlcCtl = activePlayer.vlcPlayer as VlcPlayerController?;
+                            if (vlcCtl != null) {
+                              return VlcPlayer(
+                                controller: vlcCtl,
+                                aspectRatio: customAspectRatio ?? 16 / 9,
+                              );
+                            }
+                            // media_kit fallback.
                             return CachedVideoWidget(
                               controller: _mediaKitController,
                               fit: fit,
@@ -1911,13 +1915,21 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
     final localFont = ref.read(storageServiceProvider).localFontPath;
     
     if (_settings.videoEngine == 'ExoPlayer') {
-      activePlayer = ExoPlayerUnifiedController(
+      final exo = ExoPlayerUnifiedController(
         httpHeaders: _currentHttpHeaders ?? {},
       );
+      activePlayer = exo;
+      // Note: _exoPlayerController is created lazily inside open(),
+      // so the video view builder reads from activePlayer.exoPlayerController
+      // at build time instead of this field. We keep the field for the
+      // existing _settings.videoEngine == 'ExoPlayer' checks elsewhere.
+      _exoPlayerController = null;
     } else if (_settings.videoEngine == 'LibVLC') {
-      activePlayer = VlcUnifiedController(
+      final vlc = VlcUnifiedController(
         httpHeaders: _currentHttpHeaders ?? {},
       );
+      activePlayer = vlc;
+      _vlcPlayerController = vlc.vlcController;
     } else {
       _mediaKitPlayer = Player(
         configuration: PlayerConfiguration(
@@ -1929,6 +1941,11 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
         ),
       );
       activePlayer = MediaKitUnifiedController(_mediaKitPlayer);
+    }
+
+    // media_kit-only configuration 
+    if (activePlayer is! MediaKitUnifiedController) {
+      return;
     }
 
     String actualHwdec = 'auto';
@@ -2094,14 +2111,8 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
           // Desktop path — unchanged from original logic.
           String safeMode = storedHwdec;
           if (Platform.isWindows) {
-            if (safeMode == 'auto' ||
-                safeMode == 'auto-copy' ||
-                safeMode == 'd3d11va') {
-              safeMode = 'd3d11va-copy';
-            } else if (safeMode == 'mediacodec-copy' ||
-                safeMode == 'mediacodec') {
-              safeMode = 'd3d11va-copy';
-            }
+            // Windows green-glitch fix: d3d11va-copy produces YUV RGB mismatches
+            safeMode = 'no';
           } else if (Platform.isLinux || Platform.isMacOS) {
             if (safeMode == 'auto' || safeMode == 'auto-copy') {
               safeMode = 'vaapi-copy';
@@ -2232,7 +2243,8 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
     // Defer to after the widget tree finishes building — Riverpod forbids
     // modifying providers during initState/build.
     // Desktop platforms and normal Android devices use hardware acceleration natively.
-    final enableHw = true;
+    // On Windows, software decode (hwdec=no) must use the CPU pixel buffer
+    final enableHw = !Platform.isWindows;
 
     // Defer to after the widget tree finishes building - Riverpod forbids
     // modifying providers during initState/build.
