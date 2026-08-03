@@ -85,8 +85,6 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
   int? _resolvedVideoFileId;
   bool _isInitializing = true;
   bool _initialTrackSelectionDone = false;
-
-  String? _currentVideoUrl;
   Map<String, String>? _currentHttpHeaders;
 
   // ── Disposal guard ──────────────────────────────────────────────────────
@@ -293,7 +291,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
       // modifying providers during didUpdateWidget.
       Future.microtask(() {
         if (mounted && !_disposed) {
-          _pipController.setActivePlayer(activePlayer.originalPlayer);
+          _pipController.setActivePlayer(_mediaKitPlayer);
         }
       });
       activePlayer.stop().then((_) {
@@ -379,7 +377,6 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
             
     if (mounted) {
       setState(() {
-        _currentVideoUrl = finalPath;
         _currentHttpHeaders = proxyHeaders;
       });
     }
@@ -532,8 +529,8 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
           if (event.file.local.isDownloadingCompleted) {
             // Boost buffer sizes since the file is completely downloaded
             try {
-              if ((activePlayer is MediaKitUnifiedController && activePlayer.originalPlayer.platform is NativePlayer)) {
-                final nativePlayer = activePlayer.originalPlayer.platform as NativePlayer;
+              if ((activePlayer is MediaKitUnifiedController && _mediaKitPlayer.platform is NativePlayer)) {
+                final nativePlayer = _mediaKitPlayer.platform as NativePlayer;
                 nativePlayer.setProperty(
                     'demuxer-max-bytes', '524288000'); // 500 MB buffer
                 nativePlayer.setProperty(
@@ -620,7 +617,6 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
       if (mounted) {
         setState(() {
           _resolvedVideoFileId = widget.videoFileId;
-          _currentVideoUrl = widget.networkUrl;
           _isPlaying = true;
           _isInitializing = false;
         });
@@ -1029,7 +1025,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
   void _schedulePostSeekRecovery() {
     Future.delayed(const Duration(seconds: 3), () async {
       if (!mounted || !activePlayer.state.playing || _disposed) return;
-      final np = _mediaKitPlayer.platform;
+      final np = activePlayer.mediaKitPlayer?.platform;
       if (np is! NativePlayer) return;
       final decodedAfter = int.tryParse(
               await np
@@ -1505,8 +1501,8 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
 
   void _applyStreamingProfile() {
     try {
-      if ((activePlayer is MediaKitUnifiedController && activePlayer.originalPlayer.platform is NativePlayer)) {
-        final nativePlayer = activePlayer.originalPlayer.platform as NativePlayer;
+      if ((activePlayer is MediaKitUnifiedController && _mediaKitPlayer.platform is NativePlayer)) {
+        final nativePlayer = _mediaKitPlayer.platform as NativePlayer;
         final profile = _settings.streamingProfile;
 
         if (profile == 'Aggressive Buffer') {
@@ -1825,7 +1821,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
     _renderWatchdog = Timer.periodic(const Duration(seconds: 1), (t) async {
       if (!mounted || !activePlayer.state.playing || _disposed) return;
       try {
-        final nativePlayer = _mediaKitPlayer.platform;
+        final nativePlayer = activePlayer.mediaKitPlayer?.platform;
         if (nativePlayer is! NativePlayer) return;
 
         // ── Mode B: zero-render detection (continuous) ─────────────────
@@ -1915,43 +1911,30 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
     final localFont = ref.read(storageServiceProvider).localFontPath;
     
     if (_settings.videoEngine == 'ExoPlayer') {
-      _exoPlayerController = VideoPlayerController.networkUrl(
-        Uri.parse(_currentVideoUrl ?? widget.networkUrl ?? ''),
+      activePlayer = ExoPlayerUnifiedController(
         httpHeaders: _currentHttpHeaders ?? {},
       );
-      await _exoPlayerController!.initialize();
-      activePlayer = ExoPlayerUnifiedController(_exoPlayerController!);
-      return;
     } else if (_settings.videoEngine == 'LibVLC') {
-      _vlcPlayerController = VlcPlayerController.network(
-        _currentVideoUrl ?? widget.networkUrl ?? '',
-        hwAcc: HwAcc.full,
-        autoPlay: false,
-        options: VlcPlayerOptions(
-           http: VlcHttpOptions([
-             VlcHttpOptions.httpReconnect(true),
-           ]),
+      activePlayer = VlcUnifiedController(
+        httpHeaders: _currentHttpHeaders ?? {},
+      );
+    } else {
+      _mediaKitPlayer = Player(
+        configuration: PlayerConfiguration(
+          pitch: _settings.audio.pitchCorrection,
+          libass: _settings.subtitles.subtitleRendererMode == 'native',
+          libassAndroidFont:
+              localFont ?? 'assets/fonts/Roboto-Regular.ttf',
+          libassAndroidFontName: 'Roboto',
         ),
       );
-      activePlayer = VlcUnifiedController(_vlcPlayerController!);
-      return;
+      activePlayer = MediaKitUnifiedController(_mediaKitPlayer);
     }
-
-    _mediaKitPlayer = Player(
-      configuration: PlayerConfiguration(
-        pitch: _settings.audio.pitchCorrection,
-        libass: _settings.subtitles.subtitleRendererMode == 'native',
-        libassAndroidFont:
-            localFont ?? 'assets/fonts/Roboto-Regular.ttf',
-        libassAndroidFontName: 'Roboto',
-      ),
-    );
-    activePlayer = MediaKitUnifiedController(_mediaKitPlayer);
 
     String actualHwdec = 'auto';
     try {
-      if ((activePlayer is MediaKitUnifiedController && activePlayer.originalPlayer.platform is NativePlayer)) {
-        final nativePlayer = activePlayer.originalPlayer.platform as NativePlayer;
+      if ((activePlayer is MediaKitUnifiedController && _mediaKitPlayer.platform is NativePlayer)) {
+        final nativePlayer = _mediaKitPlayer.platform as NativePlayer;
 
         // ── Cache / buffering ──────────────────────────────────────────────
         // These values were validated by Hotfixes 4, 5, and 7. Do NOT change
@@ -2255,7 +2238,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
     // modifying providers during initState/build.
     Future.microtask(() {
       if (mounted && !_disposed) {
-        _pipController.setActivePlayer(activePlayer.originalPlayer);
+        _pipController.setActivePlayer(_mediaKitPlayer);
       }
     });
 
@@ -2277,8 +2260,8 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
       // Safety net: re-apply hwdec after VideoController creation, in case
       // creating the controller reset it back to VideoControllerConfiguration's
       // own default (auto-safe on Android).
-      if ((activePlayer is MediaKitUnifiedController && activePlayer.originalPlayer.platform is NativePlayer)) {
-        (_mediaKitPlayer.platform as NativePlayer).setProperty('hwdec', actualHwdec);
+      if ((activePlayer is MediaKitUnifiedController && _mediaKitPlayer.platform is NativePlayer)) {
+        (activePlayer.mediaKitPlayer?.platform as NativePlayer).setProperty('hwdec', actualHwdec);
       }
     } catch (e, st) {
       Log.e('Failed to create VideoController. Disposing activePlayer.', e, st);
@@ -2287,7 +2270,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
     } else if (_settings.videoEngine == 'LibVLC') {
       _vlcPlayerController?.dispose();
     } else {
-      _mediaKitPlayer.dispose();
+      activePlayer.mediaKitPlayer?.dispose();
     }
     activePlayer.dispose();
       rethrow;
@@ -2346,11 +2329,13 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
       }
     }));
 
-    _subscriptions.add(_mediaKitPlayer.stream.tracks.listen((tracks) {
-      if (_disposed) return;
-      if (tracks.audio.isEmpty && tracks.subtitle.isEmpty) return;
-      if (_initialTrackSelectionDone) return;
-      _initialTrackSelectionDone = true;
+    final mpv = activePlayer.mediaKitPlayer;
+    if (mpv != null) {
+      _subscriptions.add(mpv.stream.tracks.listen((tracks) {
+        if (_disposed) return;
+        if (tracks.audio.isEmpty && tracks.subtitle.isEmpty) return;
+        if (_initialTrackSelectionDone) return;
+        _initialTrackSelectionDone = true;
 
       // 1. Select the audio track based on global preference
       final prefAudio = _storageService.getPreferredAudioTrack();
@@ -2373,19 +2358,19 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
 
       // Apply audio track if resolved and not already set
       if (targetAudioTrack != null &&
-          _mediaKitPlayer.state.track.audio != targetAudioTrack) {
-        _mediaKitPlayer.setAudioTrack(targetAudioTrack);
+          activePlayer.mediaKitPlayer?.state.track.audio != targetAudioTrack) {
+        activePlayer.mediaKitPlayer?.setAudioTrack(targetAudioTrack);
         Log.i(
             'Auto-selected preferred audio track: ${targetAudioTrack.title ?? targetAudioTrack.language ?? targetAudioTrack.id}');
       } else {
-        targetAudioTrack = _mediaKitPlayer.state.track.audio;
+        targetAudioTrack = activePlayer.mediaKitPlayer?.state.track.audio;
       }
 
       // 2. Classify audio language category for sub/dub logic
       String audioLangCategory = 'other';
-      final lower =
-          (targetAudioTrack.language ?? targetAudioTrack.title ?? '')
-              .toLowerCase();
+      final track = targetAudioTrack;
+      if (track == null) return;
+      final lower = (track.language ?? track.title ?? '').toLowerCase();
       if (lower.contains('jpn') ||
           lower.contains('ja') ||
           lower.contains('japanese')) {
@@ -2405,8 +2390,8 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
       if (prefSub != null) {
         if (prefSub == 'no') {
           selectedTrack = SubtitleTrack.no();
-          if (_mediaKitPlayer.state.track.subtitle != selectedTrack) {
-            _mediaKitPlayer.setSubtitleTrack(selectedTrack);
+          if (activePlayer.mediaKitPlayer?.state.track.subtitle != selectedTrack) {
+            activePlayer.mediaKitPlayer?.setSubtitleTrack(selectedTrack);
           }
           matchedSub = true;
         } else {
@@ -2420,8 +2405,8 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                 (track.language != null &&
                     track.language!.toLowerCase().contains(prefSub.toLowerCase()))) {
               selectedTrack = track;
-              if (_mediaKitPlayer.state.track.subtitle != track) {
-                _mediaKitPlayer.setSubtitleTrack(track);
+              if (activePlayer.mediaKitPlayer?.state.track.subtitle != track) {
+                activePlayer.mediaKitPlayer?.setSubtitleTrack(track);
                 Log.i(
                     'Automatically applied preferred subtitle track ($prefSub) for audio language category ($audioLangCategory)');
               }
@@ -2434,8 +2419,9 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
 
       // 4. Default smart fallbacks if no user preference is saved
       if (!matchedSub) {
-        final currentSub = _mediaKitPlayer.state.track.subtitle;
-        if (currentSub.id == 'no' || currentSub.id == 'auto') {
+        final currentSub = activePlayer.mediaKitPlayer?.state.track.subtitle;
+        final subId = currentSub?.id;
+        if (subId == 'no' || subId == 'auto') {
           if (audioLangCategory == 'eng') {
             // English audio (Dub) -> Default to forced/signs/songs subtitles
             // if available, otherwise disabled
@@ -2452,8 +2438,8 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
             }
             final targetTrack = forcedTrack ?? SubtitleTrack.no();
             selectedTrack = targetTrack;
-            if (_mediaKitPlayer.state.track.subtitle != targetTrack) {
-              _mediaKitPlayer.setSubtitleTrack(targetTrack);
+            if (activePlayer.mediaKitPlayer?.state.track.subtitle != targetTrack) {
+              activePlayer.mediaKitPlayer?.setSubtitleTrack(targetTrack);
               Log.i(
                   'Smart Sub/Dub default: English audio -> Target subtitle track: ${targetTrack.title ?? targetTrack.id}');
             }
@@ -2477,8 +2463,8 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                 orElse: () => tracks.subtitle.first,
               );
               selectedTrack = targetSubTrack;
-              if (_mediaKitPlayer.state.track.subtitle != targetSubTrack) {
-                _mediaKitPlayer.setSubtitleTrack(targetSubTrack);
+              if (activePlayer.mediaKitPlayer?.state.track.subtitle != targetSubTrack) {
+                activePlayer.mediaKitPlayer?.setSubtitleTrack(targetSubTrack);
                 Log.i(
                     'Smart Sub/Dub default: $audioLangCategory audio -> English/fallback subtitle: ${targetSubTrack.language ?? targetSubTrack.title ?? targetSubTrack.id}');
               }
@@ -2488,9 +2474,13 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
       }
 
       // Update blend-subtitles based on selected track codec
-      PlayerFilterService.updateBlendSubtitlesForTrack(
-          _mediaKitPlayer, selectedTrack ?? _mediaKitPlayer.state.track.subtitle);
+      final mpv2 = activePlayer.mediaKitPlayer;
+      if (mpv2 != null) {
+        final sub = selectedTrack ?? mpv2.state.track.subtitle;
+        PlayerFilterService.updateBlendSubtitlesForTrack(mpv2, sub);
+      }
     }));
+    }
 
     _subscriptions.add(activePlayer.stream.buffering.listen((buffering) {
       if (_disposed) return;
@@ -2509,8 +2499,8 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
 
   void _updateSubtitleProperties() {
     if (_disposed) return;
-    if ((activePlayer is MediaKitUnifiedController && activePlayer.originalPlayer.platform is NativePlayer)) {
-      final nativePlayer = activePlayer.originalPlayer.platform as NativePlayer;
+    if ((activePlayer is MediaKitUnifiedController && _mediaKitPlayer.platform is NativePlayer)) {
+      final nativePlayer = _mediaKitPlayer.platform as NativePlayer;
       nativePlayer.setProperty('sub-font-size',
           _settings.subtitles.subtitleFontSize.round().toString());
       nativePlayer.setProperty(

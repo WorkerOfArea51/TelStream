@@ -1,3 +1,4 @@
+import '../media_kit_unified_controller.dart';
 import '../../../core/utils/subtitle_color_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:telstream/features/player/unified_player_controller.dart';
@@ -41,6 +42,7 @@ class TrackSelectorPanel extends ConsumerStatefulWidget {
 }
 
 class TrackSelectorPanelState extends ConsumerState<TrackSelectorPanel> {
+  Player? get mkPlayer => widget.player is MediaKitUnifiedController ? (widget.player as MediaKitUnifiedController).mediaKitPlayer : null;
   int _activeTab = 0; // 0: Tracks, 1: Style
   bool isVisible = false;
   late bool isSubtitle = widget.initialIsSubtitle;
@@ -66,9 +68,9 @@ class TrackSelectorPanelState extends ConsumerState<TrackSelectorPanel> {
 
   void _updateAudioDelay(double val) {
     final roundedVal = double.parse(val.toStringAsFixed(1));
-    if ((widget.player.originalPlayer as Player).platform is NativePlayer) {
+    if (mkPlayer?.platform is NativePlayer) {
       try {
-        ((widget.player.originalPlayer as Player).platform as NativePlayer).setProperty('audio-delay', roundedVal.toString());
+        (mkPlayer!.platform as NativePlayer).setProperty('audio-delay', roundedVal.toString());
       } catch (_) {}
     }
     widget.onAudioDelayChanged(roundedVal);
@@ -113,12 +115,12 @@ class TrackSelectorPanelState extends ConsumerState<TrackSelectorPanel> {
     final settingsAccent = customTheme?.settingsAccent ?? theme.primaryColor;
 
     return StreamBuilder<Tracks>(
-      stream: (widget.player.originalPlayer as Player).stream.tracks,
-      initialData: (widget.player.originalPlayer as Player).state.tracks,
+      stream: mkPlayer?.stream.tracks ?? const Stream.empty(),
+      initialData: mkPlayer?.state.tracks ?? Tracks(),
       builder: (context, tracksSnapshot) {
         return StreamBuilder<Track>(
-          stream: (widget.player.originalPlayer as Player).stream.track,
-          initialData: (widget.player.originalPlayer as Player).state.track,
+          stream: mkPlayer?.stream.track ?? const Stream.empty(),
+          initialData: mkPlayer?.state.track ?? Track(),
           builder: (context, trackSnapshot) {
             final tracksObj = tracksSnapshot.data;
             final currentTrackObj = trackSnapshot.data;

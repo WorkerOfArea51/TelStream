@@ -335,11 +335,11 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
         return;
       }
 
-      final Uint8List? screenshotBytes = await widget.player.screenshot(
+      final screenshotBytes = await widget.player.screenshot(
         format: 'image/png',
       );
       if (!mounted) return;
-      if (screenshotBytes == null || screenshotBytes.isEmpty) {
+      if (screenshotBytes.isEmpty) {
         _showSkipToast(AppLocalizations.of(context)!.failedToCaptureScreenshot);
         return;
       }
@@ -658,7 +658,8 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
       }
 
       final player = widget.player;
-      final nativePlayer = (player.originalPlayer as Player).platform;
+      final mpv = player.mediaKitPlayer;
+      final nativePlayer = mpv?.platform;
       if (nativePlayer is NativePlayer) {
         try {
           final results = await Future.wait([
@@ -717,14 +718,15 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
 
           final proxy = ref.read(streamingProxyServiceProvider).requireValue;
           int? activeFileId;
-          final playingUrl =
-              (widget.player.originalPlayer as Player).state.playlist.index >= 0 &&
-                  (widget.player.originalPlayer as Player).state.playlist.index <
-                      (widget.player.originalPlayer as Player).state.playlist.medias.length
-              ? (widget.player.originalPlayer as Player)
+          final mpv = widget.player.mediaKitPlayer;
+          final playingUrl = mpv != null &&
+              mpv.state.playlist.index >= 0 &&
+                  mpv.state.playlist.index <
+                      mpv.state.playlist.medias.length
+              ? mpv
                     .state
                     .playlist
-                    .medias[(widget.player.originalPlayer as Player).state.playlist.index]
+                    .medias[mpv.state.playlist.index]
                     .uri
               : '';
           if (StreamingProxyService.isProxyUrl(playingUrl)) {
@@ -831,9 +833,10 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     _currentVolume = widget.player.state.volume;
     _initSystemVolumeAndBrightness();
     _initAspectRatio();
-    if ((widget.player.originalPlayer as Player).platform is NativePlayer) {
+    final mpv = widget.player.mediaKitPlayer;
+    if (mpv != null && mpv.platform is NativePlayer) {
       try {
-        ((widget.player.originalPlayer as Player).platform as NativePlayer)
+        (mpv.platform as NativePlayer)
             .getProperty('audio-delay')
             .then((delayStr) {
               if (mounted) {
@@ -858,40 +861,41 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
       _checkAbRepeat(pos);
       if (!_blendSubtitlesChecked && pos.inSeconds > 0) {
         _blendSubtitlesChecked = true;
-        _updateBlendSubtitlesForTrack(
-          widget.player.originalPlayer as Player,
-          (widget.player.originalPlayer as Player).state.track.subtitle,
-        );
+        final mpv = widget.player.mediaKitPlayer;
+        if (mpv != null) {
+          _updateBlendSubtitlesForTrack(mpv, mpv.state.track.subtitle);
+        }
       }
     });
     _durationSubscription = widget.player.stream.duration.listen((dur) {
       if (dur.inSeconds > 0) {
         _loadChapters();
-        _updateBlendSubtitlesForTrack(
-          widget.player.originalPlayer as Player,
-          (widget.player.originalPlayer as Player).state.track.subtitle,
-        );
+        final mpv = widget.player.mediaKitPlayer;
+        if (mpv != null) {
+          _updateBlendSubtitlesForTrack(mpv, mpv.state.track.subtitle);
+        }
       }
     });
-    _trackSubscription = (widget.player.originalPlayer as Player).stream.track.listen((track) {
-      _updateBlendSubtitlesForTrack((widget.player.originalPlayer as Player), track.subtitle);
+    _trackSubscription = widget.player.mediaKitPlayer?.stream.track.listen((track) {
+      final mpvForBlend = widget.player.mediaKitPlayer;
+if (mpvForBlend != null) _updateBlendSubtitlesForTrack(mpvForBlend, track.subtitle);
     });
-    _tracksListSubscription = (widget.player.originalPlayer as Player).stream.tracks.listen((_) {
-      _updateBlendSubtitlesForTrack(
-        (widget.player.originalPlayer as Player),
-        (widget.player.originalPlayer as Player).state.track.subtitle,
-      );
+    _tracksListSubscription = widget.player.mediaKitPlayer?.stream.tracks.listen((_) {
+      final mpv = widget.player.mediaKitPlayer;
+if (mpv != null) {
+  _updateBlendSubtitlesForTrack(mpv, mpv.state.track.subtitle);
+}
       if (_trackPanelKey.currentState?.isVisible ?? false) {
         _loadTrackCodecs();
       }
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _updateBlendSubtitlesForTrack(
-        (widget.player.originalPlayer as Player),
-        (widget.player.originalPlayer as Player).state.track.subtitle,
-      );
+      final mpv = widget.player.mediaKitPlayer;
+if (mpv != null) {
+  _updateBlendSubtitlesForTrack(mpv, mpv.state.track.subtitle);
+}
     });
-    _playlistSubscription = (widget.player.originalPlayer as Player).stream.playlist.listen((_) {
+    _playlistSubscription = widget.player.mediaKitPlayer?.stream.playlist.listen((_) {
       if (mounted) {
         setState(() {
           _chapters = [];
@@ -936,34 +940,35 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
         _checkAbRepeat(pos);
         if (!_blendSubtitlesChecked && pos.inSeconds > 0) {
           _blendSubtitlesChecked = true;
-          _updateBlendSubtitlesForTrack(
-            (widget.player.originalPlayer as Player),
-            (widget.player.originalPlayer as Player).state.track.subtitle,
-          );
+          final mpv = widget.player.mediaKitPlayer;
+if (mpv != null) {
+  _updateBlendSubtitlesForTrack(mpv, mpv.state.track.subtitle);
+}
         }
       });
       _durationSubscription = widget.player.stream.duration.listen((dur) {
         if (dur.inSeconds > 0) {
           _loadChapters();
-          _updateBlendSubtitlesForTrack(
-            (widget.player.originalPlayer as Player),
-            (widget.player.originalPlayer as Player).state.track.subtitle,
-          );
+          final mpv = widget.player.mediaKitPlayer;
+if (mpv != null) {
+  _updateBlendSubtitlesForTrack(mpv, mpv.state.track.subtitle);
+}
         }
       });
-      _trackSubscription = (widget.player.originalPlayer as Player).stream.track.listen((track) {
-        _updateBlendSubtitlesForTrack((widget.player.originalPlayer as Player), track.subtitle);
+      _trackSubscription = widget.player.mediaKitPlayer?.stream.track.listen((track) {
+        final mpvForBlend = widget.player.mediaKitPlayer;
+if (mpvForBlend != null) _updateBlendSubtitlesForTrack(mpvForBlend, track.subtitle);
       });
-      _tracksListSubscription = (widget.player.originalPlayer as Player).stream.tracks.listen((_) {
-        _updateBlendSubtitlesForTrack(
-          widget.player.originalPlayer as Player,
-          (widget.player.originalPlayer as Player).state.track.subtitle,
-        );
+      _tracksListSubscription = widget.player.mediaKitPlayer?.stream.tracks.listen((_) {
+        final mpv = widget.player.mediaKitPlayer;
+        if (mpv != null) {
+          _updateBlendSubtitlesForTrack(mpv, mpv.state.track.subtitle);
+        }
         if (_trackPanelKey.currentState?.isVisible ?? false) {
           _loadTrackCodecs();
         }
       });
-      _playlistSubscription = (widget.player.originalPlayer as Player).stream.playlist.listen((_) {
+      _playlistSubscription = widget.player.mediaKitPlayer?.stream.playlist.listen((_) {
         if (mounted) {
           setState(() {
             _chapters = [];
@@ -979,10 +984,10 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
       });
 
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        _updateBlendSubtitlesForTrack(
-          widget.player.originalPlayer as Player,
-          (widget.player.originalPlayer as Player).state.track.subtitle,
-        );
+        final mpv = widget.player.mediaKitPlayer;
+        if (mpv != null) {
+          _updateBlendSubtitlesForTrack(mpv, mpv.state.track.subtitle);
+        }
       });
     }
   }
@@ -1444,7 +1449,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
   Future<void> _loadChapters() async {
     _chaptersRetryTimer?.cancel();
     try {
-      final dynamic platform = (widget.player.originalPlayer as Player).platform;
+      final dynamic platform = widget.player.mediaKitPlayer?.platform;
       final countStr = await platform.getProperty('chapter-list/count');
       if (countStr != null) {
         final count = int.tryParse(countStr);
@@ -1551,8 +1556,9 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
 
   void _updateAudioFilters() {
     try {
-      if ((widget.player.originalPlayer as Player).platform is NativePlayer) {
-        final nativePlayer = (widget.player.originalPlayer as Player).platform as NativePlayer;
+      final mpv1556 = widget.player.mediaKitPlayer;
+      if (mpv1556 != null && mpv1556.platform is NativePlayer) {
+        final nativePlayer = mpv1556.platform as NativePlayer;
         final filters = <String>[];
         if (_audioBoostActive) {
           filters.add('volume=volume=6dB:precision=fixed');
@@ -1612,8 +1618,9 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
   /// At higher speeds, audio needs larger buffers and video sync needs more tolerance
   /// to prevent A/V desynchronization.
   void _adjustSyncForSpeed(double speed) {
-    if ((widget.player.originalPlayer as Player).platform is NativePlayer) {
-      final nativePlayer = (widget.player.originalPlayer as Player).platform as NativePlayer;
+    final mpv = widget.player.mediaKitPlayer;
+    if (mpv != null && mpv.platform is NativePlayer) {
+      final nativePlayer = mpv.platform as NativePlayer;
       
       if (speed > 1.5) {
         // High speed: increase audio buffer proportionally to prevent starvation
@@ -1763,8 +1770,9 @@ if (!Platform.isAndroid && !Platform.isIOS) {
 
   Future<void> _loadTrackCodecs() async {
     try {
-      if ((widget.player.originalPlayer as Player).platform is NativePlayer) {
-        final nativePlayer = (widget.player.originalPlayer as Player).platform as NativePlayer;
+      final mpv1556 = widget.player.mediaKitPlayer;
+      if (mpv1556 != null && mpv1556.platform is NativePlayer) {
+        final nativePlayer = mpv1556.platform as NativePlayer;
         final countStr = await nativePlayer.getProperty('track-list/count');
         final count = int.tryParse(countStr) ?? 0;
         final Map<String, String> codecs = {};
@@ -1798,16 +1806,18 @@ if (!Platform.isAndroid && !Platform.isIOS) {
     final isSub = _trackPanelKey.currentState?.isSubtitle ?? true;
     
     if (isSub) {
-      (widget.player.originalPlayer as Player).setSubtitleTrack(track);
+      widget.player.mediaKitPlayer?.setSubtitleTrack(track);
       final settings = ref.read(videoSettingsProvider);
       final isNativeSub = settings.subtitles.subtitleRendererMode == 'native';
       _applySubtitleProperty(
         'sub-visibility',
         (track.id == 'no' || !isNativeSub) ? 'no' : 'yes',
       );
-      _updateBlendSubtitlesForTrack((widget.player.originalPlayer as Player), track);
+      final mpvForBlend = widget.player.mediaKitPlayer;
+if (mpvForBlend != null) _updateBlendSubtitlesForTrack(mpvForBlend, track);
 
-      final activeAudio = (widget.player.originalPlayer as Player).state.track.audio;
+      final activeAudio = widget.player.mediaKitPlayer?.state.track.audio;
+      if (activeAudio == null) return;
       String audioLangCategory = 'other';
       final lower = (activeAudio.language ?? activeAudio.title ?? '')
           .toLowerCase();
@@ -1834,19 +1844,23 @@ if (!Platform.isAndroid && !Platform.isIOS) {
 
       Future.delayed(const Duration(milliseconds: 300), () {
         if (mounted) {
-          final activeSub = (widget.player.originalPlayer as Player).state.track.subtitle;
-          Log.i('Active subtitle track verified: ${activeSub.id}');
-          if (activeSub.id != track.id && track.id != 'no') {
+          final activeSub = (widget.player.mediaKitPlayer)?.state.track.subtitle;
+          Log.i('Active subtitle track verified: ${activeSub?.id}');
+          if (activeSub?.id != track.id && track.id != 'no') {
             Log.w(
               'Discrepancy in subtitle track verification. Retrying setSubtitleTrack...',
             );
-            (widget.player.originalPlayer as Player).setSubtitleTrack(track);
+            final mpv = widget.player.mediaKitPlayer;
+            if (mpv == null) return;
+            mpv.setSubtitleTrack(track);
           }
         }
       });
     } else {
-      final activeSub = (widget.player.originalPlayer as Player).state.track.subtitle;
-      (widget.player.originalPlayer as Player).setAudioTrack(track);
+      final mpv = widget.player.mediaKitPlayer;
+      if (mpv == null) return;
+      final activeSub = mpv.state.track.subtitle;
+      mpv.setAudioTrack(track);
       final audioPrefVal = track.id == 'auto'
           ? 'auto'
           : (track.language ?? track.title ?? track.id);
@@ -1855,7 +1869,7 @@ if (!Platform.isAndroid && !Platform.isIOS) {
 
       Future.delayed(const Duration(milliseconds: 300), () {
         if (mounted) {
-          final newTracks = (widget.player.originalPlayer as Player).state.tracks.subtitle;
+          final newTracks = mpv.state.tracks.subtitle;
           SubtitleTrack matchedSub = activeSub;
 
           for (final t in newTracks) {
@@ -1875,8 +1889,8 @@ if (!Platform.isAndroid && !Platform.isIOS) {
             }
           }
 
-          (widget.player.originalPlayer as Player).setSubtitleTrack(matchedSub);
-          _updateBlendSubtitlesForTrack((widget.player.originalPlayer as Player), matchedSub);
+          mpv.setSubtitleTrack(matchedSub);
+          _updateBlendSubtitlesForTrack(mpv, matchedSub);
           Log.i(
             'Re-applied subtitle track after audio track change: ${matchedSub.id} (originally: ${activeSub.id})',
           );
@@ -2882,7 +2896,7 @@ if (!Platform.isAndroid && !Platform.isIOS) {
               bottom: isPortrait ? (_showMoreOptionsPanel ? 0 : -800) : 0,
               width: isPortrait ? null : 380,
               child: MoreOptionsPanel(
-                player: widget.player,
+                controller: widget.player,
                 quickActionRow: _buildQuickActionRow(),
                 onClose: () => setState(() => _showMoreOptionsPanel = false),
                 onShowToast: _showSkipToast,
@@ -2915,7 +2929,9 @@ if (!Platform.isAndroid && !Platform.isIOS) {
         await pickedFile.copy(targetFile.path);
         Log.i('Local subtitle picked and copied to: ${targetFile.path}');
 
-        (widget.player.originalPlayer as Player).setSubtitleTrack(SubtitleTrack.uri(targetFile.path));
+        final mpv = widget.player.mediaKitPlayer;
+        if (mpv == null) return;
+        mpv.setSubtitleTrack(SubtitleTrack.uri(targetFile.path));
 
         if (mounted) {
           setState(() {
@@ -3105,11 +3121,11 @@ if (!Platform.isAndroid && !Platform.isIOS) {
 
   void _applySubtitleProperty(String name, String value) {
     try {
-      if ((widget.player.originalPlayer as Player).platform is NativePlayer) {
-        final nativePlayer = (widget.player.originalPlayer as Player).platform as NativePlayer;
-        nativePlayer.setProperty(name, value);
-        Log.i('Applied subtitle property dynamically: $name = $value');
-      }
+      final mpv = widget.player.mediaKitPlayer;
+      if (mpv == null) return;
+      final nativePlayer = mpv.platform as NativePlayer;
+      nativePlayer.setProperty(name, value);
+      Log.i('Applied subtitle property dynamically: $name = $value');
     } catch (e) {
       Log.e('Failed to apply subtitle property $name', e);
     }
@@ -3164,9 +3180,11 @@ if (!Platform.isAndroid && !Platform.isIOS) {
     await storage.setHardwareDecoderMode(nextMode);
 
     try {
-      if ((widget.player.originalPlayer as Player).platform is NativePlayer) {
-        final nativePlayer = (widget.player.originalPlayer as Player).platform as NativePlayer;
-        nativePlayer.setProperty('hwdec', nextMode);
+      final mpv = widget.player.mediaKitPlayer;
+      if (mpv == null) return;
+      final platform = mpv.platform;
+      if (platform is NativePlayer) {
+        platform.setProperty('hwdec', nextMode);
       }
     } catch (e) {
       Log.w('Failed to apply hwdec change dynamically: $e');

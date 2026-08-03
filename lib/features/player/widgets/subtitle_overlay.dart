@@ -1,8 +1,8 @@
+import '../media_kit_unified_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:telstream/features/player/unified_player_controller.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:media_kit/media_kit.dart';
 import 'package:telstream/features/settings/settings_provider.dart';
 
 class SubtitleOverlay extends ConsumerStatefulWidget {
@@ -45,7 +45,7 @@ class _SubtitleOverlayState extends ConsumerState<SubtitleOverlay> {
     }
 
     return StreamBuilder<List<String>>(
-      stream: (widget.player.originalPlayer as Player).stream.subtitle,
+      stream: widget.player is MediaKitUnifiedController ? ((widget.player as MediaKitUnifiedController).mediaKitPlayer?.stream.subtitle ?? const Stream.empty()) : const Stream.empty(),
       builder: (context, snapshot) {
         final subtitleLines = snapshot.data;
         if (subtitleLines == null || subtitleLines.isEmpty) {

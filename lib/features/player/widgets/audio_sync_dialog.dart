@@ -1,3 +1,4 @@
+import '../media_kit_unified_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:telstream/features/player/unified_player_controller.dart';
 
@@ -58,10 +59,13 @@ class _AudioSyncDialogState extends State<AudioSyncDialog> {
     setState(() {
       _delay = roundedVal;
     });
-    if ((widget.player.originalPlayer as Player).platform is NativePlayer && mounted) {
-      try {
-        ((widget.player.originalPlayer as Player).platform as NativePlayer).setProperty('audio-delay', roundedVal.toString());
-      } catch (_) {}
+    if (widget.player is MediaKitUnifiedController) {
+      final mkPlayer = (widget.player as MediaKitUnifiedController).mediaKitPlayer;
+      if (mkPlayer?.platform is NativePlayer && mounted) {
+        try {
+          (mkPlayer!.platform as NativePlayer).setProperty('audio-delay', roundedVal.toString());
+        } catch (_) {}
+      }
     }
     widget.onDelayChanged(roundedVal);
   }

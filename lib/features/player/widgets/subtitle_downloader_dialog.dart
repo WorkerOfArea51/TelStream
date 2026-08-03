@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:telstream/features/player/unified_player_controller.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:media_kit/media_kit.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../services/subtitle_downloader_service.dart';
 
@@ -320,7 +319,7 @@ class _SubtitleDownloaderDialogState extends ConsumerState<SubtitleDownloaderDia
                                             if (path != null) {
                                               if (context.mounted) {
                                                 try {
-                                                  (widget.player.originalPlayer as Player).setSubtitleTrack(SubtitleTrack.uri(path));
+                                                  widget.player.setSubtitleTrack(UnifiedSubtitleTrack(id: 'external', title: path));
                                                 } catch (e) {
                                                   // Ignore if player is disposed
                                                 }
