@@ -1430,6 +1430,10 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                     ),
                 ],
               ),
+            ),
+          ),
+        ),
+      );
 
     if (isDesktop) return scaffold;
 
