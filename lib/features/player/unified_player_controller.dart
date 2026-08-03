@@ -51,6 +51,8 @@ abstract class UnifiedPlayerController {
   // Basic Actions
   Future<void> play();
   Future<void> pause();
+  Future<void> stop();
+  Future<void> open(String url, {bool play = true, Map<String, String>? httpHeaders});
   Future<void> playOrPause() async {
     if (state.playing) {
       await pause();

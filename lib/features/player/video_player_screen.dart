@@ -25,8 +25,13 @@ import '../../core/constants.dart';
 import '../../services/streaming_proxy_service.dart';
 import '../../services/tracker_service.dart';
 import 'utils/player_filter_service.dart';
-import 'widgets/exo_player_view.dart';
-import 'widgets/vlc_player_view.dart';
+import 'unified_player_controller.dart';
+import 'package:video_player/video_player.dart';
+import 'package:flutter_vlc_player/flutter_vlc_player.dart';
+import 'exo_player_unified_controller.dart';
+import 'vlc_unified_controller.dart';
+import 'media_kit_unified_controller.dart';
+
 
 import '../../models/episode.dart';
 
@@ -62,8 +67,12 @@ class VideoPlayerScreen extends ConsumerStatefulWidget {
 
 class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
     with WidgetsBindingObserver {
-  late Player player;
-  late VideoController controller;
+    late Player _mediaKitPlayer;
+  late VideoController _mediaKitController;
+  VideoPlayerController? _exoPlayerController;
+  VlcPlayerController? _vlcPlayerController;
+  late UnifiedPlayerController activePlayer;
+
   StreamSubscription? _updatesSubscription;
   bool _isPlaying = false;
   int _downloadedPrefixSize = 0;
@@ -84,10 +93,10 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
   // ── Disposal guard ──────────────────────────────────────────────────────
   // Prevents any post-disposal interaction with the Player or VideoController.
   // Without this, async callbacks (connectivity, watchdog, seek) can call
-  // player.pause()/play()/seek() on a disposed Player, causing native crashes.
+  // activePlayer.pause()/play()/seek() on a disposed Player, causing native crashes.
   bool _disposed = false;
 
-  // ── Recreate-player guard ───────────────────────────────────────────────
+  // ── Recreate-activePlayer guard ───────────────────────────────────────────────
   // Prevents _startPlayback from opening new media while _recreatePlayer is
   // still disposing the old Player. The old Player's stop/dispose is async,
   // and if _startPlayback runs concurrently it opens Media on a Player that
@@ -117,13 +126,13 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
 
     _connectivitySubscription =
         Connectivity().onConnectivityChanged.listen((results) {
-      if (_disposed) return; // Guard: don't touch player after dispose
+      if (_disposed) return; // Guard: don't touch activePlayer after dispose
       final isConnected = results.any((r) => r != ConnectivityResult.none);
       if (!isConnected && _wasNetworkConnected) {
         Log.w('Network disconnected — pausing playback');
-        _userPaused = !player.state.playing;
+        _userPaused = !activePlayer.state.playing;
         try {
-          player.pause();
+          activePlayer.pause();
         } catch (_) {}
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -137,7 +146,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
         Log.i('Network reconnected — resuming playback');
         if (!_userPaused) {
           try {
-            player.play();
+            activePlayer.play();
           } catch (_) {}
         }
       }
@@ -209,13 +218,13 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
       }
       try {
         if (_settings.savePositionOnQuit &&
-            player.state.position.inSeconds > 0 &&
-            player.state.playing) {
+            activePlayer.state.position.inSeconds > 0 &&
+            activePlayer.state.playing) {
           _storageService.saveWatchPosition(
-              widget.messageId, player.state.position.inSeconds);
-          if (player.state.duration.inSeconds > 0) {
+              widget.messageId, activePlayer.state.position.inSeconds);
+          if (activePlayer.state.duration.inSeconds > 0) {
             _storageService.saveVideoDuration(
-                widget.messageId, player.state.duration.inSeconds);
+                widget.messageId, activePlayer.state.duration.inSeconds);
           }
           if (!_storageService.isIncognitoMode() &&
               widget.seriesName.isNotEmpty &&
@@ -226,7 +235,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
               episodeIndex: widget.currentEpisodeIndex!,
               episodeTitle:
                   widget.videoTitle.replaceFirst('${widget.seriesName} - ', ''),
-              positionInSeconds: player.state.position.inSeconds,
+              positionInSeconds: activePlayer.state.position.inSeconds,
               videoFileId: _resolvedVideoFileId ?? widget.videoFileId,
             );
           }
@@ -236,9 +245,9 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
       }
 
       // Check and trigger tracker watch progress syncing if progress >= 80%
-      if (!_hasUpdatedTracker && player.state.duration.inSeconds > 0) {
-        final position = player.state.position.inSeconds;
-        final duration = player.state.duration.inSeconds;
+      if (!_hasUpdatedTracker && activePlayer.state.duration.inSeconds > 0) {
+        final position = activePlayer.state.position.inSeconds;
+        final duration = activePlayer.state.duration.inSeconds;
         final progress = position / duration;
         if (progress >= 0.8) {
           _hasUpdatedTracker = true;
@@ -280,15 +289,15 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
       _resetOrientationAndUI();
     }
     if (widget.messageId != oldWidget.messageId) {
-      // Episode changed on Desktop (reusing player)
+      // Episode changed on Desktop (reusing activePlayer)
       // Defer to after the widget tree finishes building — Riverpod forbids
       // modifying providers during didUpdateWidget.
       Future.microtask(() {
         if (mounted && !_disposed) {
-          _pipController.setActivePlayer(player);
+          _pipController.setActivePlayer(activePlayer.originalPlayer);
         }
       });
-      player.stop().then((_) {
+      activePlayer.stop().then((_) {
         if (mounted && !_disposed) {
           setState(() {
             _isInitializing = true;
@@ -299,9 +308,9 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
           _initDownload();
         }
       }).catchError((Object e, StackTrace st) {
-        Log.e('player.stop() failed during episode change', e, st);
+        Log.e('activePlayer.stop() failed during episode change', e, st);
         if (mounted && !_disposed) {
-          _recreatePlayer(); // Force-recreate the player if stop failed.
+          _recreatePlayer(); // Force-recreate the activePlayer if stop failed.
         }
       });
     }
@@ -343,7 +352,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
   DateTime? _lastUpdateTime;
 
   Future<void> _startPlayback(String localPath) async {
-    // Guard: don't open media while player is being recreated or disposed
+    // Guard: don't open media while activePlayer is being recreated or disposed
     if (_isPlaying || _isRecreating || _disposed) return;
     _isPlaying = true;
 
@@ -361,7 +370,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
     final savedPos = _storageService.getWatchPosition(widget.messageId);
     // We don't know the duration yet, so we can't check if savedPos is
     // near the end here. We'll check inside performRobustStartupSeek
-    // after the player reports the duration.
+    // after the activePlayer reports the duration.
     final shouldPlayImmediately = savedPos <= 0;
 
     final proxyHeaders =
@@ -379,9 +388,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
     final isDesktop = Platform.isWindows || Platform.isLinux || Platform.isMacOS;
     
     if (isDesktop || _settings.videoEngine == 'MediaKit') {
-      player
-          .open(Media(finalPath, httpHeaders: proxyHeaders),
-              play: shouldPlayImmediately)
+      activePlayer.open(finalPath, httpHeaders: proxyHeaders, play: shouldPlayImmediately)
           .timeout(const Duration(seconds: 30))
           .then((_) {
       if (!mounted || _disposed) return;
@@ -394,7 +401,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
             Log.i(
                 'savedPos ($savedPos) is near end of video (duration ${knownDuration.inSeconds}s), restarting from beginning');
             if (mounted && !_disposed) {
-              player.play();
+              activePlayer.play();
               setState(() {
                 _isInitializing = false;
               });
@@ -407,16 +414,16 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
             if (!mounted || _disposed) return;
 
             // Abort any active proxy reads to free the mpv thread so
-            // player.seek won't deadlock
+            // activePlayer.seek won't deadlock
             final fileId = _resolvedVideoFileId ?? widget.videoFileId;
             if (fileId != 0) {
               _proxyService.abortActiveRequests(fileId);
             }
 
-            await player.seek(Duration(seconds: savedPos));
+            await activePlayer.seek(Duration(seconds: savedPos));
             await Future.delayed(Duration(milliseconds: 300 + (i * 200)));
             if (!mounted || _disposed) return;
-            final currentPos = player.state.position.inSeconds;
+            final currentPos = activePlayer.state.position.inSeconds;
             if (currentPos > 0 && (currentPos - savedPos).abs() <= 5) {
               Log.i('Robust startup seek successful at attempt ${i + 1}');
               break;
@@ -425,18 +432,18 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                 'Playback startup seek failed. Retrying seek to $savedPos (Attempt ${i + 1})');
           }
           if (mounted && !_disposed) {
-            player.play();
+            activePlayer.play();
             setState(() {
               _isInitializing = false;
             });
           }
         }
 
-        if (player.state.duration.inSeconds > 0) {
-          performRobustStartupSeek(player.state.duration);
+        if (activePlayer.state.duration.inSeconds > 0) {
+          performRobustStartupSeek(activePlayer.state.duration);
         } else {
           late final StreamSubscription<Duration> durSub;
-          durSub = player.stream.duration.listen((dur) {
+          durSub = activePlayer.stream.duration.listen((dur) {
             if (dur.inSeconds > 0) {
               durSub.cancel();
               _subscriptions.remove(durSub);
@@ -450,11 +457,11 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
       } else {
         if (mounted && !_disposed) {
           // Explicit play() needed on PC (software decoding) —
-          // play: true in player.open() doesn't always auto-start on PC
+          // play: true in activePlayer.open() doesn't always auto-start on PC
           try {
-            player.play();
+            activePlayer.play();
           } catch (e) {
-            Log.w('player.play() after open failed: $e');
+            Log.w('activePlayer.play() after open failed: $e');
           }
           setState(() {
             _isInitializing = false;
@@ -462,7 +469,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
         }
       }
     }).catchError((Object e, StackTrace st) {
-      Log.e('player.open() failed for $finalPath', e, st);
+      Log.e('activePlayer.open() failed for $finalPath', e, st);
       if (mounted && !_disposed) {
         setState(() {
           _isInitializing = false;
@@ -488,7 +495,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
       }
     }
     if (!_disposed) {
-      player.setVolume(100.0);
+      activePlayer.setVolume(100.0);
     }
   }
 
@@ -526,8 +533,8 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
           if (event.file.local.isDownloadingCompleted) {
             // Boost buffer sizes since the file is completely downloaded
             try {
-              if (player.platform is NativePlayer) {
-                final nativePlayer = player.platform as NativePlayer;
+              if ((activePlayer is MediaKitUnifiedController && activePlayer.originalPlayer.platform is NativePlayer)) {
+                final nativePlayer = activePlayer.originalPlayer.platform as NativePlayer;
                 nativePlayer.setProperty(
                     'demuxer-max-bytes', '524288000'); // 500 MB buffer
                 nativePlayer.setProperty(
@@ -584,19 +591,19 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                   _isBuffering = false;
                 });
               }
-              player.seek(seekTarget).then((_) {
+              activePlayer.seek(seekTarget).then((_) {
                 if (mounted && !_disposed) {
                   try {
-                    player.play();
+                    activePlayer.play();
                   } catch (e, st) {
-                    Log.e('player.play() after seek failed', e, st);
+                    Log.e('activePlayer.play() after seek failed', e, st);
                   }
                 }
               }).catchError((Object e, StackTrace st) {
-                Log.e('player.seek() to $seekTarget failed', e, st);
+                Log.e('activePlayer.seek() to $seekTarget failed', e, st);
                 if (mounted && !_disposed) {
                   try {
-                    player.play();
+                    activePlayer.play();
                   } catch (_) {}
                 }
               });
@@ -604,7 +611,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
           }
         } // Close if (event is td.UpdateFile)
       } catch (e, st) {
-        Log.e('Error processing TDLib update in player', e, st);
+        Log.e('Error processing TDLib update in activePlayer', e, st);
       }
     });
   }
@@ -621,12 +628,11 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
       }
       final isDesktop = Platform.isWindows || Platform.isLinux || Platform.isMacOS;
       if (isDesktop || _settings.videoEngine == 'MediaKit') {
-        player
-            .open(Media(widget.networkUrl!), play: true)
+        activePlayer.open(widget.networkUrl!, play: true)
             .timeout(const Duration(seconds: 30))
             .catchError((Object e, StackTrace st) {
           Log.e(
-              'player.open() failed for network URL ${widget.networkUrl}', e, st);
+              'activePlayer.open() failed for network URL ${widget.networkUrl}', e, st);
           if (mounted && !_disposed) {
             setState(() {
               _isPlaying = false;
@@ -646,7 +652,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
       }
       
       if (!_disposed) {
-        player.setVolume(100.0);
+        activePlayer.setVolume(100.0);
       }
       return;
     }
@@ -926,12 +932,12 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
   void _handleCustomSeek(Duration position) {
     if (_disposed) return; // Guard: don't seek after dispose
     if (widget.networkUrl != null && widget.networkUrl!.isNotEmpty) {
-      player.seek(position);
+      activePlayer.seek(position);
       _schedulePostSeekRecovery();
       return;
     }
 
-    int totalDuration = player.state.duration.inSeconds;
+    int totalDuration = activePlayer.state.duration.inSeconds;
     if (totalDuration <= 0) {
       totalDuration = _storageService.getVideoDuration(widget.messageId);
     }
@@ -958,7 +964,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
 
       if (isCompleted || isWithinDownloadedRange || isNearActiveOffset) {
         _proxyService.abortActiveRequests(fileId);
-        player.seek(position);
+        activePlayer.seek(position);
         _schedulePostSeekRecovery();
         return;
       }
@@ -968,7 +974,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
       }
 
       // Initiate pause-buffer-play seek cycle
-      player.pause();
+      activePlayer.pause();
       if (mounted) {
         setState(() {
           _isBuffering = true;
@@ -1001,7 +1007,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
       Log.i(
           'Seeking TDLib download to offset: $shiftOffset bytes (original target: $byteOffset bytes, position: $position)');
     } else {
-      player.seek(position);
+      activePlayer.seek(position);
       _schedulePostSeekRecovery();
     }
   }
@@ -1015,7 +1021,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
   ///
   /// This method schedules a check 3 seconds after the seek. If the
   /// decoder hasn't produced any new frames in that window, we fully
-  /// recreate the player (which creates a fresh MediaCodec instance).
+  /// recreate the activePlayer (which creates a fresh MediaCodec instance).
   ///
   /// The watchdog's Mode B detection also catches this case, but only
   /// after 3 seconds of consecutive zero-render. This method gives a
@@ -1023,8 +1029,8 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
   /// callsite.
   void _schedulePostSeekRecovery() {
     Future.delayed(const Duration(seconds: 3), () async {
-      if (!mounted || !player.state.playing || _disposed) return;
-      final np = player.platform;
+      if (!mounted || !activePlayer.state.playing || _disposed) return;
+      final np = _mediaKitPlayer.platform;
       if (np is! NativePlayer) return;
       final decodedAfter = int.tryParse(
               await np
@@ -1035,7 +1041,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
       if (decodedAfter == 0) {
         Log.w('Post-seek decoder stall detected '
             '(decoded=$decodedAfter, rendered=N/AAfter). '
-            'Recreating player to reset MediaCodec state.');
+            'Recreating activePlayer to reset MediaCodec state.');
         await _recreatePlayer();
       }
     });
@@ -1043,21 +1049,21 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (_disposed) return; // Guard: don't touch player after dispose
+    if (_disposed) return; // Guard: don't touch activePlayer after dispose
     if (state == AppLifecycleState.paused) {
       try {
-        player.pause();
+        activePlayer.pause();
       } catch (e, st) {
-        Log.e('player.pause() in lifecycle pause failed', e, st);
+        Log.e('activePlayer.pause() in lifecycle pause failed', e, st);
       }
     } else if (state == AppLifecycleState.resumed) {
-      // Refresh player state when returning to the app
+      // Refresh activePlayer state when returning to the app
       try {
-        if (player.state.playing) {
-          player.play();
+        if (activePlayer.state.playing) {
+          activePlayer.play();
         }
       } catch (e) {
-        Log.w('Failed to refresh player on resume: $e');
+        Log.w('Failed to refresh activePlayer on resume: $e');
       }
     }
   }
@@ -1080,12 +1086,12 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
     _preloadCooldownTimer?.cancel();
 
     try {
-      final position = player.state.position.inSeconds;
+      final position = activePlayer.state.position.inSeconds;
       if (position > 0 && _settings.savePositionOnQuit) {
         _storageService.saveWatchPosition(widget.messageId, position);
-        if (player.state.duration.inSeconds > 0) {
+        if (activePlayer.state.duration.inSeconds > 0) {
           _storageService.saveVideoDuration(
-              widget.messageId, player.state.duration.inSeconds);
+              widget.messageId, activePlayer.state.duration.inSeconds);
         }
         if (!_storageService.isIncognitoMode() &&
             widget.seriesName.isNotEmpty &&
@@ -1112,29 +1118,29 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
       Log.e('Failed to resume downloads after streaming', e, st);
     }
 
-    // Silence, pause, and stop the player immediately to halt all decoding
+    // Silence, pause, and stop the activePlayer immediately to halt all decoding
     // and audio output. Only call stop ONCE — the async microtask below
     // handles dispose.
     try {
-      player.setVolume(0.0);
+      activePlayer.setVolume(0.0);
     } catch (e) { /* ignore */ }
     try {
-      player.pause();
+      activePlayer.pause();
     } catch (e) { /* ignore */ }
     try {
-      player.stop();
+      activePlayer.stop();
     } catch (e) { /* ignore */ }
 
-    // Reset PipController active state first. If this player is the active
-    // player, we call close() to clean up the state and set activePlayer
+    // Reset PipController active state first. If this activePlayer is the active
+    // activePlayer, we call close() to clean up the state and set activePlayer
     // to null.
-    final isActive = _pipController.activePlayer == player;
+    final isActive = _pipController.activePlayer == _mediaKitPlayer;
     if (isActive) {
-      _pipController.clearActivePlayer(player);
+      _pipController.clearActivePlayer(_mediaKitPlayer);
     }
 
-    // Wait a brief moment to see if another player took over (e.g. Next
-    // Episode). If not, we are truly exiting the player and should reset
+    // Wait a brief moment to see if another activePlayer took over (e.g. Next
+    // Episode). If not, we are truly exiting the activePlayer and should reset
     // UI and Wakelock.
     Future.delayed(const Duration(milliseconds: 150), () {
       if (!mounted) return;
@@ -1150,9 +1156,9 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
       } catch (_) {}
     });
 
-    // Dispose the player asynchronously — no need to call stop() again
+    // Dispose the activePlayer asynchronously — no need to call stop() again
     // since we already called it synchronously above.
-    final p = player;
+    final p = activePlayer;
     Future.microtask(() async {
       try {
         await p.dispose();
@@ -1281,7 +1287,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
         needSubUpdate = true;
       }
       if (needAudioFilterUpdate) {
-        PlayerFilterService.updateAudioFilters(player, _settings);
+        PlayerFilterService.updateAudioFilters(_mediaKitPlayer, _settings);
       }
       if (needSubUpdate) {
         _updateSubtitleProperties();
@@ -1291,23 +1297,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
     final isDesktop =
         Platform.isWindows || Platform.isLinux || Platform.isMacOS;
 
-    if (!isDesktop && _settings.videoEngine != 'MediaKit' && _currentVideoUrl != null) {
-      if (_settings.videoEngine == 'ExoPlayer') {
-        return ExoPlayerView(
-          videoUrl: _currentVideoUrl!,
-          title: widget.videoTitle,
-          httpHeaders: _currentHttpHeaders,
-          onBack: () => Navigator.of(context, rootNavigator: true).pop(),
-        );
-      } else if (_settings.videoEngine == 'LibVLC') {
-        return VlcPlayerView(
-          videoUrl: _currentVideoUrl!,
-          title: widget.videoTitle,
-          httpHeaders: _currentHttpHeaders,
-          onBack: () => Navigator.of(context, rootNavigator: true).pop(),
-        );
-      }
-    }
+    
 
     Widget scaffold = Scaffold(
         backgroundColor: Colors.black,
@@ -1319,15 +1309,15 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
               final key = event.logicalKey;
               if (key == LogicalKeyboardKey.space ||
                   key == LogicalKeyboardKey.keyK) {
-                if (player.state.playing) {
-                  player.pause();
+                if (activePlayer.state.playing) {
+                  activePlayer.pause();
                 } else {
-                  player.play();
+                  activePlayer.play();
                 }
                 return KeyEventResult.handled;
               } else if (key == LogicalKeyboardKey.arrowRight ||
                   key == LogicalKeyboardKey.keyL) {
-                final seekTarget = player.state.position +
+                final seekTarget = activePlayer.state.position +
                     Duration(
                         seconds:
                             _settings.gestures.doubleTapSeekDuration);
@@ -1335,7 +1325,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                 return KeyEventResult.handled;
               } else if (key == LogicalKeyboardKey.arrowLeft ||
                   key == LogicalKeyboardKey.keyJ) {
-                final seekTarget = player.state.position -
+                final seekTarget = activePlayer.state.position -
                     Duration(
                         seconds:
                             _settings.gestures.doubleTapSeekDuration);
@@ -1343,26 +1333,26 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                 return KeyEventResult.handled;
               } else if (key == LogicalKeyboardKey.arrowUp) {
                 final newVol =
-                    (player.state.volume + 5.0).clamp(0.0, 100.0);
-                player.setVolume(newVol);
+                    (activePlayer.state.volume + 5.0).clamp(0.0, 100.0);
+                activePlayer.setVolume(newVol);
                 return KeyEventResult.handled;
               } else if (key == LogicalKeyboardKey.arrowDown) {
                 final newVol =
-                    (player.state.volume - 5.0).clamp(0.0, 100.0);
-                player.setVolume(newVol);
+                    (activePlayer.state.volume - 5.0).clamp(0.0, 100.0);
+                activePlayer.setVolume(newVol);
                 return KeyEventResult.handled;
               } else if (key == LogicalKeyboardKey.keyM) {
-                if (player.state.volume > 0.0) {
-                  player.setVolume(0.0);
+                if (activePlayer.state.volume > 0.0) {
+                  activePlayer.setVolume(0.0);
                 } else {
-                  player.setVolume(100.0);
+                  activePlayer.setVolume(100.0);
                 }
                 return KeyEventResult.handled;
               } else if (key == LogicalKeyboardKey.escape) {
                 try {
-                  player.setVolume(0.0);
-                  player.pause();
-                  player.stop();
+                  activePlayer.setVolume(0.0);
+                  activePlayer.pause();
+                  activePlayer.stop();
                 } catch (_) {}
                 _resetOrientationAndUI();
                 Navigator.of(context, rootNavigator: true).pop();
@@ -1379,13 +1369,13 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                 if (dy < 0) {
                   // Scrolled up
                   final newVol =
-                      (player.state.volume + 5.0).clamp(0.0, 100.0);
-                  player.setVolume(newVol);
+                      (activePlayer.state.volume + 5.0).clamp(0.0, 100.0);
+                  activePlayer.setVolume(newVol);
                 } else if (dy > 0) {
                   // Scrolled down
                   final newVol =
-                      (player.state.volume - 5.0).clamp(0.0, 100.0);
-                  player.setVolume(newVol);
+                      (activePlayer.state.volume - 5.0).clamp(0.0, 100.0);
+                  activePlayer.setVolume(newVol);
                 }
               }
             },
@@ -1394,18 +1384,23 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                 fit: StackFit.expand,
                 children: [
                   // BUG FOUND (Aug 3): ALWAYS mount the Video widget immediately.
-                  // If we wait for player.open() to finish, the player starts decoding
+                  // If we wait for activePlayer.open() to finish, the activePlayer starts decoding
                   // frames before the SurfaceTexture is bound, resulting in a black screen.
                   (widget.isPip
                       ? Video(
-                          controller: controller,
+                          controller: _mediaKitController,
                           controls: NoVideoControls,
                           wakelock: false)
-                      : CustomVideoControls(
-                          player: MediaKitUnifiedController(player),
+                                            : CustomVideoControls(
+                          player: activePlayer,
                           videoSurfaceBuilder: (context, fit, customAspectRatio) {
+                            if (_settings.videoEngine == 'ExoPlayer' && _exoPlayerController != null) {
+                              return VideoPlayer(_exoPlayerController!);
+                            } else if (_settings.videoEngine == 'LibVLC' && _vlcPlayerController != null) {
+                              return VlcPlayer(controller: _vlcPlayerController!, aspectRatio: customAspectRatio ?? 16 / 9);
+                            }
                             return CachedVideoWidget(
-                              controller: controller,
+                              controller: _mediaKitController,
                               fit: fit,
                               customAspectRatio: customAspectRatio,
                               subtitleConfig: const SubtitleViewConfiguration(visible: false),
@@ -1423,9 +1418,9 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                           activeDownloadedSize: _activeDownloadedSize,
                           onBack: () {
                             try {
-                              player.setVolume(0.0);
-                              player.pause();
-                              player.stop();
+                              activePlayer.setVolume(0.0);
+                              activePlayer.pause();
+                              activePlayer.stop();
                             } catch (_) {}
                             _resetOrientationAndUI();
                             Navigator.of(context, rootNavigator: true).pop();
@@ -1498,9 +1493,9 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
       onPopInvokedWithResult: (didPop, result) {
         if (didPop) {
           try {
-            player.setVolume(0.0);
-            player.pause();
-            player.stop();
+            activePlayer.setVolume(0.0);
+            activePlayer.pause();
+            activePlayer.stop();
           } catch (e) { /* ignore */ }
           _resetOrientationAndUI();
         }
@@ -1511,8 +1506,8 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
 
   void _applyStreamingProfile() {
     try {
-      if (player.platform is NativePlayer) {
-        final nativePlayer = player.platform as NativePlayer;
+      if ((activePlayer is MediaKitUnifiedController && activePlayer.originalPlayer.platform is NativePlayer)) {
+        final nativePlayer = activePlayer.originalPlayer.platform as NativePlayer;
         final profile = _settings.streamingProfile;
 
         if (profile == 'Aggressive Buffer') {
@@ -1659,8 +1654,8 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
     _isRecreating = true;
 
     try {
-      final currentPos = player.state.position;
-      final isPlayingState = player.state.playing;
+      final currentPos = activePlayer.state.position;
+      final isPlayingState = activePlayer.state.playing;
 
       if (_isInitializing) {
         _isRecreating = false;
@@ -1680,25 +1675,25 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
         _isPlaying = false;
       });
 
-      _pipController.clearActivePlayer(player);
+      _pipController.clearActivePlayer(_mediaKitPlayer);
 
       try {
-        await player.setVolume(0.0);
+        await activePlayer.setVolume(0.0);
       } catch (e) { /* ignore */ }
       try {
-        await player.pause();
+        activePlayer.pause();
       } catch (e) { /* ignore */ }
       try {
-        await player.stop();
+        activePlayer.stop();
       } catch (e) { /* ignore */ }
-      await player.dispose();
+      activePlayer.dispose();
 
       _initialTrackSelectionDone = false;
       // BUG FOUND (Aug 3): this was previously un-awaited, unlike the
-      // initial call at line ~149. _initPlayerInstance() assigns `player`
+      // initial call at line ~149. _initPlayerInstance() assigns `activePlayer`
       // synchronously up front, but assigns `controller` much later (after
       // several internal awaits for DeviceDetector/settings checks). Not
-      // awaiting here meant _setupPlayerListeners()/player.open() below —
+      // awaiting here meant _setupPlayerListeners()/activePlayer.open() below —
       // and the setState() after open() completes — could run before
       // `controller` was reassigned, leaving the widget tree bound to the
       // disposed old controller while the new decoder rendered into a
@@ -1711,8 +1706,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
 
       final fileId = _resolvedVideoFileId ?? widget.videoFileId;
       if (widget.networkUrl != null && widget.networkUrl!.isNotEmpty) {
-        player
-            .open(Media(widget.networkUrl!), play: isPlayingState)
+        activePlayer.open(widget.networkUrl!, play: isPlayingState)
             .timeout(const Duration(seconds: 30))
             .then((_) {
           if (!mounted || _disposed) return;
@@ -1721,11 +1715,11 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
             _isInitializing = false;
           });
           if (currentPos.inSeconds > 0) {
-            if (player.state.duration.inSeconds > 0) {
+            if (activePlayer.state.duration.inSeconds > 0) {
               _handleCustomSeek(currentPos);
             } else {
               late final StreamSubscription<Duration> durSub;
-              durSub = player.stream.duration.listen((dur) {
+              durSub = activePlayer.stream.duration.listen((dur) {
                 if (dur.inSeconds > 0) {
                   durSub.cancel();
                   _subscriptions.remove(durSub);
@@ -1758,9 +1752,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
             StreamingProxyService.isProxyUrl(mediaUrl)
                 ? _proxyService.getAuthHeaders()
                 : null;
-        player
-            .open(Media(mediaUrl, httpHeaders: proxyHeaders),
-                play: isPlayingState)
+        activePlayer.open(mediaUrl, httpHeaders: proxyHeaders, play: isPlayingState)
             .timeout(const Duration(seconds: 30))
             .then((_) {
           if (!mounted || _disposed) return;
@@ -1769,11 +1761,11 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
             _isInitializing = false;
           });
           if (currentPos.inSeconds > 0) {
-            if (player.state.duration.inSeconds > 0) {
+            if (activePlayer.state.duration.inSeconds > 0) {
               _handleCustomSeek(currentPos);
             } else {
               late final StreamSubscription<Duration> durSub;
-              durSub = player.stream.duration.listen((dur) {
+              durSub = activePlayer.stream.duration.listen((dur) {
                 if (dur.inSeconds > 0) {
                   durSub.cancel();
                   _subscriptions.remove(durSub);
@@ -1788,10 +1780,10 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
         });
       }
       if (!_disposed) {
-        player.setVolume(100.0);
+        activePlayer.setVolume(100.0);
       }
     } catch (e, stack) {
-      Log.e('Failed to recreate player', e, stack);
+      Log.e('Failed to recreate activePlayer', e, stack);
       if (mounted && !_disposed) {
         setState(() {
           _isInitializing = false;
@@ -1808,7 +1800,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
   //
   // Polls MPV every 1s for the first 30 seconds of playback. If we observe
   // "rendered frames == 0 AND decoded frames > 0" for 3 consecutive polls
-  // while the player reports it is playing, we recreate the player with a
+  // while the activePlayer reports it is playing, we recreate the activePlayer with a
   // fallback decoder chain:
   //   Stage 0 (default): mediacodec-copy
   //   Stage 1: software (hwdec=no)
@@ -1832,9 +1824,9 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
     _watchdogLastDecoded = 0;
     _watchdogLastDropped = 0;
     _renderWatchdog = Timer.periodic(const Duration(seconds: 1), (t) async {
-      if (!mounted || !player.state.playing || _disposed) return;
+      if (!mounted || !activePlayer.state.playing || _disposed) return;
       try {
-        final nativePlayer = player.platform;
+        final nativePlayer = _mediaKitPlayer.platform;
         if (nativePlayer is! NativePlayer) return;
 
         // ── Mode B: zero-render detection (continuous) ─────────────────
@@ -1907,9 +1899,9 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
     }
     // Stage 1: software decoding (hwdec=no)
     const stageName = 'no (software)';
-    Log.w('Render watchdog: recreating player with hwdec=$stageName');
+    Log.w('Render watchdog: recreating activePlayer with hwdec=$stageName');
 
-    // Temporarily override the stored setting for this player instance only.
+    // Temporarily override the stored setting for this activePlayer instance only.
     // We do NOT persist this — the user's setting stays as-is for next
     // launch, but this playback session uses the fallback.
     _watchdogOverrideHwdec = 'no';
@@ -1922,7 +1914,31 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
 
   Future<void> _initPlayerInstance() async {
     final localFont = ref.read(storageServiceProvider).localFontPath;
-    player = Player(
+    
+    if (_settings.videoEngine == 'ExoPlayer') {
+      _exoPlayerController = VideoPlayerController.networkUrl(
+        Uri.parse(_currentVideoUrl ?? widget.networkUrl ?? ''),
+        httpHeaders: _currentHttpHeaders ?? {},
+      );
+      await _exoPlayerController!.initialize();
+      activePlayer = ExoPlayerUnifiedController(_exoPlayerController!);
+      return;
+    } else if (_settings.videoEngine == 'LibVLC') {
+      _vlcPlayerController = VlcPlayerController.network(
+        _currentVideoUrl ?? widget.networkUrl ?? '',
+        hwAcc: HwAcc.full,
+        autoPlay: false,
+        options: VlcPlayerOptions(
+           http: VlcHttpOptions([
+             VlcHttpOptions.httpReconnect(true),
+           ]),
+        ),
+      );
+      activePlayer = VlcUnifiedController(_vlcPlayerController!);
+      return;
+    }
+
+    _mediaKitPlayer = Player(
       configuration: PlayerConfiguration(
         pitch: _settings.audio.pitchCorrection,
         libass: _settings.subtitles.subtitleRendererMode == 'native',
@@ -1931,17 +1947,12 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
         libassAndroidFontName: 'Roboto',
       ),
     );
+    activePlayer = MediaKitUnifiedController(_mediaKitPlayer);
 
-    // Optimize streaming cache/buffering parameters for low-bandwidth
-    // connections and reduce glitching.
-
-    // Track the actual hwdec mode that will be set — needed later by
-    // VideoController creation to decide enableHardwareAcceleration.
     String actualHwdec = 'auto';
-
     try {
-      if (player.platform is NativePlayer) {
-        final nativePlayer = player.platform as NativePlayer;
+      if ((activePlayer is MediaKitUnifiedController && activePlayer.originalPlayer.platform is NativePlayer)) {
+        final nativePlayer = activePlayer.originalPlayer.platform as NativePlayer;
 
         // ── Cache / buffering ──────────────────────────────────────────────
         // These values were validated by Hotfixes 4, 5, and 7. Do NOT change
@@ -2050,11 +2061,11 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
             // because it allowed mpv to choose the wrong video output.
             // nativePlayer.setProperty('vo', 'gpu'); // V4 FIX: explicit vo=gpu requires Impeller to be ENABLED so it doesn't crash Skia! // REMOVED to prevent initialization crash
             actualHwdec = safeMode;
-            Log.i('Set hardware decoder mode to $safeMode + vo=gpu on player init (Android)');
+            Log.i('Set hardware decoder mode to $safeMode + vo=gpu on activePlayer init (Android)');
           } else {
             nativePlayer.setProperty('hwdec', 'no');
             actualHwdec = 'no';
-            Log.i('Hardware decoder mode is disabled (no) on player init');
+            Log.i('Hardware decoder mode is disabled (no) on activePlayer init');
           }
 
           // ── Explicit codec allowlist ─────────────────────────────────────
@@ -2122,7 +2133,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
           }
           nativePlayer.setProperty('hwdec', safeMode);
           actualHwdec = safeMode; // Save for VideoController creation below
-          Log.i('Set hardware decoder mode to $safeMode on player init (PC)');
+          Log.i('Set hardware decoder mode to $safeMode on activePlayer init (PC)');
         }
 
         // ── Subtitles (libass) ─────────────────────────────────────────────
@@ -2162,7 +2173,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
         }
 
         // Apply audio filters (DRC & Equalizer).
-        PlayerFilterService.updateAudioFilters(player, _settings);
+        PlayerFilterService.updateAudioFilters(_mediaKitPlayer, _settings);
 
         // Apply adaptive streaming profile.
         _applyStreamingProfile();
@@ -2199,7 +2210,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
         }
       }
     } catch (e, stack) {
-      Log.e('Failed to configure native player features', e, stack);
+      Log.e('Failed to configure native activePlayer features', e, stack);
     }
 
     // ── VideoController creation ───────────────────────────────────────────
@@ -2232,7 +2243,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
     //     widget.
     //
     // NOTE: We use actualHwdec (the mode that was actually set on the native
-    // player) rather than the stored setting, because the code above may
+    // activePlayer) rather than the stored setting, because the code above may
     // override the stored setting (e.g., forcing mediacodec-copy on Android).
 
 
@@ -2245,13 +2256,13 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
     // modifying providers during initState/build.
     Future.microtask(() {
       if (mounted && !_disposed) {
-        _pipController.setActivePlayer(player);
+        _pipController.setActivePlayer(activePlayer.originalPlayer);
       }
     });
 
     try {
-      controller = VideoController(
-        player,
+      _mediaKitController = VideoController(
+      _mediaKitPlayer,
         configuration: VideoControllerConfiguration(
           // IMPORTANT: media_kit_video's own docs (VideoControllerConfiguration
           // in platform_video_controller.dart) state the default for `hwdec`
@@ -2267,14 +2278,19 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
       // Safety net: re-apply hwdec after VideoController creation, in case
       // creating the controller reset it back to VideoControllerConfiguration's
       // own default (auto-safe on Android).
-      if (player.platform is NativePlayer) {
-        (player.platform as NativePlayer).setProperty('hwdec', actualHwdec);
+      if ((activePlayer is MediaKitUnifiedController && activePlayer.originalPlayer.platform is NativePlayer)) {
+        (_mediaKitPlayer.platform as NativePlayer).setProperty('hwdec', actualHwdec);
       }
     } catch (e, st) {
-      Log.e('Failed to create VideoController. Disposing player.', e, st);
-      try {
-        player.dispose();
-      } catch (_) {}
+      Log.e('Failed to create VideoController. Disposing activePlayer.', e, st);
+          if (_settings.videoEngine == 'ExoPlayer') {
+      _exoPlayerController?.dispose();
+    } else if (_settings.videoEngine == 'LibVLC') {
+      _vlcPlayerController?.dispose();
+    } else {
+      _mediaKitPlayer.dispose();
+    }
+    activePlayer.dispose();
       rethrow;
     }
 
@@ -2308,7 +2324,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
   }
 
   void _setupPlayerListeners() {
-    _subscriptions.add(player.stream.playing.listen((playing) async {
+    _subscriptions.add(activePlayer.stream.playing.listen((playing) async {
       if (_disposed) return;
       if (playing) {
         if (!widget.isPip) {
@@ -2322,7 +2338,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
       } else {
         // When paused, wait 60 seconds before disabling Wakelock
         Future.delayed(const Duration(seconds: 60), () {
-          if (mounted && !_disposed && !player.state.playing && !widget.isPip) {
+          if (mounted && !_disposed && !activePlayer.state.playing && !widget.isPip) {
             try {
               WakelockPlus.disable();
             } catch (_) {}
@@ -2331,7 +2347,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
       }
     }));
 
-    _subscriptions.add(player.stream.tracks.listen((tracks) {
+    _subscriptions.add(_mediaKitPlayer.stream.tracks.listen((tracks) {
       if (_disposed) return;
       if (tracks.audio.isEmpty && tracks.subtitle.isEmpty) return;
       if (_initialTrackSelectionDone) return;
@@ -2358,12 +2374,12 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
 
       // Apply audio track if resolved and not already set
       if (targetAudioTrack != null &&
-          player.state.track.audio != targetAudioTrack) {
-        player.setAudioTrack(targetAudioTrack);
+          _mediaKitPlayer.state.track.audio != targetAudioTrack) {
+        _mediaKitPlayer.setAudioTrack(targetAudioTrack);
         Log.i(
             'Auto-selected preferred audio track: ${targetAudioTrack.title ?? targetAudioTrack.language ?? targetAudioTrack.id}');
       } else {
-        targetAudioTrack = player.state.track.audio;
+        targetAudioTrack = _mediaKitPlayer.state.track.audio;
       }
 
       // 2. Classify audio language category for sub/dub logic
@@ -2390,8 +2406,8 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
       if (prefSub != null) {
         if (prefSub == 'no') {
           selectedTrack = SubtitleTrack.no();
-          if (player.state.track.subtitle != selectedTrack) {
-            player.setSubtitleTrack(selectedTrack);
+          if (_mediaKitPlayer.state.track.subtitle != selectedTrack) {
+            _mediaKitPlayer.setSubtitleTrack(selectedTrack);
           }
           matchedSub = true;
         } else {
@@ -2405,8 +2421,8 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                 (track.language != null &&
                     track.language!.toLowerCase().contains(prefSub.toLowerCase()))) {
               selectedTrack = track;
-              if (player.state.track.subtitle != track) {
-                player.setSubtitleTrack(track);
+              if (_mediaKitPlayer.state.track.subtitle != track) {
+                _mediaKitPlayer.setSubtitleTrack(track);
                 Log.i(
                     'Automatically applied preferred subtitle track ($prefSub) for audio language category ($audioLangCategory)');
               }
@@ -2419,7 +2435,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
 
       // 4. Default smart fallbacks if no user preference is saved
       if (!matchedSub) {
-        final currentSub = player.state.track.subtitle;
+        final currentSub = _mediaKitPlayer.state.track.subtitle;
         if (currentSub.id == 'no' || currentSub.id == 'auto') {
           if (audioLangCategory == 'eng') {
             // English audio (Dub) -> Default to forced/signs/songs subtitles
@@ -2437,8 +2453,8 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
             }
             final targetTrack = forcedTrack ?? SubtitleTrack.no();
             selectedTrack = targetTrack;
-            if (player.state.track.subtitle != targetTrack) {
-              player.setSubtitleTrack(targetTrack);
+            if (_mediaKitPlayer.state.track.subtitle != targetTrack) {
+              _mediaKitPlayer.setSubtitleTrack(targetTrack);
               Log.i(
                   'Smart Sub/Dub default: English audio -> Target subtitle track: ${targetTrack.title ?? targetTrack.id}');
             }
@@ -2462,8 +2478,8 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                 orElse: () => tracks.subtitle.first,
               );
               selectedTrack = targetSubTrack;
-              if (player.state.track.subtitle != targetSubTrack) {
-                player.setSubtitleTrack(targetSubTrack);
+              if (_mediaKitPlayer.state.track.subtitle != targetSubTrack) {
+                _mediaKitPlayer.setSubtitleTrack(targetSubTrack);
                 Log.i(
                     'Smart Sub/Dub default: $audioLangCategory audio -> English/fallback subtitle: ${targetSubTrack.language ?? targetSubTrack.title ?? targetSubTrack.id}');
               }
@@ -2474,10 +2490,10 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
 
       // Update blend-subtitles based on selected track codec
       PlayerFilterService.updateBlendSubtitlesForTrack(
-          player, selectedTrack ?? player.state.track.subtitle);
+          _mediaKitPlayer, selectedTrack ?? _mediaKitPlayer.state.track.subtitle);
     }));
 
-    _subscriptions.add(player.stream.buffering.listen((buffering) {
+    _subscriptions.add(activePlayer.stream.buffering.listen((buffering) {
       if (_disposed) return;
       if (mounted) {
         setState(() {
@@ -2494,8 +2510,8 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
 
   void _updateSubtitleProperties() {
     if (_disposed) return;
-    if (player.platform is NativePlayer) {
-      final nativePlayer = player.platform as NativePlayer;
+    if ((activePlayer is MediaKitUnifiedController && activePlayer.originalPlayer.platform is NativePlayer)) {
+      final nativePlayer = activePlayer.originalPlayer.platform as NativePlayer;
       nativePlayer.setProperty('sub-font-size',
           _settings.subtitles.subtitleFontSize.round().toString());
       nativePlayer.setProperty(

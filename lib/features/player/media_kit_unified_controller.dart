@@ -46,6 +46,10 @@ class MediaKitUnifiedController extends UnifiedPlayerController {
 
   @override
   Future<void> pause() => _player.pause();
+  @override
+  Future<void> stop() => _player.stop();
+  @override
+  Future<void> open(String url, {bool play = true, Map<String, String>? httpHeaders}) => _player.open(Media(url, httpHeaders: httpHeaders), play: play);
 
   @override
   Future<void> seek(Duration position) => _player.seek(position);

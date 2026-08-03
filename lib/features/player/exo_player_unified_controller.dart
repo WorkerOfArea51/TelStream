@@ -66,6 +66,15 @@ class ExoPlayerUnifiedController extends UnifiedPlayerController {
 
   @override
   Future<void> pause() => _controller.pause();
+  @override
+  Future<void> stop() async {
+    await _controller.pause();
+    await _controller.seekTo(Duration.zero);
+  }
+  @override
+  Future<void> open(String url, {bool play = true, Map<String, String>? httpHeaders}) async {
+    // Handled natively by recreating the controller in video_player_screen
+  }
 
   @override
   Future<void> seek(Duration position) => _controller.seekTo(position);

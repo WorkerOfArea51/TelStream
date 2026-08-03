@@ -66,6 +66,12 @@ class VlcUnifiedController extends UnifiedPlayerController {
 
   @override
   Future<void> pause() => _controller.pause();
+  @override
+  Future<void> stop() => _controller.stop();
+  @override
+  Future<void> open(String url, {bool play = true, Map<String, String>? httpHeaders}) async {
+    await _controller.setMediaFromNetwork(url, hwAcc: HwAcc.full, autoPlay: play);
+  }
 
   @override
   Future<void> seek(Duration position) => _controller.seekTo(position);
