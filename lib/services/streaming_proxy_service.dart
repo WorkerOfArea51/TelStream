@@ -194,8 +194,8 @@ class StreamingProxyService {
       );
     }
     final q = fileName != null && fileName.isNotEmpty
-        ? 'fileId=$fileId&name=${Uri.encodeComponent(fileName)}'
-        : 'fileId=$fileId';
+        ? 'fileId=$fileId&token=$_authToken&name=${Uri.encodeComponent(fileName)}'
+        : 'fileId=$fileId&token=$_authToken';
     final host = _boundAddress == InternetAddress.loopbackIPv6 ? '[::1]' : '127.0.0.1';
     return 'http://$host:$_port/stream?$q';
   }
@@ -250,7 +250,11 @@ class StreamingProxyService {
       }
 
       final authHeader = request.headers.value('Authorization');
-      if (!constantTimeEquals(authHeader ?? '', 'Bearer $_authToken')) {
+      final queryToken = request.uri.queryParameters['token'];
+      final hasValidHeader = constantTimeEquals(authHeader ?? '', 'Bearer $_authToken');
+      final hasValidQuery = constantTimeEquals(queryToken ?? '', _authToken);
+
+      if (!hasValidHeader && !hasValidQuery) {
         request.response.statusCode = HttpStatus.unauthorized;
         await request.response.close();
         return;

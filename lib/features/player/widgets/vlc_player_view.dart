@@ -34,7 +34,13 @@ class _VlcPlayerViewState extends State<VlcPlayerView> {
       widget.videoUrl,
       hwAcc: HwAcc.full,
       autoPlay: true,
-      options: VlcPlayerOptions(),
+      options: VlcPlayerOptions(
+        advanced: VlcAdvancedOptions([
+          if (widget.httpHeaders != null)
+            for (var entry in widget.httpHeaders!.entries)
+              '--http-header=${entry.key}: ${entry.value}'
+        ]),
+      ),
     );
 
     _vlcViewController.addListener(() {
