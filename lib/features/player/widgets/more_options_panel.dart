@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:media_kit/media_kit.dart';
-import 'package:media_kit/src/player/native/player/native_player.dart'
-    show NativePlayer;
+
 import '../unified_player_controller.dart';
 
 class MoreOptionsPanel extends StatelessWidget {
@@ -99,8 +98,8 @@ class MoreOptionsPanel extends StatelessWidget {
           TextButton(
             onPressed: () {
               final s = int.tryParse(ctl.text) ?? 120;
-              mpv.setProperty('demuxer-max-bytes', f'{s * 1024 * 1024}');
-              mpv.setProperty('demuxer-max-back-bytes', f'{s * 512 * 1024}');
+              mpv.setProperty('demuxer-max-bytes', '${s * 1024 * 1024}');
+              mpv.setProperty('demuxer-max-back-bytes', '${s * 512 * 1024}');
               Navigator.pop(context);
             },
             child: const Text('Apply'),

@@ -381,8 +381,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
       });
     }
 
-    final isDesktop = Platform.isWindows || Platform.isLinux || Platform.isMacOS;
-    
+        
     // Always call open() on the active engine
     activePlayer.open(finalPath, httpHeaders: proxyHeaders, play: shouldPlayImmediately)
         .timeout(const Duration(seconds: 30))
@@ -614,8 +613,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
           _isInitializing = false;
         });
       }
-      final isDesktop = Platform.isWindows || Platform.isLinux || Platform.isMacOS;
-      if (isDesktop || _settings.videoEngine == 'MediaKit') {
+    if (Platform.isWindows || Platform.isLinux || Platform.isMacOS || _settings.videoEngine == 'MediaKit') {
         activePlayer.open(widget.networkUrl!, play: true)
             .timeout(const Duration(seconds: 30))
             .catchError((Object e, StackTrace st) {

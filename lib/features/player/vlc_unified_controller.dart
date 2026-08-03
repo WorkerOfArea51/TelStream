@@ -192,7 +192,7 @@ class VlcUnifiedController extends BaseUnifiedPlayerController {
   Future<void> setLooping(bool enabled) async {    
     _isLooping = enabled;
     try {
-      await _controller?.setLoopMode(enabled);
+      await _controller?.setLooping(enabled);
     } catch (_) {}
   }
 
