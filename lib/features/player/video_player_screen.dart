@@ -613,7 +613,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
           _isInitializing = false;
         });
       }
-    if (Platform.isWindows || Platform.isLinux || Platform.isMacOS || _settings.videoEngine == 'MediaKit') {
+    if (Platform.isWindows || Platform.isLinux || Platform.isMacOS || ref.read(videoSettingsProvider).videoEngine == 'MediaKit') {
         activePlayer.open(widget.networkUrl!, play: true)
             .timeout(const Duration(seconds: 30))
             .catchError((Object e, StackTrace st) {
@@ -1380,22 +1380,50 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                                             : CustomVideoControls(
                           player: activePlayer,
                           videoSurfaceBuilder: (context, fit, customAspectRatio) {
-                            // ExoPlayer: controller is created lazily in open(),
-                            // so read it from the unified controller at build time.
-                            final exoCtl = activePlayer.exoPlayerController
-                                as VideoPlayerController?;
-                            if (exoCtl != null) {
-                              return VideoPlayer(exoCtl);
+                            // ── Engine-specific video surface (FIX 2025-08-04) ──────────
+                            // Previously this builder checked exoPlayerController
+                            // and vlcPlayer getters, but those returned null
+                            // (base-class defaults) because the engine controllers
+                            // didn't override them. The fallback to
+                            // CachedVideoWidget(controller: _mediaKitController)
+                            // crashed with LateInitializationError on ExoPlayer/VLC
+                            // engines because _mediaKitController is only created
+                            // for the media_kit engine path.
+                            //
+                            // Now we dispatch on engineName to pick the right
+                            // widget, and return a black placeholder if the
+                            // engine's controller isn't ready yet (before open()
+                            // completes).
+                            final engine = activePlayer.engineName;
+
+                            if (engine == 'ExoPlayer') {
+                              final exoCtl = activePlayer.exoPlayerController
+                                  as VideoPlayerController?;
+                              if (exoCtl != null && exoCtl.value.isInitialized) {
+                                return VideoPlayer(exoCtl);
+                              }
+                              // ExoPlayer controller not ready yet — show black
+                              // while initialize() runs. Do NOT fall through to
+                              // media_kit (would crash: _mediaKitController is
+                              // never created for the ExoPlayer engine).
+                              return const ColoredBox(color: Colors.black);
                             }
-                            // VLC: controller exists right after VlcUnifiedController construction.
-                            final vlcCtl = activePlayer.vlcPlayer as VlcPlayerController?;
-                            if (vlcCtl != null) {
-                              return VlcPlayer(
-                                controller: vlcCtl,
-                                aspectRatio: customAspectRatio ?? 16 / 9,
-                              );
+
+                            if (engine == 'LibVLC') {
+                              final vlcCtl =
+                                  activePlayer.vlcPlayer as VlcPlayerController?;
+                              if (vlcCtl != null) {
+                                return VlcPlayer(
+                                  controller: vlcCtl,
+                                  aspectRatio: customAspectRatio ?? 16 / 9,
+                                  placeholder: const ColoredBox(color: Colors.black),
+                                );
+                              }
+                              // VLC controller not ready yet — show black.
+                              return const ColoredBox(color: Colors.black);
                             }
-                            // media_kit fallback.
+
+                            // media_kit (default engine).
                             return CachedVideoWidget(
                               controller: _mediaKitController,
                               fit: fit,
@@ -1476,6 +1504,33 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                               ],
                             ),
                     ),
+                  // ── Engine badge (FIX 2025-08-04) ────────────────────────
+                  // Small overlay in the top-right corner showing the active
+                  // engine name. This helps users visually distinguish which
+                  // engine is running (previously all engines showed identical
+                  // UI because they all fell through to media_kit's widget).
+                  Positioned(
+                    top: 8,
+                    right: 8,
+                    child: IgnorePointer(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.black54,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          activePlayer.engineName,
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -1911,8 +1966,17 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
 
   Future<void> _initPlayerInstance() async {
     final localFont = ref.read(storageServiceProvider).localFontPath;
-    
-    if (_settings.videoEngine == 'ExoPlayer') {
+
+    // ── FIX (2025-08-04): Read videoEngine FRESH from the provider ──────
+    // Previously this used `_settings.videoEngine`, but `_settings` was
+    // captured once in initState() (line 156: `_settings = ref.read(...)`)
+    // and never refreshed. If the user changed the engine in Settings →
+    // closed and reopened the player, the stale cached value was used
+    // instead of the newly-saved value. Reading fresh here ensures we
+    // always honor the user's current engine choice.
+    final currentEngine = ref.read(videoSettingsProvider).videoEngine;
+
+    if (currentEngine == 'ExoPlayer') {
       final exo = ExoPlayerUnifiedController(
         httpHeaders: _currentHttpHeaders ?? {},
       );
@@ -1922,7 +1986,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
       // at build time instead of this field. We keep the field for the
       // existing _settings.videoEngine == 'ExoPlayer' checks elsewhere.
       _exoPlayerController = null;
-    } else if (_settings.videoEngine == 'LibVLC') {
+    } else if (currentEngine == 'LibVLC') {
       final vlc = VlcUnifiedController(
         httpHeaders: _currentHttpHeaders ?? {},
       );
@@ -2275,14 +2339,15 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
       }
     } catch (e, st) {
       Log.e('Failed to create VideoController. Disposing activePlayer.', e, st);
-          if (_settings.videoEngine == 'ExoPlayer') {
-      _exoPlayerController?.dispose();
-    } else if (_settings.videoEngine == 'LibVLC') {
-      _vlcPlayerController?.dispose();
-    } else {
-      activePlayer.mediaKitPlayer?.dispose();
-    }
-    activePlayer.dispose();
+      // Use the fresh engine value, not the stale _settings cache.
+      if (currentEngine == 'ExoPlayer') {
+        _exoPlayerController?.dispose();
+      } else if (currentEngine == 'LibVLC') {
+        _vlcPlayerController?.dispose();
+      } else {
+        activePlayer.mediaKitPlayer?.dispose();
+      }
+      activePlayer.dispose();
       rethrow;
     }
 

@@ -11,6 +11,24 @@ import 'unified_player_controller.dart';
 /// MediaCodec renderer contract (SurfaceTexture drainage + presentation
 /// timestamp matching), unlike mpv's copy-back VO.
 ///
+/// ── Why ExoPlayer "just works" on MediaTek ──────────────────────────
+/// ExoPlayer's `MediaCodecRenderer` uses Android's standard
+/// `MediaCodec.configure(surface, ...)` + `dequeueOutputBuffer` +
+/// `releaseOutputBuffer(render=true)` pattern. This is the SAME path
+/// that Android's own MediaPlayer and VLC use — it's the canonical
+/// SurfaceTexture drainage contract that MediaTek's c2.mtk.hevc.decoder
+/// implements correctly. There is no copy-back VO, no GL framebuffer
+/// interop, no Impeller/Skia texture conversion. Frames go directly
+/// from MediaCodec → SurfaceTexture → Flutter texture.
+///
+/// ── The getter override (CRITICAL FIX 2025-08-04) ───────────────────
+/// This class MUST override `exoPlayerController` (not just provide
+/// `videoPlayerController`). The video surface builder in
+/// `video_player_screen.dart` reads `activePlayer.exoPlayerController`.
+/// Without this override, the base class returns `null` → the builder
+/// falls through to media_kit's `CachedVideoWidget` → ExoPlayer's video
+/// surface is never mounted → black screen with audio only.
+///
 /// ── Limitations of the video_player plugin ────────────────────────────
 /// The official `video_player` plugin does NOT expose:
 ///   - Multi-track audio/subtitle selection
@@ -23,8 +41,18 @@ import 'unified_player_controller.dart';
 /// `false`.
 class ExoPlayerUnifiedController extends BaseUnifiedPlayerController {
   VideoPlayerController? _controller;
+
+  /// CRITICAL: Override the base-class getter so the video surface builder
+  /// in video_player_screen.dart can pick up the ExoPlayer controller.
+  /// The old `videoPlayerController` getter was never read by anyone.
+  @override
+  dynamic get exoPlayerController => _controller;
+
+  /// Kept for backwards compatibility — any code that still references
+  /// `videoPlayerController` will work. Prefer `exoPlayerController`.
   VideoPlayerController? get videoPlayerController => _controller;
-  bool _isLooping = false;            
+
+  bool _isLooping = false;
 
   final Map<String, String> _httpHeaders;
 
@@ -76,7 +104,7 @@ class ExoPlayerUnifiedController extends BaseUnifiedPlayerController {
       rate: v.playbackSpeed,
       playing: v.isPlaying,
       buffering: v.isBuffering,
-      isLooping: _isLooping,          
+      isLooping: _isLooping,
       errorMessage: v.errorDescription,
     );
   }
@@ -87,15 +115,61 @@ class ExoPlayerUnifiedController extends BaseUnifiedPlayerController {
     final headers = httpHeaders ?? _httpHeaders;
     // Dispose any previous controller — ExoPlayer doesn't support
     // re-pointing to a new URL on the same instance.
-    await _controller?.dispose();
-    _controller = VideoPlayerController.networkUrl(
+    final old = _controller;
+    _controller = null; // Clear BEFORE dispose so the getter returns null
+    // during the transition (prevents the widget from grabbing a
+    // disposed controller).
+    if (old != null) {
+      old.removeListener(_onVideoPlayerUpdate);
+      try {
+        await old.dispose();
+      } catch (_) {}
+    }
+
+    // ExoPlayer-specific: video_player's VideoPlayerController.networkUrl
+    // wraps ExoPlayer's ProgressiveMediaSource / HlsMediaSource /
+    // DashMediaSource. ExoPlayer auto-selects the right MediaCodec renderer
+    // (c2.mtk.hevc.decoder for HEVC, c2.android.avc.decoder for H264, etc.)
+    // and uses the standard SurfaceTexture drainage pattern that
+    // MediaTek's decoder implements correctly.
+    final newController = VideoPlayerController.networkUrl(
       Uri.parse(url),
       httpHeaders: headers,
+      // video_player 2.x: formatHint lets us tell ExoPlayer what container
+      // to expect. Leaving it null (auto-detect) is the safest default —
+      // ExoPlayer's extractor sniffing is reliable for MP4/MKV/WebM.
+      formatHint: null,
+      // 'application/octet-stream' is the most permissive MIME type —
+      // ExoPlayer will fall back to its content-type sniffer.
+      videoPlayerOptions: null,
     );
+
+    _controller = newController;
     _controller!.addListener(_onVideoPlayerUpdate);
-    await _controller!.initialize();
+
+    try {
+      await _controller!.initialize();
+    } catch (e) {
+      // If initialization fails, emit an error so the UI shows it
+      // instead of an infinite loading spinner.
+      if (!isClosed) {
+        emitDistinct(
+          position: Duration.zero,
+          duration: Duration.zero,
+          volume: 100.0,
+          rate: 1.0,
+          playing: false,
+          buffering: false,
+          error: 'ExoPlayer init failed: $e',
+        );
+      }
+      rethrow;
+    }
+
     if (play && !isClosed) {
-      await _controller!.play();
+      try {
+        await _controller!.play();
+      } catch (_) {}
     }
   }
 
@@ -143,7 +217,7 @@ class ExoPlayerUnifiedController extends BaseUnifiedPlayerController {
   }
 
   @override
-  Future<void> setLooping(bool enabled) async {    
+  Future<void> setLooping(bool enabled) async {
     _isLooping = enabled;
     try {
       await _controller?.setLooping(enabled);

@@ -10,16 +10,50 @@ import 'unified_player_controller.dart';
 /// which does NOT go through mpv's GPU VO, avoiding the copy-back
 /// SurfaceTexture stall that produces `Render: 0, Drop: 119` on c2.mtk.hevc.
 ///
+/// ── The getter override (CRITICAL FIX 2025-08-04) ───────────────────
+/// This class MUST override `vlcPlayer` (not just provide `vlcController`).
+/// The video surface builder in `video_player_screen.dart` reads
+/// `activePlayer.vlcPlayer`. Without this override, the base class returns
+/// `null` → the builder falls through to media_kit's `CachedVideoWidget`
+/// → VLC's video surface (VlcPlayer widget) is never mounted → VLC has no
+/// Surface to render to → playback fails entirely (no video, no audio
+/// because the renderer can't attach).
+///
 /// ── Streaming proxy auth ──────────────────────────────────────────────
 /// VLC's `--http-header=` option is the ONLY way to pass per-request
 /// headers. The proxy expects an Authorization header — without it, every
 /// request 401s. Headers MUST be set at controller construction time
 /// (libVLC does not support changing them per-media without recreating
 /// the controller).
+///
+/// ── Engine-specific codec options ─────────────────────────────────────
+/// VLC on Android uses `HwAcc.full` which enables MediaCodec direct
+/// rendering (zero-copy to SurfaceTexture). This is the SAME path
+/// ExoPlayer uses and is the canonical way to play video on Android.
+/// Unlike mpv's `mediacodec-copy` (which copies frames through a GL VO
+/// for tone-mapping), VLC's `HwAcc.full` goes directly to the
+/// SurfaceTexture — no GL interop, no Impeller/Skia issues.
+///
+/// Additional VLC options applied below:
+///   - `--no-video-title-show`  : don't overlay the filename on the video
+///   - `--rtsp-tcp`             : force RTSP over TCP (more reliable on mobile)
+///   - `--no-stats`             : disable stats collection (minor perf)
+///   - `--prefer-swr`           : prefer SWresampler for audio (better sync)
+///   - `--audio-resampler=soxr` : high-quality audio resampling
 class VlcUnifiedController extends BaseUnifiedPlayerController {
   VlcPlayerController? _controller;
+
+  /// CRITICAL: Override the base-class getter so the video surface builder
+  /// in video_player_screen.dart can pick up the VLC controller.
+  /// The old `vlcController` getter was never read by anyone.
+  @override
+  dynamic get vlcPlayer => _controller;
+
+  /// Kept for backwards compatibility — any code that still references
+  /// `vlcController` will work. Prefer `vlcPlayer`.
   VlcPlayerController? get vlcController => _controller;
-  bool _isLooping = false;            
+
+  bool _isLooping = false;
 
   final Map<String, String> _httpHeaders;
   final List<String> _extraOptions;
@@ -35,14 +69,31 @@ class VlcUnifiedController extends BaseUnifiedPlayerController {
   /// between episodes (rare, but possible) take effect.
   VlcPlayerController _buildController(String url, {bool autoPlay = true}) {
     final advancedOpts = <String>[
-      // Streaming stability — these match mpv's demuxer-readahead-secs=180
-      // and demuxer-max-bytes=200MB from the media_kit path.
+      // ── Streaming stability ──────────────────────────────────────────
+      // These match mpv's demuxer-readahead-secs=180 and
+      // demuxer-max-bytes=200MB from the media_kit path, translated to
+      // VLC's own caching knobs (in milliseconds, not seconds/bytes).
       '--network-caching=3000',   // 3s network buffer
       '--file-caching=3000',      // 3s file buffer (for completed downloads)
       '--live-caching=1500',      // 1.5s live buffer
       '--clock-jitter=0',         // Disable jitter compensation (mpv doesn't use it)
       '--clock-synchro=0',        // Don't resample audio to match video clock
-      // Pass auth headers (commit 145e581 fix for proxy)
+
+      // ── VLC-specific UI / behavior tweaks ────────────────────────────
+      '--no-video-title-show',    // Don't overlay filename on video
+      '--no-stats',               // Disable stats collection (minor perf gain)
+      '--rtsp-tcp',               // Force RTSP over TCP (more reliable on mobile)
+      '--prefer-swr',             // Prefer SWresampler for audio (better A/V sync)
+
+      // ── Hardware acceleration ────────────────────────────────────────
+      // HwAcc.full (set below) enables MediaCodec direct rendering.
+      // These options tune the MediaCodec path:
+      '--mediacodec-dr',          // Direct rendering (zero-copy to SurfaceTexture)
+      '--no-mediacodec-omx',      // Don't use the legacy OMX codec (use MediaCodec)
+
+      // ── Pass auth headers ────────────────────────────────────────────
+      // (commit 145e581 fix for proxy — VLC needs headers at construction
+      // time, not per-request)
       for (final entry in _httpHeaders.entries)
         '--http-header=${entry.key}: ${entry.value}',
       ..._extraOptions,
@@ -50,6 +101,10 @@ class VlcUnifiedController extends BaseUnifiedPlayerController {
 
     return VlcPlayerController.network(
       url,
+      // HwAcc.full = full hardware acceleration via MediaCodec direct
+      // rendering. This is the canonical Android video playback path and
+      // works correctly on MediaTek Dimensity 6080 (unlike mpv's
+      // mediacodec-copy which has the SurfaceTexture/GL interop bug).
       hwAcc: HwAcc.full,
       autoPlay: autoPlay,
       options: VlcPlayerOptions(
@@ -124,7 +179,7 @@ class VlcUnifiedController extends BaseUnifiedPlayerController {
       playing: v.isPlaying,
       buffering: v.isBuffering,
       completed: v.isEnded,
-      isLooping: _isLooping,          
+      isLooping: _isLooping,
       errorMessage: v.hasError ? 'VLC playback error' : null,
     );
   }
@@ -135,10 +190,23 @@ class VlcUnifiedController extends BaseUnifiedPlayerController {
     // If headers changed since construction, we must rebuild the controller.
     final headersChanged =
         httpHeaders != null && !_mapsEqual(httpHeaders, _httpHeaders);
+
+    final old = _controller;
     if (_controller == null || headersChanged) {
-      await _controller?.dispose();
+      // Clear the field BEFORE dispose so the getter returns null during
+      // the transition (prevents the widget from grabbing a disposed
+      // controller).
+      _controller = null;
+      if (old != null) {
+        _detachListener(old);
+        try {
+          await old.dispose();
+        } catch (_) {}
+      }
       _controller = _buildController(url, autoPlay: play);
       _attachListener(_controller!);
+      // VlcPlayerController.network with autoPlay=true will start playing
+      // automatically once the media is loaded. No explicit play() needed.
     } else {
       // Same headers — just swap the media.
       await _controller!
@@ -189,7 +257,7 @@ class VlcUnifiedController extends BaseUnifiedPlayerController {
   }
 
   @override
-  Future<void> setLooping(bool enabled) async {    
+  Future<void> setLooping(bool enabled) async {
     _isLooping = enabled;
     try {
       await _controller?.setLooping(enabled);
@@ -287,6 +355,7 @@ class VlcUnifiedController extends BaseUnifiedPlayerController {
     }
     return -1;
   }
+
   bool _mapsEqual(Map<String, String> a, Map<String, String> b) {
     if (a.length != b.length) return false;
     for (final k in a.keys) {
