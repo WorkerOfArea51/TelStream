@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:telstream/features/player/unified_player_controller.dart';
+
 import 'package:media_kit/media_kit.dart';
 import 'package:screen_brightness/screen_brightness.dart';
 import 'package:flutter_volume_controller/flutter_volume_controller.dart';
@@ -6,7 +8,7 @@ import '../../../services/storage_service.dart';
 import '../../settings/settings_provider.dart';
 
 class VideoGestureHandler {
-  final Player player;
+  final UnifiedPlayerController player;
   final ValueNotifier<double> scaleNotifier;
   final ValueNotifier<Offset> panNotifier;
   final VoidCallback onSeekStart;

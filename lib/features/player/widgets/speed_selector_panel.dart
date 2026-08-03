@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:telstream/features/player/unified_player_controller.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:media_kit/media_kit.dart';
 import '../../../core/theme/app_theme.dart';
@@ -7,7 +9,7 @@ import '../../../core/widgets/expressive_container.dart';
 import '../../../services/storage_service.dart';
 
 class SpeedSelectorPanel extends ConsumerStatefulWidget {
-  final Player player;
+  final UnifiedPlayerController player;
   final VoidCallback onVisibilityChanged;
   final void Function(double speed)? onSpeedChanged; // NEW: callback for A/V sync adjustment
 

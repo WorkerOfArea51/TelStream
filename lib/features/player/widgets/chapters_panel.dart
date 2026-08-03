@@ -1,11 +1,13 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:telstream/features/player/unified_player_controller.dart';
+
 import 'package:media_kit/media_kit.dart';
 import '../../../core/theme/app_theme.dart';
 import 'player_playback_bar.dart';
 
 class ChaptersPanel extends StatefulWidget {
-  final Player player;
+  final UnifiedPlayerController player;
   final List<VideoChapter> chapters;
   final VoidCallback onVisibilityChanged;
   final void Function(Duration position, String chapterTitle) onChapterSelected;

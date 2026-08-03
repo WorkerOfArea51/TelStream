@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:telstream/features/player/unified_player_controller.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:telstream/features/settings/settings_provider.dart';
 
 class SubtitleOverlay extends ConsumerStatefulWidget {
-  final Player player;
+  final UnifiedPlayerController player;
 
   const SubtitleOverlay({
     super.key,

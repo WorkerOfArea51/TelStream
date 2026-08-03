@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../l10n/app_localizations.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
+import 'package:telstream/features/player/media_kit_unified_controller.dart';
 import 'package:tdlib/td_api.dart' as td;
 import 'package:wakelock_plus/wakelock_plus.dart';
 import '../../services/tdlib_service.dart';
@@ -1400,8 +1401,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                           controls: NoVideoControls,
                           wakelock: false)
                       : CustomVideoControls(
-                          player: player,
-                          controller: controller,
+                          player: MediaKitUnifiedController(player),
                           isDesktop: widget.isDesktopMode,
                           videoTitle: pipState
                                   ?.queue[pipState.currentIndex]
@@ -1978,14 +1978,14 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
         // Mobile: explicitly set 'audio' sync so any inherited mpv.conf
         // default doesn't sneak in a broken display-* mode.
         if (Platform.isAndroid || Platform.isIOS) {
-          nativePlayer.setProperty('video-sync', 'desync'); // CLAUDE TEST: Disable AV-sync to prevent mpv from thinking frames are late
+          nativePlayer.setProperty('video-sync', 'audio');
           nativePlayer.setProperty('interpolation', 'no');
         }
 
         // framedrop=vo is REQUIRED on Android (Hotfix 7 / v2.13.7+66).
         // 'decoder' tells MediaCodec to drop 100% of frames; 'vo' lets the
         // VO decide, which is what we want.
-        nativePlayer.setProperty('framedrop', 'no'); // CLAUDE TEST: Disable frame dropping completely to bypass AV-sync drop bug on MediaTek
+        nativePlayer.setProperty('framedrop', 'vo');
         nativePlayer.setProperty('sub-fix-timing', 'yes');
         nativePlayer.setProperty(
             'stream-buffer-size', '16777216'); // 16 MB
@@ -2229,14 +2229,8 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
 
     // Defer to after the widget tree finishes building — Riverpod forbids
     // modifying providers during initState/build.
-    // Per the rule documented directly above: enableHardwareAcceleration
-    // must be TRUE only for zero-copy hwdec=mediacodec. For mediacodec-copy
-    // and hwdec=no (the only two modes Android actually uses now),
-    // it must be FALSE — otherwise the Video widget creates an EGL
-    // SurfaceTexture that mpv's GPU VO never writes to, which is the exact
-    // black-screen-on-Mali-G57-MC2 mechanism described above. Desktop
-    // platforms always want it true.
-    final enableHw = !Platform.isAndroid || actualHwdec == 'mediacodec';
+    // Desktop platforms and normal Android devices use hardware acceleration natively.
+    final enableHw = true;
 
     // Defer to after the widget tree finishes building - Riverpod forbids
     // modifying providers during initState/build.

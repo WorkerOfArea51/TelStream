@@ -1,5 +1,7 @@
 import '../../../core/utils/subtitle_color_utils.dart';
 import 'package:flutter/material.dart';
+import 'package:telstream/features/player/unified_player_controller.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../settings/settings_provider.dart';
 import 'package:media_kit/media_kit.dart';
@@ -7,7 +9,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/expressive_container.dart';
 
 class TrackSelectorPanel extends ConsumerStatefulWidget {
-  final Player player;
+  final UnifiedPlayerController player;
   final Map<String, String> trackCodecs;
   final double currentAudioDelay;
   final ValueChanged<double> onAudioDelayChanged;
@@ -111,12 +113,12 @@ class TrackSelectorPanelState extends ConsumerState<TrackSelectorPanel> {
     final settingsAccent = customTheme?.settingsAccent ?? theme.primaryColor;
 
     return StreamBuilder<Tracks>(
-      stream: widget.player.stream.tracks,
-      initialData: widget.player.state.tracks,
+      stream: (widget.player.originalPlayer as Player).stream.tracks,
+      initialData: (widget.player.originalPlayer as Player).state.tracks,
       builder: (context, tracksSnapshot) {
         return StreamBuilder<Track>(
-          stream: widget.player.stream.track,
-          initialData: widget.player.state.track,
+          stream: (widget.player.originalPlayer as Player).stream.track,
+          initialData: (widget.player.originalPlayer as Player).state.track,
           builder: (context, trackSnapshot) {
             final tracksObj = tracksSnapshot.data;
             final currentTrackObj = trackSnapshot.data;

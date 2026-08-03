@@ -6,6 +6,8 @@ import 'dart:ui';
 import 'package:telstream/features/player/widgets/subtitle_overlay.dart';
 import 'package:telstream/features/player/widgets/video_layer.dart';
 import 'package:flutter/material.dart';
+import 'package:telstream/features/player/unified_player_controller.dart';
+
 import 'widgets/quality_picker_sheet.dart';
 import 'pip_manager.dart';
 
@@ -56,8 +58,7 @@ class _FullscreenIntent extends Intent { const _FullscreenIntent(); }
 class _MuteIntent extends Intent { const _MuteIntent(); }
 
 class CustomVideoControls extends ConsumerStatefulWidget {
-  final Player player;
-  final VideoController controller;
+  final UnifiedPlayerController player;
   final String videoTitle;
   final bool isPip;
   final int downloadedPrefixSize;
@@ -78,7 +79,6 @@ class CustomVideoControls extends ConsumerStatefulWidget {
   const CustomVideoControls({
     super.key,
     required this.player,
-    required this.controller,
     required this.videoTitle,
     required this.isPip,
     required this.downloadedPrefixSize,
@@ -716,14 +716,14 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
           final proxy = ref.read(streamingProxyServiceProvider).requireValue;
           int? activeFileId;
           final playingUrl =
-              widget.player.state.playlist.index >= 0 &&
-                  widget.player.state.playlist.index <
-                      widget.player.state.playlist.medias.length
+              (widget.player.originalPlayer as Player).state.playlist.index >= 0 &&
+                  (widget.player.originalPlayer as Player).state.playlist.index <
+                      (widget.player.originalPlayer as Player).state.playlist.medias.length
               ? widget
                     .player
                     .state
                     .playlist
-                    .medias[widget.player.state.playlist.index]
+                    .medias[(widget.player.originalPlayer as Player).state.playlist.index]
                     .uri
               : '';
           if (StreamingProxyService.isProxyUrl(playingUrl)) {
@@ -859,7 +859,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
         _blendSubtitlesChecked = true;
         _updateBlendSubtitlesForTrack(
           widget.player,
-          widget.player.state.track.subtitle,
+          (widget.player.originalPlayer as Player).state.track.subtitle,
         );
       }
     });
@@ -868,17 +868,17 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
         _loadChapters();
         _updateBlendSubtitlesForTrack(
           widget.player,
-          widget.player.state.track.subtitle,
+          (widget.player.originalPlayer as Player).state.track.subtitle,
         );
       }
     });
-    _trackSubscription = widget.player.stream.track.listen((track) {
+    _trackSubscription = (widget.player.originalPlayer as Player).stream.track.listen((track) {
       _updateBlendSubtitlesForTrack(widget.player, track.subtitle);
     });
-    _tracksListSubscription = widget.player.stream.tracks.listen((_) {
+    _tracksListSubscription = (widget.player.originalPlayer as Player).stream.tracks.listen((_) {
       _updateBlendSubtitlesForTrack(
         widget.player,
-        widget.player.state.track.subtitle,
+        (widget.player.originalPlayer as Player).state.track.subtitle,
       );
       if (_trackPanelKey.currentState?.isVisible ?? false) {
         _loadTrackCodecs();
@@ -887,10 +887,10 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _updateBlendSubtitlesForTrack(
         widget.player,
-        widget.player.state.track.subtitle,
+        (widget.player.originalPlayer as Player).state.track.subtitle,
       );
     });
-    _playlistSubscription = widget.player.stream.playlist.listen((_) {
+    _playlistSubscription = (widget.player.originalPlayer as Player).stream.playlist.listen((_) {
       if (mounted) {
         setState(() {
           _chapters = [];
@@ -937,7 +937,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
           _blendSubtitlesChecked = true;
           _updateBlendSubtitlesForTrack(
             widget.player,
-            widget.player.state.track.subtitle,
+            (widget.player.originalPlayer as Player).state.track.subtitle,
           );
         }
       });
@@ -946,23 +946,23 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
           _loadChapters();
           _updateBlendSubtitlesForTrack(
             widget.player,
-            widget.player.state.track.subtitle,
+            (widget.player.originalPlayer as Player).state.track.subtitle,
           );
         }
       });
-      _trackSubscription = widget.player.stream.track.listen((track) {
+      _trackSubscription = (widget.player.originalPlayer as Player).stream.track.listen((track) {
         _updateBlendSubtitlesForTrack(widget.player, track.subtitle);
       });
-      _tracksListSubscription = widget.player.stream.tracks.listen((_) {
+      _tracksListSubscription = (widget.player.originalPlayer as Player).stream.tracks.listen((_) {
         _updateBlendSubtitlesForTrack(
           widget.player,
-          widget.player.state.track.subtitle,
+          (widget.player.originalPlayer as Player).state.track.subtitle,
         );
         if (_trackPanelKey.currentState?.isVisible ?? false) {
           _loadTrackCodecs();
         }
       });
-      _playlistSubscription = widget.player.stream.playlist.listen((_) {
+      _playlistSubscription = (widget.player.originalPlayer as Player).stream.playlist.listen((_) {
         if (mounted) {
           setState(() {
             _chapters = [];
@@ -980,7 +980,7 @@ class _CustomVideoControlsState extends ConsumerState<CustomVideoControls> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _updateBlendSubtitlesForTrack(
           widget.player,
-          widget.player.state.track.subtitle,
+          (widget.player.originalPlayer as Player).state.track.subtitle,
         );
       });
     }
@@ -1797,7 +1797,7 @@ if (!Platform.isAndroid && !Platform.isIOS) {
     final isSub = _trackPanelKey.currentState?.isSubtitle ?? true;
     
     if (isSub) {
-      widget.player.setSubtitleTrack(track);
+      (widget.player.originalPlayer as Player).setSubtitleTrack(track);
       final settings = ref.read(videoSettingsProvider);
       final isNativeSub = settings.subtitles.subtitleRendererMode == 'native';
       _applySubtitleProperty(
@@ -1806,7 +1806,7 @@ if (!Platform.isAndroid && !Platform.isIOS) {
       );
       _updateBlendSubtitlesForTrack(widget.player, track);
 
-      final activeAudio = widget.player.state.track.audio;
+      final activeAudio = (widget.player.originalPlayer as Player).state.track.audio;
       String audioLangCategory = 'other';
       final lower = (activeAudio.language ?? activeAudio.title ?? '')
           .toLowerCase();
@@ -1833,19 +1833,19 @@ if (!Platform.isAndroid && !Platform.isIOS) {
 
       Future.delayed(const Duration(milliseconds: 300), () {
         if (mounted) {
-          final activeSub = widget.player.state.track.subtitle;
+          final activeSub = (widget.player.originalPlayer as Player).state.track.subtitle;
           Log.i('Active subtitle track verified: ${activeSub.id}');
           if (activeSub.id != track.id && track.id != 'no') {
             Log.w(
               'Discrepancy in subtitle track verification. Retrying setSubtitleTrack...',
             );
-            widget.player.setSubtitleTrack(track);
+            (widget.player.originalPlayer as Player).setSubtitleTrack(track);
           }
         }
       });
     } else {
-      final activeSub = widget.player.state.track.subtitle;
-      widget.player.setAudioTrack(track);
+      final activeSub = (widget.player.originalPlayer as Player).state.track.subtitle;
+      (widget.player.originalPlayer as Player).setAudioTrack(track);
       final audioPrefVal = track.id == 'auto'
           ? 'auto'
           : (track.language ?? track.title ?? track.id);
@@ -1854,7 +1854,7 @@ if (!Platform.isAndroid && !Platform.isIOS) {
 
       Future.delayed(const Duration(milliseconds: 300), () {
         if (mounted) {
-          final newTracks = widget.player.state.tracks.subtitle;
+          final newTracks = (widget.player.originalPlayer as Player).state.tracks.subtitle;
           SubtitleTrack matchedSub = activeSub;
 
           for (final t in newTracks) {
@@ -1874,7 +1874,7 @@ if (!Platform.isAndroid && !Platform.isIOS) {
             }
           }
 
-          widget.player.setSubtitleTrack(matchedSub);
+          (widget.player.originalPlayer as Player).setSubtitleTrack(matchedSub);
           _updateBlendSubtitlesForTrack(widget.player, matchedSub);
           Log.i(
             'Re-applied subtitle track after audio track change: ${matchedSub.id} (originally: ${activeSub.id})',
@@ -2915,7 +2915,7 @@ if (!Platform.isAndroid && !Platform.isIOS) {
         await pickedFile.copy(targetFile.path);
         Log.i('Local subtitle picked and copied to: ${targetFile.path}');
 
-        widget.player.setSubtitleTrack(SubtitleTrack.uri(targetFile.path));
+        (widget.player.originalPlayer as Player).setSubtitleTrack(SubtitleTrack.uri(targetFile.path));
 
         if (mounted) {
           setState(() {

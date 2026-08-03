@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:telstream/features/player/unified_player_controller.dart';
+
 import 'package:media_kit/media_kit.dart';
 import '../../../core/theme/app_theme.dart';
 
 class AudioSyncDialog extends StatefulWidget {
-  final Player player;
+  final UnifiedPlayerController player;
   final double currentDelay;
   final ValueChanged<double> onDelayChanged;
 

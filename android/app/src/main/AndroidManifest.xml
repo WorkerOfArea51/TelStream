@@ -16,21 +16,6 @@
         android:networkSecurityConfig="@xml/network_security_config"
         android:icon="@mipmap/ic_launcher">
 
-        <!-- Disable Flutter's Impeller renderer and force the legacy Skia
-             renderer. Impeller's Vulkan backend on Mali-G57 MC2
-             (MediaTek Dimensity 6080) cannot correctly composite
-             SurfaceTexture-backed external textures from media_kit, producing
-             a black screen even though the SurfaceTexture contains valid
-             decoded frames. Skia handles SurfaceTextures correctly via the
-             GL path. This is safe for all devices — Skia is Flutter's
-             well-tested default renderer. -->
-        <!-- Impeller disabled again (v3 test): with enableHardwareAcceleration
-             correctly false for mediacodec-copy, screen was STILL black on
-             Poco X6 Neo (Mali-G57 MC2) with Impeller=true. Testing Impeller
-             disabled as the one remaining isolated variable. -->
-        <meta-data
-            android:name="io.flutter.embedding.android.EnableImpeller"
-            android:value="false" />
 
         <activity
             android:name=".MainActivity"
