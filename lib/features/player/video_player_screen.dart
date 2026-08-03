@@ -1341,8 +1341,13 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
               }
             },
             child: Center(
-              child: _isPlaying
-                  ? (widget.isPip
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  // BUG FOUND (Aug 3): ALWAYS mount the Video widget immediately.
+                  // If we wait for player.open() to finish, the player starts decoding
+                  // frames before the SurfaceTexture is bound, resulting in a black screen.
+                  (widget.isPip
                       ? Video(
                           controller: controller,
                           controls: NoVideoControls,
@@ -1367,8 +1372,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                               player.stop();
                             } catch (_) {}
                             _resetOrientationAndUI();
-                            Navigator.of(context, rootNavigator: true)
-                                .pop();
+                            Navigator.of(context, rootNavigator: true).pop();
                           },
                           hasPrevEpisode: pipState != null &&
                               pipState.currentIndex > 0,
@@ -1387,41 +1391,45 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                               pipState?.currentIndex ??
                                   widget.currentEpisodeIndex ??
                                   0,
-                        ))
-                  : _isInitializing
-                      ? Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: const [
-                            CircularProgressIndicator(
-                                color: Colors.blueAccent),
-                            SizedBox(height: 16),
-                            Text(
-                                'Resolving video stream from Telegram...',
-                                style: TextStyle(color: Colors.white70)),
-                          ],
-                        )
-                      : Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const CircularProgressIndicator(
-                                color: Colors.blueAccent),
-                            const SizedBox(height: 16),
-                            Text(
-                                AppLocalizations.of(context)!
-                                    .bufferingStream,
-                                style: const TextStyle(
-                                    color: Colors.white70)),
-                            if (_expectedSize > 0)
-                              Text(
-                                  '${(_downloadedPrefixSize / 1024 / 1024).toStringAsFixed(1)} MB / ${(_expectedSize / 1024 / 1024).toStringAsFixed(1)} MB',
-                                  style: const TextStyle(
-                                      color: Colors.white54)),
-                          ],
-                        ),
-            ),
-          ),
-        ),
-      );
+                        )),
+                  if (!_isPlaying)
+                    Container(
+                      color: Colors.black,
+                      child: _isInitializing
+                          ? Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: const [
+                                CircularProgressIndicator(
+                                    color: Colors.blueAccent),
+                                SizedBox(height: 16),
+                                Text(
+                                    'Resolving video stream from Telegram...',
+                                    style: TextStyle(color: Colors.white70)),
+                              ],
+                            )
+                          : Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const CircularProgressIndicator(
+                                    color: Colors.blueAccent),
+                                const SizedBox(height: 16),
+                                Text(
+                                    AppLocalizations.of(context)!.bufferingStream,
+                                    style: const TextStyle(color: Colors.white70)),
+                                if (_expectedSize > 0)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 16),
+                                    child: Text(
+                                      '${(_activeDownloadedSize / 1024 / 1024).toStringAsFixed(1)} MB / ${(_expectedSize / 1024 / 1024).toStringAsFixed(1)} MB',
+                                      style: const TextStyle(
+                                          color: Colors.white54, fontSize: 12),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                    ),
+                ],
+              ),
 
     if (isDesktop) return scaffold;
 
