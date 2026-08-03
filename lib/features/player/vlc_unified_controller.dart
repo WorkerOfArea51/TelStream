@@ -1,3 +1,4 @@
+// ignore_for_file: prefer_initializing_formals
 import 'dart:async';
 import 'package:flutter_vlc_player/flutter_vlc_player.dart';
 import 'unified_player_controller.dart';
@@ -22,7 +23,6 @@ class VlcUnifiedController extends BaseUnifiedPlayerController {
   final Map<String, String> _httpHeaders;
   final List<String> _extraOptions;
 
-  // ignore: prefer_initializing_formals
   VlcUnifiedController({
     Map<String, String>? httpHeaders,
     List<String> extraOptions = const [],
