@@ -1626,7 +1626,18 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
       await player.dispose();
 
       _initialTrackSelectionDone = false;
-      _initPlayerInstance();
+      // BUG FOUND (Aug 3): this was previously un-awaited, unlike the
+      // initial call at line ~149. _initPlayerInstance() assigns `player`
+      // synchronously up front, but assigns `controller` much later (after
+      // several internal awaits for DeviceDetector/settings checks). Not
+      // awaiting here meant _setupPlayerListeners()/player.open() below —
+      // and the setState() after open() completes — could run before
+      // `controller` was reassigned, leaving the widget tree bound to the
+      // disposed old controller while the new decoder rendered into a
+      // texture nobody was displaying. This is a real race: whichever
+      // finishes first wins, which matches the intermittent (not 100%,
+      // not 0%) black screen observed across today's logs.
+      await _initPlayerInstance();
       _setupPlayerListeners();
       _startPeriodicSaveTimer(); // Restart the periodic save timer
 
