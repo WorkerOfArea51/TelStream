@@ -81,6 +81,14 @@ class _VideoSettingsScreenState extends ConsumerState<VideoSettingsScreen> {
             clipBehavior: Clip.antiAlias,
             child: Column(
               children: [
+                _buildRadioGroup(
+                  context: context,
+                  title: 'Video Engine (Android)',
+                  options: const ['MediaKit', 'ExoPlayer', 'LibVLC'],
+                  currentValue: settings.videoEngine,
+                  onChanged: (val) => notifier.updateSettings(settings.copyWith(videoEngine: val)),
+                ),
+                Divider(color: theme.dividerColor, height: 1, indent: 16, endIndent: 16),
                 _buildSwitch(
                   context: context,
                   title: 'Save position on quit',

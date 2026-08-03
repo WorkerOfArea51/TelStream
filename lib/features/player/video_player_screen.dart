@@ -23,6 +23,8 @@ import '../../core/constants.dart';
 import '../../services/streaming_proxy_service.dart';
 import '../../services/tracker_service.dart';
 import 'utils/player_filter_service.dart';
+import 'widgets/exo_player_view.dart';
+import 'widgets/vlc_player_view.dart';
 
 import '../../models/episode.dart';
 
@@ -73,6 +75,9 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
   int? _resolvedVideoFileId;
   bool _isInitializing = true;
   bool _initialTrackSelectionDone = false;
+
+  String? _currentVideoUrl;
+  Map<String, String>? _currentHttpHeaders;
 
   // ── Disposal guard ──────────────────────────────────────────────────────
   // Prevents any post-disposal interaction with the Player or VideoController.
@@ -361,11 +366,22 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
         StreamingProxyService.isProxyUrl(finalPath)
             ? _proxyService.getAuthHeaders()
             : null;
-    player
-        .open(Media(finalPath, httpHeaders: proxyHeaders),
-            play: shouldPlayImmediately)
-        .timeout(const Duration(seconds: 30))
-        .then((_) {
+            
+    if (mounted) {
+      setState(() {
+        _currentVideoUrl = finalPath;
+        _currentHttpHeaders = proxyHeaders;
+      });
+    }
+
+    final isDesktop = Platform.isWindows || Platform.isLinux || Platform.isMacOS;
+    
+    if (isDesktop || _settings.videoEngine == 'MediaKit') {
+      player
+          .open(Media(finalPath, httpHeaders: proxyHeaders),
+              play: shouldPlayImmediately)
+          .timeout(const Duration(seconds: 30))
+          .then((_) {
       if (!mounted || _disposed) return;
       if (savedPos > 0) {
         Future<void> performRobustStartupSeek(Duration knownDuration) async {
@@ -461,6 +477,14 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
         Navigator.of(context, rootNavigator: true).maybePop();
       }
     });
+    } else {
+      // Alternate engine is used, just mark initialization complete to dismiss loading spinner
+      if (mounted && !_disposed) {
+        setState(() {
+          _isInitializing = false;
+        });
+      }
+    }
     if (!_disposed) {
       player.setVolume(100.0);
     }
@@ -588,32 +612,37 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
       if (mounted) {
         setState(() {
           _resolvedVideoFileId = widget.videoFileId;
+          _currentVideoUrl = widget.networkUrl;
           _isPlaying = true;
           _isInitializing = false;
         });
       }
-      player
-          .open(Media(widget.networkUrl!), play: true)
-          .timeout(const Duration(seconds: 30))
-          .catchError((Object e, StackTrace st) {
-        Log.e(
-            'player.open() failed for network URL ${widget.networkUrl}', e, st);
-        if (mounted && !_disposed) {
-          setState(() {
-            _isPlaying = false;
-            _isInitializing = false;
-          });
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(AppLocalizations.of(context)!
-                  .failedToLoadNetworkStream(e.toString())),
-              backgroundColor: Colors.redAccent,
-              duration: const Duration(seconds: 4),
-            ),
-          );
-          Navigator.of(context, rootNavigator: true).maybePop();
-        }
-      });
+      final isDesktop = Platform.isWindows || Platform.isLinux || Platform.isMacOS;
+      if (isDesktop || _settings.videoEngine == 'MediaKit') {
+        player
+            .open(Media(widget.networkUrl!), play: true)
+            .timeout(const Duration(seconds: 30))
+            .catchError((Object e, StackTrace st) {
+          Log.e(
+              'player.open() failed for network URL ${widget.networkUrl}', e, st);
+          if (mounted && !_disposed) {
+            setState(() {
+              _isPlaying = false;
+              _isInitializing = false;
+            });
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(AppLocalizations.of(context)!
+                    .unableToOpenVideo(e.toString())),
+                backgroundColor: Colors.redAccent,
+                duration: const Duration(seconds: 4),
+              ),
+            );
+            Navigator.of(context, rootNavigator: true).maybePop();
+          }
+        });
+      }
+      
       if (!_disposed) {
         player.setVolume(100.0);
       }
@@ -1259,6 +1288,24 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
 
     final isDesktop =
         Platform.isWindows || Platform.isLinux || Platform.isMacOS;
+
+    if (!isDesktop && _settings.videoEngine != 'MediaKit' && _currentVideoUrl != null) {
+      if (_settings.videoEngine == 'ExoPlayer') {
+        return ExoPlayerView(
+          videoUrl: _currentVideoUrl!,
+          title: widget.videoTitle,
+          httpHeaders: _currentHttpHeaders,
+          onBack: () => Navigator.of(context, rootNavigator: true).pop(),
+        );
+      } else if (_settings.videoEngine == 'LibVLC') {
+        return VlcPlayerView(
+          videoUrl: _currentVideoUrl!,
+          title: widget.videoTitle,
+          httpHeaders: _currentHttpHeaders,
+          onBack: () => Navigator.of(context, rootNavigator: true).pop(),
+        );
+      }
+    }
 
     Widget scaffold = Scaffold(
         backgroundColor: Colors.black,

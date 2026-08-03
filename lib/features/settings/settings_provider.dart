@@ -106,6 +106,7 @@ abstract class VideoSettings with _$VideoSettings {
       @Default('Ask Each Time') String batchDownloadQuality,
     @Default(true) bool showQualityBadges,
     @Default(true) bool enableInPlayerQualitySwitch,
+    @Default('MediaKit') String videoEngine,
   }) = _VideoSettings;
 
   String getLayoutForCategory(String categoryTitle) {
