@@ -94,8 +94,6 @@ class _CachedVideoWidgetState extends State<CachedVideoWidget> {
 
   @override
   Widget build(BuildContext context) {
-    final isDesktop =
-        Platform.isWindows || Platform.isLinux || Platform.isMacOS;
     // See class docs for why RepaintBoundary is required on mobile.
     return _cachedWidget; // REMOVED RepaintBoundary: Causes single-composite freeze on MediaTek/Mali GPUs
   }
