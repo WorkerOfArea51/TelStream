@@ -1567,6 +1567,16 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
     try {
       if ((activePlayer is MediaKitUnifiedController && _mediaKitPlayer.platform is NativePlayer)) {
         final nativePlayer = _mediaKitPlayer.platform as NativePlayer;
+        
+        // -- FIX (2025-08-04): Restore force-window on Android ----------
+        // Without RepaintBoundary, MPV's GPU VO needs these properties to
+        // initialize the SurfaceTexture correctly on MediaTek/Mali GPUs.
+        if (Platform.isAndroid || Platform.isIOS) {
+          nativePlayer.setProperty('force-window', 'yes');
+          nativePlayer.setProperty('force-render', 'yes');
+          nativePlayer.setProperty('vid', '1');
+          nativePlayer.setProperty('hwdec-extra-frames', '64');
+        }
         final profile = _settings.streamingProfile;
 
         if (profile == 'Aggressive Buffer') {
@@ -2021,6 +2031,16 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
     try {
       if ((activePlayer is MediaKitUnifiedController && _mediaKitPlayer.platform is NativePlayer)) {
         final nativePlayer = _mediaKitPlayer.platform as NativePlayer;
+        
+        // -- FIX (2025-08-04): Restore force-window on Android ----------
+        // Without RepaintBoundary, MPV's GPU VO needs these properties to
+        // initialize the SurfaceTexture correctly on MediaTek/Mali GPUs.
+        if (Platform.isAndroid || Platform.isIOS) {
+          nativePlayer.setProperty('force-window', 'yes');
+          nativePlayer.setProperty('force-render', 'yes');
+          nativePlayer.setProperty('vid', '1');
+          nativePlayer.setProperty('hwdec-extra-frames', '64');
+        }
 
         // ── Cache / buffering ──────────────────────────────────────────────
         // These values were validated by Hotfixes 4, 5, and 7. Do NOT change
