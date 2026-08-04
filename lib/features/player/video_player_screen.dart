@@ -1403,11 +1403,9 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                                 return ValueListenableBuilder<VideoPlayerValue>(
                                   valueListenable: exoCtl,
                                   builder: (context, value, child) {
-                                    if (value.isInitialized) {
+                                    if (value.isInitialized && value.size.width > 0 && value.size.height > 0) {
                                       final size = value.size;
-                                      final fallback = (size.width > 0 && size.height > 0)
-                                          ? size.width / size.height
-                                          : 16.0 / 9.0;
+                                      final fallback = size.width / size.height;
                                       return AspectRatio(
                                         aspectRatio: customAspectRatio ?? fallback,
                                         child: VideoPlayer(exoCtl),
