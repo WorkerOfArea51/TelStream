@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 import 'package:country_picker/country_picker.dart' as cp;
 
 import '../settings/proxy_settings_screen.dart';
@@ -189,7 +190,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final authState = ref.watch(authControllerProvider);
     final authController = ref.read(authControllerProvider.notifier);
 
-    final showAppBar = authState.step == AuthStep.waitingForCode || authState.step == AuthStep.waitingForPassword;
+    final showAppBar = authState.step == AuthStep.waitingForCode || authState.step == AuthStep.waitingForPassword || authState.step == AuthStep.waitingForQrCode;
 
     return Scaffold(
       backgroundColor: const Color(0xFF0B0F19), // Premium deep dark background
@@ -342,22 +343,37 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               ),
               const SizedBox(height: 32),
 
-              Align(
-                alignment: Alignment.centerRight,
-                child: FloatingActionButton(
+              SizedBox(
+                width: double.infinity,
+                height: 54,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.orange,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  ),
                   onPressed: () {
                     final phoneText = _phoneController.text.trim();
                     if (phoneText.isNotEmpty) {
                       controller.setPhoneNumber(phoneText);
                     }
                   },
-                  backgroundColor: Colors.blueAccent,
-                  shape: const CircleBorder(),
-                  child: const Icon(
-                    Icons.arrow_forward_rounded,
-                    color: Colors.white,
-                    size: 28,
+                  child: const Text('Send code', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                ),
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                height: 54,
+                child: OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    side: BorderSide(color: Colors.white.withOpacity(0.1)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                   ),
+                  onPressed: () {
+                    controller.requestQrCodeLogin();
+                  },
+                  icon: const Icon(Icons.qr_code_2, color: Colors.orange),
+                  label: const Text('Log in with QR code', style: TextStyle(color: Colors.orange, fontSize: 16)),
                 ),
               ),
               const SizedBox(height: 32),
@@ -379,6 +395,53 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   style: const TextStyle(color: Colors.white70, fontSize: 14),
                 ),
               ),
+            ],
+          ),
+        );
+      case AuthStep.waitingForQrCode:
+        return SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              const SizedBox(height: 20),
+              const Text(
+                'Log in by QR Code',
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                '1. Open Telegram on your phone
+2. Go to Settings > Devices > Link Desktop Device
+3. Point your phone at this screen to confirm login',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.white70,
+                  height: 1.5,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 48),
+              if (state.qrCodeLink != null)
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: QrImageView(
+                    data: state.qrCodeLink!,
+                    version: QrVersions.auto,
+                    size: 240.0,
+                    backgroundColor: Colors.white,
+                  ),
+                )
+              else
+                const CircularProgressIndicator(color: Colors.blueAccent),
             ],
           ),
         );

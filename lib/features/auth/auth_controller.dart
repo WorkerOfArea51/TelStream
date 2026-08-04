@@ -10,18 +10,20 @@ import '../../services/sync_service.dart';
 import '../../core/logger.dart';
 import 'package:synchronized/synchronized.dart';
 
-enum AuthStep { loading, waitingForNumber, waitingForCode, waitingForPassword, authenticated, error }
+enum AuthStep { loading, waitingForNumber, waitingForCode, waitingForPassword, waitingForQrCode, authenticated, error }
 
 class AuthState {
   final AuthStep step;
   final String? errorMessage;
+  final String? qrCodeLink;
 
-  AuthState({this.step = AuthStep.loading, this.errorMessage});
+  AuthState({this.step = AuthStep.loading, this.errorMessage, this.qrCodeLink});
   
-  AuthState copyWith({AuthStep? step, String? errorMessage}) {
+  AuthState copyWith({AuthStep? step, String? errorMessage, String? qrCodeLink}) {
     return AuthState(
       step: step ?? this.step,
       errorMessage: errorMessage ?? this.errorMessage,
+      qrCodeLink: qrCodeLink ?? this.qrCodeLink,
     );
   }
 }
@@ -143,13 +145,31 @@ class AuthController extends Notifier<AuthState> {
     } else if (authState is td.AuthorizationStateWaitRegistration) {
       state = state.copyWith(step: AuthStep.error, errorMessage: "Registration is not supported in this app. Please create a Telegram account using the official app first.");
     } else if (authState is td.AuthorizationStateWaitOtherDeviceConfirmation) {
-      state = state.copyWith(step: AuthStep.error, errorMessage: "Please confirm the login on your other device. Check the official Telegram app.");
+      state = state.copyWith(step: AuthStep.waitingForQrCode, qrCodeLink: authState.link, errorMessage: null);
     } else if (authState is td.AuthorizationStateWaitTdlibParameters) {
       // In-flight initialization states, keep loading
       state = state.copyWith(step: AuthStep.loading, errorMessage: null);
     } else if (authState is td.AuthorizationStateLoggingOut || authState is td.AuthorizationStateClosing) {
       // Transitioning to closed, keep loading
       state = state.copyWith(step: AuthStep.loading, errorMessage: null);
+    }
+  }
+
+  Future<void> requestQrCodeLogin() async {
+    state = state.copyWith(step: AuthStep.loading, errorMessage: null);
+    try {
+      final response = await ref.read(tdlibServiceProvider).sendAsync(const td.RequestQrCodeAuthentication(otherUserIds: []));
+      if (response is td.TdError) {
+        state = state.copyWith(
+          step: AuthStep.waitingForNumber,
+          errorMessage: _mapErrorToFriendlyMessage(response.message),
+        );
+      }
+    } catch (e) {
+      state = state.copyWith(
+        step: AuthStep.waitingForNumber,
+        errorMessage: "Network timeout or error: ",
+      );
     }
   }
 
