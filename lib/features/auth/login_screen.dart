@@ -415,9 +415,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               ),
               const SizedBox(height: 12),
               const Text(
-                '1. Open Telegram on your phone
-2. Go to Settings > Devices > Link Desktop Device
-3. Point your phone at this screen to confirm login',
+                '1. Open Telegram on your phone\\n2. Go to Settings > Devices > Link Desktop Device\\n3. Point your phone at this screen to confirm login',
                 style: TextStyle(
                   fontSize: 14,
                   color: Colors.white70,
