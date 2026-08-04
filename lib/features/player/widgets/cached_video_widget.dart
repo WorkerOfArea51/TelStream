@@ -97,6 +97,6 @@ class _CachedVideoWidgetState extends State<CachedVideoWidget> {
     final isDesktop =
         Platform.isWindows || Platform.isLinux || Platform.isMacOS;
     // See class docs for why RepaintBoundary is required on mobile.
-    return isDesktop ? _cachedWidget : RepaintBoundary(child: _cachedWidget);
+    return _cachedWidget; // REMOVED RepaintBoundary: Causes single-composite freeze on MediaTek/Mali GPUs
   }
 }

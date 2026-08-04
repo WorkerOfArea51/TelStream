@@ -613,7 +613,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
           _isInitializing = false;
         });
       }
-    if (Platform.isWindows || Platform.isLinux || Platform.isMacOS || ref.read(videoSettingsProvider).videoEngine == 'MediaKit') {
+    if (true) { // All engines must call open() for network URLs
         activePlayer.open(widget.networkUrl!, play: true)
             .timeout(const Duration(seconds: 30))
             .catchError((Object e, StackTrace st) {
@@ -1404,11 +1404,9 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                                 final fallback = (size.width > 0 && size.height > 0)
                                     ? size.width / size.height
                                     : 16.0 / 9.0;
-                                return RepaintBoundary(
-                                  child: AspectRatio(
-                                    aspectRatio: customAspectRatio ?? fallback,
-                                    child: VideoPlayer(exoCtl),
-                                  ),
+                                return AspectRatio(
+                                  aspectRatio: customAspectRatio ?? fallback,
+                                  child: VideoPlayer(exoCtl),
                                 );
                               }
                               // ExoPlayer controller not ready yet — show black
@@ -1422,12 +1420,10 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                               final vlcCtl =
                                   activePlayer.vlcPlayer as VlcPlayerController?;
                               if (vlcCtl != null) {
-                                return RepaintBoundary(
-                                  child: VlcPlayer(
-                                    controller: vlcCtl,
-                                    aspectRatio: customAspectRatio ?? 16 / 9,
-                                    placeholder: const ColoredBox(color: Colors.black),
-                                  ),
+                                return VlcPlayer(
+                                  controller: vlcCtl,
+                                  aspectRatio: customAspectRatio ?? 16 / 9,
+                                  placeholder: const ColoredBox(color: Colors.black),
                                 );
                               }
                               // VLC controller not ready yet — show black.
