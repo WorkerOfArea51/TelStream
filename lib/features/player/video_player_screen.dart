@@ -1400,7 +1400,16 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                               final exoCtl = activePlayer.exoPlayerController
                                   as VideoPlayerController?;
                               if (exoCtl != null && exoCtl.value.isInitialized) {
-                                return VideoPlayer(exoCtl);
+                                final size = exoCtl.value.size;
+                                final fallback = (size.width > 0 && size.height > 0)
+                                    ? size.width / size.height
+                                    : 16.0 / 9.0;
+                                return RepaintBoundary(
+                                  child: AspectRatio(
+                                    aspectRatio: customAspectRatio ?? fallback,
+                                    child: VideoPlayer(exoCtl),
+                                  ),
+                                );
                               }
                               // ExoPlayer controller not ready yet — show black
                               // while initialize() runs. Do NOT fall through to
@@ -1413,10 +1422,12 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                               final vlcCtl =
                                   activePlayer.vlcPlayer as VlcPlayerController?;
                               if (vlcCtl != null) {
-                                return VlcPlayer(
-                                  controller: vlcCtl,
-                                  aspectRatio: customAspectRatio ?? 16 / 9,
-                                  placeholder: const ColoredBox(color: Colors.black),
+                                return RepaintBoundary(
+                                  child: VlcPlayer(
+                                    controller: vlcCtl,
+                                    aspectRatio: customAspectRatio ?? 16 / 9,
+                                    placeholder: const ColoredBox(color: Colors.black),
+                                  ),
                                 );
                               }
                               // VLC controller not ready yet — show black.
