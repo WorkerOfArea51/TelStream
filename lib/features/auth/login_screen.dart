@@ -201,7 +201,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               leading: IconButton(
                 icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
                 onPressed: () {
-                  authController.resetAuth();
+                  authController.logout();
                 },
               ),
             )
