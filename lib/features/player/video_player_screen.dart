@@ -1399,20 +1399,24 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                             if (engine == 'ExoPlayer') {
                               final exoCtl = activePlayer.exoPlayerController
                                   as VideoPlayerController?;
-                              if (exoCtl != null && exoCtl.value.isInitialized) {
-                                final size = exoCtl.value.size;
-                                final fallback = (size.width > 0 && size.height > 0)
-                                    ? size.width / size.height
-                                    : 16.0 / 9.0;
-                                return AspectRatio(
-                                  aspectRatio: customAspectRatio ?? fallback,
-                                  child: VideoPlayer(exoCtl),
+                              if (exoCtl != null) {
+                                return ValueListenableBuilder<VideoPlayerValue>(
+                                  valueListenable: exoCtl,
+                                  builder: (context, value, child) {
+                                    if (value.isInitialized) {
+                                      final size = value.size;
+                                      final fallback = (size.width > 0 && size.height > 0)
+                                          ? size.width / size.height
+                                          : 16.0 / 9.0;
+                                      return AspectRatio(
+                                        aspectRatio: customAspectRatio ?? fallback,
+                                        child: VideoPlayer(exoCtl),
+                                      );
+                                    }
+                                    return const ColoredBox(color: Colors.black);
+                                  },
                                 );
                               }
-                              // ExoPlayer controller not ready yet — show black
-                              // while initialize() runs. Do NOT fall through to
-                              // media_kit (would crash: _mediaKitController is
-                              // never created for the ExoPlayer engine).
                               return const ColoredBox(color: Colors.black);
                             }
 
