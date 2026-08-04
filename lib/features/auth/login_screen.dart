@@ -366,7 +366,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 height: 54,
                 child: OutlinedButton.icon(
                   style: OutlinedButton.styleFrom(
-                    side: BorderSide(color: Colors.white.withOpacity(0.1)),
+                    side: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                   ),
                   onPressed: () {
